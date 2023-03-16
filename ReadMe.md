@@ -31,11 +31,6 @@ python setup.py upload
 example in Windows prompt:
 
 ```
-set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;C:\projects\openvisus_py
+set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;C:\projects\openvisus_py\src
 set VISUS_BACKEND=cpp
-
-python -m pip install -r requirements.txt
-
-# if you want volume rendering too
-# python -m pip install vtk itkwidgets pyvista
 ```
