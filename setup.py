@@ -11,9 +11,13 @@ setup(
 	license='BSD',
 	long_description='openvisus_py',
 	url='https://github.com/sci-visus/OpenVisus',
-	packages=["openvisus_py",],
-	package_dir = {'openvisus_py': 'src/openvisus_py'},
-	include_package_data=True,
-	install_requires=['numpy','pandas','bokeh','panel','boto3','requests','colorcet'], #  vtk itkwidgets pyvista only for 3d rendering,
+	packages=["openvisus_py"],
+	package_dir={'openvisus_py': 'openvisus_py'},
+	package_data={'openvisus_py': ['examples']},
+	include_package_data=True,	
+	install_requires=[
+		'numpy','pandas','bokeh','panel','boto3','requests','colorcet',
+		#  vtk itkwidgets pyvista only for 3d rendering,
+	], 
 )
 
