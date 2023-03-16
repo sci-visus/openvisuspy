@@ -21,8 +21,7 @@ python -m bokeh serve "examples/python/bokeh-example.py"  --dev --log-level=debu
 # PyPi distribution
 
 ```
-python setup.py sdist
-python setup.py upload
+python3 setup.py sdist upload
 
 ```
 

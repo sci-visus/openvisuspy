@@ -1,6 +1,6 @@
 
 from . utils      import SetupLogger
-from . query      import ExecuteBoxQuery, QueryNode
+from .query_node      import ExecuteBoxQuery, QueryNode
 from . backend    import LoadDataset
 from . slice      import Slice
 from . slices     import Slices

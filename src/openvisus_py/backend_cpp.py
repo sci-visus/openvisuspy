@@ -82,45 +82,56 @@ class Dataset (BaseDataset):
 	# ///////////////////////////////////////////////////////////////////////////
 
 	# createBoxQuery
-	def createBoxQuery(self, timestep, field, logic_box, end_resolutions, aborted=None):
-		query = self.inner.createBoxQuery(
-			ov.BoxNi(ov.PointNi(logic_box[0]), ov.PointNi(logic_box[1])), 
-			self.inner.getField(field), 
-			timestep, 
+	def createBoxQuery(self, *args,**kwargs):
+
+		query=super().createBoxQuery(*args,**kwargs)
+		
+		if query is None:
+			return None
+
+		query.inner  = self.inner.createBoxQuery(
+			ov.BoxNi(ov.PointNi(query.logic_box[0]), ov.PointNi(query.logic_box[1])), 
+			self.inner.getField(query.field), 
+			query.timestep, 
 			ord('r'), 
-			aborted.inner if aborted is not None else ov.Aborted())
+			query.aborted.inner)
 
-		if query:
-			for H in end_resolutions:
-				query.end_resolutions.push_back(H)		
+		if not query.inner:
+			return None
 
-		return query	 
+		for H in query.end_resolutions:
+			query.inner.end_resolutions.push_back(H)
+
+		return query
 
 	# begin
 	def beginBoxQuery(self,query):
 		if query is None: return
-		self.inner.beginBoxQuery(query)
+		super().beginBoxQuery(query)
+		self.inner.beginBoxQuery(query.inner)
 
 	# isRunning
 	def isQueryRunning(self,query):
-		return query.isRunning() if query is not None else False
+		if query is None: return False
+		return query.inner.isRunning() 
 
 	# getQueryCurrentResolution
 	def getQueryCurrentResolution(self, query):
-		if not self.isQueryRunning(query): return -1
-		return query.getCurrentResolution() if query and query.isRunning() else -1
+		return query.inner.getCurrentResolution() if self.isQueryRunning(query) else -1
 
-	# execute
+	# executeBoxQuery
 	def executeBoxQuery(self,access, query):
 		assert self.isQueryRunning(query)
-		if not self.inner.executeBoxQuery(access, query):
+		if not self.inner.executeBoxQuery(access, query.inner):
 			return None
-		return ov.Array.toNumPy(query.buffer, bShareMem=False) 
+		data=ov.Array.toNumPy(query.inner.buffer, bShareMem=False) 
+		return super().executeBoxQuery(access,query,data)
 
-	# next
+	# nextBoxQuery
 	def nextBoxQuery(self,query):
-		assert self.isQueryRunning(query)
-		self.inner.nextBoxQuery(query)
+		if not self.isQueryRunning(query): return
+		self.inner.nextBoxQuery(query.inner)
+		super().nextBoxQuery(query)
 
 # ///////////////////////////////////////////////////////////////////
 def LoadDataset(url):

@@ -16,9 +16,10 @@ def MyApp(doc=bokeh.io.curdoc()):
  
 	if True:
 		url="http://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1"
-		view=Slice(doc=doc, show_options=["palette","timestep","field","direction","offset"])
+		view=Slice(doc=doc, show_options=["palette","timestep","field","direction","offset","num_refinements"])
 		view.setDataset(url)
 		view.setDirection(2)
+		view.setNumberOfRefinements(3)
 		view.setPalette("Greys256")
 		view.setPaletteRange((0,255))
 		view.setTimestep(view.getTimestep())

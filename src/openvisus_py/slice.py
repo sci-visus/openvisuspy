@@ -4,7 +4,7 @@ import numpy as np
 from . backend import Aborted,LoadDataset
 from . canvas import Canvas
 from . widgets import Widgets
-from . query import QueryNode
+from .query_node import QueryNode
 
 logger = logging.getLogger(__name__)
 

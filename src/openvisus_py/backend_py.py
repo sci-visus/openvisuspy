@@ -101,32 +101,6 @@ class Dataset(BaseDataset):
 		
 	# /////////////////////////////////////////////////////////////////////////////////
 
-	# createBoxQuery
-	def createBoxQuery(self, timestep, field, logic_box, end_resolutions, aborted=None):
-		query=types.SimpleNamespace()
-		query.timestep=timestep
-		query.field=field
-		query.logic_box=logic_box
-		query.end_resolutions=end_resolutions
-		query.aborted=aborted
-		query.cursor=-1
-		query.current_resolution=-1
-		return query
-	 
-	# isQueryRunning
-	def isQueryRunning(self,query):
-		return query is not None and query.cursor>=0 and query.cursor<len(query.end_resolutions)
-		
-	 # getQueryCurrentResolution
-	def getQueryCurrentResolution(self,query):
-		if query is None: return -1
-		return query.current_resolution  
-	
-	# beginBoxQuery
-	def beginBoxQuery(self,query):
-		query.cursor=0
-		query.current_resolution=-1
-
 	# executeBoxQuery
 	def executeBoxQuery(self,access, query):
 
@@ -141,8 +115,9 @@ class Dataset(BaseDataset):
 		- https://pyodide.org/en/stable/usage/packages-in-pyodide.html
 		"""
 
+		if not self.isQueryRunning(query):
+			return
 
-		assert self.isQueryRunning(query)
 		H=query.end_resolutions[query.cursor]
 
 		url=self.getUrl()
@@ -232,13 +207,9 @@ class Dataset(BaseDataset):
 		data=np.frombuffer(body,dtype=np.dtype(dtype)).reshape(shape)   
 
 		# full-dimension
-		query.current_resolution=H
-		return data
+		return super().executeBoxQuery(access, query, data)
 
-	# next
-	def nextBoxQuery(self,query):
-		assert self.isQueryRunning(query)
-		query.cursor+=1		
+
 
 # /////////////////////////////////////////////////////////////////////////////////
 def LoadDataset(url):
