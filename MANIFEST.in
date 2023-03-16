@@ -1,0 +1,2 @@
+include examples/python/*.py
+include examples/notebooks/*.ipynb
