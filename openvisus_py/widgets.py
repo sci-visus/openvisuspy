@@ -138,7 +138,12 @@ class Widgets:
 		self.playNextIfNeeded()
 		for it in self.children:
 			it.onIdle()
-  
+			
+	# stopThreads
+	def stopThreads(self):
+		for it in self.children:
+			it.stopThreads()	
+
 	# createGui
 	def createGui(self,central_layout=None,options=[]):
 	 

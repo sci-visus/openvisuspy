@@ -39,18 +39,25 @@ class Slice(Widgets):
 		super().refresh()
 		self.aborted.setTrue()
 		self.new_job=True
+
+	# stopThreads
+	def stopThreads(self):
+		super().stopThreads()
+		self.aborted.setTrue()
+		self.query_node.stopThread()		
    
 	# project
 	def project(self,value):
 
 		pdim=self.getPointDim()
 		dir=self.getDirection()
-		assert(pdim,len(value))
 
 		# is a box
 		if hasattr(value[0],"__iter__"):
 			p1,p2=[self.project(p) for p in value]
 			return [p1,p2]
+
+		assert(pdim==len(value))
 
 		# apply scaling and translating
 		ret=[self.logic_to_pixel[I][0] + self.logic_to_pixel[I][1]*value[I] for I in range(pdim)]

@@ -27,13 +27,8 @@ class Slices(Widgets):
 	# setNumberOfViews
 	def setNumberOfViews(self,value):
 		super().setNumberOfViews(value)
-  
-		# clear all children
-		for it in self.children:
-			it.aborted.setTrue()
-			it.query.stopThread()
-		self.children=[]
-   
+
+		super().stopThreads()
 		self.children=[Slice(show_options=self.slice_show_options) for I in range(value)]
   
 		layouts=[it.layout for it in self.children]
