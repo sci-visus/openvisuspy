@@ -12,15 +12,19 @@ class Aborted:
 	
 	# constructor
 	def __init__(self):
-		pass # TODO
+		self.value=False
+		self.response=None
 
 	# setTrue
 	def setTrue(self):
-		pass # TODO
+		self.value=True
 
-	# isTrue
-	def isTrue(self):
-		return False # TODO
+		# https://stackoverflow.com/questions/16390243/closing-python-requests-connection-from-another-thread/16400574?noredirect=1#comment23529567_16400574
+		if self.response is not None:
+			try:
+				self.response.connectionclose()
+			except:
+				pass
 
 
 # ///////////////////////////////////////////////////////////////////
@@ -102,7 +106,7 @@ class Dataset(BaseDataset):
 	# /////////////////////////////////////////////////////////////////////////////////
 
 	# executeBoxQuery
-	def executeBoxQuery(self,access, query):
+	def executeBoxQuery(self,access, query, verbose=False):
 
 		"""
 		Links:
@@ -152,34 +156,38 @@ class Dataset(BaseDataset):
 		SetParam('time',timestep)
 		SetParam('toh',toh)
 	
-		logger.info("Sending params")
-		for k,v in params.items():
-			logger.info(f"   {k}={v}")
-		
+		if verbose:
+			logger.info("Sending params={params.items()}")
+			
 		url=f"{scheme}://{parsed.netloc}{path}"
 
-		if True:
-			s = requests.Session()
-			s.auth = ('user', 'pass')
-			s.headers.update({'x-test': 'true'})
-			response=s.get(url, params=params, verify=False, stream=True)
-			s.close() 
-		else:
-			response=requests.get(url, stream=True, params=params)
-		
+		# response=requests.get(url, stream=True, params=params)
+		aborted=query.aborted
+		if aborted.value: return None
+		s=requests.Session()
+		s.auth = ('user', 'pass')
+		s.headers.update({'x-test': 'true'})
+		response=s.get(url, params=params, verify=False, stream=True)
+		aborted.response=response
+			
+		if aborted.value:
+			print("!!!!!!!!!!!!! ABORTED AFTER",response.status_code)
+			return None
+
 		if response.status_code!=200:
-			logger.info(f"Got unvalid response {response.status_code}")
+			logger.info(f"!!!!!Got unvalid response {response.status_code}")
 			return None
 
 		try:
 			body=response.raw.data
+			# body=response.raw.getbuffer().tobytes() TODO
 		except:
-			body=response.raw.getbuffer().tobytes()
+			logger.info(f"!!!!!Got unvalid response {aborted.value}")
+			return None			
 
-		logger.info(f"Got body len={len(body)}")
-		logger.info("headers:")
-		for k,v in response.headers.items():
-			logger.info(f"  {k}={v}")
+		if verbose:
+			logger.info(f"Got body len={len(body)}")
+			logger.info(f"response headers {response.headers.items()}")
 
 		dtype= response.headers["visus-dtype"].strip()
 
@@ -189,7 +197,8 @@ class Dataset(BaseDataset):
 			pass
 		elif compression=="zip":
 			body=zlib.decompress(body)
-			logger.info(f"data after decompression {type(body)} {len(body)}")
+			if verbose:
+				logger.info(f"data after decompression {type(body)} {len(body)}")
 		else:
 			raise Exception("internal error")
 		
@@ -202,7 +211,8 @@ class Dataset(BaseDataset):
 			dtype,N=dtype[0:-1].split("[")
 			shape.append(int(N))
 
-		logger.info(f"numpy array dtype={dtype} shape={shape}")
+		if verbose:
+			logger.info(f"numpy array dtype={dtype} shape={shape}")
 
 		data=np.frombuffer(body,dtype=np.dtype(dtype)).reshape(shape)   
 

@@ -16,11 +16,7 @@ class Aborted:
 	def setTrue(self):
 		self.inner.setTrue()
 
-	# isTrue
-	def isTrue(self):
-		ABORTED=ov.Aborted()
-		ABORTED.setTrue() 		
-		return self.inner.__call__()==ABORTED.__call__()
+
 
 
 # ///////////////////////////////////////////////////////////////////
