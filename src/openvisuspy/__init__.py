@@ -1,5 +1,5 @@
 
-from .utils      import SetupLogger
+from .utils      import SetupLogger,cbool
 from .query_node import ExecuteBoxQuery, QueryNode
 from .backend    import LoadDataset
 from .slice      import Slice

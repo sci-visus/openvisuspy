@@ -16,6 +16,7 @@ from . utils import cbool
 bokeh.core.validation.silence(bokeh.core.validation.warnings.EMPTY_LAYOUT, True)
 bokeh.core.validation.silence(bokeh.core.validation.warnings.FIXED_SIZING_MODE,True)
 
+
 logger = logging.getLogger(__name__)
 
 # //////////////////////////////////////////////////////////////////////////////////////

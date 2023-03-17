@@ -11,8 +11,27 @@ Run bokeh dashboard:
 
 ```
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;C:\projects\openvisuspy\src
-set VISUS_BACKEND=py
-python -m bokeh serve "examples/dashboards/00-bokeh-openvisus.py"  --dev --log-level=debug --address localhost --port 8888 
+set VISUS_BACKEND=cpp
+
+set AWS_ACCESS_KEY_ID=any
+set AWS_SECRET_ACCESS_KEY=any
+set AWS_ENDPOINT_URL=https://maritime.sealstorage.io/api/v0/s3
+
+set VISUS_CPP_VERBOSE=1
+set VISUS_DASHBOARDS_VERBOSE=1
+set VISUS_NETSERVICE_VERBOSE=0
+
+set BOKEH_ALLOW_WS_ORIGIN=*
+set BOKEH_LOG_LEVEL=debug
+
+# BOKEH
+set VISUS_UI=bokeh
+python -m bokeh serve "examples/dashboards/00-dashboards.py"  --dev --address localhost --port 8888 
+
+# PANEL
+set VISUS_UI=panel
+python -m panel serve --autoreload --show "examples/dashboards/00-dashboards.py"
+
 ```
 
 Run notebooks:
