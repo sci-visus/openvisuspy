@@ -3,7 +3,7 @@
 .vs/
 **/__pycache__/
 **/.ipynb_checkpoints/
-openvisus_py.egg-info/
+**/*.egg-info/
 dist/
 
 
