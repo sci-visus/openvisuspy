@@ -6,8 +6,7 @@ See [https://github.com/sci-visus/OpenVisus]()
 python -m pip install --upgrade openvisuspy
 ```
 
-
-Run bokeh dashboard:
+# Setup
 
 ```
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;C:\projects\openvisuspy\src
@@ -23,18 +22,24 @@ set VISUS_NETSERVICE_VERBOSE=0
 
 set BOKEH_ALLOW_WS_ORIGIN=*
 set BOKEH_LOG_LEVEL=debug
+```
 
-# BOKEH
+# Bokeh Dashboard
+
+```
 set VISUS_UI=bokeh
 python -m bokeh serve "examples/dashboards/00-dashboards.py"  --dev --address localhost --port 8888 
+```
 
-# PANEL
+# Holoviz panel Dashboard
+
+```
 set VISUS_UI=panel
 python -m panel serve --autoreload --show "examples/dashboards/00-dashboards.py"
 
 ```
 
-Run notebooks:
+# Jupyter Notebooks
 
 ```
 python -m jupyter notebook ./examples/notebooks

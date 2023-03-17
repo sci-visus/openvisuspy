@@ -49,7 +49,7 @@ class Widgets:
 	ID=0
 
 	# constructor
-	def __init__(self,doc=None,disable_timers=False):
+	def __init__(self):
    
 		self.id=Widgets.ID
 		Widgets.ID+=1
@@ -125,20 +125,35 @@ class Widgets:
 		self.widgets.play_button = Button(label="Play",width=80,sizing_mode='stretch_height')
 		self.widgets.play_button.on_click(self.togglePlay)
 		self.widgets.play_sec = Select(title="Play sec",options=["0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
-  
-		# timer
-		if not disable_timers:
-			if doc is None:
-				from bokeh.io import curdoc
-				doc=curdoc()
-			doc.add_periodic_callback(self.onIdle, 10)
-   
+
+	# startTimer
+	def startTimer(self, doc, msec=10):
+		if os.environ["VISUS_UI"]=="panel-notebook":
+			# problem with timers
+			import panel as pn
+			self.layout=pn.pane.Bokeh(self.layout)		
+
+			# fix panel in jupyter notebook problem
+			async def asyncOnIdle():
+				self.onIdle()
+				pn.io.push_notebook(self.layout)
+				
+			pn.state.add_periodic_callback(asyncOnIdle, period=msec)
+
+		else:
+			import bokeh
+			doc=bokeh.io.curdoc() if doc is None else doc
+			doc.add_periodic_callback(self.onIdle, msec)	
+			
+		for it in self.children:
+			it.startTimer(doc)
+
 	# onIdle
 	def onIdle(self):
 		self.playNextIfNeeded()
 		for it in self.children:
 			it.onIdle()
-			
+
 	# stopThreads
 	def stopThreads(self):
 		for it in self.children:

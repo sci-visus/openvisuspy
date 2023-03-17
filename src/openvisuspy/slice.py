@@ -12,9 +12,12 @@ logger = logging.getLogger(__name__)
 class Slice(Widgets):
 	
 	# constructor
-	def __init__(self,doc=None, show_options=["palette","timestep","field","direction","offset","viewdep","quality","!num_refinements","status_bar"], disable_timers=False):
+	def __init__(self,
+			doc=None, 
+			show_options=["palette","timestep","field","direction","offset","viewdep","quality","!num_refinements","status_bar"],
+			disable_timer=False):
 
-		super().__init__(doc=doc,disable_timers=disable_timers)
+		super().__init__()
 		self.render_id     = 0
 		self.aborted       = Aborted()
 		self.new_job       = False
@@ -28,6 +31,9 @@ class Slice(Widgets):
 		
 		self.query_node=QueryNode()
 		self.query_node.startThread()
+
+		if not disable_timer:
+			self.startTimer(doc)
 		
 	# setDataset
 	def setDataset(self, url,db=None):
