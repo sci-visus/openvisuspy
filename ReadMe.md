@@ -50,7 +50,7 @@ python -m jupyter notebook ./examples/notebooks
 
 ```
 
-# update PROJECT_VERSION in setup.py
+# update PROJECT_VERSION in pyproject.toml
 export PYPI_USER=
 export PYPI_TOKEN=
 python3 -m build .
