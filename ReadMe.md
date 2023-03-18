@@ -45,8 +45,7 @@ python -m panel serve --autoreload --show "examples/dashboards/00-dashboards.py"
 python -m jupyter notebook ./examples/notebooks
 ```
 
-
-# PyPi distribution
+# Upload wheel
 
 ```
 
@@ -56,45 +55,57 @@ export PYPI_TOKEN=
 python3 -m build .
 
 python3 -m twine upload --username ${PYPI_USER}  --password ${PYPI_TOKEN} --skip-existing   "dist/*.whl" 
-
-
 python3 -m twine upload dist/*
 ```
 
 
-# Panel dashboards
+# (TODO) Panel dashboards
 
-
-Start from here:
+Links:
 - https://panel.holoviz.org/user_guide/Running_in_Webassembly.html
+- https://github.com/awesome-panel/examples
 
-Also see https://github.com/awesome-panel/examples
+Note:
+- Panel seems to have already a lot of fixes for Bokeh running in WASM, so probably better to use Panel instead of pure Bokeh?
 
 ```
-git clone https://github.com/awesome-panel/examples
 
-python3 -m venv awesome-panel
-source ./awesome-panel/bin/activate
-python3 -m pip install -r requirements.txt -U
+python -m panel convert ./script.py --to pyodide-worker --out ./tmp 
 
-panel serve src/hello-world/app.py --autoreload
+# see https://github.com/holoviz/panel/issues/4089
+# see https://github.com/holoviz/panel/blob/main/panel/io/convert.py
 
-panel convert src/hello-world/app.py --to pyodide-worker --out docs/hello-world --requirements requirements.txt --watch 
-python3 -m http.server
-# http://localhost:8000/docs/hello-world/app.html
+# need to push to pypi o
+
+set VISUS_BACKEND=py
+python ./convert.py
+
+# http://localhost:8000/00-dashboards.html 
+
+# https://pyodide.org/en/stable/console.html
+
+import micropip
+await micropip.install(['openvisuspy','numpy','requests','xmltodict','bokeh','panel','xyzservices','colorcet'])
+
+import os,sys
+os.environ['VISUS_BACKEND']="py"
+import openvisuspy
+
+
+python -m panel convert ./examples/dashboards/00-dashboards.py --to pyodide-worker --out ./tmp --requirements openvisuspy 
+
+cd python -m http.server 
+python -m http.server 
 ```
 
+# (TODO) JupyterLite
 
-# JupyterLite
-
-see 
+Links 
 - https://panel.holoviz.org/user_guide/Running_in_Webassembly.html#setting-up-jupyterlite
-
-Online version is here https://panelite.holoviz.org/lab/index.html
-
-TODO see docs from openvisus=wasm
+- https://panelite.holoviz.org/lab/index.html
+- see other directorh with docs from openvisus=wasm
 
 
-# misc
+# Misc (just for reference)
 
 - vtk will not work https://gitlab.kitware.com/vtk/vtk/-/issues/18806
