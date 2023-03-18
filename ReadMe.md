@@ -49,54 +49,44 @@ python -m jupyter notebook ./examples/notebooks
 
 ```
 
-# update PROJECT_VERSION in pyproject.toml
-export PYPI_USER=
-export PYPI_TOKEN=
+# update PROJECT_VERSION in setup.py
+export PYPI_USER=scrgiorgio
+export PYPI_TOKEN="..."
 python3 -m build .
 
 python3 -m twine upload --username ${PYPI_USER}  --password ${PYPI_TOKEN} --skip-existing   "dist/*.whl" 
 python3 -m twine upload dist/*
 ```
 
+Check on `https://pyodide.org/en/stable/console.html` if you can import openvisus
+
+
+```
+import os,sys,micropip
+await micropip.install(['openvisuspy','numpy','requests','xmltodict','bokeh','xyzservices','colorcet'])
+import openvisuspy
+```
 
 # (TODO) Panel dashboards
+
+Panel seems to have already a lot of fixes/support for WASM, so probably better to use Panel instead of pure Bokeh (?!)
 
 Links:
 - https://panel.holoviz.org/user_guide/Running_in_Webassembly.html
 - https://github.com/awesome-panel/examples
+- https://github.com/holoviz/panel/issues/4089
+- https://github.com/holoviz/panel/blob/main/panel/io/convert.py
 
-Note:
-- Panel seems to have already a lot of fixes for Bokeh running in WASM, so probably better to use Panel instead of pure Bokeh?
 
 ```
-
-python -m panel convert ./script.py --to pyodide-worker --out ./tmp 
-
-# see https://github.com/holoviz/panel/issues/4089
-# see https://github.com/holoviz/panel/blob/main/panel/io/convert.py
-
-# need to push to pypi o
-
-set VISUS_BACKEND=py
 python ./convert.py
 
-# http://localhost:8000/00-dashboards.html 
-
-# https://pyodide.org/en/stable/console.html
-
-import micropip
-await micropip.install(['openvisuspy','numpy','requests','xmltodict','bokeh','panel','xyzservices','colorcet'])
-
-import os,sys
-os.environ['VISUS_BACKEND']="py"
-import openvisuspy
-
-
-python -m panel convert ./examples/dashboards/00-dashboards.py --to pyodide-worker --out ./tmp --requirements openvisuspy 
-
-cd python -m http.server 
+# in another cell
+cd tmp
 python -m http.server 
+# http://localhost:8000/00-dashboards.html 
 ```
+
 
 # (TODO) JupyterLite
 

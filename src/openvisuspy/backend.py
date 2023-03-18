@@ -5,8 +5,7 @@ from . utils import IsIterable,Clamp, HumanSize
 
 logger = logging.getLogger(__name__)
 
-VISUS_BACKEND=os.environ.get("VISUS_BACKEND","cpp").lower()
-print(f"VISUS_BACKEND={VISUS_BACKEND}")
+
 
 # //////////////////////////////////////////////////////////////////////////
 class BaseDataset:
@@ -196,14 +195,21 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 		db.nextBoxQuery(query)
 
 # //////////////////////////////////////////////////
-if VISUS_BACKEND=="cpp":
+backend=os.environ.get("VISUS_BACKEND",None)
+if backend is not None:
+	try:
+		import OpenVisus
+		backend="cpp"
+	except:
+		backend="py"
+
+print(f"openvisuspy backend={backend}")
+if backend=="cpp":
 	from . backend_cpp import *
-
-elif VISUS_BACKEND == 'py':
-    from . backend_py import *
-
 else:
-	raise Exception("internal error, unsupported ")
+	from . backend_py import *
+
+
 
 
 
