@@ -1,10 +1,9 @@
 import os,sys,io,types,threading,time,logging
 import numpy as np
 
-from . backend import Aborted,LoadDataset
+from . backend import Aborted,LoadDataset,QueryNode
 from . canvas import Canvas
 from . widgets import Widgets
-from .query_node import QueryNode
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +12,7 @@ class Slice(Widgets):
 	
 	# constructor
 	def __init__(self,
-			doc=None, 
-			show_options=["palette","timestep","field","direction","offset","viewdep","quality","!num_refinements","status_bar"],
-			disable_timer=False):
+			show_options=["palette","timestep","field","direction","offset","viewdep","quality","status_bar"]):
 
 		super().__init__()
 		self.render_id     = 0
@@ -27,14 +24,39 @@ class Slice(Widgets):
 		# self.canvas.enableDoubleTap(lambda x,y: self.gotoPoint(self.unproject([x,y])))
 		self.last_logic_box = None
 		self.last_canvas_size = [0,0]
-		self.layout=self.createGui(central_layout=self.canvas.figure, options=show_options)
-		
+		self.gui=self.createGui(central_layout=self.canvas.figure, options=show_options)
 		self.query_node=QueryNode()
-		self.query_node.startThread()
-
-		if not disable_timer:
-			self.startTimer(doc)
 		
+
+	# start
+	def start(self,doc=None):
+		super().start()
+		self.query_node.start()
+
+	# stop
+	def stop(self):
+		super().stop()
+		self.aborted.setTrue()
+		self.query_node.stop()			
+
+	# onIdle
+	def onIdle(self):
+
+		super().onIdle()
+
+		# ready for jobs?
+		w,h=(self.canvas.getWidth(),self.canvas.getHeight())
+		if w<=0 or h<=0 or not self.db:
+			return
+
+		if self.last_canvas_size[0]<=0 and self.last_canvas_size[0]<=0:
+			self.setDirection(self.getDirection())
+			self.last_canvas_size=[w,h]
+			
+
+		self.renderResultIfNeeded()
+		self.pushJobIfNeeded()
+
 	# setDataset
 	def setDataset(self, url,db=None):
 		super().setDataset(url,db=db)
@@ -44,13 +66,7 @@ class Slice(Widgets):
 	def refresh(self):
 		super().refresh()
 		self.aborted.setTrue()
-		self.new_job=True
-
-	# stopThreads
-	def stopThreads(self):
-		super().stopThreads()
-		self.aborted.setTrue()
-		self.query_node.stopThread()		
+		self.new_job=True	
    
 	# project
 	def project(self,value):
@@ -227,25 +243,5 @@ class Slice(Widgets):
 		)
 		self.last_logic_box=logic_box
 		self.new_job=False    
-  
-  	# onCanvasResize
-	def watchForCanvasResize(self):
-		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
-		if canvas_w>0 and canvas_h>0 and self.last_canvas_size[0]<=0 and self.last_canvas_size[0]<=0:
-			self.setDirection(self.getDirection())
-			self.last_canvas_size=[canvas_w,canvas_h]
-			self.refresh()
-  
-	# onIdle
-	def onIdle(self):
 
-		# ready for jobs?
-		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
-		if canvas_w==0 or canvas_h==0 or not self.db:
-			return
-
-		self.watchForCanvasResize()
-		self.renderResultIfNeeded()
-		self.pushJobIfNeeded()
-		
-		super().onIdle()
+  

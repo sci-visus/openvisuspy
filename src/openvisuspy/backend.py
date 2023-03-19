@@ -7,6 +7,33 @@ logger = logging.getLogger(__name__)
 
 
 
+# ////////////////////////////////////////////////////////////////////////
+def ServeApp(main_layout,doc=None, is_panel=False):
+
+	if is_panel:
+		# need to create a Holoviz Panel Bokeh layout
+		import panel as pn
+		from panel.template import DarkTheme
+		pn.extension(sizing_mode='stretch_both')	
+		bTemplate=True
+		if bTemplate:
+			from panel.template import DarkTheme
+			app = pn.template.MaterialTemplate(
+				title='Openvisus-Panel',
+				logo ="https://www.sci.utah.edu/~pascucci/public/NSDF-smaller.PNG",
+				site_url ="https://nationalsciencedatafabric.org/",
+				header_background="#303050",
+				theme=DarkTheme) 
+			app.main.append(main_layout) 
+		else:
+			app=main_layout
+		app.servable()
+
+	else:
+		import bokeh
+		if not doc: doc=bokeh.io.curdoc()
+		doc.add_root(main_layout)	
+
 # //////////////////////////////////////////////////////////////////////////
 class BaseDataset:
 
@@ -181,6 +208,8 @@ class BaseDataset:
 		if not self.isQueryRunning(query): return
 		query.cursor+=1
 
+
+
 # ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 def ExecuteBoxQuery(db,*args,**kwargs):
 	access=kwargs['access'];del kwargs['access']
@@ -194,23 +223,12 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 		yield result
 		db.nextBoxQuery(query)
 
+
 # //////////////////////////////////////////////////
-backend=os.environ.get("VISUS_BACKEND",None)
-if backend is not None:
-	try:
-		import OpenVisus
-		backend="cpp"
-	except:
-		backend="py"
+VISUS_BACKEND=os.environ.get("VISUS_BACKEND", "cpp")
+print(f"openvisuspy backend={VISUS_BACKEND}")
 
-print(f"openvisuspy backend={backend}")
-if backend=="cpp":
-	from . backend_cpp import *
+if VISUS_BACKEND=="py":
+	from . backend_py  import *
 else:
-	from . backend_py import *
-
-
-
-
-
-
+	from . backend_cpp import *

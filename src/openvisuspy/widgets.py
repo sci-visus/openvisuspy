@@ -4,6 +4,8 @@ import colorcet
 from . utils import cbool
 from . backend import LoadDataset
 
+import bokeh
+
 from bokeh.models import Select,LinearColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
 
 logger = logging.getLogger(__name__)
@@ -126,38 +128,55 @@ class Widgets:
 		self.widgets.play_button.on_click(self.togglePlay)
 		self.widgets.play_sec = Select(title="Play sec",options=["0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
 
-	# startTimer
-	def startTimer(self, doc, msec=10):
-		if os.environ["VISUS_UI"]=="panel-notebook":
-			# problem with timers
-			import panel as pn
-			self.layout=pn.pane.Bokeh(self.layout)		
+		self.panel_layout=None
+		self.callback=None
 
-			# fix panel in jupyter notebook problem
-			async def asyncOnIdle():
-				self.onIdle()
-				pn.io.push_notebook(self.layout)
-				
-			pn.state.add_periodic_callback(asyncOnIdle, period=msec)
-
-		else:
-			import bokeh
-			doc=bokeh.io.curdoc() if doc is None else doc
-			doc.add_periodic_callback(self.onIdle, msec)	
-			
+	# start
+	def start(self):
+		logger.info(f"{type(self)} start")
 		for it in self.children:
-			it.startTimer(doc)
+			it.start()	
+
+	# stop
+	def stop(self):
+		logger.info(f"{type(self)} start")
+		for it in self.children:
+			it.stop()		
+
+	# getLayout
+	def getLayout(self, doc=None, is_panel=False, is_notebook=False):
+
+		logger.info(f"{type(self)} getLayout is_panel={is_panel} is_notebook={is_notebook}")
+		doc=bokeh.io.curdoc() if doc is None else doc
+
+		ret=self.gui
+
+		# add the callback only at the top level
+		if is_panel:
+			import panel as pn
+			self.callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
+			if is_notebook:
+				ret=pn.pane.Bokeh(ret)
+				self.panel_layout=ret
+		else:
+			self.callback=doc.add_periodic_callback(self.onIdle, 1000//30)
+
+		# automatically start
+		self.start()
+		
+		return ret
+
 
 	# onIdle
 	def onIdle(self):
 		self.playNextIfNeeded()
+
+		if self.panel_layout:
+			import panel as pn
+			pn.io.push_notebook(self.panel_layout)
+
 		for it in self.children:
 			it.onIdle()
-
-	# stopThreads
-	def stopThreads(self):
-		for it in self.children:
-			it.stopThreads()	
 
 	# createGui
 	def createGui(self,central_layout=None,options=[]):

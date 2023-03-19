@@ -14,30 +14,27 @@ logger = logging.getLogger(__name__)
 class Slices(Widgets):
 
 	# constructor
-	def __init__(self, doc=None,
+	def __init__(self, 
 			show_options=["num_views","palette","timestep","field","viewdep","quality"],
 			slice_show_options=["direction","offset","viewdep","status_bar"],
-			num_views=2,
-			disable_timer=False):
+			num_views=2):
 		super().__init__()
 		self.slice_show_options=slice_show_options
 		self.central_layout=Column(sizing_mode='stretch_both')
-		self.layout=self.createGui(central_layout=self.central_layout, options=show_options)
+		self.gui=self.createGui(central_layout=self.central_layout, options=show_options)
 		self.setNumberOfViews(num_views)
-		if not disable_timer:
-			self.startTimer(doc)
 	
 	# setNumberOfViews
 	def setNumberOfViews(self,value):
 		super().setNumberOfViews(value)
 
-		super().stopThreads()
+		super().stop()
 		self.children=[]
 		for I in range(value):
-			slice=Slice(show_options=self.slice_show_options, disable_timer=True) # the timer will be my timer (!)
+			slice=Slice(show_options=self.slice_show_options) 
 			self.children.append(slice)
   
-		layouts=[it.layout for it in self.children]
+		layouts=[it.gui for it in self.children]
 		if value<=2:
 			self.central_layout.children=[Row(*layouts, sizing_mode='stretch_both')]
 		elif value==3:
