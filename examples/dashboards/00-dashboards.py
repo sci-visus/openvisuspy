@@ -1,10 +1,20 @@
 import os,sys,logging
-import bokeh
 
-from openvisuspy import Slice, Slices,cbool,ServeApp
 
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-def MyApp(is_panel=False,num_views=1):
+
+
+
+ 
+# //////////////////////////////////////////////////////////////////////////////////////
+if __name__.startswith('bokeh'):
+	logger=logging.getLogger("openvisuspy")
+	logger.setLevel(logging.INFO)
+	is_panel="--panel" in sys.argv
+	num_views=1
+	logger.info(f"sys.argv={sys.argv}")
+	os.environ["VISUS_BACKEND"]="py" if "--py" in sys.argv else "cpp"
+	
+	from openvisuspy import Slice, Slices,cbool,ServeApp
 
 	if num_views<=1:
 		palette,palette_range="Greys256",(0,255)
@@ -36,15 +46,8 @@ def MyApp(is_panel=False,num_views=1):
 
 	main_layout=view.getLayout(is_panel=is_panel)
 	ServeApp(main_layout, is_panel=is_panel)
- 
-# //////////////////////////////////////////////////////////////////////////////////////
-if __name__.startswith('bokeh'):
-	logger=logging.getLogger("openvisuspy")
-	logger.setLevel(logging.INFO)
-	is_panel="--panel" in sys.argv
-	num_views=1
-	logger.info(f"sys.argv={sys.argv}")
-	MyApp(is_panel=is_panel,num_views=num_views)
+
+
 
 	
 		 

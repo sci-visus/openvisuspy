@@ -138,7 +138,6 @@ class QueryNode:
 			if db is None: return 
 			self.stats.startCollecting() 
 
-			
 			access=kwargs['access'];del kwargs['access']
 			query=db.createBoxQuery(**kwargs)
 			db.beginBoxQuery(query)
@@ -258,7 +257,7 @@ class Dataset (BaseDataset):
 		if not self.inner.executeBoxQuery(access, query.inner):
 			return None
 		data=ov.Array.toNumPy(query.inner.buffer, bShareMem=False) 
-		return super().executeBoxQuery(access,query,data)
+		return super().returnBoxQueryData(access,query,data)
 
 	# nextBoxQuery
 	def nextBoxQuery(self,query):

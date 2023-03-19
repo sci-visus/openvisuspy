@@ -27,14 +27,14 @@ set BOKEH_LOG_LEVEL=debug
 Bokeh:
 
 ```
-python -m bokeh serve "examples/dashboards/00-dashboards.py"  --dev --address localhost --port 8888 
+python -m bokeh serve "examples/dashboards/00-dashboards.py"  --dev --address localhost --port 8888 --args [--py]
 ```
 
 Panel:
 
 ```
 
-python -m panel serve --autoreload --show "examples/dashboards/00-dashboards.py" --panel
+python -m panel serve --autoreload --show "examples/dashboards/00-dashboards.py"  --args --panel
 ```
 
 Jupyter:

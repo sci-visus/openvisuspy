@@ -171,8 +171,8 @@ class BaseDataset:
 		last=query.cursor-1
 		return query.end_resolutions[last]  if last>=0 and last<len(query.end_resolutions) else -1
 
-	# projectDataIfNeeded
-	def executeBoxQuery(self,access, query, data):
+	# returnBoxQueryData
+	def returnBoxQueryData(self,access, query, data):
 		
 		if query is None or data is None:
 			logger.info(f"read done")
@@ -225,10 +225,9 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 
 
 # //////////////////////////////////////////////////
-VISUS_BACKEND=os.environ.get("VISUS_BACKEND", "cpp")
-print(f"openvisuspy backend={VISUS_BACKEND}")
-
-if VISUS_BACKEND=="py":
+if os.environ.get("VISUS_BACKEND", None)=="py":
+	logger.info(f"# VISUS_BACKEND=py")
 	from . backend_py  import *
 else:
+	logger.info(f"# VISUS_BACKEND=cpp")
 	from . backend_cpp import *

@@ -1,5 +1,6 @@
 
-import os,sys,requests, zlib,xmltodict,logging,urllib,threading,time,logging,queue,types
+import os,sys,requests, zlib,xmltodict,logging,urllib,threading,time,logging,queue,types,asyncio
+import httpx
 import numpy as np
 
 from .backend import BaseDataset
@@ -14,6 +15,7 @@ class Aborted:
 	# constructor
 	def __init__(self):
 		self.value=False
+		self.client=None
 		self.response=None
 
 	# setTrue
@@ -21,11 +23,15 @@ class Aborted:
 		self.value=True
 
 		# https://stackoverflow.com/questions/16390243/closing-python-requests-connection-from-another-thread/16400574?noredirect=1#comment23529567_16400574
-		if self.response is not None:
-			try:
-				self.response.connectionclose()
-			except:
-				pass
+		try:
+			self.response.connectionclose()
+		except:
+			pass
+
+		try:
+			self.client.close()
+		except:
+			pass
 
 
 
@@ -149,7 +155,7 @@ class QueryNode:
 			query=db.createBoxQuery(**kwargs)
 			db.beginBoxQuery(query)
 			while db.isQueryRunning(query):
-				result=db.executeBoxQuery(access, query)
+				result=asyncio.run(db.executeBoxQuery(access, query))
 				if result is None: break
 				if self.oqueue:
 					self.oqueue.put(result)
@@ -220,8 +226,7 @@ class Dataset(BaseDataset):
 		
 	# /////////////////////////////////////////////////////////////////////////////////
 
-	# executeBoxQuery
-	def executeBoxQuery(self,access, query, verbose=False):
+	async def executeBoxQuery(self,access, query, verbose=False):
 
 		"""
 		Links:
@@ -279,26 +284,40 @@ class Dataset(BaseDataset):
 		# response=requests.get(url, stream=True, params=params)
 		aborted=query.aborted
 		if aborted.value: return None
-		s=requests.Session()
-		s.auth = ('user', 'pass')
-		s.headers.update({'x-test': 'true'})
-		response=s.get(url, params=params, verify=False, stream=True)
-		aborted.response=response
-			
-		if aborted.value:
-			print("!!!!!!!!!!!!! ABORTED AFTER",response.status_code)
-			return None
 
-		if response.status_code!=200:
-			logger.info(f"!!!!!Got unvalid response {response.status_code}")
-			return None
+		if True:
+			client = httpx.AsyncClient(verify=False)
+			aborted.client=client
+			response = await client.get(url,params=params )
+			if aborted.value:
+				return None
+			if response.status_code!=200:
+				if not aborted.value: logger.info(f"Got unvalid response {response.status_code}")
+				return None
 
-		try:
-			body=response.raw.data
-			# body=response.raw.getbuffer().tobytes() TODO
-		except:
-			logger.info(f"!!!!!Got unvalid response {aborted.value}")
-			return None			
+			try:
+				body=response.content	
+			except:
+				if not aborted.value: logger.info(f"Got unvalid response {aborted.value}")
+				return None	
+
+		else:
+			s=requests.Session()
+			response=s.get(url, params=params, verify=False, stream=True)
+			aborted.response=response
+				
+			if aborted.value:
+				return None
+
+			if response.status_code!=200:
+				logger.info(f"Got unvalid response {response.status_code}")
+				return None
+
+			try:
+				body=response.raw.data
+			except:
+				logger.info(f"Got unvalid response {aborted.value}")
+				return None			
 
 		if verbose:
 			logger.info(f"Got body len={len(body)}")
@@ -332,7 +351,7 @@ class Dataset(BaseDataset):
 		data=np.frombuffer(body,dtype=np.dtype(dtype)).reshape(shape)   
 
 		# full-dimension
-		return super().executeBoxQuery(access, query, data)
+		return super().returnBoxQueryData(access, query, data)
 
 
 
