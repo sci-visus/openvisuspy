@@ -1,13 +1,16 @@
 
-import os,sys,requests, zlib,xmltodict,logging,urllib,threading,time,logging,queue,types,asyncio
+import os,sys,requests, zlib,xmltodict,logging,urllib,threading,time,logging,queue,types
 import httpx
 import numpy as np
 
 from .backend import BaseDataset
-from .utils   import HumanSize
+from .utils   import HumanSize,RunAsync
 from .backend import ExecuteBoxQuery
 
 logger = logging.getLogger(__name__)
+
+
+
 
 # ///////////////////////////////////////////////////////////////////
 class Aborted:
@@ -118,13 +121,11 @@ class QueryNode:
 
 	# stop
 	def stop(self):
-		
-		assert(self.thread is not None)
+		if self.thread is None: return
 		self.iqueue.join()
 		self.iqueue.put((None,None))
-		if self.thread is not None:
-			self.thread.join()
-			self.thread=None   
+		self.thread.join()
+		self.thread=None   
 
 	# waitIdle
 	def waitIdle(self):
@@ -155,7 +156,7 @@ class QueryNode:
 			query=db.createBoxQuery(**kwargs)
 			db.beginBoxQuery(query)
 			while db.isQueryRunning(query):
-				result=asyncio.run(db.executeBoxQuery(access, query))
+				result=RunAsync(db.executeBoxQuery(access, query))
 				if result is None: break
 				if self.oqueue:
 					self.oqueue.put(result)
@@ -427,3 +428,15 @@ def LoadDataset(url):
 
 
 
+# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+def ExecuteBoxQuery(db,*args,**kwargs):
+	access=kwargs['access'];del kwargs['access']
+	query=db.createBoxQuery(*args,**kwargs)
+	t1=time.time()
+	I,N=0,len(query.end_resolutions)
+	db.beginBoxQuery(query)
+	while db.isQueryRunning(query):
+		result=RunAsync(db.executeBoxQuery(access, query))
+		if result is None: break
+		yield result
+		db.nextBoxQuery(query)

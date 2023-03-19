@@ -225,9 +225,11 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 
 
 # //////////////////////////////////////////////////
-if os.environ.get("VISUS_BACKEND", None)=="py":
+VISUS_BACKEND=os.environ.get("VISUS_BACKEND", "cpp")
+if VISUS_BACKEND=="py":
 	logger.info(f"# VISUS_BACKEND=py")
 	from . backend_py  import *
 else:
-	logger.info(f"# VISUS_BACKEND=cpp")
+	logger.info(f"# VISUS_BACKEND={VISUS_BACKEND}")
+	assert(VISUS_BACKEND=="cpp")
 	from . backend_cpp import *

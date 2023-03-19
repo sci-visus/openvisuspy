@@ -1,6 +1,6 @@
 
 import numpy as np
-import os,sys,logging
+import os,sys,logging,asyncio
 
 # ///////////////////////////////////////////////////////////////////
 def cbool(value):
@@ -14,6 +14,15 @@ def cbool(value):
         return value.lower().strip() in ['true', '1']
     
     raise Exception("not supported")
+
+# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+def RunAsync(coroutine_object):
+	try:
+		return asyncio.run(coroutine_object)
+	except RuntimeError:
+		import nest_asyncio
+		nest_asyncio.apply()
+		return asyncio.run(coroutine_object)
 
 # ///////////////////////////////////////////////////////////////////
 def IsIterable(value):
