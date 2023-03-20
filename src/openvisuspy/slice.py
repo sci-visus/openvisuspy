@@ -26,7 +26,6 @@ class Slice(Widgets):
 		self.last_canvas_size = [0,0]
 		self.gui=self.createGui(central_layout=self.canvas.figure, options=show_options)
 		self.query_node=QueryNode()
-		
 
 	# start
 	def start(self,doc=None):

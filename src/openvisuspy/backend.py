@@ -5,8 +5,6 @@ from . utils import IsIterable,Clamp, HumanSize
 
 logger = logging.getLogger(__name__)
 
-
-
 # ////////////////////////////////////////////////////////////////////////
 def ServeApp(main_layout,doc=None, is_panel=False):
 
@@ -38,32 +36,34 @@ def ServeApp(main_layout,doc=None, is_panel=False):
 class BaseDataset:
 
 	# getAlignedBox
-	def getAlignedBox(self, logic_box, H, slice_dir:int=None):
-		ret=copy.deepcopy(logic_box)
+	def getAlignedBox(self, logic_box, endh, slice_dir:int=None):
+		p1,p2=copy.deepcopy(logic_box)
 		pdim=self.getPointDim()
 		maxh=self.getMaxResolution()
 		bitmask=self.getBitmask()
 		delta=[1,1,1]
-		for B in range(maxh,H,-1):
-			bit=ord(bitmask[B])-ord('0')
-			A,B,D=ret[0][bit], ret[1][bit], delta[bit]
-			D*=2
-			A=int(math.floor(A/D))*D
-			B=int(math.ceil (B/D))*D
-			B=max(A+D,B)
-			ret[0][bit] = A 
-			ret[1][bit] = B
-			delta[bit] = D
 		
+		for K in range(maxh,endh,-1):
+			bit=ord(bitmask[K])-ord('0')
+			delta[bit]*=2
+
+		for I in range(pdim):
+			p1[I]=delta[I]*(p1[I]//delta[I])
+			p2[I]=delta[I]*(p2[I]//delta[I])
+			p2[I]=max(p1[I]+delta[I], p2[I])
+		
+		num_pixels=[(p2[I]-p1[I])//delta[I] for I in range(pdim)]
+
+		# print(f"*** endh={endh} box={[p1,p2]} delta={delta} num_pixels={num_pixels}")
+
 		#  force to be a slice?
+		# REMOVE THIS!!!
 		if pdim==3 and slice_dir is not None:
-			offset=ret[0][slice_dir]
-			ret[1][slice_dir]=offset+0
-			ret[1][slice_dir]=offset+1
-			delta[slice_dir]=1
+			offset=p1[slice_dir]
+			p2[slice_dir]=offset+0
+			p2[slice_dir]=offset+1
 		
-		num_pixels=[(ret[1][I]-ret[0][I])//delta[I] for I in range(pdim)]
-		return ret, delta,num_pixels
+		return (p1,p2), delta, num_pixels
 
 	# createBoxQuery
 	def createBoxQuery(self,
@@ -108,7 +108,7 @@ class BaseDataset:
 			W,H,D=[int(it) for it in self.getLogicSize()]
 			logic_box=[[0,0,0],[W,H,D]]
 		
-		# fix logic box by cropping
+		# crop logic box
 		if True:
 			p1,p2=list(logic_box[0]),list(logic_box[1])
 			slice_dir=None
@@ -128,17 +128,21 @@ class BaseDataset:
 		# is view dependent? if so guess max resolution 
 		if max_pixels:
 			original_box=logic_box
-			for H in range(maxh,0,-1):
-				aligned_box,delta,num_pixels=self.getAlignedBox(original_box,H, slice_dir=slice_dir)
-				tot_pixels=np.prod(num_pixels,dtype=np.int64)
-				if tot_pixels<=max_pixels*1.10:
-					endh=H
-					logger.info(f"Guess resolution H={H} original_box={original_box} aligned_box={aligned_box} delta={delta} num_pixels={repr(num_pixels)} tot_pixels={tot_pixels:,} max_pixels={max_pixels:,} end={endh}")
+			for __endh in range(maxh,0,-1):
+				aligned_box, delta, num_pixels=self.getAlignedBox(original_box,__endh, slice_dir=slice_dir)
+				tot_pixels=np.prod(num_pixels, dtype=np.int64)
+				if tot_pixels<=max_pixels:
+					endh=__endh
+					logger.info(f"Guess resolution endh={endh} original_box={original_box} aligned_box={aligned_box} delta={delta} num_pixels={repr(num_pixels)} tot_pixels={tot_pixels:,} max_pixels={max_pixels:,} end={endh}")
 					logic_box=aligned_box
 					break
 
 		# this is the query I need
-		logic_box,delta,num_pixels=self.getAlignedBox(logic_box, endh, slice_dir=slice_dir)
+		end_resolutions=list(reversed([endh-pdim*I for I in range(num_refinements) if endh-pdim*I>=0]))
+
+		# need to align to make sure I have all progression needed
+		# (i.e. the first resolution must get something!)
+		logic_box, delta, num_pixels=self.getAlignedBox(logic_box, end_resolutions[0], slice_dir=slice_dir)
 
 		logic_box=[
 			[int(it) for it in logic_box[0]],
@@ -149,7 +153,7 @@ class BaseDataset:
 		query.logic_box=logic_box
 		query.timestep=timestep
 		query.field=field
-		query.end_resolutions=list(reversed([endh-pdim*I for I in range(num_refinements) if endh-pdim*I>=0]))
+		query.end_resolutions=end_resolutions
 		query.slice_dir=slice_dir
 		query.aborted=aborted
 		query.t1=time.time()
@@ -208,28 +212,14 @@ class BaseDataset:
 		if not self.isQueryRunning(query): return
 		query.cursor+=1
 
-
-
-# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-def ExecuteBoxQuery(db,*args,**kwargs):
-	access=kwargs['access'];del kwargs['access']
-	query=db.createBoxQuery(*args,**kwargs)
-	t1=time.time()
-	I,N=0,len(query.end_resolutions)
-	db.beginBoxQuery(query)
-	while db.isQueryRunning(query):
-		result=db.executeBoxQuery(access, query)
-		if result is None: break
-		yield result
-		db.nextBoxQuery(query)
-
-
 # //////////////////////////////////////////////////
 VISUS_BACKEND=os.environ.get("VISUS_BACKEND", "cpp")
 if VISUS_BACKEND=="py":
-	logger.info(f"# VISUS_BACKEND=py")
+	print(f"# VISUS_BACKEND=py")
 	from . backend_py  import *
-else:
-	logger.info(f"# VISUS_BACKEND={VISUS_BACKEND}")
+elif VISUS_BACKEND=="cpp":
+	print(f"# VISUS_BACKEND={VISUS_BACKEND}")
 	assert(VISUS_BACKEND=="cpp")
 	from . backend_cpp import *
+else:
+	raise Exception(f"unsupported backend={VISUS_BACKEND}")

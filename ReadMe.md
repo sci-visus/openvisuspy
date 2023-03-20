@@ -27,20 +27,22 @@ set BOKEH_LOG_LEVEL=debug
 Bokeh:
 
 ```
-python -m bokeh serve "examples/dashboards/00-dashboards.py"  --dev --address localhost --port 8888 --args [--py]
+set VISUS_BACKEND=cpp
+python -m bokeh serve "examples/dashboards/00-dashboards.py"  --dev --address localhost --port 8888 --args
 ```
 
 Panel:
 
 ```
-
+set VISUS_BACKEND=cpp
 python -m panel serve --autoreload --show "examples/dashboards/00-dashboards.py"  --args --panel
 ```
 
 Jupyter:
 
 ```
-python -m jupyter notebook ./examples/notebooks
+set VISUS_BACKEND=cpp
+python -m jupyter notebook --debug ./examples/notebooks 
 ```
 
 # Upload wheel
@@ -65,6 +67,14 @@ await micropip.install(['openvisuspy','numpy','requests','xmltodict','bokeh','xy
 import openvisuspy
 ```
 
+# Async
+
+- https://panel.holoviz.org/user_guide/Async_and_Concurrency.html
+- https://github.com/holoviz/panel/pull/3381/files
+- https://github.com/holoviz/panel/issues/4239
+- https://github.com/holoviz/panel/issues/2261
+- https://stackoverflow.com/questions/75279664/can-html-with-pyscript-run-python-files-without-freezing-everything-on-the-webpa
+
 # (TODO) Panel dashboards
 
 Panel seems to have already a lot of fixes/support for WASM, so probably better to use Panel instead of pure Bokeh (?!)
@@ -74,10 +84,20 @@ Links:
 - https://github.com/awesome-panel/examples
 - https://github.com/holoviz/panel/issues/4089
 - https://github.com/holoviz/panel/blob/main/panel/io/convert.py
+- https://stackoverflow.com/questions/75279664/can-html-with-pyscript-run-python-files-without-freezing-everything-on-the-webpa
 
 
 ```
-python ./convert.py
+
+import os
+os.environ["VISUS_BACKEND"]="py"
+original_log = application.log
+application.log=MockLogger("bokeh.application.application")
+os.makedirs("tmp",exist_ok=True)
+requirements=['openvisuspy','numpy','requests','xmltodict','bokeh','panel','xyzservices','colorcet','nest-asyncio']
+convert_app("./examples/dashboards/00-dashboards.py", dest_path="tmp/", runtime = 'pyodide-worker',requirements=requirements)
+application.log=original_log
+
 
 # in another cell
 cd tmp

@@ -139,7 +139,7 @@ class Widgets:
 
 	# stop
 	def stop(self):
-		logger.info(f"{type(self)} start")
+		logger.info(f"{type(self)} stop")
 		for it in self.children:
 			it.stop()		
 

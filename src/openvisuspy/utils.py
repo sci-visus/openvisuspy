@@ -15,14 +15,6 @@ def cbool(value):
     
     raise Exception("not supported")
 
-# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-def RunAsync(coroutine_object):
-	try:
-		return asyncio.run(coroutine_object)
-	except RuntimeError:
-		import nest_asyncio
-		nest_asyncio.apply()
-		return asyncio.run(coroutine_object)
 
 # ///////////////////////////////////////////////////////////////////
 def IsIterable(value):

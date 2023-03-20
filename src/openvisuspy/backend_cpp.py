@@ -102,7 +102,7 @@ class QueryNode:
 	# start
 	def start(self):
 		assert(self.thread is None)
-		self.thread = threading.Thread(target=lambda: self._threadLoop())
+		self.thread = threading.Thread(target=lambda: self._threadLoop(),daemon=True)
 		self.thread.start()
 
 	# stop
@@ -270,6 +270,18 @@ def LoadDataset(url):
 	return Dataset(url)
 
 
+# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+def ExecuteBoxQuery(db,*args,**kwargs):
+	access=kwargs['access'];del kwargs['access']
+	query=db.createBoxQuery(*args,**kwargs)
+	t1=time.time()
+	I,N=0,len(query.end_resolutions)
+	db.beginBoxQuery(query)
+	while db.isQueryRunning(query):
+		result=db.executeBoxQuery(access, query)
+		if result is None: break
+		yield result
+		db.nextBoxQuery(query)
 
 	
 	

@@ -1,16 +1,23 @@
 
-import os,sys,requests, zlib,xmltodict,logging,urllib,threading,time,logging,queue,types
+import os,sys,requests, zlib,xmltodict,logging,urllib,time,logging,queue,types,asyncio
 import httpx
+from threading import Lock # note: Thread and multiprocessing is not supported in pyodide
 import numpy as np
 
 from .backend import BaseDataset
-from .utils   import HumanSize,RunAsync
-from .backend import ExecuteBoxQuery
+from .utils   import HumanSize
 
 logger = logging.getLogger(__name__)
 
 
-
+# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+def RunAsync(coroutine_object):
+	try:
+		return asyncio.run(coroutine_object)
+	except RuntimeError:
+		import nest_asyncio
+		nest_asyncio.apply()
+		return asyncio.run(coroutine_object)
 
 # ///////////////////////////////////////////////////////////////////
 class Aborted:
@@ -36,14 +43,12 @@ class Aborted:
 		except:
 			pass
 
-
-
 # ///////////////////////////////////////////////////////////////////
 class Stats:
 	
 	# constructor
 	def __init__(self):
-		self.lock = threading.Lock()
+		self.lock = Lock()
 		self.num_running=0
 		
 	# readStats
@@ -104,68 +109,68 @@ class QueryNode:
 
 	# constructor
 	def __init__(self):
-		self.iqueue=queue.Queue()
-		self.oqueue=queue.Queue()
-		self.wait_for_oqueue=False
-		self.thread=None
+		self.job=[None,None]
+		self.result=None
+		self.task=None
+		
 
 	# disableOutputQueue
 	def disableOutputQueue(self):
-		self.oqueue=None
+		pass
+
+
+	# myAsyncLoop
+	async def myAsyncLoop(self):
+		while True:
+			await asyncio.sleep(0)
+			(db,kwargs)=self.popJob()
+			if db is not None:
+				self.stats.startCollecting() 
+				access=kwargs['access']
+				del kwargs['access']
+				query=db.createBoxQuery(**kwargs)
+				db.beginBoxQuery(query)
+				while db.isQueryRunning(query):
+					result=await db.executeBoxQuery(access, query)
+					if result is None: break
+					self.pushResult(result)
+					await asyncio.sleep(0)
+					db.nextBoxQuery(query)
+				self.stats.stopCollecting()	
+			
 
 	# start
 	def start(self):
-		assert(self.thread is None)
-		self.thread = threading.Thread(target=lambda: self._threadLoop())
-		self.thread.start()   
+		self.task=asyncio.create_task(self.myAsyncLoop()) 
 
 	# stop
 	def stop(self):
-		if self.thread is None: return
-		self.iqueue.join()
-		self.iqueue.put((None,None))
-		self.thread.join()
-		self.thread=None   
+		if self.task:
+			self.task.cancel()
+			self.task=None
 
 	# waitIdle
 	def waitIdle(self):
-		self.iqueue.join()
+		pass # I don't think I need this
 
 	# pushJob
 	def pushJob(self, db, **kwargs):
-		self.iqueue.put([db,kwargs])
+		self.job=[db,kwargs]
+
+	# popJob
+	def popJob(self):
+		ret,self.job=self.job,[None,None]
+		return ret
+
+	def pushResult(self, result):
+		self.result=result
 
 	# popResult
 	def popResult(self, last_only=True):
-		assert self.oqueue is not None
-		ret=None
-		while not self.oqueue.empty():
-			ret=self.oqueue.get()
-			self.oqueue.task_done()
-			if not last_only: break
+		ret, self.result = self.result, None
 		return ret
   
-	# _threadLoop
-	def _threadLoop(self):
-		while True:
-			db, kwargs=self.iqueue.get()
-			if db is None: return 
-			self.stats.startCollecting() 
 
-			access=kwargs['access'];del kwargs['access']
-			query=db.createBoxQuery(**kwargs)
-			db.beginBoxQuery(query)
-			while db.isQueryRunning(query):
-				result=RunAsync(db.executeBoxQuery(access, query))
-				if result is None: break
-				if self.oqueue:
-					self.oqueue.put(result)
-					if self.wait_for_oqueue:
-						self.oqueue.join()
-				db.nextBoxQuery(query)
-
-			self.iqueue.task_done()
-			self.stats.stopCollecting()
 
 # ///////////////////////////////////////////////////////////////////
 class Dataset(BaseDataset):
@@ -271,7 +276,7 @@ class Dataset(BaseDataset):
 				params[key]=value
 		
 		SetParam('action',"boxquery")
-		SetParam('box'," ".join([f"{a} {b}" for a,b in zip(*logic_box)]).strip())
+		SetParam('box'," ".join([f"{a} {b-1}" for a,b in zip(*logic_box)]).strip())
 		SetParam('compression',compression)
 		SetParam('field',field)
 		SetParam('time',timestep)
@@ -282,43 +287,26 @@ class Dataset(BaseDataset):
 			
 		url=f"{scheme}://{parsed.netloc}{path}"
 
-		# response=requests.get(url, stream=True, params=params)
 		aborted=query.aborted
 		if aborted.value: return None
 
-		if True:
-			client = httpx.AsyncClient(verify=False)
-			aborted.client=client
-			response = await client.get(url,params=params )
-			if aborted.value:
-				return None
-			if response.status_code!=200:
-				if not aborted.value: logger.info(f"Got unvalid response {response.status_code}")
-				return None
+		client = httpx.AsyncClient(verify=False)
+		aborted.client=client
+		response = await client.get(url,params=params )
+		
+		if aborted.value:
+			return None
 
-			try:
-				body=response.content	
-			except:
-				if not aborted.value: logger.info(f"Got unvalid response {aborted.value}")
-				return None	
+		logger.info(f"httpx [{response.status_code}] {response.url}")
+		if response.status_code!=200:
+			if not aborted.value: logger.info(f"Got unvalid response {response.status_code}")
+			return None
 
-		else:
-			s=requests.Session()
-			response=s.get(url, params=params, verify=False, stream=True)
-			aborted.response=response
-				
-			if aborted.value:
-				return None
-
-			if response.status_code!=200:
-				logger.info(f"Got unvalid response {response.status_code}")
-				return None
-
-			try:
-				body=response.raw.data
-			except:
-				logger.info(f"Got unvalid response {aborted.value}")
-				return None			
+		try:
+			body=response.content	
+		except:
+			if not aborted.value: logger.info(f"Got unvalid response {aborted.value}")
+			return None	
 
 		if verbose:
 			logger.info(f"Got body len={len(body)}")
@@ -359,10 +347,11 @@ class Dataset(BaseDataset):
 # /////////////////////////////////////////////////////////////////////////////////
 def LoadDataset(url):
 	
-	# https otherwise http will be blocked as "unsafe" in the browser???
-	assert(not url.startswith("https"))    
-	
-	response=requests.get(url,params={'action':'readdataset','format':'xml'}) 
+	# i don't support block access
+	if not "mod_visus" in url:
+		raise Exception(f"{repr(url)} is not a mod_visus dataset")
+
+	response=requests.get(url,params={'action':'readdataset','format':'xml'},verify=False) 
 	assert(response.status_code==200)
 	body=response.text
 	logger.info(f"Got response {body}")
@@ -424,9 +413,10 @@ def LoadDataset(url):
 		}))
 	
 
+	#box,delta,num_pixels=ret.getAlignedBox(logic_box=[[0,0,539],[2048,2048,540]],endh=22,slice_dir=2)
+	#print("!!!!!",box,delta,num_pixels)
+
 	return ret
-
-
 
 # ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 def ExecuteBoxQuery(db,*args,**kwargs):
