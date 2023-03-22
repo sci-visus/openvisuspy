@@ -10,44 +10,45 @@
 	</head>
 <body>
 
+
+<!-- # ////////////////////////////////////////////////////////////////// / -->
+<py-config>
+
+terminal = false
+
+packages=[
+	"numpy",
+	"pandas",
+	"requests",
+	"xmltodict",
+	"xyzservices",
+	"pyodide-http",
+	"colorcet",
+	"panel==0.14.4",
+	"https://cdn.holoviz.org/panel/0.14.3/dist/wheels/bokeh-2.4.3-py3-none-any.whl",
+]
+[[fetch]]
+from = '/src/openvisuspy/'
+to_folder = '/home/pyodide/openvisuspy/'
+files = [
+	"backend.py",
+	"backend_py.py",
+	"backend_cpp.py",
+	"app.py",
+	"canvas.py",
+	"slice.py",
+	"slices.py",
+	"utils.py",
+	"widgets.py",
+	"__init__.py",
+]
+</py-config>
+
 <!-- where the app is displayed-->
 <div id="my_app"></div>
 
-<py-config>
-
-	terminal = false
-
-	packages=[
-		"numpy",
-		"pandas",
-		"requests",
-		"xmltodict",
-		"xyzservices",
-		"pyodide-http",
-		"colorcet",
-		"panel==0.14.4",
-		"https://cdn.holoviz.org/panel/0.14.3/dist/wheels/bokeh-2.4.3-py3-none-any.whl",
-	]
-	[[fetch]]
-	from = '/src/openvisuspy/'
-	to_folder = '/home/pyodide/openvisuspy/'
-	files = [
-		"backend.py",
-		"backend_py.py",
-		"backend_cpp.py",
-		"app.py",
-		"canvas.py",
-		"slice.py",
-		"slices.py",
-		"utils.py",
-		"widgets.py",
-		"__init__.py",
-	]
-</py-config>
-
-
+<!-- # ////////////////////////////////////////////////////////////////// / -->
 <py-script>
-
 
 import os,sys,datetime,logging,time,pyodide_http
 
@@ -59,21 +60,18 @@ import panel as pn
 pn.extension(sizing_mode='stretch_both')
 
 url="https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1"
-view=Slice()
+view=Slices()
 view.setDataset(url)
 view.setPalette("Greys256") 
 view.setPaletteRange([0,255])
 main_layout=view.getPanelLayout()
-
 app=GetPanelApp(main_layout)
 app.servable(target='my_app')
 
 </py-script>
 
-<!--
-<py-terminal/>
-<py-repl/>
--->
+<!--  <py-terminal/> -->
+<!--  <py-repl/>     -->
 
 
 </body>
