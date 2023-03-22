@@ -53,7 +53,7 @@ files = [
 import os,sys,datetime,logging,time,pyodide_http
 
 from openvisuspy import *
-SetupLogger(logging.getLogger("openvisuspy"))
+SetupLogger()
 pyodide_http.patch_all() 
 
 import panel as pn

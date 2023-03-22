@@ -436,13 +436,15 @@ def LoadDataset(url):
 
 # ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 def ExecuteBoxQuery(db,*args,**kwargs):
-	access=kwargs['access'];del kwargs['access']
+	access=kwargs['access']
+	del kwargs['access']
+	
 	query=db.createBoxQuery(*args,**kwargs)
 	t1=time.time()
 	I,N=0,len(query.end_resolutions)
 	db.beginBoxQuery(query)
 	while db.isQueryRunning(query):
-		result=EnsureFuture(db.executeBoxQuery(access, query))
+		result=RunAsync(db.executeBoxQuery(access, query))
 		if result is None: break
 		yield result
 		db.nextBoxQuery(query)

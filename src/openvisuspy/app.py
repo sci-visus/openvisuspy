@@ -74,7 +74,7 @@ def ShowBokehApp(app):
 		bokeh.io.show(app) 
 	  
 # //////////////////////////////////////////////////////////////////////////////////////
-def BokehBokehApp(doc):
+def TestBokehApp(doc):
 	button = bokeh.models.widgets.Button(label="Bokeh is working? Push...", sizing_mode='stretch_width')
 	def OnClick(evt=None): button.label="YES!"
 	button.on_click(OnClick)     

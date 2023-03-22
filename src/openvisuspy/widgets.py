@@ -76,14 +76,18 @@ class Widgets:
 		self.color_mapper.palette=self.widgets.palette.value
 		self.color_mapper.low,self.color_mapper.high=(0.0,255.0) 
 		self.color_bar = ColorBar(color_mapper=self.color_mapper)
+
+		def PatchSlider(slider):
+			slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
+			return slider
   
 		# num_views
 		self.widgets.num_views=Select(title='#Views',  options=["1","2","3","4"],value='3',width=100)
 		self.widgets.num_views.on_change("value",lambda attr, old, new: self.setNumberOfViews(int(new))) 
  
 		# timestep
-		self.widgets.timestep = Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width')
-		self.widgets.timestep.on_change ("value",lambda attr, old, new: self.setTimestep(int(new)))  
+		self.widgets.timestep = PatchSlider(Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width'))
+		self.widgets.timestep.on_change ("value",lambda attr, old, new: self.setTimestep(int(new)))
 
 		# timestep delta
 		self.widgets.timestep_delta=Select(title="Time delta",options=["1","2","5","10","50","100","200"], value="1",width=100)
@@ -98,16 +102,19 @@ class Widgets:
 		self.widgets.direction.on_change ("value",lambda attr, old, new: self.setDirection(int(new)))  
   
 		# offset 
-		self.widgets.offset = Slider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width')
+		self.widgets.offset = PatchSlider(Slider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width'))
 		self.widgets.offset.on_change ("value",lambda attr, old, new: self.setOffset(int(new)))
+		self.widgets.offset._check_missing_dimension=None # patch
   
 		# num_refimements (0==guess)
-		self.widgets.num_refinements=Slider(title='#Refinements', value=0, start=0, end=4,width=100)
+		self.widgets.num_refinements=PatchSlider(Slider(title='#Refinements', value=0, start=0, end=4,width=100))
 		self.widgets.num_refinements.on_change ("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
+		self.widgets.num_refinements._check_missing_dimension=None # patch
   
 		# quality (0==full quality, -1==decreased quality by half-pixels, +1==increase quality by doubling pixels etc)
-		self.widgets.quality = Slider(title='Quality', value=0, start=-12, end=+12,width=100)
+		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12,width=100))
 		self.widgets.quality.on_change("value",lambda attr, old, new: self.setQuality(int(new)))  
+		self.widgets.quality._check_missing_dimension=None # patch
 
 		# viewdep
 		self.widgets.viewdep = Select(title="View Dep",options=[('1','Enabled'),('0','Disabled')], value="True",width=100)

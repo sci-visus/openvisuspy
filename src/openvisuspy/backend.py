@@ -152,7 +152,7 @@ class BaseDataset:
 	def returnBoxQueryData(self,access, query, data):
 		
 		if query is None or data is None:
-			logger.info(f"read done")
+			logger.info(f"read done {query} {data}")
 			return None
 
 		# is a slice? I need to reduce the size (i.e. from 3d data to 2d data)
@@ -188,6 +188,9 @@ class BaseDataset:
 # //////////////////////////////////////////////////
 from .utils import GetBackend
 backend=GetBackend()
+
+logger.info(f"openvisuspy backend={backend}")
+
 if backend=="py":
 	from .backend_py import *
 else:

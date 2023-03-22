@@ -9,6 +9,10 @@ def IsPyodide():
 	return "pyodide" in sys.modules
 
 # ///////////////////////////////////////////////
+def IsJupyter():
+	return hasattr(__builtins__,'__IPYTHON__') or 'ipykernel' in sys.modules
+
+# ///////////////////////////////////////////////
 def IsPanelServe():
 	return "panel.command.serve" in sys.modules 
 
@@ -17,6 +21,8 @@ def GetBackend():
 	ret=os.environ.get("VISUS_BACKEND", "py" if IsPyodide() else "cpp")
 	assert(ret=="cpp" or ret=="py")
 	return ret
+
+
 
 # ///////////////////////////////////////////////
 async def SleepMsec(msec):
@@ -36,9 +42,12 @@ def AddAsyncLoop(name, fn, msec):
 	async def MyLoop():
 		t1=time.time()
 		while True:
-			if (time.time()-t1)>5.0:
-				logger.info(f"{name} is alive...")
-				t1=time.time()
+
+			# it's difficult to know what it running or not in the browser
+			if IsPyodide():
+				if (time.time()-t1)>5.0:
+					logger.info(f"{name} is alive...")
+					t1=time.time()
 			try:
 				await fn()
 			except Exception as ex:
@@ -48,22 +57,32 @@ def AddAsyncLoop(name, fn, msec):
 	return asyncio.create_task(MyLoop())			 
 
 
-# ///////////////////////////////////////////////////////////////////
-def EnsureFuture(coroutine):
-	asyncio.ensure_future(coroutine)
+# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+def RunAsync(coroutine_object):
+	try:
+		return asyncio.run(coroutine_object)
+	except RuntimeError:
+		pass
+
+	import nest_asyncio
+	nest_asyncio.apply()
+	return asyncio.run(coroutine_object)
+
+
+
 
 # ///////////////////////////////////////////////////////////////////
 def cbool(value):
-    if isinstance(value,bool):
-        return value
+	 if isinstance(value,bool):
+		  return value
 
-    if isinstance(value,int) or isinstance(value,float):
-        return bool(value)
+	 if isinstance(value,int) or isinstance(value,float):
+		  return bool(value)
 
-    if isinstance(value, str):
-        return value.lower().strip() in ['true', '1']
-    
-    raise Exception("not supported")
+	 if isinstance(value, str):
+		  return value.lower().strip() in ['true', '1']
+	 
+	 raise Exception("not supported")
 
 
 # ///////////////////////////////////////////////////////////////////
@@ -90,18 +109,69 @@ def HumanSize(size):
 	if size>KiB: return "{:.2f}KiB".format(size/KiB) 
 	return str(size)
 
+# ////////////////////////////////////////////////////////////////
+class JupyterLoggingHandler(logging.Handler):
+
+	def __init__(self, stream=None):
+		logging.Handler.__init__(self)
+		self.stream = sys.__stdout__
+
+	def flush(self):
+		self.acquire()
+		try:
+			if self.stream and hasattr(self.stream, "flush"):
+					self.stream.flush()
+		finally:
+			self.release()
+
+	def emit(self, record):
+		try:
+			msg = self.format(record)
+			msg = msg.replace('"',"'")
+			stream = self.stream
+			stream.write(msg + "\n")
+			from IPython import get_ipython
+			msg=msg.replace("\n"," ") # weird, otherwise javascript fails
+			get_ipython().run_cell(f""" %%javascript\nconsole.log("{msg}");""")
+			self.flush()
+		except :
+			# self.handleError(record)
+			pass # just ignore
+
+	def setStream(self, stream):
+			raise Exception("internal error")
+		
 
 # ////////////////////////////////////////////////////////////////
-def SetupLogger(logger, output_stdout:bool=True, log_filename:str=None, logging_level=logging.INFO):
+def SetupLogger(
+	logger=None, 
+	stream=None, 
+	log_filename:str=None, 
+	logging_level=logging.INFO,
+	fmt="[%(asctime)s][%(levelname)s][%(name)s:%(lineno)d:%(funcName)s] %(message)s",
+	datefmt="%H%M%S"
+	):
+
+	if logger is None:
+		logger=logging.getLogger("openvisuspy")
+
+	logger.handlers.clear()
+	logger.propagate=False
 
 	logger.setLevel(logging_level)
 
-	# stdout
-	if output_stdout:
-		handler=logging.StreamHandler()
-		handler.setLevel(logging_level)
+	if stream == False:
+		pass
 
-		handler.setFormatter(logging.Formatter(fmt=f"[%(asctime)s][%(levelname)s][%(name)s:%(lineno)d:%(funcName)s] %(message)s", datefmt="%H%M%S"))
+	else:
+		if stream is None:
+			if IsJupyter():
+				handler=JupyterLoggingHandler()
+			else:
+				handler=logging.StreamHandler(stream=sys.stderr)
+
+		handler.setLevel(logging_level)
+		handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
 		logger.addHandler(handler)
 	
 	# file
@@ -109,8 +179,10 @@ def SetupLogger(logger, output_stdout:bool=True, log_filename:str=None, logging_
 		os.makedirs(os.path.dirname(log_filename),exist_ok=True)
 		handler=logging.FileHandler(log_filename)
 		handler.setLevel(logging_level)
-		handler.setFormatter(logging.Formatter(fmt=f"[%(asctime)s][%(levelname)s][%(name)s:%(lineno)d:%(funcName)s] %(message)s", datefmt="%H%M%S"))
+		handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
 		logger.addHandler(handler)
+
+	return logger
 
 
 # ///////////////////////////////////////////////////
@@ -133,7 +205,7 @@ def InterleaveChannels(v):
 
 # ///////////////////////////////////////////////////
 def ConvertDataForRendering(data, normalize_float=True):
-    
+	 
 	height,width=data.shape[0],data.shape[1]
 
 	# typycal case

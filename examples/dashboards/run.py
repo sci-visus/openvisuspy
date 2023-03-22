@@ -3,14 +3,28 @@ import os,sys,logging
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
 
-	num_views=3 if "--multi" in sys.argv else 1
+	num_views=1
+
+	if "--multi" in sys.argv:
+		num_views=3
+
+	if "--single" in sys.argv:
+		num_views=1
+
+
+	backend="cpp"
+
+	if "--py" in sys.argv:
+		backend="py"
+	
+	if "--cpp" in sys.argv:
+		backend="cpp"
 
 	# need to set before importing openvisuspy
-	if "--py" in sys.argv:
-		os.environ["VISUS_BACKEND"]="py"
+	os.environ["VISUS_BACKEND"]=backend
 
 	from openvisuspy import SetupLogger,IsPanelServe
-	SetupLogger(logging.getLogger("openvisuspy"))
+	SetupLogger()
 
 	from openvisuspy import Slice, Slices,cbool
 
@@ -67,21 +81,10 @@ if __name__.startswith('bokeh'):
 	view.setDirections(directions)
 
 	if IsPanelServe():
-		# need to create a Holoviz Panel Bokeh layout
-		import panel as pn
-		from panel.template import DarkTheme
-		pn.extension(sizing_mode='stretch_both')
-		from panel.template import DarkTheme
-		app = pn.template.MaterialTemplate(
-			title='Openvisus-Panel',
-			logo ="https://www.sci.utah.edu/~pascucci/public/NSDF-smaller.PNG",
-			site_url ="https://nationalsciencedatafabric.org/",
-			header_background="#303050",
-			theme=DarkTheme) 
-		main_layout=view.getPanelPayout()
-		app.main.append(main_layout) 
+		from openvisuspy.app import GetPanelApp
+		main_layout=view.getPanelLayout()
+		app=GetPanelApp(main_layout)
 		app.servable()
-
 	else:
 		import bokeh
 		doc=bokeh.io.curdoc()

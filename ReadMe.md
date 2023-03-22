@@ -52,23 +52,37 @@ python3 examples/pyscript/server.py --directory ./
 # CTRL + ALT + I
 # remember to resize the window
 
-# OK
-python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args
-python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args
-python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --multi
-python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --multi
+# cpp-bokeh-single (OK)
+python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args -cpp --single
 
-# TRY (PROBLEM ABROT NOT WORKING)
-python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py
-python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py
+# cpp-bokeh-multi (OK)
+python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args -cpp --multi
+
+# cpp-panel-single (OK)
+python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args -cpp --single
+
+# cpp-panel-multi (OK)
+python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args -cpp --multi
+
+# py-bokeh-single (OK)
+python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --single
+
+# py-bokeh-multi (OK)
 python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --multi
+
+# py-panel-single (OK)
+python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --single
+
+# py-panel-multi (OK)
 python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --multi
 
-# TRY
-python -m jupyter notebook --debug ./examples/notebooks 
 
-# TRY
-python -m jupyter notebook --debug ./examples/notebooks 
+
+set VISUS_BACKEND=cpp
+python -m jupyter notebook ./examples/notebooks 
+
+
+python -m jupyter notebook ./examples/notebooks 
 
 
 ```

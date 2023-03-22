@@ -30,6 +30,8 @@ class Canvas:
 		# https://github.com/bokeh/bokeh/issues/9136
 		# https://github.com/bokeh/bokeh/pull/9308
 		self.on_resize=None
+		self.last_width=0
+		self.last_height=0
 		self.fig.on_change('inner_width' , self.onResize)
 		self.fig.on_change('inner_height', self.onResize)
   
@@ -47,7 +49,16 @@ class Canvas:
 		if w<=0 or h<=0:
 			return 
 
-		logger.info(f"resize width={w} height={h}")
+		# getting spurious events with marginal changes (in particular with jupyter notebook)
+		if self.last_width>0 and self.last_height>0:
+			# is change too marginal?
+			if abs(w-self.last_width)<=5 or abs(h-self.last_height)<5:
+				return
+
+		self.last_width =w
+		self.last_height=h
+		
+		logger.info(f"Calling on_resize callback w={w} h={h}")
 		if self.on_resize is not None:
 			self.on_resize()
 

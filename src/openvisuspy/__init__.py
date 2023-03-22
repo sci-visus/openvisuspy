@@ -5,4 +5,4 @@ from .backend    import LoadDataset, ExecuteBoxQuery
 # gui parn
 from .slice      import Slice
 from .slices     import Slices
-from .app        import ShowBokehApp, BokehBokehApp, GetPanelApp
+from .app        import ShowBokehApp, TestBokehApp, GetPanelApp
