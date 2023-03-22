@@ -3,11 +3,12 @@
 import os,sys,logging
 import numpy as np
 
-from . utils import ConvertDataForRendering
+from . utils import *
 
-from bokeh.plotting import figure
-from bokeh.models   import ColumnDataSource,Range1d
-from bokeh.events   import DoubleTap
+import bokeh
+import bokeh.plotting
+import bokeh.models 
+import bokeh.events 
 
 logger = logging.getLogger(__name__)
 
@@ -19,40 +20,60 @@ class Canvas:
 		self.sizing_mode=sizing_mode
 		self.color_bar=color_bar
 		self.color_mapper=color_mapper
-		self.figure=figure(active_scroll = "wheel_zoom") 
-		self.figure.x_range = Range1d(0,0)   
-		self.figure.y_range = Range1d(512,512) 
-		self.figure.toolbar_location="below"
-		self.figure.sizing_mode = self.sizing_mode
-		# self.figure.add_tools(bokeh.models.HoverTool(tooltips=[ ("(x, y)", "($x, $y)"),("RGB", "(@R, @G, @B)")])) # is it working?
+		self.fig=bokeh.plotting.figure(active_scroll = "wheel_zoom") 
+		self.fig.x_range = bokeh.models.Range1d(0,0)   
+		self.fig.y_range = bokeh.models.Range1d(512,512) 
+		self.fig.toolbar_location="below"
+		self.fig.sizing_mode = self.sizing_mode
+		# self.fig.add_tools(bokeh.models.HoverTool(tooltips=[ ("(x, y)", "($x, $y)"),("RGB", "(@R, @G, @B)")])) # is it working?
+
+		# https://github.com/bokeh/bokeh/issues/9136
+		# https://github.com/bokeh/bokeh/pull/9308
+		self.on_resize=None
+		self.fig.on_change('inner_width' , self.onResize)
+		self.fig.on_change('inner_height', self.onResize)
   
-		self.source_image = ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
-		self.figure.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_mapper)  
-		self.figure.add_layout(self.color_bar, 'right')
+		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
+		self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_mapper)  
+		self.fig.add_layout(self.color_bar, 'right')
  
 		self.points     = None
 		self.dtype      = None
 
+	# onResize
+	def onResize(self,attr, old, new):
+		w,h=self.getWidth(),self.getHeight()
+
+		if w<=0 or h<=0:
+			return 
+
+		logger.info(f"resize width={w} height={h}")
+		if self.on_resize is not None:
+			self.on_resize()
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
-		return self.figure.inner_width
+		# https://docs.bokeh.org/en/2.4.3/docs/reference/models/plots.html
+		#  This is the exact width of the plotting canvas, i.e. the width of
+		# 	the actual plot, without toolbars etc. Note this is computed in a
+		# 	web browser, so this property will work only in backends capable of			
+		return self.fig.inner_width
 
 	# getHeight (this is number of pixels along Y  for the canvas)
 	def getHeight(self):
-		return self.figure.inner_height    
+		return self.fig.inner_height
 
 	# enableDoubleTap
 	def enableDoubleTap(self,fn):
-		self.figure.on_event(DoubleTap, lambda evt: fn(evt.x,evt.y))
+		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: fn(evt.x,evt.y))
 
 	  # getViewport
 	def getViewport(self):
 		return [
-			self.figure.x_range.start,
-			self.figure.y_range.start,
-			self.figure.x_range.end,
-			self.figure.y_range.end
+			self.fig.x_range.start,
+			self.fig.y_range.start,
+			self.fig.x_range.end,
+			self.fig.y_range.end
 		]
 
 	  # getViewport
@@ -74,18 +95,18 @@ class Canvas:
 			x1,y1=cx-w/2,cy-h/2
 			x2,y2=cx+w/2,cy+h/2
 
-		self.figure.x_range.start=x1
-		self.figure.y_range.start=y1
-		self.figure.x_range.end  =x2
-		self.figure.y_range.end  =y2
+		self.fig.x_range.start=x1
+		self.fig.y_range.start=y1
+		self.fig.x_range.end  =x2
+		self.fig.y_range.end  =y2
 
 
 	# renderPoints
 	def renderPoints(self,points, size=20, color="red", marker="cross"):
 		if self.points is not None: 
-			self.figure.renderers.remove(self.points)
-		self.points = self.figure.scatter(x=[p[0] for p in points], y=[p[1] for p in points], size=size, color=color, marker=marker)   
-		assert self.points in self.figure.renderers
+			self.fig.renderers.remove(self.points)
+		self.points = self.fig.scatter(x=[p[0] for p in points], y=[p[1] for p in points], size=size, color=color, marker=marker)   
+		assert self.points in self.fig.renderers
 
 
 	# setImage
@@ -99,10 +120,10 @@ class Canvas:
 			self.source_image.data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]}
 		else:
 			# need to create a new one from scratch
-			self.figure.renderers=[]
-			self.source_image = ColumnDataSource(data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]})
+			self.fig.renderers=[]
+			self.source_image = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]})
 			if img.dtype==np.uint32:	
-				self.image_rgba=self.figure.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
+				self.image_rgba=self.fig.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
 			else:
-				self.img=self.figure.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_mapper) 
+				self.img=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_mapper) 
 			self.dtype=img.dtype

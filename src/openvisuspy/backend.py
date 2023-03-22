@@ -1,36 +1,9 @@
-import os,copy,math,time,logging,types
-import os,sys,time,threading,queue,math, types,logging,copy
+import os,sys,copy,math,time,logging,types,requests,zlib,xmltodict,urllib,queue,types,threading
 import numpy as np
-from . utils import IsIterable,Clamp, HumanSize
+
+from . utils import *
 
 logger = logging.getLogger(__name__)
-
-# ////////////////////////////////////////////////////////////////////////
-def ServeApp(main_layout,doc=None, is_panel=False):
-
-	if is_panel:
-		# need to create a Holoviz Panel Bokeh layout
-		import panel as pn
-		from panel.template import DarkTheme
-		pn.extension(sizing_mode='stretch_both')	
-		bTemplate=True
-		if bTemplate:
-			from panel.template import DarkTheme
-			app = pn.template.MaterialTemplate(
-				title='Openvisus-Panel',
-				logo ="https://www.sci.utah.edu/~pascucci/public/NSDF-smaller.PNG",
-				site_url ="https://nationalsciencedatafabric.org/",
-				header_background="#303050",
-				theme=DarkTheme) 
-			app.main.append(main_layout) 
-		else:
-			app=main_layout
-		app.servable()
-
-	else:
-		import bokeh
-		if not doc: doc=bokeh.io.curdoc()
-		doc.add_root(main_layout)	
 
 # //////////////////////////////////////////////////////////////////////////
 class BaseDataset:
@@ -54,7 +27,7 @@ class BaseDataset:
 		
 		num_pixels=[(p2[I]-p1[I])//delta[I] for I in range(pdim)]
 
-		# print(f"*** endh={endh} box={[p1,p2]} delta={delta} num_pixels={num_pixels}")
+		# print(f"getAlignedBox endh={endh} box={[p1,p2]} delta={delta} num_pixels={num_pixels}")
 
 		#  force to be a slice?
 		# REMOVE THIS!!!
@@ -213,13 +186,9 @@ class BaseDataset:
 		query.cursor+=1
 
 # //////////////////////////////////////////////////
-VISUS_BACKEND=os.environ.get("VISUS_BACKEND", "cpp")
-if VISUS_BACKEND=="py":
-	print(f"# VISUS_BACKEND=py")
-	from . backend_py  import *
-elif VISUS_BACKEND=="cpp":
-	print(f"# VISUS_BACKEND={VISUS_BACKEND}")
-	assert(VISUS_BACKEND=="cpp")
-	from . backend_cpp import *
+from .utils import GetBackend
+backend=GetBackend()
+if backend=="py":
+	from .backend_py import *
 else:
-	raise Exception(f"unsupported backend={VISUS_BACKEND}")
+	from .backend_cpp import *

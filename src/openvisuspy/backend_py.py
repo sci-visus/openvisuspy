@@ -1,23 +1,10 @@
+import os,sys,xmltodict,urllib,zlib,requests
+from threading import Lock
 
-import os,sys,requests, zlib,xmltodict,logging,urllib,time,logging,queue,types,asyncio
-import httpx
-from threading import Lock # note: Thread and multiprocessing is not supported in pyodide
-import numpy as np
-
+from .utils import *
 from .backend import BaseDataset
-from .utils   import HumanSize
 
 logger = logging.getLogger(__name__)
-
-
-# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-def RunAsync(coroutine_object):
-	try:
-		return asyncio.run(coroutine_object)
-	except RuntimeError:
-		import nest_asyncio
-		nest_asyncio.apply()
-		return asyncio.run(coroutine_object)
 
 # ///////////////////////////////////////////////////////////////////
 class Aborted:
@@ -25,23 +12,21 @@ class Aborted:
 	# constructor
 	def __init__(self):
 		self.value=False
-		self.client=None
-		self.response=None
+		self.on_aborted=None
 
 	# setTrue
 	def setTrue(self):
+
+		if self.value==True: 
+			return
+		
 		self.value=True
 
-		# https://stackoverflow.com/questions/16390243/closing-python-requests-connection-from-another-thread/16400574?noredirect=1#comment23529567_16400574
-		try:
-			self.response.connectionclose()
-		except:
-			pass
-
-		try:
-			self.client.close()
-		except:
-			pass
+		if self.on_aborted is not None:
+			try:
+				self.on_aborted()
+			except:
+				pass
 
 # ///////////////////////////////////////////////////////////////////
 class Stats:
@@ -113,35 +98,37 @@ class QueryNode:
 		self.result=None
 		self.task=None
 		
-
 	# disableOutputQueue
 	def disableOutputQueue(self):
 		pass
 
-
-	# myAsyncLoop
-	async def myAsyncLoop(self):
-		while True:
-			await asyncio.sleep(0)
-			(db,kwargs)=self.popJob()
-			if db is not None:
-				self.stats.startCollecting() 
-				access=kwargs['access']
-				del kwargs['access']
-				query=db.createBoxQuery(**kwargs)
-				db.beginBoxQuery(query)
-				while db.isQueryRunning(query):
-					result=await db.executeBoxQuery(access, query)
-					if result is None: break
-					self.pushResult(result)
-					await asyncio.sleep(0)
-					db.nextBoxQuery(query)
-				self.stats.stopCollecting()	
-			
+	# asyncExecuteQuery
+	async def asyncExecuteQuery(self):
+		(db,kwargs)=self.popJob()
+		if db is None: return
+		self.stats.startCollecting() 
+		access=kwargs['access']
+		del kwargs['access']
+		query=db.createBoxQuery(**kwargs)
+		db.beginBoxQuery(query)
+		while db.isQueryRunning(query):
+			result=None 
+			try:
+				result=await db.executeBoxQuery(access, query)
+			except Exception as ex: # was without Exception
+				logger.info(f"db.executeBoxQuery FAILED {ex}")
+			except: # this is needed for pyoidide
+				logger.info(f"db.executeBoxQuery FAILED unknown-error")
+				
+			if result is None: break
+			self.pushResult(result)
+			await SleepMsec(0)
+			db.nextBoxQuery(query)
+		self.stats.stopCollecting()
 
 	# start
 	def start(self):
-		self.task=asyncio.create_task(self.myAsyncLoop()) 
+		self.task=AddAsyncLoop(f"{self}.QueryNodeLoop",self.asyncExecuteQuery, msec=50) 
 
 	# stop
 	def stop(self):
@@ -155,6 +142,7 @@ class QueryNode:
 
 	# pushJob
 	def pushJob(self, db, **kwargs):
+		logger.info(f"pushed new job {db}")
 		self.job=[db,kwargs]
 
 	# popJob
@@ -169,8 +157,6 @@ class QueryNode:
 	def popResult(self, last_only=True):
 		ret, self.result = self.result, None
 		return ret
-  
-
 
 # ///////////////////////////////////////////////////////////////////
 class Dataset(BaseDataset):
@@ -285,39 +271,68 @@ class Dataset(BaseDataset):
 		if verbose:
 			logger.info("Sending params={params.items()}")
 			
-		url=f"{scheme}://{parsed.netloc}{path}"
+		url=f"{scheme}://{parsed.netloc}{path}?" + urllib.parse.urlencode(params)
 
 		aborted=query.aborted
 		if aborted.value: return None
 
-		client = httpx.AsyncClient(verify=False)
-		aborted.client=client
-		response = await client.get(url,params=params )
-		
+		if IsPyodide():
+				# see pyfetch (https://github.com/pyodide/pyodide/blob/main/src/py/pyodide/http.py)
+				import js
+				import pyodide
+				import pyodide.http
+				import pyodide.ffi 
+				import pyodide.webloop
+				
+				options=pyodide.ffi.to_js({"method":"GET", "mode":"cors","cache":"no-cache","redirect":"follow",},dict_converter=js.Object.fromEntries)
+				# https://github.com/pyodide/pyodide/issues/2923
+				def OnError(err): print(f'there were error: {err.message}')
+				js_future = js.fetch(url, options).catch(OnError)
+				assert(isinstance(js_future,pyodide.webloop.PyodideFuture))
+				def OnAborted(): js_future.cancel()
+				aborted.on_aborted=OnAborted
+				response=pyodide.http.FetchResponse(url,await js_future)
+				response.status_code=response.status
+				response.headers=response.js_response.headers
+
+		else:
+			import httpx
+			client = httpx.AsyncClient(verify=False)
+			def OnAborted(): client.close()
+			aborted.on_aborted=OnAborted
+			response = await client.get(url)
+				
 		if aborted.value:
 			return None
 
-		logger.info(f"httpx [{response.status_code}] {response.url}")
+		logger.info(f"[{response.status_code}] {response.url}")
 		if response.status_code!=200:
 			if not aborted.value: logger.info(f"Got unvalid response {response.status_code}")
 			return None
 
+		# get the body
 		try:
-			body=response.content	
-		except:
-			if not aborted.value: logger.info(f"Got unvalid response {aborted.value}")
-			return None	
+			if IsPyodide():
+				body=await response.bytes()
+			else:
+				body=response.content
+		except Exception as ex:
+			if not aborted.value: logger.info(f"Got unvalid response {ex}")
+			return None			
+		except:	# this is needed for pyoidide
+			if not aborted.value: logger.info(f"Got unvalid response unknown-error")
+			return None
 
 		if verbose:
 			logger.info(f"Got body len={len(body)}")
 			logger.info(f"response headers {response.headers.items()}")
 
-		dtype= response.headers["visus-dtype"].strip()
-
+		dtype     = response.headers["visus-dtype"].strip()
 		compression=response.headers["visus-compression"].strip()
 
 		if compression=="raw" or compression=="":
 			pass
+
 		elif compression=="zip":
 			body=zlib.decompress(body)
 			if verbose:
@@ -342,8 +357,6 @@ class Dataset(BaseDataset):
 		# full-dimension
 		return super().returnBoxQueryData(access, query, data)
 
-
-
 # /////////////////////////////////////////////////////////////////////////////////
 def LoadDataset(url):
 	
@@ -352,10 +365,13 @@ def LoadDataset(url):
 		raise Exception(f"{repr(url)} is not a mod_visus dataset")
 
 	response=requests.get(url,params={'action':'readdataset','format':'xml'},verify=False) 
+	if response.status_code!=200:
+		raise Exception(f"requests.get({url}) returned {response.status_code}")
+
 	assert(response.status_code==200)
 	body=response.text
 	logger.info(f"Got response {body}")
-	  
+	
 	def RemoveAt(cursor):
 		if isinstance(cursor,dict):
 			return {(k[1:] if k.startswith("@") else k):RemoveAt(v) for k,v in cursor.items()}
@@ -401,7 +417,7 @@ def LoadDataset(url):
 		v=[v]
 	ret.fields=[{"name":field["name"],"dtype": field["dtype"]} for field in v]
 	
-	logger.info(str({
+	logger.info(f"LoadDataset returned:\n" + str({
 			"url":ret.url,
 			"bitmask":ret.bitmask,
 			"pdim":ret.pdim,
@@ -426,7 +442,9 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 	I,N=0,len(query.end_resolutions)
 	db.beginBoxQuery(query)
 	while db.isQueryRunning(query):
-		result=RunAsync(db.executeBoxQuery(access, query))
+		result=EnsureFuture(db.executeBoxQuery(access, query))
 		if result is None: break
 		yield result
 		db.nextBoxQuery(query)
+
+

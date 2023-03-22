@@ -21,14 +21,16 @@ class Slice(Widgets):
 		self.current_img   = None
 		self.options={}
 		self.canvas = Canvas(self.color_bar, self.color_mapper, sizing_mode='stretch_both')
+		self.canvas.on_resize=self.onCanvasResize
 		# self.canvas.enableDoubleTap(lambda x,y: self.gotoPoint(self.unproject([x,y])))
 		self.last_logic_box = None
-		self.last_canvas_size = [0,0]
-		self.gui=self.createGui(central_layout=self.canvas.figure, options=show_options)
+		self.gui=self.createGui(central_layout=self.canvas.fig, options=show_options)
 		self.query_node=QueryNode()
+		self.t1=time.time()
+
 
 	# start
-	def start(self,doc=None):
+	def start(self):
 		super().start()
 		self.query_node.start()
 
@@ -36,23 +38,25 @@ class Slice(Widgets):
 	def stop(self):
 		super().stop()
 		self.aborted.setTrue()
-		self.query_node.stop()			
+		self.query_node.stop()	
+
+	# onCanvasResize
+	def onCanvasResize(self):
+		dir=self.getDirection()
+		self.setDirection(dir)
 
 	# onIdle
-	def onIdle(self):
+	async def onIdle(self):
 
-		super().onIdle()
-
-		# ready for jobs?
-		w,h=(self.canvas.getWidth(),self.canvas.getHeight())
-		if w<=0 or h<=0 or not self.db:
+		# not ready for jobs
+		if not self.db:
 			return
 
-		if self.last_canvas_size[0]<=0 and self.last_canvas_size[0]<=0:
-			self.setDirection(self.getDirection())
-			self.last_canvas_size=[w,h]
-			
+		# problem in pyodide, I will not get pixel size until I resize the window (remember)
+		if self.canvas.getWidth()<=0 or self.canvas.getHeight()<=0:
+			return 
 
+		await super().onIdle()
 		self.renderResultIfNeeded()
 		self.pushJobIfNeeded()
 
@@ -202,6 +206,8 @@ class Slice(Widgets):
 		if not self.new_job and str(self.last_logic_box)==str(logic_box):
 			return
 
+		logger.info("pushing new job")
+
 		# abort the last one
 		self.aborted.setTrue()
 		self.query_node.waitIdle()
@@ -241,6 +247,6 @@ class Slice(Widgets):
 			aborted=self.aborted
 		)
 		self.last_logic_box=logic_box
-		self.new_job=False    
+		self.new_job=False
 
   

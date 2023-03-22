@@ -1,9 +1,8 @@
 import os,sys,logging,types,time
 import colorcet
 
-from . utils import cbool
+from . utils import *
 from . backend import LoadDataset
-
 import bokeh
 
 from bokeh.models import Select,LinearColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
@@ -129,11 +128,10 @@ class Widgets:
 		self.widgets.play_sec = Select(title="Play sec",options=["0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
 
 		self.panel_layout=None
-		self.callback=None
+		self.idle_callback=None
 
 	# start
 	def start(self):
-		logger.info(f"{type(self)} start")
 		for it in self.children:
 			it.start()	
 
@@ -143,32 +141,33 @@ class Widgets:
 		for it in self.children:
 			it.stop()		
 
-	# getLayout
-	def getLayout(self, doc=None, is_panel=False, is_notebook=False):
-
-		logger.info(f"{type(self)} getLayout is_panel={is_panel} is_notebook={is_notebook}")
+	# getBokehLayout 
+	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
+	def getBokehLayout(self, doc=None):
+		import bokeh.io
 		doc=bokeh.io.curdoc() if doc is None else doc
-
-		ret=self.gui
-
-		# add the callback only at the top level
-		if is_panel:
-			import panel as pn
-			self.callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
-			if is_notebook:
-				ret=pn.pane.Bokeh(ret)
-				self.panel_layout=ret
+		if IsPyodide():
+			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
 		else:
-			self.callback=doc.add_periodic_callback(self.onIdle, 1000//30)
-
-		# automatically start
+			self.idle_callback=doc.add_periodic_callback(self.onIdle, 1000//30)
 		self.start()
-		
+		return self.gui
+
+	# getPanelLayout
+	def getPanelLayout(self):
+		import panel as pn
+		ret=pn.pane.Bokeh(self.gui)
+		self.panel_layout=ret
+		if IsPyodide():
+			self.idle_callback=AddAsyncLoop(f"{self}::onIdle (panel)",self.onIdle,1000//30)
+		else:
+			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
+		self.start()
 		return ret
 
-
 	# onIdle
-	def onIdle(self):
+	async def onIdle(self):
+
 		self.playNextIfNeeded()
 
 		if self.panel_layout:
@@ -176,7 +175,7 @@ class Widgets:
 			pn.io.push_notebook(self.panel_layout)
 
 		for it in self.children:
-			it.onIdle()
+			await it.onIdle()
 
 	# createGui
 	def createGui(self,central_layout=None,options=[]):

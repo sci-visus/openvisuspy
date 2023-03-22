@@ -1,10 +1,8 @@
-
-import threading,time,logging,queue,types
+import os,sys,time,threading,queue
 import OpenVisus as ov
 
+from .utils import *
 from .backend import BaseDataset
-from .utils   import HumanSize
-from .backend import ExecuteBoxQuery
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +100,7 @@ class QueryNode:
 	# start
 	def start(self):
 		assert(self.thread is None)
-		self.thread = threading.Thread(target=lambda: self._threadLoop(),daemon=True)
+		self.thread = threading.Thread(target=self._threadLoop,daemon=True)
 		self.thread.start()
 
 	# stop
@@ -130,10 +128,17 @@ class QueryNode:
 			self.oqueue.task_done()
 			if not last_only: break
 		return ret
-  
+
 	# _threadLoop
 	def _threadLoop(self):
+
+		t1=None
 		while True:
+
+			if t1 is None or (time.time()-t1)>5.0:
+				logger.info("_threadLoop is Alive")
+				t1=time.time()
+
 			db, kwargs=self.iqueue.get()
 			if db is None: return 
 			self.stats.startCollecting() 
@@ -142,7 +147,13 @@ class QueryNode:
 			query=db.createBoxQuery(**kwargs)
 			db.beginBoxQuery(query)
 			while db.isQueryRunning(query):
-				result=db.executeBoxQuery(access, query)
+				try:
+					result=db.executeBoxQuery(access, query)
+				except Exception as ex:
+					if not query.aborted.value:
+						logger.info(f"db.executeBoxQuery failed {ex}")
+					break
+
 				if result is None: break
 				if self.oqueue:
 					self.oqueue.put(result)
@@ -163,7 +174,7 @@ class Dataset (BaseDataset):
 		self.url=url
 		self.inner=ov.LoadDataset(url)
 		
-	 # getUrl
+	# getUrl
 	def getUrl(self):
 		return self.url       
 
@@ -213,7 +224,6 @@ class Dataset (BaseDataset):
 
 	# ///////////////////////////////////////////////////////////////////////////
 
-	# createBoxQuery
 	def createBoxQuery(self, *args,**kwargs):
 
 		query=super().createBoxQuery(*args,**kwargs)
@@ -269,7 +279,6 @@ class Dataset (BaseDataset):
 def LoadDataset(url):
 	return Dataset(url)
 
-
 # ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 def ExecuteBoxQuery(db,*args,**kwargs):
 	access=kwargs['access'];del kwargs['access']
@@ -282,6 +291,3 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 		if result is None: break
 		yield result
 		db.nextBoxQuery(query)
-
-	
-	

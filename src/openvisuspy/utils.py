@@ -1,6 +1,56 @@
 
 import numpy as np
-import os,sys,logging,asyncio
+import os,sys,logging,asyncio,time
+
+logger = logging.getLogger(__name__)
+
+# ///////////////////////////////////////////////
+def IsPyodide():
+	return "pyodide" in sys.modules
+
+# ///////////////////////////////////////////////
+def IsPanelServe():
+	return "panel.command.serve" in sys.modules 
+
+# ///////////////////////////////////////////////
+def GetBackend():
+	ret=os.environ.get("VISUS_BACKEND", "py" if IsPyodide() else "cpp")
+	assert(ret=="cpp" or ret=="py")
+	return ret
+
+# ///////////////////////////////////////////////
+async def SleepMsec(msec):
+	await asyncio.sleep(msec/1000.0)
+
+# ///////////////////////////////////////////////
+def AddAsyncLoop(name, fn, msec):
+
+	# do I need this?
+	if False and not IsPyodide():
+		loop = asyncio.get_event_loop()
+		if loop is None:
+			logger.info(f"Setting new event loop")
+			loop=asyncio.new_event_loop() 
+			asyncio.set_event_loop(loop)
+
+	async def MyLoop():
+		t1=time.time()
+		while True:
+			if (time.time()-t1)>5.0:
+				logger.info(f"{name} is alive...")
+				t1=time.time()
+			try:
+				await fn()
+			except Exception as ex:
+				logger.info(f"ERROR {fn} : {ex}")
+			await SleepMsec(msec)
+
+	return asyncio.create_task(MyLoop())			 
+
+
+# ///////////////////////////////////////////////////////////////////
+def EnsureFuture(coroutine):
+	asyncio.ensure_future(coroutine)
 
 # ///////////////////////////////////////////////////////////////////
 def cbool(value):
@@ -50,7 +100,8 @@ def SetupLogger(logger, output_stdout:bool=True, log_filename:str=None, logging_
 	if output_stdout:
 		handler=logging.StreamHandler()
 		handler.setLevel(logging_level)
-		handler.setFormatter(logging.Formatter(fmt=f"[%(asctime)s][%(levelname)s][%(name)s] %(message)s", datefmt="%H%M%S"))
+
+		handler.setFormatter(logging.Formatter(fmt=f"[%(asctime)s][%(levelname)s][%(name)s:%(lineno)d:%(funcName)s] %(message)s", datefmt="%H%M%S"))
 		logger.addHandler(handler)
 	
 	# file
@@ -58,7 +109,7 @@ def SetupLogger(logger, output_stdout:bool=True, log_filename:str=None, logging_
 		os.makedirs(os.path.dirname(log_filename),exist_ok=True)
 		handler=logging.FileHandler(log_filename)
 		handler.setLevel(logging_level)
-		handler.setFormatter(logging.Formatter(fmt=f"[%(asctime)s][%(levelname)s][%(name)s] %(message)s", datefmt="%H%M%S"))
+		handler.setFormatter(logging.Formatter(fmt=f"[%(asctime)s][%(levelname)s][%(name)s:%(lineno)d:%(funcName)s] %(message)s", datefmt="%H%M%S"))
 		logger.addHandler(handler)
 
 

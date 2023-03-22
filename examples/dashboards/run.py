@@ -2,13 +2,18 @@ import os,sys,logging
 
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
-	logger=logging.getLogger("openvisuspy")
-	logger.setLevel(logging.DEBUG)
-	is_panel="--panel" in sys.argv
-	logger.info(f"sys.argv={sys.argv}")
-	
-	from openvisuspy import Slice, Slices,cbool,ServeApp
-	
+
+	num_views=3 if "--multi" in sys.argv else 1
+
+	# need to set before importing openvisuspy
+	if "--py" in sys.argv:
+		os.environ["VISUS_BACKEND"]="py"
+
+	from openvisuspy import SetupLogger,IsPanelServe
+	SetupLogger(logging.getLogger("openvisuspy"))
+
+	from openvisuspy import Slice, Slices,cbool
+
 	# defaults
 	logic_to_pixel=[(0.0,1.0), (0.0,1.0), (0.0,1.0)]
 	view_dep=True
@@ -17,9 +22,7 @@ if __name__.startswith('bokeh'):
 	num_refinements=3
 	directions=[('0','X'),('1','Y'),('2','Z')]
 
-	
-	num_views=2
-	dataset="chess"
+	dataset="david"
 
 	if dataset=="david":
 		urls=["http://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1"]
@@ -63,8 +66,29 @@ if __name__.startswith('bokeh'):
 	view.setViewDependent(view_dep) 
 	view.setDirections(directions)
 
-	main_layout=view.getLayout(is_panel=is_panel)
-	ServeApp(main_layout, is_panel=is_panel)
+	if IsPanelServe():
+		# need to create a Holoviz Panel Bokeh layout
+		import panel as pn
+		from panel.template import DarkTheme
+		pn.extension(sizing_mode='stretch_both')
+		from panel.template import DarkTheme
+		app = pn.template.MaterialTemplate(
+			title='Openvisus-Panel',
+			logo ="https://www.sci.utah.edu/~pascucci/public/NSDF-smaller.PNG",
+			site_url ="https://nationalsciencedatafabric.org/",
+			header_background="#303050",
+			theme=DarkTheme) 
+		main_layout=view.getPanelPayout()
+		app.main.append(main_layout) 
+		app.servable()
 
-		 
+	else:
+		import bokeh
+		doc=bokeh.io.curdoc()
+		main_layout=view.getBokehLayout(doc=doc)
+		doc.add_root(main_layout)	
+	
+
+
+		
 

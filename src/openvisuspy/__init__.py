@@ -1,6 +1,8 @@
+# non gui part
+from .utils      import *
+from .backend    import LoadDataset, ExecuteBoxQuery
 
-from .utils      import SetupLogger, cbool
-from .backend    import LoadDataset, ExecuteBoxQuery,  ServeApp
+# gui parn
 from .slice      import Slice
 from .slices     import Slices
-from .bokeh_app  import ShowApp,TestApp
+from .app        import ShowBokehApp, BokehBokehApp, GetPanelApp
