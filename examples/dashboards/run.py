@@ -3,30 +3,24 @@ import os,sys,logging
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
 
-	num_views=1
-
 	if "--multi" in sys.argv:
 		num_views=3
-
-	if "--single" in sys.argv:
+	elif "--single" in sys.argv:
 		num_views=1
-
-
-	backend="cpp"
+	else:
+		num_views=1
 
 	if "--py" in sys.argv:
 		backend="py"
+		os.environ["VISUS_BACKEND"]=backend
 	
 	if "--cpp" in sys.argv:
 		backend="cpp"
+		os.environ["VISUS_BACKEND"]=backend
 
-	# need to set before importing openvisuspy
-	os.environ["VISUS_BACKEND"]=backend
-
-	from openvisuspy import SetupLogger,IsPanelServe
-	SetupLogger()
-
-	from openvisuspy import Slice, Slices,cbool
+	from openvisuspy import SetupLogger,IsPanelServe,GetBackend,Slice, Slices,cbool
+	logger=SetupLogger()
+	logger.info(f"GetBackend()={GetBackend()}")
 
 	# defaults
 	logic_to_pixel=[(0.0,1.0), (0.0,1.0), (0.0,1.0)]

@@ -22,6 +22,8 @@ Useful links:
 - https://pyodide.org/en/stable/usage/packages-in-pyodide.html
 - https://jeff.glass/post/whats-new-pyscript-2023-03-1/
 - https://panel.holoviz.org/user_guide/Running_in_Webassembly.html
+- https://pyodide.org/en/stable/project/about.html
+- https://pyodide.org/en/stable/usage/packages-in-pyodide.html
 
 See [https://github.com/sci-visus/OpenVisus]()
 
@@ -47,54 +49,50 @@ set BOKEH_LOG_LEVEL=debug
 Tests:
 
 ```
-python3 examples/pyscript/server.py --directory ./
-# http://localhost:8000/examples/pyscript/index.html 
-# CTRL + ALT + I
-# remember to resize the window
-
-# cpp-bokeh-single (OK)
+# [OK] cpp-bokeh-single 
 python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args -cpp --single
 
-# cpp-bokeh-multi (OK)
+# [OK] cpp-bokeh-multi 
 python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args -cpp --multi
 
-# cpp-panel-single (OK)
+# [OK] cpp-panel-single 
 python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args -cpp --single
 
-# cpp-panel-multi (OK)
+# [OK] cpp-panel-multi 
 python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args -cpp --multi
 
-# py-bokeh-single (OK)
+# [OK] py-bokeh-single 
 python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --single
 
-# py-bokeh-multi (OK)
+# [OK] py-bokeh-multi 
 python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --multi
 
-# py-panel-single (OK)
+# [OK] py-panel-single 
 python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --single
 
-# py-panel-multi (OK)
+# [OK] py-panel-multi 
 python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --multi
 
-
-
-set VISUS_BACKEND=cpp
+# [OK] cpp-jupyter-notebooks
 python -m jupyter notebook ./examples/notebooks 
 
-
+# [OK] jupyter notebooks
+set VISUS_BACKEND=py
 python -m jupyter notebook ./examples/notebooks 
 
+# [OK] pyscript
+python3 examples/server.py --directory ./
+# http://localhost:8000/examples/pyscript/index.html  (REMEMBER to resize the window)
 
 ```
 
-Upload wheel:
+# Upload wheel
 - update `PROJECT_VERSION` in `pyproject.toml`
-- set `PYPI_USER=scrgiorgio` in your shell
-- set `PYPI_TOKEN="..."` in yout shell
+
 ```
 # 
-rm -f dist/* && python3 -m build .
-python3 -m twine upload --username ${PYPI_USER}  --password ${PYPI_TOKEN} --skip-existing   "dist/*.whl" 
+rm -f dist/*  && python3 -m build .
+python3 -m twine upload --username <your-username>  --password <your-password> --skip-existing   "dist/*.whl" 
 # check on pyodide REPL `https://pyodide.org/en/stable/console.html` if you can import openvisus
 ```
 
@@ -103,13 +101,15 @@ python3 -m twine upload --username ${PYPI_USER}  --password ${PYPI_TOKEN} --skip
 Links 
 - https://panel.holoviz.org/user_guide/Running_in_Webassembly.html#setting-up-jupyterlite
 - https://panelite.holoviz.org/lab/index.html
-- see other directorh with docs from openvisus=wasm
+- see other directories with docs from openvisus=wasm
 
 
-# OLD (backup)
+
+# BACKUP
 
 ```
-python -m panel convert  --skip-embed  --to pyodide-worker --out "tmp/" --requirements openvisuspy numpy requests xmltodict bokeh panel xyzservices colorcet nest-asyncio --watch "./examples/dashboards/run.py"
+set VISUS_BACKEND=py
+python -m panel convert --skip-embed --to pyodide-worker --out "tmp/" --requirements ... --watch "./examples/dashboards/run.py"
+python3 examples/pyscript/server.py --directory ./tmp
 # http://localhost:8000/run.html 
-```
 ```
