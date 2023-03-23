@@ -85,11 +85,10 @@ It seems that jupyter lite builds the output based on installed packages.
 There should be other ways (by JSON file or command line) but for now creating a virtual env is good enough
 
 ```
-mkdir -p /tmp/openvisuspy-lite
-cd /tmp/openvisuspy-lite
+ENV=/tmp/openvisuspy-lite2
 
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv ${ENV}
+source ${ENV}/bin/activate
 python3 -m pip install \
     jupyterlite==0.1.0b20 pyviz_comms numpy pandas requests xmltodict xyzservices pyodide-http colorcet \
     https://cdn.holoviz.org/panel/0.14.3/dist/wheels/bokeh-2.4.3-py3-none-any.whl \
@@ -97,18 +96,13 @@ python3 -m pip install \
     openvisuspy==0.0.20 \
     jupyter_server # this is needed to see the list of files
 
+rm -Rf ${ENV}/_output
+jupyter lite build --contents ./examples/notebooks --output-dir ${ENV}/_output
 
-mkdir -p ./examples
-cp /mnt/c/projects/openvisuspy/examples/lite/* ./examples/
 
-rm -Rf ./_output
-
-# jupyter lite init  
-jupyter lite build --contents examples 
-jupyter lite serve --contents examples --port 10722 # change port for avoiding caching
-
-#or 
-python3 -m http.server --directory ./_output --bind localhost 10722
+# change port for avoiding caching
+python3 -m http.server --directory ${ENV}/_output --bind localhost 10722
+# jupyter lite serve --contents ./examples/notebooks --output-dir ${ENV}/_output --port 19722 
 ```
 
 
