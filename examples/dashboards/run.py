@@ -30,18 +30,18 @@ if __name__.startswith('bokeh'):
 	num_refinements=3
 	directions=[('0','X'),('1','Y'),('2','Z')]
 
-	dataset="david"
+	dataset="david_subsampled"
 
-	if dataset=="david":
-		urls=["http://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1"]
+	if dataset=="david_subsampled":
+		urls=["https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1"]
 		palette,palette_range="Greys256",(0,255)		
 
 	if dataset=="2kbit1":
-		urls=["http://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=1"]
+		urls=["https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=1"]
 		palette,palette_range="Greys256",(0,255)
 
-	if dataset=="chess":
-		urls=['http://atlantis.sci.utah.edu:80/mod_visus?dataset=chess-zip&cached=1']
+	if dataset=="chess-zip":
+		urls=['https://atlantis.sci.utah.edu/mod_visus?dataset=chess-zip&cached=1']
 		palette,palette_range="Viridis256",[-0.017141795,0.012004322]
 
 	if dataset=="nasa":

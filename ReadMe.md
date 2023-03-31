@@ -70,25 +70,33 @@ python -m jupyter notebook ./examples/notebooks
 
 # PyScript (py only)
 
-Just open http://localhost:8000/examples/pyscript/index.html  
-- will work only with VISUS_BACKEND=py
-- REMEMBER to resize the window, otherwise it will not work
+ Will work only with VISUS_BACKEND=py
+
 
 ```
 # [OK] pyscript
 python3 examples/server.py --directory ./
 ```
 
+**REMEMBER to resize the window, otherwise it will not work**
+
+- http://localhost:8000/examples/pyscript/index.html 
+- http://localhost:8000/examples/pyscript/2kbit1.html 
+- http://localhost:8000/examples/pyscript/chess_zip.html 
+- http://localhost:8000/examples/pyscript/david_subsampled.html
+
 # JupyterLite (py only)
 
 It seems that jupyter lite builds the output based on installed packages.
+
 There should be other ways (by JSON file or command line) but for now creating a virtual env is good enough
 
 ```
-ENV=/tmp/openvisuspy-lite2
-
+ENV=/tmp/openvisuspy-lite-last
 python3 -m venv ${ENV}
 source ${ENV}/bin/activate
+
+# you need to have exactly the same package version inside your jupyter notebook (see 12-jupyterlite.ipynb)
 python3 -m pip install \
     jupyterlite==0.1.0b20 pyviz_comms numpy pandas requests xmltodict xyzservices pyodide-http colorcet \
     https://cdn.holoviz.org/panel/0.14.3/dist/wheels/bokeh-2.4.3-py3-none-any.whl \
@@ -96,15 +104,16 @@ python3 -m pip install \
     openvisuspy==0.0.20 \
     jupyter_server # this is needed to see the list of files
 
-rm -Rf ${ENV}/_output
-jupyter lite build --contents ./examples/notebooks --output-dir ${ENV}/_output
-
+rm -Rf ${ENV}/_output && jupyter lite build --contents /mnt/c/projects/openvisuspy/examples/notebooks --output-dir ${ENV}/_output
 
 # change port for avoiding caching
-python3 -m http.server --directory ${ENV}/_output --bind localhost 10722
+python3 -m http.server --directory ${ENV}/_output --bind localhost 14445
 # jupyter lite serve --contents ./examples/notebooks --output-dir ${ENV}/_output --port 19722 
-```
 
+rsync -arv ${ENV}/_output/* scrgiorgio@shell.sci.utah.edu:www/demos/202303-1/jupyterlite/
+
+# https://www.sci.utah.edu/~scrgiorgio/demos/202303-1/jupyterlite
+```
 
 # Upload wheel
 
@@ -116,7 +125,6 @@ python3 -m build .
 python3 -m twine upload --username <your-username>  --password <your-password> --skip-existing   "dist/*.whl" 
 # check on pyodide REPL `https://pyodide.org/en/stable/console.html` if you can import the pure python wheel
 ```
-
 
 # Useful/Inspiring links:
 
@@ -156,3 +164,13 @@ List:
 - https://stackoverflow.com/questions/75279664/can-html-with-pyscript-run-python-files-without-freezing-everything-on-the-webpa
 
 
+# Demos
+
+```
+scp examples/pyscript/* scrgiorgio@shell.sci.utah.edu:www/openvisuspy/examples/pyscript/
+
+# https://www.sci.utah.edu/~scrgiorgio/openvisuspy/examples/pyscript/david_subsampled.html
+# https://www.sci.utah.edu/~scrgiorgio/openvisuspy/examples/pyscript/2kbit1.html
+# https://www.sci.utah.edu/~scrgiorgio/openvisuspy/examples/pyscript/chess_zip.html
+
+```
