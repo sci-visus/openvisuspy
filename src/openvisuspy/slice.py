@@ -43,7 +43,9 @@ class Slice(Widgets):
 	# onCanvasResize
 	def onCanvasResize(self):
 		dir=self.getDirection()
+		offset=self.getOffset()
 		self.setDirection(dir)
+		self.setOffset(offset)
 
 	# onIdle
 	async def onIdle(self):

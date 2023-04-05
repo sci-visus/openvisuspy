@@ -163,7 +163,7 @@ class Widgets:
 	# getPanelLayout
 	def getPanelLayout(self):
 		import panel as pn
-		ret=pn.pane.Bokeh(self.gui)
+		ret=pn.pane.Bokeh(self.gui,sizing_mode="stretch_both")
 		self.panel_layout=ret
 		if IsPyodide():
 			self.idle_callback=AddAsyncLoop(f"{self}::onIdle (panel)",self.onIdle,1000//30)

@@ -11,7 +11,7 @@ set AWS_SECRET_ACCESS_KEY=any
 set AWS_ENDPOINT_URL=https://maritime.sealstorage.io/api/v0/s3
 
 # in case you want verbose logs
-set VISUS_CPP_VERBOSE=0
+set VISUS_CPP_VERBOSE=1
 set VISUS_NETSERVICE_VERBOSE=0
 
 # dangerous for debugging-only settings
@@ -33,6 +33,9 @@ python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --
 
 # [OK] py-bokeh-multi 
 python -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --multi
+
+# NASA 200TB example
+python -m bokeh serve "examples/dashboards/nasa.py"  --dev --address localhost --port 8888 --args -cpp --single
 
 # [OK] jupyter-notebooks
 set VISUS_BACKEND=cpp
@@ -57,6 +60,9 @@ python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --
 
 # [OK] py-panel-multi 
 python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --multi
+
+# NASA 200TB example
+python -m panel serve "examples/dashboards/nasa.py"  --dev --address localhost --port 8888 --args -cpp --single
 
 # [OK] cpp-jupyter-notebooks
 set VISUS_BACKEND=cpp
