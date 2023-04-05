@@ -128,7 +128,7 @@ rsync -arv ${ENV}/_output/* scrgiorgio@shell.sci.utah.edu:www/demos/202303-1/jup
 ```
 rm -f dist/*  
 python3 -m build .
-python3 -m twine upload --username <your-username>  --password <your-password> --skip-existing   "dist/*.whl" 
+python3 -m twine upload --username "<your-username>"  --password "<your-password>" --skip-existing "dist/*.whl" 
 # check on pyodide REPL `https://pyodide.org/en/stable/console.html` if you can import the pure python wheel
 ```
 
