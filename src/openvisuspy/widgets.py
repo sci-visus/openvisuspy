@@ -132,7 +132,7 @@ class Widgets:
 		self.play.is_playing=False
 		self.widgets.play_button = Button(label="Play",width=80,sizing_mode='stretch_height')
 		self.widgets.play_button.on_click(self.togglePlay)
-		self.widgets.play_sec = Select(title="Play sec",options=["0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
+		self.widgets.play_sec = Select(title="Play sec",options=["0.0", "0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
 
 		self.panel_layout=None
 		self.idle_callback=None
