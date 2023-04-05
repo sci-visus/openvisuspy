@@ -23,12 +23,12 @@ if __name__.startswith('bokeh'):
 	logger.info(f"GetBackend()={GetBackend()}")
 
 	view=Slices(
-		show_options=["palette","timestep","timestep-delta","field","play-button", "play-sec"],
+		show_options=["palette","timestep","timestep-delta","field","quality","play-button", "play-sec"],
 		slice_show_options=["direction","offset","status_bar"])
 
 	view.setNumberOfViews(num_views)  
 	view.setDataset("https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_arco/visus.idx?&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=idx")
-	view.setPalette("colorcet.rainbow4")
+	view.setPalette("colorcet.coolwarm")
 	view.setPaletteRange([-0.25256651639938354, 0.3600933849811554])
 	view.setTimestepDelta(10)
 	view.setTimestep(2015)
