@@ -90,8 +90,9 @@ class Widgets:
 		self.widgets.timestep.on_change ("value",lambda attr, old, new: self.setTimestep(int(new)))
 
 		# timestep delta
-		self.widgets.timestep_delta=Select(title="Time delta",options=["1","2","5","10","50","100","200"], value="1",width=100)
-		self.widgets.timestep_delta.on_change("value", lambda attr, old, new: self.setTimestepDelta(int(new)))   
+		speed_options=["1x","2x","4x","8x","16x","32x","64x","128x"]
+		self.widgets.timestep_delta=Select(title="Speed",options=speed_options, value=speed_options[0],width=100)
+		self.widgets.timestep_delta.on_change("value", lambda attr, old, new: self.setTimestepDelta(self.speedFromOption(new)))   
 
 		# field
 		self.widgets.field = Select(title='Field',  options=[],value='data',width=100)
@@ -132,7 +133,7 @@ class Widgets:
 		self.play.is_playing=False
 		self.widgets.play_button = Button(label="Play",width=80,sizing_mode='stretch_height')
 		self.widgets.play_button.on_click(self.togglePlay)
-		self.widgets.play_sec = Select(title="Play sec",options=["0.0", "0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
+		self.widgets.play_sec = Select(title="Frame delay",options=["0.00","0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
 
 		self.panel_layout=None
 		self.idle_callback=None
@@ -330,14 +331,22 @@ class Widgets:
 		self.widgets.timestep.end   =  value[-1]
 		self.widgets.timestep.step  = 1
 
+	# speedFromOption
+	def speedFromOption (self,option):
+                return (int(option[:-1]))
+
+	# optionFromSpeed
+	def optionFromSpeed (self,speed):
+                return (str(speed)+"x")
+
 	# getTimestepDelta
 	def getTimestepDelta(self):
-		return int(self.widgets.timestep_delta.value)
+		return self.speedFromOption(self.widgets.timestep_delta.value)
 
 	# setTimestepDelta
 	def setTimestepDelta(self,value):
 		logger.info(f"Widgets[{self.id}]::setTimestepDelta value={value}")
-		self.widgets.timestep_delta.value=str(value)
+		self.widgets.timestep_delta.value=self.optionFromSpeed (value)
 		self.widgets.timestep.step=value
 		A=self.widgets.timestep.start
 		B=self.widgets.timestep.end
