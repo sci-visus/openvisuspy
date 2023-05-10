@@ -2,9 +2,12 @@
 
 The official OpenVisus C++ GitHub repository is [here](https://github.com/sci-visus/OpenVisus).
 
+
 # Install openvisuspy
 
 Create a virtual environment. This step is optional, but best to avoid conflicts:
+
+- for windows users you can do `doskey python3=python $*` and `.venv/Scripts/activate.bat`
 
 ```
 python3 -m venv .venv
@@ -20,6 +23,7 @@ python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matp
 
 Next, nstall Openvisus packages. 
 
+
 If you **do not need the OpenVisus viewer** (or if you are in Windows WSL):
 
 ```
@@ -33,6 +37,12 @@ if **you do need the OpenVisus viewer**:
 python3 -m pip install --upgrade OpenVisus
 python3 -m OpenVisus configure 
 python3 -m pip install --upgrade openvisuspy 
+```
+
+if you are in debugging mode you may want to reference your local packages:
+
+```
+export PYTHONPATH=./src;/projects/OpenVisus/build/RelWithDebInfo
 ```
 
 # Examples

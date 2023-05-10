@@ -113,9 +113,8 @@ class BaseDataset:
 		# this is the query I need
 		end_resolutions=list(reversed([endh-pdim*I for I in range(num_refinements) if endh-pdim*I>=0]))
 
-		# need to align to make sure I have all progression needed
-		# (i.e. the first resolution must get something!)
-		logic_box, delta, num_pixels=self.getAlignedBox(logic_box, end_resolutions[0], slice_dir=slice_dir)
+		# scrgiorgio: end_resolutions[0] is wrong, I need to align to the finest resolution
+		logic_box, delta, num_pixels=self.getAlignedBox(logic_box, end_resolutions[-1], slice_dir=slice_dir)
 
 		logic_box=[
 			[int(it) for it in logic_box[0]],
