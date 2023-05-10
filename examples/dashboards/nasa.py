@@ -31,7 +31,7 @@ if __name__.startswith('bokeh'):
 	view.setDataset(f"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_arco/visus.idx?&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=idx")
 	view.setPalette("colorcet.coolwarm")
 	view.setPaletteRange([-0.25256651639938354, 0.3600933849811554])
-	view.setTimestepDelta(10)
+	view.setTimestepDelta(4)
 	view.setTimestep(2015)
 	view.setField(view.getField())
 	view.setQuality(-6)
