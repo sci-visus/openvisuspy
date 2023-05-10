@@ -45,6 +45,15 @@ python3 -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost -
 python3 -m bokeh serve "examples/dashboards/nasa.py" --dev --address localhost --args --single
 ```
 
+Other misc examples:
+
+```
+python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1" --palette Greys256    --palette-range "[0, 255]"
+python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=1"           --palette Greys256    --palette-range "[0, 255]"
+python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=chess-zip&cached=1"        --palette Viridis256  --palette-range "[-0.017141795, 0.012004322]" --num-views 3 
+
+```
+
 ## Panel Dashboards 
 
 ```
