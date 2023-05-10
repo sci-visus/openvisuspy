@@ -27,7 +27,6 @@ class BaseDataset:
 		
 		num_pixels=[(p2[I]-p1[I])//delta[I] for I in range(pdim)]
 
-		# print(f"getAlignedBox endh={endh} box={[p1,p2]} delta={delta} num_pixels={num_pixels}")
 
 		#  force to be a slice?
 		# REMOVE THIS!!!
@@ -36,6 +35,8 @@ class BaseDataset:
 			p2[slice_dir]=offset+0
 			p2[slice_dir]=offset+1
 		
+		print(f"!!!!!!!!!!!!!!!!!! getAlignedBox logic_box={logic_box} endh={endh} slice_dir={slice_dir} (p1,p2)={(p1,p2)} delta={delta} num_pixels={num_pixels}")
+
 		return (p1,p2), delta, num_pixels
 
 	# createBoxQuery
@@ -113,9 +114,11 @@ class BaseDataset:
 		# this is the query I need
 		end_resolutions=list(reversed([endh-pdim*I for I in range(num_refinements) if endh-pdim*I>=0]))
 
-		# need to align to make sure I have all progression needed
-		# (i.e. the first resolution must get something!)
-		logic_box, delta, num_pixels=self.getAlignedBox(logic_box, end_resolutions[0], slice_dir=slice_dir)
+		# WRONG
+		# logic_box, delta, num_pixels=self.getAlignedBox(logic_box, end_resolutions[0], slice_dir=slice_dir)
+
+		# NOTE: I need to align the box to the final resolution otherwise I mask stuff too much
+		logic_box, delta, num_pixels=self.getAlignedBox(logic_box, end_resolutions[-1], slice_dir=slice_dir)
 
 		logic_box=[
 			[int(it) for it in logic_box[0]],
