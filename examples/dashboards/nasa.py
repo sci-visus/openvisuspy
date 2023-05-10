@@ -27,7 +27,13 @@ if __name__.startswith('bokeh'):
 		slice_show_options=["direction","offset","status_bar"])
 
 	view.setNumberOfViews(num_views)  
-	view.setDataset("https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_arco/visus.idx?&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=idx")
+
+	# SealStorage public read-only credentials
+	ACCESS_KEY="any"
+	SECRET_KEY="any"
+	ENDPOINT_URL="https://maritime.sealstorage.io/api/v0/s3"
+
+	view.setDataset(f"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_arco/visus.idx?&access_key={ACCESS_KEY}&secret_key={SECRET_KEY}&endpoint_url={ENDPOINT_URL}&cached=idx")
 	view.setPalette("colorcet.coolwarm")
 	view.setPaletteRange([-0.25256651639938354, 0.3600933849811554])
 	view.setTimestepDelta(10)
