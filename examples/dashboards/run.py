@@ -8,7 +8,7 @@ if __name__.startswith('bokeh'):
 	parser.add_argument("--dataset", type=str, required=False,default=["https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1"], nargs='+', )
 	parser.add_argument("--palette", type=str, required=False, default="Greys256")
 	parser.add_argument("--palette-range", type=str, required=False, default="[0.0,255.0]")
-	parser.add_argument("--logic-to-pixel", type=str, required=False, default="[(0.0,1.0), (0.0,1.0), (0.0,10.0)]")
+	parser.add_argument("--logic-to-pixel", type=str, required=False, default="[(0.0,1.0), (0.0,1.0), (0.0,1.0)]")
 	parser.add_argument('--no-view-dep', action='store_true')
 	parser.add_argument("--quality", type=int, required=False, default=0)
 	parser.add_argument("--timestep", type=int, required=False, default=None)
