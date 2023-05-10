@@ -27,7 +27,6 @@ class BaseDataset:
 		
 		num_pixels=[(p2[I]-p1[I])//delta[I] for I in range(pdim)]
 
-		# print(f"getAlignedBox endh={endh} box={[p1,p2]} delta={delta} num_pixels={num_pixels}")
 
 		#  force to be a slice?
 		# REMOVE THIS!!!
@@ -36,6 +35,8 @@ class BaseDataset:
 			p2[slice_dir]=offset+0
 			p2[slice_dir]=offset+1
 		
+		print(f"!!!!!!!!!!!!!!!!!! getAlignedBox logic_box={logic_box} endh={endh} slice_dir={slice_dir} (p1,p2)={(p1,p2)} delta={delta} num_pixels={num_pixels}")
+
 		return (p1,p2), delta, num_pixels
 
 	# createBoxQuery
