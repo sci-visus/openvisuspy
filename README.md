@@ -39,9 +39,12 @@ python3 -m OpenVisus configure
 python3 -m pip install --upgrade openvisuspy 
 ```
 
-if you are in debugging mode you may want to reference your local packages:
+if you are in **debugging mode** you may want to reference your local packages:
 
 ```
+python3 -m pip uninstall OpenVisusNoGui
+python3 -m pip uninstall OpenVisus
+python3 -m pip uninstall openvisuspy 
 export PYTHONPATH=./src;/projects/OpenVisus/build/RelWithDebInfo
 ```
 

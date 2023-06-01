@@ -27,6 +27,7 @@ class Slice(Widgets):
 		self.gui=self.createGui(central_layout=self.canvas.fig, options=show_options)
 		self.query_node=QueryNode()
 		self.t1=time.time()
+		self.H=None
 
 
 	# start
@@ -195,6 +196,7 @@ class Slice(Widgets):
 		tot_pixels=data.shape[0]*data.shape[1]
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
 		MaxH=self.db.getMaxResolution()
+		self.H=result['H']
 		self.widgets.status_bar["response"].value=f"{result['I']}/{result['N']} {str(logic_box).replace(' ','')} {data.shape[0]}x{data.shape[1]} H={result['H']}/{MaxH} {result['msec']}msec"
 		self.render_id+=1     
   

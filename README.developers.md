@@ -17,7 +17,8 @@ export VISUS_NETSERVICE_VERBOSE=0
 export PYTHONPATH=${PWD}/src
 ```
 
-To deploy new binaries, update the `PROJECT_VERSION` inside `pyproject.toml`:
+To deploy new binaries:
+- update the `PROJECT_VERSION` inside `pyproject.toml`:
 
 ```
 export PYPI_USERNAME="scrgiorgio"
