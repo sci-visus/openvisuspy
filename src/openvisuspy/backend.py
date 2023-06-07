@@ -47,7 +47,8 @@ class BaseDataset:
 		max_pixels=None, 
 		endh=None, 
 		num_refinements=1, 
-		aborted=None
+		aborted=None,
+		full_dim=False,
 	):
 
 		pdim=self.getPointDim()
@@ -88,7 +89,7 @@ class BaseDataset:
 			slice_dir=None
 			for I in range(pdim):
 				# *************** is a slice? *******************
-				if pdim==3 and (p2[I]-p1[I])==1:
+				if not full_dim and  pdim==3 and (p2[I]-p1[I])==1:
 					assert slice_dir is None 
 					slice_dir=I
 					p1[I]=Clamp(p1[I],0,dims[I])

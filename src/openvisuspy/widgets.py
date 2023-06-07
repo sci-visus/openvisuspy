@@ -11,12 +11,12 @@ logger = logging.getLogger(__name__)
 
 PALETTES=[
 	"Greys256", 
-    "Inferno256", 
-    "Magma256", 
-    "Plasma256", 
-    "Viridis256", 
-    "Cividis256", 
-    "Turbo256"
+	"Inferno256", 
+	"Magma256", 
+	"Plasma256", 
+	"Viridis256", 
+	"Cividis256", 
+	"Turbo256"
 	] + [
 		it  for it in [
 		'colorcet.blueternary', 
@@ -333,11 +333,11 @@ class Widgets:
 
 	# speedFromOption
 	def speedFromOption (self,option):
-                return (int(option[:-1]))
+				return (int(option[:-1]))
 
 	# optionFromSpeed
 	def optionFromSpeed (self,speed):
-                return (str(speed)+"x")
+		return (str(speed)+"x")
 
 	# getTimestepDelta
 	def getTimestepDelta(self):
