@@ -85,37 +85,49 @@ class LikeHyperSpy:
 			y_axis_label="f", 
 			toolbar_location=None, 
 			x_range = (0,1), 
-			y_range = palette_range
+			y_range = palette_range,
+			sizing_mode="stretch_both"
 		) 
 
 		# change the offset on the proble plot
 		self.fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
 
-		# where the center of the probe (can be set by double click or using this)
-		self.slider_x_pos=Slider(step=1, title="X coordinate", sizing_mode="stretch_width" )
-		self.slider_x_pos .on_change('value_throttled', lambda attr,old, x: self.addProbe())
+		# probe XY space
+		if True:
 
-		self.slider_y_pos=Slider(value=0, step=1, title="Y coordinate", sizing_mode="stretch_width" )
-		self.slider_y_pos .on_change('value_throttled', lambda attr,old, y: self.addProbe())
+			# where the center of the probe (can be set by double click or using this)
+			self.slider_x_pos=Slider(step=1, title="X coordinate", sizing_mode="stretch_width" )
+			self.slider_x_pos .on_change('value_throttled', lambda attr,old, x: self.addProbe())
 
-		# probe dims (i.e. rect sizes on the left fiew)
-		self.slider_x_dim=Slider(start=1, end=33, value=7, step=2, title="X size")
-		self.slider_x_dim.on_change('value_throttled', lambda attr,old, x: self.refreshAllProbes())	
+			self.slider_y_pos=Slider(value=0, step=1, title="Y coordinate", sizing_mode="stretch_width" )
+			self.slider_y_pos .on_change('value_throttled', lambda attr,old, y: self.addProbe())
 
-		self.slider_y_dim=Slider(start=1, end=33, value=7, step=2, title="Y size")
-		self.slider_y_dim.on_change('value_throttled', lambda attr,old, y: self.refreshAllProbes())
+			# probe dims (i.e. rect sizes on the left fiew)
+			self.slider_x_dim=Slider(start=1, end=33, value=15 , step=2, title="X size")
+			self.slider_x_dim.on_change('value_throttled', lambda attr,old, x: self.refreshAllProbes())	
 
-		# Z range
-		self.slider_z_range = RangeSlider(step=1, title="Z range", sizing_mode="stretch_width" )
-		self.slider_z_range.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
+			self.slider_y_dim=Slider(start=1, end=33, value=15, step=2, title="Y size")
+			self.slider_y_dim.on_change('value_throttled', lambda attr,old, y: self.refreshAllProbes())
 
-		# Z op
-		self.slider_z_op = Select(title="Z op", options=["mean","min-max","median","all"],value="mean") 
-		self.slider_z_op.on_change("value",lambda attr,old, z: self.refreshAllProbes()) 	
+		# probe Z space
+		if True:
 
-		# Z resolution 
-		self.slider_z_res = Slider(start=1, end=self.db.getMaxResolution(), value=self.db.getMaxResolution(), step=1, title="Z res", sizing_mode="stretch_width")
-		self.slider_z_res.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
+			# Z range
+			self.slider_z_range = RangeSlider(step=1, title="Range")
+			self.slider_z_range.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
+
+			# Z resolution 
+			self.slider_z_res = Slider(start=1, end=self.db.getMaxResolution(), value=self.db.getMaxResolution(), step=1, title="Res")
+			self.slider_z_res.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
+
+			# Z op
+			self.slider_z_op = CheckboxButtonGroup(labels=["avg","mM","med","*"], active=[0])
+			self.slider_z_op.on_change("active",lambda attr,old, z: self.refreshAllProbes()) 	
+
+
+
+			self.debug_mode = CheckboxButtonGroup(labels=["Debug"], active=[])
+			self.debug_mode.on_change("active",lambda attr,old, z: self.refreshAllProbes())		
 
 		# add probe in case of double click
 		self.view.canvas.enableDoubleTap(lambda x,y: self.addProbe(pos=(x,y)))
@@ -127,8 +139,6 @@ class LikeHyperSpy:
 		self.view.setDirection = self.setDirection
 		self.setDirection(2)
 
-		self.debug_mode = CheckboxGroup(labels=["Debug"], active=[])
-		self.debug_mode.on_change("active",lambda attr,old, z: self.refreshAllProbes())
 
 	# getLayout
 	def getLayout(self):
@@ -139,10 +149,13 @@ class LikeHyperSpy:
 			Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
 			Row(
 				self.view.getBokehLayout(doc=doc), 
+				
 				Column(
-					Row(self.slider_z_range,self.slider_z_res, self.slider_z_op,self.debug_mode, sizing_mode="stretch_width"),
-					self.fig),
-				sizing_mode="stretch_width"
+					Row(self.debug_mode, self.slider_z_range,self. slider_z_res, self.slider_z_op, sizing_mode="stretch_width"),
+					self.fig,
+					sizing_mode="stretch_both"
+				),
+				sizing_mode="stretch_both"
 			),
 			sizing_mode="stretch_both")		
 
@@ -272,24 +285,27 @@ class LikeHyperSpy:
 				for Y in range(data.shape[1]):
 					ys.append(list(data[Z,Y,:]))
 
-		op=self.slider_z_op.value
+
 		from statistics import mean,median,stdev
-		if op=="mean":
-			probe.renderers.plot.append(self.fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
 
-		elif op=="min-max":
-			probe.renderers.plot.append(self.fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
-			probe.renderers.plot.append(self.fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+		for it in self.slider_z_op.active:
+			op=self.slider_z_op.labels[it]
+		
+			if op=="avg":
+				probe.renderers.plot.append(self.fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
 
-		elif op=="median":
-			probe.renderers.plot.append(self.fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))	
+			if op=="mM":
+				probe.renderers.plot.append(self.fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.renderers.plot.append(self.fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
 
-		elif op=="all":
-			for it in ys:
-				probe.renderers.plot.append(self.fig.line(xs, it, line_width=2, legend_label=probe.color, line_color=probe.color))
+			if op=="med":
+				probe.renderers.plot.append(self.fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))	
+
+			if op=="*":
+				for it in ys:
+					probe.renderers.plot.append(self.fig.line(xs, it, line_width=2, legend_label=probe.color, line_color=probe.color))
 				
-		else:
-			raise Exception("internal error")			
+		
 
 	# addProbe
 	def addProbe(self, I=None, pos=None):
