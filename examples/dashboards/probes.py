@@ -1,8 +1,8 @@
-import os,sys,logging,time,types
+import os,sys,logging,time,types,copy
 import numpy as np
 
 from bokeh.io import show
-from bokeh.models import Range1d,Select,CheckboxButtonGroup,Slider, RangeSlider,Button,Row,Column,Div
+from bokeh.models import Range1d,Select,CheckboxButtonGroup,Slider, RangeSlider,Button,Row,Column,Div,CheckboxGroup
 from bokeh.layouts import column, row
 from bokeh.plotting import figure
 from bokeh.events import ButtonClick,DoubleTap
@@ -114,7 +114,7 @@ class LikeHyperSpy:
 		self.slider_z_op.on_change("value",lambda attr,old, z: self.refreshAllProbes()) 	
 
 		# Z resolution 
-		self.slider_z_res = Slider(start=1, end=100, value=15, step=1, title="Z range %", sizing_mode="stretch_width")
+		self.slider_z_res = Slider(start=1, end=self.db.getMaxResolution(), value=self.db.getMaxResolution(), step=1, title="Z res", sizing_mode="stretch_width")
 		self.slider_z_res.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
 
 		# add probe in case of double click
@@ -127,6 +127,8 @@ class LikeHyperSpy:
 		self.view.setDirection = self.setDirection
 		self.setDirection(2)
 
+		self.debug_mode = CheckboxGroup(labels=["Debug"], active=[])
+		self.debug_mode.on_change("active",lambda attr,old, z: self.refreshAllProbes())
 
 	# getLayout
 	def getLayout(self):
@@ -138,7 +140,7 @@ class LikeHyperSpy:
 			Row(
 				self.view.getBokehLayout(doc=doc), 
 				Column(
-					Row(self.slider_z_range,self.slider_z_res, self.slider_z_op,sizing_mode="stretch_width"),
+					Row(self.slider_z_range,self.slider_z_res, self.slider_z_op,self.debug_mode, sizing_mode="stretch_width"),
 					self.fig),
 				sizing_mode="stretch_width"
 			),
@@ -237,19 +239,6 @@ class LikeHyperSpy:
 		for I,probe in enumerate(self.probes[dir]):
 			probe.setCurrent(True if I==value else False) 
 
-
-	# getAlignedBox
-	def getAlignedBox(self, query_box,H):
-		aligned_box, delta, num_sample=self.db.getAlignedBox(query_box, H)
-
-		# fix bug? i need p2 to be a superset
-		for I in range(3):
-			while aligned_box[1][I]<query_box[1][I]:
-				aligned_box[1][I]+=delta[I]
-
-		print(f"# getAlignedBox  query_box={query_box} H={H} aligned_box={aligned_box} delta={delta} num_sample={num_sample}")
-		return aligned_box, delta, num_sample
-
 	# renderTarget
 	def renderTarget(self,probe,x1,y1,x2,y2,line_width=1,color="black"):
 		
@@ -332,6 +321,7 @@ class LikeHyperSpy:
 		# keep the status for later
 		probe.pos = [x,y]		
 
+		# compute x1,y1,x2,y2 but eigther extrema included (NOTE: it's working at full-res)
 		x,y,w,h=[int(it) for it in (x,y,w,h)]
 		if (w % 2) == 0 : w+=1
 		if (h % 2) == 0 : h+=1
@@ -340,34 +330,54 @@ class LikeHyperSpy:
 		z1=self.slider_z_range.value[0]
 		z2=self.slider_z_range.value[1] 
 		self.renderTarget(probe,x-w//2,y-h//2,x+w//2,y+h//2,line_width=3,color=probe.color)
-		print("A",(x1,y1),(x2,y2))
+
+		maxh=self.db.getMaxResolution()
+		bitmask=self.db.getBitmask()
 
 		P1=self.view.unproject([x1,y1]);P1[dir]=z1
 		P2=self.view.unproject([x2,y2]);P2[dir]=z2
-		for I in range(3): P2[I]+=1 
-		print("B",P1,P2)
-		endh=self.db.getMaxResolution()
+		for I in range(3): P2[I]+=1 # in OpenVisus the  box is [P1,P2) so I am enlarging a little
 
-		# desired=(z2-z1) * (self.slider_z_res.value/100.0) 
-		# for H in range(endh,1,-1):
-		#	aligned_box,delta,num_samples=self.getAlignedBox([P1,P2],H)
-		#	# if num_samples[dir]<desired: break # not enough samples, stick the previous one
-		#	endh=H # goood candidate
-		
-		access=self.db.createAccess()
-		aligned_box, delta, num_sample=self.getAlignedBox([P1,P2], endh)	
-		data=list(ExecuteBoxQuery(self.db, access=access, logic_box=aligned_box,  endh=endh, num_refinements=1, full_dim=True))[0]['data']
-		self.fig.y_range.start=min(self.fig.y_range.start,np.min(data))
-		self.fig.y_range.end  =max(self.fig.y_range.end  ,np.max(data))	
+		endh=self.slider_z_res.value
 
-		print("C",aligned_box)
-		X1,Y1,Z1=aligned_box[0]
-		X2,Y2,Z2=aligned_box[1]		
-		P1i=[X1         ,Y1         ,Z1         ];x1i,y1i=self.view.project(P1i);z1i=P1i[dir]
-		P2i=[X2-delta[0],Y2-delta[1],Z2-delta[2]];x2i,y2i=self.view.project(P2i);z2i=P2i[dir]
-		self.renderTarget(probe, x1i,y1i,x2i,y2i,line_width=1,color="gray")
+		# compute delta
+		delta=[1,1,1]
+		for K in range(maxh,endh,-1):
+			delta[ord(bitmask[K])-ord('0')]*=2
 
-		self.renderProbe(probe, aligned_box, delta, data)
+		# compute aligned start point inside the full-res target 
+		A=[0,0,0]
+		for I in range(3):
+			A[I]=int(delta[I]*(P1[I]//delta[I]))
+			while A[I]<P1[I]:  A[I]+=delta[I] 
+
+		# target aligned end point, just outside the full-res target
+		B=[A[0],A[1],A[2]]
+		for I in range(3):
+			while B[I]<P2[I]: B[I]+=delta[I]
+
+		# for debugging draw points
+		if self.debug_mode.active==[0]:
+			print(f"Executing probe query  bitmask={bitmask} maxh={maxh} (x1,y1)={(x1,y1)} (x2,y2)={(x2,y2)} endh={endh} delta={delta}")
+			print(f"unprojected box at full-res [{P1},{P2}) ")
+			print(f"aligned box at endh resolution  [{A},{B})")
+			
+			points=[[],[]]
+			for Z in range(A[2],B[2],delta[2]):
+				for Y in range(A[1],B[1],delta[1]):
+					for X in range(A[0],B[0],delta[0]):
+						x,y=self.view.project([X,Y,Z])
+						points[0].append(x)
+						points[1].append(y)
+			probe.renderers.target.append(self.view.canvas.fig.scatter(points[0], points[1], color= "black"))
+
+		# execute the query
+		if all([P1[I]<P2[I] for I in range(3)]):
+			access=self.db.createAccess()
+			data=list(ExecuteBoxQuery(self.db, access=access, logic_box=[A,B],  endh=endh, num_refinements=1, full_dim=True))[0]['data']
+			self.fig.y_range.start=min(self.fig.y_range.start,np.min(data))
+			self.fig.y_range.end  =max(self.fig.y_range.end  ,np.max(data))	
+			self.renderProbe(probe, [A,B], delta, data)
 
 	# removeProbe
 	def removeProbe(self, probe):
