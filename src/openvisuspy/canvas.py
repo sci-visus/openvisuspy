@@ -16,14 +16,14 @@ logger = logging.getLogger(__name__)
 class Canvas:
   
 	# constructor
-	def __init__(self, color_bar, color_mapper,sizing_mode='stretch_both'):
+	def __init__(self, color_bar, color_mapper,sizing_mode='stretch_both', toolbar_location=None):
 		self.sizing_mode=sizing_mode
 		self.color_bar=color_bar
 		self.color_mapper=color_mapper
 		self.fig=bokeh.plotting.figure(active_scroll = "wheel_zoom") 
 		self.fig.x_range = bokeh.models.Range1d(0,0)   
 		self.fig.y_range = bokeh.models.Range1d(512,512) 
-		self.fig.toolbar_location="below"
+		self.fig.toolbar_location=toolbar_location
 		self.fig.sizing_mode = self.sizing_mode
 		# self.fig.add_tools(bokeh.models.HoverTool(tooltips=[ ("(x, y)", "($x, $y)"),("RGB", "(@R, @G, @B)")])) # is it working?
 

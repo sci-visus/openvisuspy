@@ -23,6 +23,7 @@ if __name__.startswith('bokeh'):
 	parser.add_argument('--single', action='store_true')
 	parser.add_argument('--py' , action='store_true')
 	parser.add_argument('--cpp', action='store_true')
+	parser.add_argument('--probes', action='store_true') # if you want to try the experimental probe tool
 	parser.add_argument('--directions', type=str, required=False, default="[]")
 	parser.add_argument('--offsets', type=str, required=False, default="[]")
 	args = parser.parse_args(sys.argv[1:])		
@@ -34,8 +35,8 @@ if __name__.startswith('bokeh'):
 
 	from openvisuspy import SetupLogger,IsPanelServe,GetBackend,Slice, Slices,cbool
 	logger=SetupLogger()
-	logger.info(f"GetBackend()={GetBackend()}")
-	logger.info(f"args={args}")
+	#logger.info(f"GetBackend()={GetBackend()}")
+	#logger.info(f"args={args}")
 
 	urls=args.dataset
 	logic_to_pixel=eval(args.logic_to_pixel)
@@ -81,15 +82,21 @@ if __name__.startswith('bokeh'):
 		view.children[C].setDirection(dir)
 		view.children[C].setOffset(offset)
 
+	if args.probes:
+		from openvisuspy.probes import ProbeTool
+		central=ProbeTool(view)
+	else:
+		central=view
+
 	if IsPanelServe():
 		from openvisuspy.app import GetPanelApp
-		main_layout=view.getPanelLayout()
+		main_layout=central.getPanelLayout()
 		app=GetPanelApp(main_layout)
 		app.servable()
 	else:
 		import bokeh
 		doc=bokeh.io.curdoc()		
-		main_layout=view.getBokehLayout(doc=doc)
+		main_layout=central.getBokehLayout(doc=doc)
 		doc.add_root(main_layout)	
 	
 

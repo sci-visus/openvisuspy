@@ -12,7 +12,9 @@ class Slice(Widgets):
 	
 	# constructor
 	def __init__(self,
-			show_options=["palette","timestep","field","direction","offset","viewdep","quality","status_bar"]):
+			show_options=["palette","timestep","field","direction","offset","viewdep","quality","status_bar"],
+			toolbar_location=None
+			):
 
 		super().__init__()
 		self.render_id     = 0
@@ -20,7 +22,7 @@ class Slice(Widgets):
 		self.new_job       = False
 		self.current_img   = None
 		self.options={}
-		self.canvas = Canvas(self.color_bar, self.color_mapper, sizing_mode='stretch_both')
+		self.canvas = Canvas(self.color_bar, self.color_mapper, sizing_mode='stretch_both',toolbar_location=toolbar_location)
 		self.canvas.on_resize=self.onCanvasResize
 		# self.canvas.enableDoubleTap(lambda x,y: self.gotoPoint(self.unproject([x,y])))
 		self.last_logic_box = None
