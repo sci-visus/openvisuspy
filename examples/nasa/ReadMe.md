@@ -136,15 +136,24 @@ cd /tmp/visus-datasets/bellows1_H
 screen -S nasa-demo-bellows-ver2
 
 python3 -c "import openvisuspy;print(openvisuspy.__path__)"
-# vi /uufs/chpc.utah.edu/common/home/u0705839/.local/lib/python3.10/site-packages/openvisuspy/canvas.py
-# NOTE: **CHANGED MANUALLY  canvas.py `toolbar_location=None`
 
 export BOKEH_ALLOW_WS_ORIGIN=*
 export BOKEH_LOG_LEVEL=debug
 
 curl -o ./nasa-bellows-ver2.py "https://raw.githubusercontent.com/sci-visus/openvisuspy/main/examples/dashboards/run.py"
 
-python3 -m panel serve ./nasa-bellows-ver2.py    --dev    --address="0.0.0.0"    --port 10902    --args    --dataset "$PWD/visus.idx"    --palette "colorcet.coolwarm"     --palette-range "(0,65536)"    --num-views 3 --quality -3 --show-options '["palette", "viewdep", "quality", "num_refinements" ]' --slice-show-options '["direction", "offset", "viewdep"]'
+python3 -m panel serve ./nasa-bellows-ver2.py    \
+   --dev    \
+   --address="0.0.0.0"    \
+   --port 10902    \
+   --args    \
+   --dataset "$PWD/visus.idx"    \
+   --palette "colorcet.coolwarm"     \
+   --palette-range "(0,65536)"    \
+   --num-views 3 \
+   --quality -3 \
+   --show-options '["palette", "viewdep", "quality", "num_refinements" ]' \
+   --slice-show-options '["direction", "offset", "viewdep"]'
 ```
 
 Open the URL:

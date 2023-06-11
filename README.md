@@ -67,20 +67,64 @@ python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "htt
 
 ```
 
-### Probes
+## CHESS - Probes
 
-CHESS:
-
-```
-set PYTHONPATH=.\src;c:\projects\OpenVisus\build\RelWithDebInfo
-python  -m bokeh serve examples/dashboards/run.py --args  --dataset "http://atlantis.sci.utah.edu/mod_visus?dataset=block_raw&cached=1" --palette "colorcet.coolwarm" --palette-range "[ 8644., 65530.//4]" --probes --show-options "['palette','field','offset','direction']"
-```
-
-Foam, Multiple timesteps, (TODO: range)):
 
 ```
-python  -m bokeh serve examples/dashboards/run.py --args  --dataset "http://atlantis.sci.utah.edu/mod_visus?dataset=foam-2022-01&cached=1" --palette "colorcet.coolwarm" --palette-range "[ 8644., 65530.//4]" --probes --show-options "['palette','field','offset','direction']"
+# this is needed for windows
+# set PYTHONPATH=.\src;c:\projects\OpenVisus\build\RelWithDebInfo
+
+ssh chpc3
+
+screen -ls
+screen -S chess-probes
+
+export BOKEH_ALLOW_WS_ORIGIN=*
+export BOKEH_LOG_LEVEL=debug
+
+
+python3  -m bokeh serve examples/dashboards/run.py \
+    --dev    \
+    --address="0.0.0.0"    \
+    --port 10933 \
+   --args  \
+   --dataset "http://atlantis.sci.utah.edu/mod_visus?dataset=block_raw&cached=1"\
+   --palette "colorcet.coolwarm" \
+   --palette-range "[ 8644., 65530.//4]" \
+   --probes \
+   --show-options "['palette','field','offset','direction']"
 ```
+
+Open `http://chpc3.nationalsciencedatafabric.org:10933/run`
+
+### Foam - Probes
+
+Foam, Multiple timesteps (range can be changed as needed):
+
+```
+ssh chpc3
+screen -l
+screen -S foam-probes 
+
+
+export BOKEH_ALLOW_WS_ORIGIN=*
+export BOKEH_LOG_LEVEL=debug
+
+python3 -m pip install --upgrade OpenVisus openvisuspy
+
+python3  -m bokeh serve examples/dashboards/run.py \
+    --dev \
+    --address="0.0.0.0"    \
+    --port 10934 \
+    --args  \
+    --dataset "http://atlantis.sci.utah.edu/mod_visus?dataset=foam-2022-01&cached=1" \
+    --palette "colorcet.coolwarm" \
+    --palette-range "[ 8644., 65530.//4]" \
+    --probes \
+    --show-options "['palette','field','offset','direction','timestep']"
+```
+
+Open `http://chpc3.nationalsciencedatafabric.org:10934/run`
 
 
 ## Panel Dashboards 
