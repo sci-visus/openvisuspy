@@ -67,7 +67,7 @@ python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "htt
 
 ```
 
-## CHESS - Probes
+## Probes
 
 
 ```
@@ -77,12 +77,19 @@ python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "htt
 ssh chpc3
 
 screen -ls
-screen -S chess-probes
+
 
 export BOKEH_ALLOW_WS_ORIGIN=*
 export BOKEH_LOG_LEVEL=debug
 
+python3 -m pip install --upgrade OpenVisus openvisuspy
 
+```
+
+### Chess
+
+```
+screen -S chess-probes
 python3  -m bokeh serve examples/dashboards/run.py \
     --dev    \
     --address="0.0.0.0"    \
@@ -102,16 +109,7 @@ Open `http://chpc3.nationalsciencedatafabric.org:10933/run`
 Foam, Multiple timesteps (range can be changed as needed):
 
 ```
-ssh chpc3
-screen -l
 screen -S foam-probes 
-
-
-export BOKEH_ALLOW_WS_ORIGIN=*
-export BOKEH_LOG_LEVEL=debug
-
-python3 -m pip install --upgrade OpenVisus openvisuspy
-
 python3  -m bokeh serve examples/dashboards/run.py \
     --dev \
     --address="0.0.0.0"    \
