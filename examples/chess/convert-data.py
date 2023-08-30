@@ -14,7 +14,6 @@ def Touch(filename):
         pass 
 
 
-
 # ///////////////////////////////////////////////////////////////////
 def Convert(idx_filename, modvisus_url, aquire_data=None, enable_compression=False, arco="modvisus"):
     
