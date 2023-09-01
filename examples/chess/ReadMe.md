@@ -82,8 +82,6 @@ curl -L "http://lnx-nsdf01.classe.cornell.edu:10077/run"
 If you want to test from outside CHESS network you need to use ssh-tunneling.
 But if you are on Windows VS Code, ports are automaticall forward and you can open (change port as needed) `http://localhost:10077/run`
 
-
-
 # PubSub
 
 Links:
@@ -136,12 +134,11 @@ python examples/chess/convert.py init-db
 
 Show the convert db
 
-
 ```
 sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
 ```
 
-Convert the db to a `convert.config` ```
+Convert the db to a `convert.config`
 
 
 ```
@@ -149,39 +146,53 @@ python examples/chess/convert.py dump-datasets
 more ${VISUS_CONVERT_CONFIG}
 ```
 
-# Run the conversion loop
-
-THis will:
+Run the conversion loop:
 - wait for a message from the input queue
 - add the pending conversion to the db
 - execute the conversion
 - update the db with conversion end timing
 - send an event to the output queue 
-
-Note:
 - the conversion loop can crash. if so it will restart where it left 
+- (TODO) cronjob to restart
+- (TODO) multiple convert?
 
-Todo:
-- cronjob to restart?
-- multiple convert?
+```
+
+```
+
+Send an event for image-stack conversion 
+
+```
+for i in {1..5} ; do
+  python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
+     'name':'my-chess-group-${i}',
+     'src':'/nfs/chess/nsdf01/vpascucci/allison-1110-3/mg4al-sht/11/nf/*.tif',
+     'dst':'/mnt/data1/nsdf/tmp/remove-me/my-chess-group-${i}/visus.idx',
+     'compression':'raw',
+     'arco':'modvisus'
+}"  
+done
+
+# still the db is empty if the converter is not running
+sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
+
+```
+
+In terminal 2 watch for event in out queue:
+
+```
+python ./examples/chess/pubsub.py --action sub  --queue ${CONVERT_QUEUE_OUT}
+```
+
+In terminal 1, run the converter loop
 
 ```
 python examples/chess/convert.py run-convert-loop
 ```
 
-
-# Send an event for image-stacl conversion 
-
-Note:
-- the conversion loop can be offline
+Soon or later the NSDF OpenVisus server will serve it:
 
 ```
-python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
-   'name':'test',
-   'src':'/nfs/chess/nsdf01/vpascucci/allison-1110-3/mg4al-sht/11/nf/*.tif',
-   'dst':'/mnt/data1/nsdf/tmp/remove-me/test-1111/visus.idx',
-   'compression':'raw',
-   'arco':'modvisus'
-}"
-```
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
 
+```
