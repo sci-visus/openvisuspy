@@ -1,86 +1,100 @@
-# Instructions
-
-# Preliminary setup
-
-on the NSDF entrypoint:
-
-```
-conda activate my-env
-cd /mnt/data1/nsdf/openvisuspy
-source examples/chess/credentials.sh
-```
+# How to run CHESS convert
 
 
-# OpenVisus modvisus server
-
-if you want to restart the modvisus server:
+## Setup your shell
 
 ```
-./examples/chess/run-server.sh
+source setup.sh 
+```
+
+## mod_visus specific
+
+Restart the server
+
+```
+source "/nfs/chess/nsdf01/openvisus/.mod_visus.identity.sh"
+
+sudo /usr/bin/systemctl restart httpd
+
+# test if it works
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
+```
+
+Inspect apache logs
+- right now: permission denied
+
+```
+more  /var/log/apache/error.log
+```
+
+## Run single image-stack conversion
+
+```
+python examples/chess/convert.py  \
+   --src "/nfs/chess/nsdf01/vpascucci/allison-1110-3/mg4al-sht/11/nf/*.tif" \
+   --dst "/mnt/data1/nsdf/tmp/merif2023/timeseries/tiff/visus.idx" \
+   --compression raw \
+   --arco modvisus
+```
+
+## Reset the convert queues and db:
+
+```
+python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_IN}
+python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
+python examples/chess/convert.py init-db
+```
+
+# Show the convert db
+
+
+```
+sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
+```
+
+# convert the db to a convert.config 
+
+Note: OpenVisus is automatically wathing for changes for that file
+
+
+```
+python examples/chess/convert.py dump-datasets
+more ${VISUS_CONVERT_CONFIG}
+```
+
+# Run the conversion loop
+
+THis will:
+- wait for a message from the input queue
+- add the pending conversion to the db
+- execute the conversion
+- update the db with conversion end timing
+- send an event to the output queue 
+
+Note:
+- the conversion loop can crash. if so it will restart where it left 
+
+Todo:
+- cronjob to restart?
+- multiple convert?
+
+```
+python examples/chess/convert.py run-convert-loop
 ```
 
 
-Config file is here
+# Send an event for image-stacl conversion 
+
+Note:
+- the conversion loop can be offline
 
 ```
-/nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config
+python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
+   'name':'test',
+   'src':'/nfs/chess/nsdf01/vpascucci/allison-1110-3/mg4al-sht/11/nf/*.tif',
+   'dst':'/mnt/data1/nsdf/tmp/remove-me/test-1111/visus.idx',
+   'compression':'raw',
+   'arco':'modvisus'
+}"
 ```
 
-Credentials are here:
-
-
-```
-/nfs/chess/nsdf01/openvisus/.mod_visus.identity.sh
-```
-
-# Timeseries convert
-
-Setup credentials:
-
-```
-source ./examples/chess/credentials.sh
-```
-## NumPy
-
-- 912*816*2025*float32 Each timestep is  5 GiB. 
-- if we had 900 timesteps it would be  5T
-
-```
-rm -Rf /mnt/data1/nsdf/tmp/merif2023/timeseries/numpy
-watch du -hs /mnt/data1/nsdf/tmp/merif2023/timeseries/numpy
-python3 examples/chess/convert-data.py \
-    900 \
-    /mnt/data1/DemoNSDF-feb-2023/recon_combined_1_2_3_fullres.npy \
-    /mnt/data1/nsdf/tmp/merif2023/timeseries/numpy/visus.idx \
-    "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=chess-timeseries-numpy&~auth_username=${MODVISUS_USERNAME}&~auth_password=${MODVISUS_PASSWORD}"
-```
-
-## Tiff 
-
-- 2048*2048*1447*float32 Each timestep is 22 GiB
-- if we had 900 timesteps it would be 20TB
-
-```
-rm -Rf /mnt/data1/nsdf/tmp/merif2023/timeseries/tiff
-watch du -hs /mnt/data1/nsdf/tmp/merif2023/timeseries/tiff
-python3 examples/chess/convert-data.py \
-    900 \
-    "/nfs/chess/nsdf01/vpascucci/allison-1110-3/mg4al-sht/11/nf/*.tif" \
-    /mnt/data1/nsdf/tmp/merif2023/timeseries/tiff/visus.idx \
-    "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=chess-timeseries-tiff&~auth_username=${MODVISUS_USERNAME}&~auth_password=${MODVISUS_PASSWORD}"
-```
-
-## Nexus
-
-- 1420*1420* 310*float32 Each timestep is  2 GiB
-- if we had 900 timesteps it would be  2TB
-
-```
-rm -Rf /mnt/data1/nsdf/tmp/merif2023/timeseries/nexus
-watch du -hs /mnt/data1/nsdf/tmp/merif2023/timeseries/nexus
-python3 examples/chess/convert-data.py \
-    900  \
-    /mnt/data1/nsdf/20230317-demo/3scans_HKLI/3scans_HKLI.nxs \
-    /mnt/data1/nsdf/tmp/merif2023/timeseries/nexus/visus.idx \
-    "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=chess-timeseries-nexus&~auth_username=${MODVISUS_USERNAME}&~auth_password=${MODVISUS_PASSWORD}"
-```
