@@ -1,7 +1,12 @@
 # How to run CHESS convert
 
 
-## Setup your shell
+## Setup
+
+NOTE:
+- COnnect to the NSDF entrypoint
+- `OPEN FOLDER` `/mnt/data1/nsdf/openvisuspy`
+
 
 ```
 source setup.sh 
@@ -27,6 +32,88 @@ Inspect apache logs
 more  /var/log/apache/error.log
 ```
 
+# Solve Jupyter notebook Visual Code problems
+
+
+When you open Jupyter Notebooks.,..
+You should see `my-env` as a Python Kernel on the top-right of the Visual code
+If you do not see it, do:
+
+```
+conda install ipykernel
+python -m ipykernel install --user --name my-env --display-name "my-env" and
+```
+
+Reload Visual Code
+
+
+## Dashboard DEMO
+
+```
+BOKEH_PORT=10077 
+DST=/mnt/data1/nsdf/visus-datasets/allison-1110-3-mg4al-sht-11-nf/visus.idx
+python3 -m bokeh serve "examples/dashboards/run.py" \
+   --dev --address 0.0.0.0 --port ${BOKEH_PORT} --args \
+   --dataset "${DST}" \
+   --palette Viridis256  \
+   --palette-range "[0, 70]" \
+   --multi
+```
+
+```
+PANEL_PORT=10077
+DST=/mnt/data1/nsdf/visus-datasets/chess/recon_combined_1_fullres/modvisus/zip/visus.idx
+python3 -m panel serve "examples/dashboards/run.py"  \
+   --dev --address 0.0.0.0 --port ${PANEL_PORT} --args \
+   --dataset "${DST}" \
+   --palette Viridis256  \
+   --palette-range "[-0.017141795, 0.012004322]" \
+   --multi
+```
+
+To test from inside CHESS network:
+- change port as needed
+
+```
+ssh -i ~/.nsdf/vault/id_nsdf lnx201.classe.cornell.edu
+curl -L "http://lnx-nsdf01.classe.cornell.edu:10077/run"
+```
+
+If you want to test from outside CHESS network you need to use ssh-tunneling.
+But if you are on Windows VS Code, ports are automaticall forward and you can open (change port as needed) `http://localhost:10077/run`
+
+
+
+# PubSub
+
+Links:
+- https://customer.cloudamqp.com/instance
+- https://www.cloudamqp.com/docs/index.html
+- https://www.cloudamqp.com/docs/python.html
+
+Little Lemur - For deplyment is Free
+
+On Terminal 1:
+
+``````
+python ./examples/chess/pubsub.py --action pub --queue my-queue --message '{"key1":"value1","key2":"value2"}'
+
+``````
+
+On Terminal 2:
+
+```
+python ./examples/chess/pubsub.py --action sub --queue my-queue
+```
+
+
+to flush a queue
+
+```
+python ./examples/chess/pubsub.py --action flush --queue my-queue
+```
+
+
 ## Run single image-stack conversion
 
 ```
@@ -37,7 +124,9 @@ python examples/chess/convert.py  \
    --arco modvisus
 ```
 
-## Reset the convert queues and db:
+# Convert Workflow
+
+Reset the convert queues and db:
 
 ```
 python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_IN}
@@ -45,16 +134,14 @@ python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
 python examples/chess/convert.py init-db
 ```
 
-# Show the convert db
+Show the convert db
 
 
 ```
 sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
 ```
 
-# convert the db to a convert.config 
-
-Note: OpenVisus is automatically wathing for changes for that file
+Convert the db to a `convert.config` ```
 
 
 ```

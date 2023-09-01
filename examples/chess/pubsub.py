@@ -39,8 +39,10 @@ if __name__=="__main__":
 	elif args.action=="flush":
 		N=0
 		while True:
-			method_frame, header_frame, body =channel.basic_get(args.queue)
-			if method_frame is None: break
+			method_frame, header_frame, body =channel.basic_get(args.queue, auto_ack=False)
+			if method_frame is None: break # finished
+			body=body.decode("utf-8").strip()
+			print(f"Received body={body} ")
 			channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 			N+=1
 		print(f"Flushed {N} messages")

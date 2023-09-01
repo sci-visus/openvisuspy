@@ -235,6 +235,7 @@ if __name__ == "__main__":
 				body=body.decode("utf-8").strip()
 				logger.info(f"Received body={body} ")
 				msg=json.loads(body)
+				logger.info(f"Pushing pending {msg}")
 				db.pushPendingConvert(**msg)
 
 				# important to do only here, I don't want to loose any message
@@ -249,8 +250,9 @@ if __name__ == "__main__":
 				time.sleep(0.1)
 				continue
 			else:
+				logger.info(f"Popped pending {row}")
 				ConvertImageStack(row["src"], row["dst"], compression=row["compression"], arco=row["arco"])
-				row=db.setConvertDone(row['id'])
+				row=db.setConvertDone(row)
 
 			# i allow this to fail
 			try:
@@ -259,7 +261,7 @@ if __name__ == "__main__":
 				pass	
 
 			# nofify about the dataset ready (i.e. someone may want to run a dashboard)
-			msg=json.dumps({row})
+			msg=json.dumps({k:str(v) for k,v in row.items()})
 			channel_out.basic_publish(exchange='', routing_key=CONVERT_QUEUE_OUT ,body=msg)
 			print(f"Published body={msg} queue={CONVERT_QUEUE_OUT}")
 
