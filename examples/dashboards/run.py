@@ -9,6 +9,7 @@ def ArgToList(v):
 		assert(isinstance(v,tuple) or isinstance(v,list))
 		return v
 
+
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
 
@@ -18,7 +19,7 @@ if __name__.startswith('bokeh'):
 	parser = argparse.ArgumentParser(description="OpenVisus Dashboards")
 	parser.add_argument("--dataset", type=str, required=False,default=["https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1"], nargs='+', )
 	parser.add_argument("--palette", type=str, required=False, default="Greys256")
-	parser.add_argument("--palette-range", type=str, required=False, default=None)
+	parser.add_argument("--palette-range", type=str, required=False, default=None) # in the format [vmin,vmax]
 	parser.add_argument("--physic-box", type=str, required=False, default=None)  # in the format [(x1,x2),(y1,y2),(z1,z2)]
 	parser.add_argument('--no-view-dep', action='store_true')
 	parser.add_argument("--quality", type=int, required=False, default=0)
@@ -26,14 +27,14 @@ if __name__.startswith('bokeh'):
 	parser.add_argument("--timestep-delta", type=int, required=False, default=1)
 	parser.add_argument("--field", type=str, required=False, default=None)
 	parser.add_argument("--num-refinements", type=int, required=False, default=3)
-	parser.add_argument("--axis", type=str, required=False, default=[('0','X'),('1','Y'),('2','Z')])
+	parser.add_argument("--axis", type=str, required=False, default=[('0','X'),('1','Y'),('2','Z')]) # axis value, axis name
 	parser.add_argument('--num-views', type=int, required=False, default=1)
 	parser.add_argument('--show-options', type=str, required=False, default=["num_views", "palette", "dataset", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", "play-button", "play-sec"])
 	parser.add_argument('--slice-show-options', type=str, required=False, default=["direction", "offset", "viewdep", "status_bar"])
+	parser.add_argument('--color-mapper', required=False, default="linear") # also "log" possible
 	parser.add_argument('--multi',  action='store_true')
 	parser.add_argument('--single', action='store_true')
-	parser.add_argument('--color-mapper', required=False, default="linear")
-	parser.add_argument('--py' , action='store_true')
+	parser.add_argument('--py' , action='store_true') # experimental pure python backend
 	parser.add_argument('--cpp', action='store_true')
 	parser.add_argument('--probes', action='store_true') # if you want to try the experimental probe tool
 
@@ -41,12 +42,12 @@ if __name__.startswith('bokeh'):
 	# e.g. --directions "..." --offset "..."
 	parser.add_argument('--directions', type=str, required=False, default="[]")
 	parser.add_argument('--offsets', type=str, required=False, default="[]")
+
 	args = parser.parse_args(sys.argv[1:])
 
-	if args.multi:  args.num_views=3
-	if args.single: args.num_views=1
+	# need to set it before importing OpenVisus or openvisuspy
 	if args.py:  os.environ["VISUS_BACKEND"]="py"
-	if args.cpp: os.environ["VISUS_BACKEND"]="cpp"	
+	if args.cpp: os.environ["VISUS_BACKEND"]="cpp"
 
 	# setup logger
 	from openvisuspy import SetupLogger,IsPanelServe,GetBackend,Slice, Slices,cbool
@@ -83,6 +84,8 @@ if __name__.startswith('bokeh'):
 
 	show_options=ArgToList(args.show_options) 
 	slice_show_options=ArgToList(args.slice_show_options) 
+	if args.multi:  args.num_views=3
+	if args.single: args.num_views=1	
 	if args.num_views<=1:
 		view=Slice(show_options=show_options)
 	else:
