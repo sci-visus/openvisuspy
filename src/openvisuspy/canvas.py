@@ -16,10 +16,9 @@ logger = logging.getLogger(__name__)
 class Canvas:
   
 	# constructor
-	def __init__(self, color_bar, color_mapper,sizing_mode='stretch_both', toolbar_location=None):
+	def __init__(self, color_bar, sizing_mode='stretch_both', toolbar_location=None):
 		self.sizing_mode=sizing_mode
 		self.color_bar=color_bar
-		self.color_mapper=color_mapper
 		self.fig=bokeh.plotting.figure(active_scroll = "wheel_zoom") 
 		self.fig.x_range = bokeh.models.Range1d(0,0)   
 		self.fig.y_range = bokeh.models.Range1d(512,512) 
@@ -36,7 +35,7 @@ class Canvas:
 		self.fig.on_change('inner_height', self.onResize)
   
 		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
-		self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_mapper)  
+		self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_bar.color_mapper)  
 		self.fig.add_layout(self.color_bar, 'right')
  
 		self.points     = None
@@ -78,7 +77,7 @@ class Canvas:
 	def enableDoubleTap(self,fn):
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: fn(evt.x,evt.y))
 
-	  # getViewport
+	  # getViewport -> x1,y1,x2,y2
 	def getViewport(self):
 		return [
 			self.fig.x_range.start,
@@ -136,5 +135,5 @@ class Canvas:
 			if img.dtype==np.uint32:	
 				self.image_rgba=self.fig.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
 			else:
-				self.img=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_mapper) 
+				self.img=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_bar.color_mapper) 
 			self.dtype=img.dtype
