@@ -57,10 +57,6 @@ if __name__.startswith('bokeh'):
 
 	# ///////////////////////////////////////////////////////////////////////
 	# is a streamable nexus, read most of the information from a streamable nexus (see CHESS convert-nexus-data jupyter notebook)
-	"""
-	set PYTHONPATH=./src;C:\projects\OpenVisus\build\RelWithDebInfo
-	python -m bokeh serve examples/dashboards/run.py --dev --args --dataset C:/visus_datasets/3scans_HKLI.streamable.nxs  --multi --color-mapper log --palette Viridis256
-	"""		
 	if "streamable.nxs" in args.dataset[0]:
 
 		from nexusformat import nexus 

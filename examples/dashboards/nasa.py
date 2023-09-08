@@ -37,7 +37,7 @@ if __name__.startswith('bokeh'):
 	view.setTimestep((2015//timestep_delta)*timestep_delta)
 	view.setField(view.getField())
 	view.setQuality(-6)
-	view.setLogicToPixel([(0.0,1.0), (0.0,1.0), (0.0,30.0)])
+	view.setLogicToPhysic([(0.0,1.0), (0.0,1.0), (0.0,30.0)])
 
 	view.children[0].setDirection(2)
 	view.children[0].setOffset(0)
