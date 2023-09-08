@@ -66,12 +66,18 @@ class Canvas:
 		# https://docs.bokeh.org/en/2.4.3/docs/reference/models/plots.html
 		#  This is the exact width of the plotting canvas, i.e. the width of
 		# 	the actual plot, without toolbars etc. Note this is computed in a
-		# 	web browser, so this property will work only in backends capable of			
-		return self.fig.inner_width
+		# 	web browser, so this property will work only in backends capable of		
+		try:	
+			return self.fig.inner_width
+		except:
+			return 0
 
 	# getHeight (this is number of pixels along Y  for the canvas)
 	def getHeight(self):
-		return self.fig.inner_height
+		try:	
+			return self.fig.inner_height
+		except:
+			return 0
 
 	# enableDoubleTap
 	def enableDoubleTap(self,fn):

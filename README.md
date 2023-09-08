@@ -2,14 +2,13 @@
 
 The official OpenVisus C++ GitHub repository is [here](https://github.com/sci-visus/OpenVisus).
 
-
-# Install openvisuspy
+## Install openvisuspy
 
 Create a virtual environment. This step is optional, but best to avoid conflicts:
 
 - for windows users you can do `doskey python3=python $*` and `.venv/Scripts/activate.bat`
 
-```
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
@@ -17,23 +16,23 @@ python3 -m pip install --upgrade pip
 
 Install python packages, technically only `numpy` is stricly needed, but to access cloud storage and show dashboards/notebooks, you need additional packages too.
 
-```
+```bash
 python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh panel itkwidgets[all] pyvista vtk jupyter
 ```
 
-Next, nstall Openvisus packages. 
+Next, install Openvisus packages. 
 
 
 If you **do not need the OpenVisus viewer** (or if you are in Windows WSL):
 
-```
+```bash
 python3 -m pip install --upgrade OpenVisusNoGui
 python3 -m pip install --upgrade openvisuspy 
 ```
 
 if **you do need the OpenVisus viewer**:
 
-```
+```bash
 python3 -m pip install --upgrade OpenVisus
 python3 -m OpenVisus configure 
 python3 -m pip install --upgrade openvisuspy 
@@ -47,8 +46,6 @@ python3 -m pip uninstall OpenVisus
 python3 -m pip uninstall openvisuspy 
 export PYTHONPATH=./src;/projects/OpenVisus/build/RelWithDebInfo
 ```
-
-# Examples
 
 ## Bokeh Dashboards 
 
@@ -70,7 +67,7 @@ python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "htt
 ## Probes
 
 
-```
+```bash
 # this is needed for windows
 # set PYTHONPATH=.\src;c:\projects\OpenVisus\build\RelWithDebInfo
 
@@ -83,12 +80,11 @@ export BOKEH_ALLOW_WS_ORIGIN=*
 export BOKEH_LOG_LEVEL=debug
 
 python3 -m pip install --upgrade OpenVisus openvisuspy
-
 ```
 
-### Chess
+## Chess
 
-```
+```bash
 screen -S chess-probes
 python3  -m bokeh serve examples/dashboards/run.py \
     --dev    \
@@ -104,11 +100,11 @@ python3  -m bokeh serve examples/dashboards/run.py \
 
 Open `http://chpc3.nationalsciencedatafabric.org:10933/run`
 
-### Foam - Probes
+## Foam - Probes
 
 Foam, Multiple timesteps (range can be changed as needed):
 
-```
+```bash
 screen -S foam-probes 
 python3  -m bokeh serve examples/dashboards/run.py \
     --dev \
@@ -125,16 +121,16 @@ python3  -m bokeh serve examples/dashboards/run.py \
 Open `http://chpc3.nationalsciencedatafabric.org:10934/run`
 
 
-## Panel Dashboards 
+## Panel Dashboards
 
-```
+```bash
 python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --args --single
 python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --args --multi
 python -m panel serve "examples/dashboards/nasa.py" --dev --address localhost --args --single
 ```
 
-## Jupyter Notebooks 
+## Jupyter Notebooks
 
-```
+```bash
 python3 -m jupyter notebook ./examples/notebooks 
 ```

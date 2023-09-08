@@ -134,7 +134,7 @@ if __name__.startswith('bokeh'):
 	view.setViewDependent(False if args.no_view_dep else True) 
 
 	# axis
-	view.setDirections(args.axis)
+	view.setDirections(ArgToList(args.axis))
 
 	if args.color_mapper:
 		view.setColorMapperType(args.color_mapper)

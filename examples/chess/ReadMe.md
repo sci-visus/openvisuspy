@@ -48,19 +48,7 @@ python -m ipykernel install --user --name my-env --display-name "my-env" and
 
 Reload Visual Code
 
-## Streamable Nexus
 
-
-Run the `convert-nexus-data.ipynb` to convert data to a streamable format 
-- metadata will still be in the NEXUS file
-- volumetric big data will be automatically stored in a OpenVisus file
-
-To show the data in a bokeh dashboard
-
-```bash
-set PYTHONPATH=./src;C:\projects\OpenVisus\build\RelWithDebInfo
-python -m bokeh serve examples/dashboards/run.py --dev --args --dataset C:/visus_datasets/3scans_HKLI.streamable.nxs  --multi --color-mapper log --palette Viridis256
-```
 
 
 ## Dashboard DEMO
@@ -97,6 +85,21 @@ curl -L "http://lnx-nsdf01.classe.cornell.edu:10077/run"
 
 If you want to test from outside CHESS network you need to use ssh-tunneling.
 But if you are on Windows VS Code, ports are automaticall forward and you can open (change port as needed) `http://localhost:10077/run`
+
+### STREAMABLE Nexus 
+
+
+Run the `convert-nexus-data.ipynb` to convert data to a streamable format 
+- metadata will still be in the NEXUS file
+- volumetric big data will be automatically stored in a OpenVisus file
+
+To show the data in a bokeh dashboard
+
+```bash
+set PYTHONPATH=./src;C:\projects\OpenVisus\build\RelWithDebInfo
+python -m bokeh serve examples/dashboards/run.py --dev --args --dataset C:/visus_datasets/3scans_HKLI.streamable.nxs  --multi --color-mapper log --palette Viridis256
+```
+
 
 # PubSub
 
