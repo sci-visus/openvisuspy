@@ -4,31 +4,17 @@
 ## Setup
 
 NOTE:
-- COnnect to the NSDF chess entrypoint
-- Open folder `/mnt/data1/nsdf/openvisuspy`
+- COnnect to the NSDF entrypoint
+- `OPEN FOLDER` `/mnt/data1/nsdf/openvisuspy`
+
 
 
 Please check the body of the `setup.sh` file since it contains some useful explanations:
 
-```
-source examples/chess/setup.sh 
-```
-
-# Update OpenVisus
-
 ```bash
-
-# I do not want the conda one
-conda deactivate || true
-
-# I guess we installed a python3 in this directory (accordingly to the `dirname`)
-export PATH=/nfs/chess/nsdf01/openvisus/bin/:${PATH}
-/nfs/chess/nsdf01/openvisus/bin/python3 -m OpenVisus dirname
-which python3
-
-python3 -m OpenVisus dirname
-python3 -m pip install --upgrade OpenVisusNoGui
+source examples/chess/setup.sh
 ```
+
 
 # Handle with Jupyter notebook/Visual Studio Code problems
 
@@ -46,6 +32,23 @@ source examples/chess/setup.sh
 # then just `Reload` in Visual Code, it should detect the `my-env` conda environment now
 ```
 
+
+# Update OpenVisus
+
+```bash
+
+# I do not want the conda one
+conda deactivate || true
+
+# I guess we installed a python3 in this directory (accordingly to the `dirname`)
+export PATH=/nfs/chess/nsdf01/openvisus/bin/:${PATH}
+/nfs/chess/nsdf01/openvisus/bin/python3 -m OpenVisus dirname
+which python3
+
+python3 -m OpenVisus dirname
+python3 -m pip install --upgrade OpenVisusNoGui
+```
+
 ## mod_visus 
 
 To enable multi-group security see [https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security](https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security
@@ -55,17 +58,18 @@ To enable multi-group security see [https://github.com/sci-visus/OpenVisus/tree/
 - [TO-ASK] rights to view `${APACHE_LOG_DIR}/*.log`
 - [TO-ASK] rights to write on `/mnt/data/nsdf` (e.g. `rm -Rf  /mnt/data1/nsdf/remove-me` permission denied) 
 
+
 Restart the server
 
-```
+```bash
 sudo /usr/bin/systemctl restart httpd
 
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
 ```
 
-I you want to know more about apache status:
+If you want to know more about apache status:
 
-```bast
+```bash
 apachectl -S
 ```
 
@@ -81,12 +85,30 @@ Inspect apache logs
 tail -f  ${APACHE_LOG_DIR}/*.log
 ```
 
+See OpenVisus `Docker/group-security`` for details about how to add users
+
+
+## Streamable Nexus
+
+
+Run the `convert-nexus-data.ipynb` to convert data to a streamable format 
+- metadata will still be in the NEXUS file
+- volumetric big data will be automatically stored in a OpenVisus file
+
+To show the data in a bokeh dashboard
+
+```bash
+set PYTHONPATH=./src;C:\projects\OpenVisus\build\RelWithDebInfo
+python -m bokeh serve examples/dashboards/run.py --dev --args --dataset C:/visus_datasets/3scans_HKLI.streamable.nxs  --multi --color-mapper log --palette Viridis256
+```
+
+
 ## Dashboard DEMO
 
 NOTE:
 - ports are not opened to the outside, but visual code can automatically forward them (just ffor debugging)
 
-```
+```bash
 BOKEH_PORT=10077 
 DST=/mnt/data1/nsdf/visus-datasets/allison-1110-3-mg4al-sht-11-nf/visus.idx
 python3 -m bokeh serve "examples/dashboards/run.py" \
@@ -97,7 +119,7 @@ python3 -m bokeh serve "examples/dashboards/run.py" \
    --multi
 ```
 
-```
+```bash
 PANEL_PORT=10077
 DST=/mnt/data1/nsdf/visus-datasets/chess/recon_combined_1_fullres/modvisus/zip/visus.idx
 python3 -m panel serve "examples/dashboards/run.py"  \
@@ -108,16 +130,15 @@ python3 -m panel serve "examples/dashboards/run.py"  \
    --multi
 ```
 
-From inside CHESS network you can access the dashboards
+To test from inside CHESS network:
 - change port as needed
 
-```
+```bash
 ssh -i ~/.nsdf/vault/id_nsdf lnx201.classe.cornell.edu
 curl -L "http://lnx-nsdf01.classe.cornell.edu:10077/run"
 ```
 
 If you want to test from outside CHESS network you need to use ssh-tunneling.
-
 But if you are on Windows VS Code, ports are automaticall forward and you can open (change port as needed) `http://localhost:10077/run`
 
 # PubSub
@@ -131,28 +152,26 @@ Little Lemur - For deplyment is Free
 
 On Terminal 1:
 
-``````
+```bash
 python ./examples/chess/pubsub.py --action pub --queue my-queue --message '{"key1":"value1","key2":"value2"}'
-
-``````
+```
 
 On Terminal 2:
 
-```
+```bash
 python ./examples/chess/pubsub.py --action sub --queue my-queue
 ```
 
-
 to flush a queue
 
-```
+```bash
 python ./examples/chess/pubsub.py --action flush --queue my-queue
 ```
 
 
 ## Run single image-stack conversion
 
-```
+```bash
 python examples/chess/convert.py  \
    --src "/nfs/chess/nsdf01/vpascucci/allison-1110-3/mg4al-sht/11/nf/*.tif" \
    --dst "/mnt/data1/nsdf/tmp/merif2023/timeseries/tiff/visus.idx" \
@@ -164,7 +183,7 @@ python examples/chess/convert.py  \
 
 Reset the convert queues and db:
 
-```
+```bash
 python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_IN}
 python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
 python examples/chess/convert.py init-db
@@ -172,35 +191,21 @@ python examples/chess/convert.py init-db
 
 Show the convert db
 
-```
+```bash
 sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
 ```
 
 Convert the db to a `convert.config`
 
 
-```
+```bash
 python examples/chess/convert.py dump-datasets
 more ${VISUS_CONVERT_CONFIG}
 ```
 
-Run the conversion loop:
-- wait for a message from the input queue
-- add the pending conversion to the db
-- execute the conversion
-- update the db with conversion end timing
-- send an event to the output queue 
-- the conversion loop can crash. if so it will restart where it left 
-- (TODO) cronjob to restart
-- (TODO) multiple convert?
-
-```
-
-```
-
 Send an event for image-stack conversion 
 
-```
+```bash
 for i in {1..5} ; do
   python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
      'name':'my-chess-group-${i}',
@@ -213,24 +218,22 @@ done
 
 # still the db is empty if the converter is not running
 sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
-
 ```
 
 In terminal 2 watch for event in out queue:
 
-```
+```bash
 python ./examples/chess/pubsub.py --action sub  --queue ${CONVERT_QUEUE_OUT}
 ```
 
 In terminal 1, run the converter loop
 
-```
+```bash
 python examples/chess/convert.py run-convert-loop
 ```
 
 Soon or later the NSDF OpenVisus server will serve it:
 
-```
+```bash
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
-
 ```

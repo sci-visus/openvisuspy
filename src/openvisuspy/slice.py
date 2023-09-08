@@ -22,7 +22,7 @@ class Slice(Widgets):
 		self.new_job       = False
 		self.current_img   = None
 		self.options={}
-		self.canvas = Canvas(self.color_bar, self.color_mapper, sizing_mode='stretch_both',toolbar_location=toolbar_location)
+		self.canvas = Canvas(self.color_bar, sizing_mode='stretch_both',toolbar_location=toolbar_location)
 		self.canvas.on_resize=self.onCanvasResize
 		# self.canvas.enableDoubleTap(lambda x,y: self.gotoPoint(self.unproject([x,y])))
 		self.last_logic_box = None
@@ -30,7 +30,6 @@ class Slice(Widgets):
 		self.query_node=QueryNode()
 		self.t1=time.time()
 		self.H=None
-
 
 	# start
 	def start(self):
@@ -76,7 +75,7 @@ class Slice(Widgets):
 		self.aborted.setTrue()
 		self.new_job=True	
    
-	# project
+	# project (e.g. logic->physic)
 	def project(self,value):
 
 		pdim=self.getPointDim()
@@ -90,7 +89,7 @@ class Slice(Widgets):
 		assert(pdim==len(value))
 
 		# apply scaling and translating
-		ret=[self.logic_to_pixel[I][0] + self.logic_to_pixel[I][1]*value[I] for I in range(pdim)]
+		ret=[self.logic_to_physic[I][0] + self.logic_to_physic[I][1]*value[I] for I in range(pdim)]
 
 		if pdim==3:
 			del ret[dir]
@@ -122,7 +121,7 @@ class Slice(Widgets):
 		assert(len(ret)==pdim)
 
 		# scaling/translatation
-		ret=[(ret[I]-self.logic_to_pixel[I][0])/self.logic_to_pixel[I][1] for I in range(pdim)]
+		ret=[(ret[I]-self.logic_to_physic[I][0])/self.logic_to_physic[I][1] for I in range(pdim)]
 
 		
 		# this is the right value in logic domain
@@ -192,7 +191,11 @@ class Slice(Widgets):
 		if result is None: return
 		data=result['data']
 		logic_box=result['logic_box'] 
-		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box}")
+		try:
+			vmin,vmax=np.min(data),np.max(data)
+		except:
+			vmin,max=0.0,0.0
+		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={vmin} M={vmax}")
 		(x1,y1),(x2,y2)=self.project(logic_box)
 		self.canvas.setImage(data,x1,y1,x2,y2)
 		tot_pixels=data.shape[0]*data.shape[1]
