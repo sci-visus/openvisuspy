@@ -5,7 +5,7 @@ from . utils import *
 from . backend import LoadDataset
 import bokeh
 
-from bokeh.models import Select,LinearColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
+from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,11 @@ class Widgets:
 		self.url=None
 		self.access=None
 		self.render_id=None # by default I am not rendering
-		self.logic_to_pixel=[(0.0,1.0)]*3
+		self.logic_to_physic=[(0.0,1.0)]*3
 		self.children=[]
   
 		self.palette='Greys256'
+		self.palette_range=(0.0,255.0 )
 
 		self.widgets=types.SimpleNamespace()
 
@@ -72,10 +73,12 @@ class Widgets:
 		# palette
 		self.widgets.palette = Select(title='Palette', options=PALETTES,value=self.palette,width=100)
 		self.widgets.palette.on_change("value",lambda attr, old, new: self.setPalette(new))  
-		self.color_mapper = LinearColorMapper() 
-		self.color_mapper.palette=self.widgets.palette.value
-		self.color_mapper.low,self.color_mapper.high=(0.0,255.0) 
-		self.color_bar = ColorBar(color_mapper=self.color_mapper)
+
+		# color_bar
+		self.color_bar = ColorBar()
+		self.color_bar.color_mapper=LinearColorMapper() 
+		self.color_bar.color_mapper.palette=self.palette
+		self.color_bar.color_mapper.low,self.color_bar.color_mapper.high = self.palette_range
 
 		def PatchSlider(slider):
 			slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
@@ -257,16 +260,16 @@ class Widgets:
 		for it in self.children:
 			it.setDatasets(value,title=title)
   
-	# getLogicToPixel
-	def getLogicToPixel(self):
-		return self.logic_to_pixel
+	# getLogicToPhysic
+	def getLogicToPhysic(self):
+		return self.logic_to_physic
 
-	# setLogicToPixel
-	def setLogicToPixel(self,value):
-		logger.info(f"Widgets[{self.id}]::setLogicToPixel value={value}")
-		self.logic_to_pixel=value
+	# setLogicToPhysic
+	def setLogicToPhysic(self,value):
+		logger.info(f"Widgets[{self.id}]::setLogicToPhysic value={value}")
+		self.logic_to_physic=value
 		for it in self.children:
-			it.setLogicToPixel(value)
+			it.setLogicToPhysic(value)
 		self.refresh()
   
 	# setDataset
@@ -394,6 +397,25 @@ class Widgets:
 			it.setField(value)  
 		self.refresh()
 
+	# getColorMapperType
+	def getColorMapperType(self):
+		return "log" if isinstance(self.color_bar.color_mapper,LogColorMapper) else "linear"
+
+	# getColorMapperType
+	def setColorMapperType(self,value):
+
+		logger.info(f"Widgets[{self.id}]::setColorMapperType value={value}")
+
+		self.color_bar.color_mapper=LogColorMapper() if value=="log" else LinearColorMapper()
+
+		self.setPalette(self.getPalette())
+		m,M=self.getPaletteRange()
+		self.setPaletteRange((m,M))
+
+		for it in self.children:
+			it.setColorMapperType(value)  
+		self.refresh()
+
 	# getPalette
 	def getPalette(self):
 		return self.palette
@@ -403,21 +425,26 @@ class Widgets:
 		logger.info(f"Widgets[{self.id}]::setPalette value={value}")
 		self.palette=value
 		self.widgets.palette.value=value
-		self.color_mapper.palette=getattr(colorcet,value[len("colorcet."):]) if value.startswith("colorcet.") else value
+		self.color_bar.color_mapper.palette=getattr(colorcet,value[len("colorcet."):]) if value.startswith("colorcet.") else value
 		for it in self.children:
 			it.setPalette(value)  
 		self.refresh()
 
 	# getPaletteRange
 	def getPaletteRange(self):
-		return self.color_mapper.low,self.color_mapper.high
+		return self.palette_range
 
 	# setPaletteRange
 	def setPaletteRange(self,value):
 		logger.info(f"Widgets[{self.id}]::setPaletteRange value={value}")
-		self.color_mapper.low, self.color_mapper.high=value  
+		m,M=value
+		self.palette_range=(m,M)
+		is_log=isinstance(self.color_bar.color_mapper,LogColorMapper)
+		self.color_bar.color_mapper.low =max(0.01,m) if is_log else m
+		self.color_bar.color_mapper.high=max(0.01,M) if is_log else M 
+
 		for it in self.children:
-			it.setPaletteRange(value)     
+			it.setPaletteRange(value)
 
 	# getNumberOfRefinements
 	def getNumberOfRefinements(self):
