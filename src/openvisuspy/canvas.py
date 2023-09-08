@@ -68,11 +68,19 @@ class Canvas:
 		#  This is the exact width of the plotting canvas, i.e. the width of
 		# 	the actual plot, without toolbars etc. Note this is computed in a
 		# 	web browser, so this property will work only in backends capable of			
-		return self.fig.inner_width
+		try:
+			return self.fig.inner_width
+		except:
+			return 0
 
 	# getHeight (this is number of pixels along Y  for the canvas)
 	def getHeight(self):
-		return self.fig.inner_height
+		# JavaScript can fill the inner_width/inner_height values late, try catch
+		# eliminates the UnsetValueError.
+		try:
+			return self.fig.inner_height
+		except:
+			return 0
 
 	# enableDoubleTap
 	def enableDoubleTap(self,fn):
