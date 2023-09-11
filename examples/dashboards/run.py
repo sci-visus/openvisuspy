@@ -103,6 +103,8 @@ if __name__.startswith('bokeh'):
 		vmin,vmax=ArgToList(args.palette_range)
 	view.setUserPaletteRange([vmin,vmax])
 
+	view.setPaletteRangeMode("dynamic")
+
 	view.setTimestepDelta(args.timestep_delta)
 
 	if args.timestep is not None:

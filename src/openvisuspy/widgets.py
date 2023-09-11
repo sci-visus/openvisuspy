@@ -1,4 +1,5 @@
 import os,sys,logging,types,time,copy
+from typing import Any
 import colorcet
 
 from . utils import *
@@ -58,6 +59,8 @@ class PaletteRange:
 		self.mode="user"
 
 
+
+
 # //////////////////////////////////////////////////////////////////////////////////////
 class Widgets:
 
@@ -76,6 +79,7 @@ class Widgets:
 		self.children=[]
   
 		self.palette='Greys256'
+		
 		self.palette_range=PaletteRange()
 
 		self.widgets=types.SimpleNamespace()
@@ -523,7 +527,6 @@ class Widgets:
 
 		logger.info(f"Widgets[{self.id}]::setPaletteRange value={value}")
 
-		# e.g. setPaletteRange(PaletteRange(...))
 		assert(isinstance(value,PaletteRange))
 		self.palette_range=value
 		vmin=self.getPaletteRangeLow()
