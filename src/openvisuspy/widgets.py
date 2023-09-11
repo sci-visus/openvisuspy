@@ -130,7 +130,6 @@ class Widgets:
 		self.color_bar = ColorBar()
 		self.color_bar.color_mapper=LinearColorMapper() 
 		self.color_bar.color_mapper.palette=self.palette
-
 		self.color_bar.color_mapper.low  = self.palette_range.getLow()
 		self.color_bar.color_mapper.high = self.palette_range.getHigh()
 
@@ -472,14 +471,10 @@ class Widgets:
 		self.widgets.colormapper_type.value=value
 
 		assert value=="linear" or value=="log"
-		if value=="log":
-			cls=LogColorMapper
-			mapper_low, mapper_high =max(0.01,vmin),max(0.01,vmax)
-		else:
-			cls=LinearColorMapper
-			mapper_low, mapper_high=vmin,vmax
+		self.color_bar.color_mapper = LogColorMapper(palette=palette) if value=="log"else LinearColorMapper(palette=palette)
+		self.color_bar.color_mapper.low =max(0.01,vmin) if value=="log" else vmin
+		self.color_bar.color_mapper.high=max(0.01,vmax) if value=="log" else vmax
 
-		self.color_bar.color_mapper = cls(palette=palette, low=mapper_low, high=mapper_high)
 		self.setPalette(palette)
 		self.setPaletteRange(prange)
 
@@ -504,6 +499,17 @@ class Widgets:
 	# getPaletteRange
 	def getPaletteRange(self):
 		return self.palette_range
+	
+	# getColorMapperRange
+	def getColorMapperRange(self):
+		return [self.color_bar.color_mapper.low,self.color_bar.color_mapper.high]
+
+	# setColorMapperRange
+	def setColorMapperRange(self,value):
+		vmin,vmax=value
+		is_log=isinstance(self.color_bar.color_mapper,LogColorMapper)
+		self.color_bar.color_mapper.low =max(0.01,vmin) if is_log else vmin
+		self.color_bar.color_mapper.high=max(0.01,vmax) if is_log else vmax
 
 	# setPaletteRange
 	def setPaletteRange(self,value):
@@ -519,10 +525,7 @@ class Widgets:
 		else:
 			assert(isinstance(value,PaletteRange))
 			self.palette_range=value
-			vmin,vmax=value.getLow(),value.getHigh()
-			is_log=isinstance(self.color_bar.color_mapper,LogColorMapper)
-			self.color_bar.color_mapper.low =max(0.01,vmin) if is_log else vmin
-			self.color_bar.color_mapper.high=max(0.01,vmax) if is_log else vmax
+			self.setColorMapperRange([value.getLow(),value.getHigh()])
 			for it in self.children:
 				it.setPaletteRange(value)
 

@@ -193,10 +193,17 @@ class Slice(Widgets):
 		data=result['data']
 		logic_box=result['logic_box'] 
 		try:
-			vmin,vmax=np.min(data),np.max(data)
+			data_range=np.min(data),np.max(data)
 		except:
-			vmin,max=0.0,0.0
-		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={vmin} M={vmax}")
+			data_range=0.0,0.0
+
+		# depending on the palette range mode, I need to use different color mapper low/high
+		prange=self.getPaletteRange()
+		prange.refreshDynamicRanges(data)
+		low,high=prange.getLow(),prange.getHigh()
+		self.setColorMapperRange([low,high])
+		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
+
 		(x1,y1),(x2,y2)=self.project(logic_box)
 		self.canvas.setImage(data,x1,y1,x2,y2)
 		tot_pixels=data.shape[0]*data.shape[1]

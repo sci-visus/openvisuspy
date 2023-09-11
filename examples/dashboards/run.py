@@ -94,14 +94,17 @@ if __name__.startswith('bokeh'):
 	view.setNumberOfRefinements(args.num_refinements)
 	view.setPalette(args.palette) 
 
+
+	prange=view.getPaletteRange()
+	dtype_range=view.db.getField().getDTypeRange()
+	vmin,vmax=dtype_range.From,dtype_range.To
+	prange.setRange("metadata",[vmin,vmax])
+
 	# palette range
 	if args.palette_range:
 		vmin,vmax=ArgToList(args.palette_range)
-	else:
-		dtype_range=view.db.getField().getDTypeRange()
-		vmin,vmax=dtype_range.From,dtype_range.To
-	if vmin>=vmax: vmin,vmax=[0.0,255.0]
-	view.setPaletteRange([vmin,vmax])
+	prange.setRange("user",[vmin,vmax])
+	prange.setMode("dynamic")
 
 	view.setTimestepDelta(args.timestep_delta)
 
