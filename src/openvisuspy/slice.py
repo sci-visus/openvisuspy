@@ -22,7 +22,7 @@ class Slice(Widgets):
 		self.new_job       = False
 		self.current_img   = None
 		self.options={}
-		self.canvas = Canvas(self.color_bar, self.color_mapper, sizing_mode='stretch_both',toolbar_location=toolbar_location)
+		self.canvas = Canvas(self.id, self.color_bar, sizing_mode='stretch_both',toolbar_location=toolbar_location)
 		self.canvas.on_resize=self.onCanvasResize
 		# self.canvas.enableDoubleTap(lambda x,y: self.gotoPoint(self.unproject([x,y])))
 		self.last_logic_box = None
@@ -30,7 +30,6 @@ class Slice(Widgets):
 		self.query_node=QueryNode()
 		self.t1=time.time()
 		self.H=None
-
 
 	# start
 	def start(self):
@@ -45,6 +44,7 @@ class Slice(Widgets):
 
 	# onCanvasResize
 	def onCanvasResize(self):
+		if not self.db: return
 		dir=self.getDirection()
 		offset=self.getOffset()
 		self.setDirection(dir)
@@ -60,14 +60,14 @@ class Slice(Widgets):
 		# problem in pyodide, I will not get pixel size until I resize the window (remember)
 		if self.canvas.getWidth()<=0 or self.canvas.getHeight()<=0:
 			return 
-
+		
 		await super().onIdle()
 		self.renderResultIfNeeded()
 		self.pushJobIfNeeded()
 
 	# setDataset
-	def setDataset(self, url,db=None):
-		super().setDataset(url,db=db)
+	def setDataset(self, url,db=None, force=False):
+		super().setDataset(url,db=db,force=force)
 		self.last_canvas_size=[0,0] 
 
 	# refresh
@@ -76,7 +76,7 @@ class Slice(Widgets):
 		self.aborted.setTrue()
 		self.new_job=True	
    
-	# project
+	# project (e.g. logic->physic)
 	def project(self,value):
 
 		pdim=self.getPointDim()
@@ -90,7 +90,7 @@ class Slice(Widgets):
 		assert(pdim==len(value))
 
 		# apply scaling and translating
-		ret=[self.logic_to_pixel[I][0] + self.logic_to_pixel[I][1]*value[I] for I in range(pdim)]
+		ret=[self.logic_to_physic[I][0] + self.logic_to_physic[I][1]*value[I] for I in range(pdim)]
 
 		if pdim==3:
 			del ret[dir]
@@ -122,7 +122,7 @@ class Slice(Widgets):
 		assert(len(ret)==pdim)
 
 		# scaling/translatation
-		ret=[(ret[I]-self.logic_to_pixel[I][0])/self.logic_to_pixel[I][1] for I in range(pdim)]
+		ret=[(ret[I]-self.logic_to_physic[I][0])/self.logic_to_physic[I][1] for I in range(pdim)]
 
 		
 		# this is the right value in logic domain
@@ -192,7 +192,11 @@ class Slice(Widgets):
 		if result is None: return
 		data=result['data']
 		logic_box=result['logic_box'] 
-		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box}")
+		try:
+			vmin,vmax=np.min(data),np.max(data)
+		except:
+			vmin,max=0.0,0.0
+		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={vmin} M={vmax}")
 		(x1,y1),(x2,y2)=self.project(logic_box)
 		self.canvas.setImage(data,x1,y1,x2,y2)
 		tot_pixels=data.shape[0]*data.shape[1]
@@ -212,7 +216,7 @@ class Slice(Widgets):
 		if not self.new_job and str(self.last_logic_box)==str(logic_box):
 			return
 
-		logger.info("pushing new job")
+		logger.info(f"pushing new job Slice[{self.id}] {time.time()}...")
 
 		# abort the last one
 		self.aborted.setTrue()
@@ -255,4 +259,4 @@ class Slice(Widgets):
 		self.last_logic_box=logic_box
 		self.new_job=False
 
-  
+		logger.info(f"pushed new job Slice[{self.id}]{time.time()}")
