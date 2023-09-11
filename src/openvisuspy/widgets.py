@@ -80,6 +80,10 @@ class Widgets:
 		self.color_bar.color_mapper.palette=self.palette
 		self.color_bar.color_mapper.low,self.color_bar.color_mapper.high = self.palette_range
 
+		# color_mapper type
+		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='3',width=80)
+		self.widgets.colormapper_type.on_change("value",lambda attr, old, new: self.setColorMapperType(new)) 
+
 		def PatchSlider(slider):
 			slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
 			return slider
@@ -253,7 +257,7 @@ class Widgets:
 
 	# getDatasets
 	def setDatasets(self,value,title=None):
-		logger.info(f"Widgets[{self.id}]::setDatasets num={len(value)}")
+		logger.info(f"Widgets[{self.id}]::setDatasets num={len(value)} value={value}")
 		self.widgets.dataset.options=value
 		if title is not None: 
 			self.widgets.dataset.title=title
@@ -273,13 +277,13 @@ class Widgets:
 		self.refresh()
   
 	# setDataset
-	def setDataset(self, url, db=None):
+	def setDataset(self, url, db=None,force=False):
 	 
 		# rehentrant call
-		if self.url==url:
+		if not force and self.url==url:
 			return 
 
-		logger.info(f"Widgets[{self.id}]::setDataset value={url}")
+		logger.info("Widgets[{self.id}]::setDataset value={url}")
 
 		self.url=url
 	 
@@ -289,6 +293,7 @@ class Widgets:
 			self.widgets.dataset.options=[url]
 			self.widgets.dataset.value=url
    
+	 
 		self.db=LoadDataset(url) if db is None else db 
 		self.access=self.db.createAccess()
   
@@ -406,10 +411,23 @@ class Widgets:
 
 		logger.info(f"Widgets[{self.id}]::setColorMapperType value={value}")
 
-		self.color_bar.color_mapper=LogColorMapper() if value=="log" else LinearColorMapper()
-
-		self.setPalette(self.getPalette())
+		palette=self.getPalette()
 		m,M=self.getPaletteRange()
+
+		self.widgets.colormapper_type.value=value
+
+		assert value=="linear" or value=="log"
+		if value=="log":
+			cls=LogColorMapper
+			low =max(0.01,m)
+			high=max(0.01,M)
+		else:
+			cls=LinearColorMapper
+			low=m
+			high=M
+
+		self.color_bar.color_mapper = cls(palette=palette, low=low, high=high)
+		self.setPalette(palette)
 		self.setPaletteRange((m,M))
 
 		for it in self.children:
