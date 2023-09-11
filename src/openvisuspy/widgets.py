@@ -283,7 +283,7 @@ class Widgets:
 		if not force and self.url==url:
 			return 
 
-		logger.info("Widgets[{self.id}]::setDataset value={url}")
+		logger.info(f"Widgets[{self.id}]::setDataset value={url}")
 
 		self.url=url
 	 
