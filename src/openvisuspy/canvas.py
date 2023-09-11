@@ -76,7 +76,9 @@ class Canvas:
 
 	# getHeight (this is number of pixels along Y  for the canvas)
 	def getHeight(self):
-		try:	
+		# JavaScript can fill the inner_width/inner_height values late, try catch
+		# eliminates the UnsetValueError.
+		try:
 			return self.fig.inner_height
 		except:
 			return 0
