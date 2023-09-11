@@ -61,7 +61,6 @@ class PaletteRange:
 	def refreshDynamicRanges(self,data):
 		vmin,vmax=np.min(data),np.max(data)
 		self.ranges["dynamic"]=[vmin,vmax]
-
 		prev=self.ranges["dynamic-acc"]
 		self.ranges["dynamic-acc"]=[vmin,vmax] if prev is None else [min(vmin,prev[0]),max(vmax,prev[1])]
 
@@ -94,7 +93,7 @@ class PaletteRange:
 	# getHigh
 	def getHigh(self):
 		r=self.ranges[self.mode]
-		return r[1] if r is not None else 0.0
+		return r[1] if r is not None else 1.0
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Widgets:
