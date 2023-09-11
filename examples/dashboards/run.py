@@ -95,9 +95,13 @@ if __name__.startswith('bokeh'):
 	else:
 		view=Slices(show_options=show_options, slice_show_options=slice_show_options)
 		view.setNumberOfViews(args.num_views)
-	
-	view.setDatasets([(url,str(I)) for I,url in enumerate(args.dataset)],"Datasets")
-	view.setDataset(args.dataset[0])
+	if args.dataset == ['chess']:
+		urls = ['https://atlantis.sci.utah.edu/mod_visus?dataset=chess-zip&cached=1', 'http://atlantis.sci.utah.edu/mod_visus?dataset=rabbit&cached=1', 'http://atlantis.sci.utah.edu/mod_visus?dataset=foam-2022-01&cached=1']
+	else:
+		urls=args.dataset
+
+	view.setDatasets([(url,str(I)) for I,url in enumerate(urls)],"Datasets")
+	view.setDataset(urls[0])
 
 	view.setQuality(args.quality)
 	view.setNumberOfRefinements(args.num_refinements)

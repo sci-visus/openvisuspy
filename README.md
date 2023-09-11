@@ -121,6 +121,12 @@ python3  -m bokeh serve examples/dashboards/run.py \
 Open `http://chpc3.nationalsciencedatafabric.org:10934/run`
 
 
+## Demo of multiple data sets on one dashboard
+
+```
+python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "chess" --palette Viridis256  --palette-range "[-0.017141795, 0.012004322]" --num-views 3
+```
+
 ## Panel Dashboards
 
 ```bash
