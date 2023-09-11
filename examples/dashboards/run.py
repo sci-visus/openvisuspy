@@ -29,8 +29,17 @@ if __name__.startswith('bokeh'):
 	parser.add_argument("--num-refinements", type=int, required=False, default=3)
 	parser.add_argument("--axis", type=str, required=False, default=[('0','X'),('1','Y'),('2','Z')]) # axis value, axis name
 	parser.add_argument('--num-views', type=int, required=False, default=1)
-	parser.add_argument('--show-options', type=str, required=False, default=["num_views", "palette", "dataset", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", "play-button", "play-sec","colormapper_type"])
-	parser.add_argument('--slice-show-options', type=str, required=False, default=["direction", "offset", "viewdep", "status_bar"])
+
+	parser.add_argument('--show-options', type=str, required=False, 
+										 default=["num_views", "palette", "dataset", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", 
+										"play-button", "play-sec",
+										"colormapper_type",
+
+										])
+	
+	parser.add_argument('--slice-show-options', type=str, required=False, 
+										 default=["direction", "offset", "viewdep", "status_bar"
+										])
 	parser.add_argument('--color-mapper', required=False, default="linear") # also "log" possible
 	parser.add_argument('--multi',  action='store_true')
 	parser.add_argument('--single', action='store_true')

@@ -46,18 +46,11 @@ PALETTES=[
 	]  
 
 # //////////////////////////////////////////////////////////////////////////////////////
-class PaletteRange:
-
-	# constructor
-	def __init__(self):
-		self.ranges={
-			"user":         [0.0,1.0],
-			"metadata":     [0.0,1.0],
-			"dynamic" :     [0.0,1.0],
-			"dynamic-acc" : None
-		}
-		self.mode="user"
-
+def cdouble(value):
+	try:
+		return float(value)
+	except:
+		return 0.0
 
 
 
@@ -80,7 +73,12 @@ class Widgets:
   
 		self.palette='Greys256'
 		
-		self.palette_range=PaletteRange()
+		self.palette_ranges={
+			"user":         [0.0,1.0],
+			"metadata":     [0.0,1.0],
+			"dynamic" :     [0.0,1.0],
+			"dynamic-acc" : None
+		}
 
 		self.widgets=types.SimpleNamespace()
 
@@ -91,6 +89,28 @@ class Widgets:
 		# palette
 		self.widgets.palette = Select(title='Palette', options=PALETTES,value=self.palette,width=100)
 		self.widgets.palette.on_change("value",lambda attr, old, new: self.setPalette(new))  
+
+		# palette range
+		self.widgets.palette_range=types.SimpleNamespace()
+		self.widgets.palette_range.mode = Select(title="RangeMode",options=["metadata","user","dynamic","dynamic-acc"], value="metadata",width=100)
+		self.widgets.palette_range.vmin = TextInput(title="vmin" ,width=100)
+		self.widgets.palette_range.vmax = TextInput(title="vmax" ,width=100)
+
+		def __onModeChange():
+			mode=self.widgets.palette_range.mode.value
+			self.setPaletteRangeMode(mode)
+			
+		def __onVminVmaxChange():
+			if self.getPaletteRangeMode()=="user": 
+				self.setUserPaletteRange([
+					cdouble(self.widgets.palette_range.vmin.value),
+					cdouble(self.widgets.palette_range.vmax.value)
+				])
+
+		self.widgets.palette_range.mode.on_change("value",lambda attr, old, new: __onModeChange())
+		self.widgets.palette_range.vmin.on_change("value",lambda attr, old, new: __onVminVmaxChange())
+		self.widgets.palette_range.vmax.on_change("value",lambda attr, old, new: __onVminVmaxChange())
+
 
 		# color_bar
 		self.color_bar = ColorBar()
@@ -164,25 +184,61 @@ class Widgets:
 		self.panel_layout=None
 		self.idle_callback=None
 
-
-
 	# getPaletteRangeMode
 	def getPaletteRangeMode(self):
-		return self.palette_range.mode
+		return self.widgets.palette_range.mode.value
 	
 	# setPaletteRangeMode
 	def setPaletteRangeMode(self,value):
-		assert(value in self.palette_range.ranges)
-		self.palette_range.mode=value
+		logger.info(f"Widgets[{self.id}]::setPaletteRangeMode value={value} ")
+		self.widgets.palette_range.mode.value=value
 
+		if value=="user":
+			range=[self.getUserPaletteRange()]
+			self.setUserPaletteRange(range)
+			self.setPaletteRangeMode("user")
+			self.refresh()
+			return
+			
+		if value=="metadata":
+			value=self.getMetadataPaletteRange()
+			self.setMetadataPaletteRange(value)
+			self.setPaletteRangeMode("user")
+			self.refresh()
+			return
+
+		if value=="dynamic":
+			self.setMetadataPaletteRange([0.0,1.0])
+			self.setPaletteRangeMode("dynamic")
+			self.refresh()
+			return
+
+		if value=="dynamic-acc":
+			self.palette_ranges["dynamic-acc"]=None # restart from scratch in accumulating values
+			self.setPaletteRangeMode("dynamic-acc")
+			self.refresh()
+			return
+		
+		raise Exception("internal error")
+
+
+		v=self.palette_ranges[value]
+		if v is not None:
+			vmin,vmax=v
+			self.widgets.palette_range.vmin.value=str(vmin)
+			self.widgets.palette_range.vmax.value=str(vmax)
+		for it in self.children:
+			it.setPaletteRangeMode(value)
+		self.refresh()
+  
 	# getPaletteRangeLow
 	def getPaletteRangeLow(self):
-		r=self.palette_range.ranges[self.palette_range.mode]
+		r=self.palette_ranges[self.getPaletteRangeMode()]
 		return r[0] if r is not None else 0.0
 	
 	# getPaletteRangeHigh
 	def getPaletteRangeHigh(self):
-		r=self.palette_range.ranges[self.palette_range.mode]
+		r=self.palette_ranges[self.getPaletteRangeMode()]
 		return r[1] if r is not None else 1.0
 
 	# start
@@ -236,7 +292,14 @@ class Widgets:
 	def createGui(self,central_layout=None,options=[]):
 	 
 		options=[it.replace("-","_") for it in options]
+
 		first_row=[getattr(self.widgets,it) for it in options if it!="status_bar"]
+
+		if True or "palette_range" in options:
+			first_row=first_row + [
+				self.widgets.palette_range.mode,
+				self.widgets.palette_range.vmin,
+				self.widgets.palette_range.vmax]
 	 
 		ret=Column(sizing_mode='stretch_both')
   
@@ -452,8 +515,8 @@ class Widgets:
 		logger.info(f"Widgets[{self.id}]::setColorMapperType value={value}")
 
 		palette=self.getPalette()
-
-		palette_range=self.getPaletteRange()
+		palette_range_mode=self.getPaletteRangeMode()
+		palette_ranges=self.getPaletteRanges()
 		vmin,vmax=self.getPaletteRangeLow(), self.getPaletteRangeHigh()
 		self.widgets.colormapper_type.value=value
 
@@ -463,7 +526,8 @@ class Widgets:
 		self.color_bar.color_mapper.high=max(0.01,vmax) if value=="log" else vmax
 
 		self.setPalette(palette)
-		self.setPaletteRange(palette_range)
+		self.setPaletteRangeMode(palette_range_mode)
+		self.setPaletteRanges(palette_ranges)
 
 		for it in self.children:
 			it.setColorMapperType(value)  
@@ -483,8 +547,6 @@ class Widgets:
 			it.setPalette(value)  
 		self.refresh()
 
-
-	
 	# getColorMapperRange
 	def getColorMapperRange(self):
 		return [self.color_bar.color_mapper.low,self.color_bar.color_mapper.high]
@@ -495,46 +557,57 @@ class Widgets:
 		is_log=isinstance(self.color_bar.color_mapper,LogColorMapper)
 		self.color_bar.color_mapper.low =max(0.01,vmin) if is_log else vmin
 		self.color_bar.color_mapper.high=max(0.01,vmax) if is_log else vmax
-
-	# getUserPaletteRange
-	def getUserPaletteRange(self):
-		return self.palette_range.ranges["user"]
-
-	# setUserPaletteRange
-	def setUserPaletteRange(self,value):
-		self.palette_range.ranges["user"]=value
-		self.setPaletteRangeMode("user")
+		for it in self.children:
+			it.setColorMapperRange(value)		
 
 	# getMetadataPaletteRanges
 	def getMetadataPaletteRange(self):
-		return self.palette_range.ranges["metadata"]
+		return self.palette_ranges["metadata"]
 	
 	# setMetadataPaletteRange
 	def setMetadataPaletteRange(self, value):
-		self.palette_range.ranges["metadata"]=value
+		vmin,vmax=value
+		self.palette_ranges["metadata"]=value
+		self.widgets.palette_range.vmin.value=str(vmin)
+		self.widgets.palette_range.vmax.value=str(vmax)
+		for it in self.children:
+			it.setMetadataPaletteRange(value)	
 		self.setPaletteRangeMode("metadata")
+		self.refresh()
 
-	# getPaletteRange
-	def getPaletteRange(self):
-		return self.palette_range
+	# getUserPaletteRange
+	def getUserPaletteRange(self):
+		return self.palette_ranges["user"]
 
-	# setPaletteRange
-	def setPaletteRange(self, value):
+	# setUserPaletteRange
+	def setUserPaletteRange(self,value):
+		vmin,vmax=value
+		self.palette_ranges["user"]=[vmin,vmax]
+		self.widgets.palette_range.vmin.value=str(vmin)
+		self.widgets.palette_range.vmax.value=str(vmax)
+		for it in self.children:
+			it.setUserPaletteRange(value)
+		self.setPaletteRangeMode("user")
+		self.refresh()
 
-		# backward compatible
-		if isinstance(value,list) or isinstance(value,tuple):
-			self.setUserPaletteRange(value)
+	# getPaletteRanges
+	def getPaletteRanges(self):
+		return self.palette_ranges
 
-		logger.info(f"Widgets[{self.id}]::setPaletteRange value={value}")
-
-		assert(isinstance(value,PaletteRange))
-		self.palette_range=value
+	# setPaletteRanges
+	def setPaletteRanges(self, value):
+		logger.info(f"Widgets[{self.id}]::setPaletteRanges value={value}")
+		assert(isinstance(value,dict))
+		self.palette_ranges=value
 		vmin=self.getPaletteRangeLow()
 		vmax=self.getPaletteRangeHigh()
 		self.setColorMapperRange([vmin,vmax])
 		for it in self.children:
-			it.setPaletteRange(value)
+			it.setPaletteRanges(value)
 
+	# setPaletteRange (backward compatible)
+	def setPaletteRange(self,value):
+		self.setUserPaletteRange(value)
 
 	# getNumberOfRefinements
 	def getNumberOfRefinements(self):
