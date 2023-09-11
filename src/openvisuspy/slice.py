@@ -199,8 +199,14 @@ class Slice(Widgets):
 
 		# depending on the palette range mode, I need to use different color mapper low/high
 		prange=self.getPaletteRange()
-		prange.refreshDynamicRanges(data)
-		low,high=prange.getLow(),prange.getHigh()
+
+		# refresh dynamic ranges
+		if True:
+			self.palette_range.ranges["dynamic"]=[data_range[0],data_range[1]]
+			prev=self.palette_range.ranges["dynamic-acc"]
+			self.palette_range.ranges["dynamic-acc"]=[data_range[0],data_range[1]] if prev is None else [min(data_range[0],prev[0]),max(data_range[1],prev[1])]
+
+		low,high=self.getPaletteRangeLow(),self.getPaletteRangeHigh()
 		self.setColorMapperRange([low,high])
 		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
 
