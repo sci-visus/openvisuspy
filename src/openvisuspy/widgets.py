@@ -1,4 +1,4 @@
-import os,sys,logging,types,time
+import os,sys,logging,types,time,copy
 import colorcet
 
 from . utils import *
@@ -45,6 +45,58 @@ PALETTES=[
 	]  
 
 # //////////////////////////////////////////////////////////////////////////////////////
+class PaletteRange:
+
+	# constructor
+	def __init__(self):
+		self.ranges={
+			"user":         [0.0,1.0],
+			"metadata":     [0.0,1.0],
+			"dynamic" :     [0.0,1.0],
+			"dynamic-acc" : None
+		}
+		self.mode="user"
+
+	# refreshDynamicRanges
+	def refreshDynamicRanges(self,data):
+		vmin,vmax=np.min(data),np.max(data)
+		self.ranges["dynamic"]=[vmin,vmax]
+
+		prev=self.ranges["dynamic-acc"]
+		self.ranges["dynamic-acc"]=[vmin,vmax] if prev is None else [min(vmin,prev[0]),max(vmax,prev[1])]
+
+	# resetDynamicAccumulation
+	def resetDynamicAccumulation(self):
+		self.ranges["dynamic-acc"]=None
+
+	# getMode
+	def getMode(self):
+		return self.mode
+	
+	# setMode
+	def setMode(self,value):
+		assert(value in self.ranges)
+		self.mode=value
+
+	# setRange
+	def setRange(self, mode, value):
+		self.ranges[mode]=value
+
+	# getRange
+	def getRange(self,mode):
+		return self.ranges[mode]
+
+	# getLow
+	def getLow(self):
+		r=self.ranges[self.mode]
+		return r[0] if r is not None else 0.0
+	
+	# getHigh
+	def getHigh(self):
+		r=self.ranges[self.mode]
+		return r[1] if r is not None else 0.0
+
+# //////////////////////////////////////////////////////////////////////////////////////
 class Widgets:
 
 	ID=0
@@ -62,7 +114,7 @@ class Widgets:
 		self.children=[]
   
 		self.palette='Greys256'
-		self.palette_range=(0.0,255.0 )
+		self.palette_range=PaletteRange()
 
 		self.widgets=types.SimpleNamespace()
 
@@ -78,7 +130,9 @@ class Widgets:
 		self.color_bar = ColorBar()
 		self.color_bar.color_mapper=LinearColorMapper() 
 		self.color_bar.color_mapper.palette=self.palette
-		self.color_bar.color_mapper.low,self.color_bar.color_mapper.high = self.palette_range
+
+		self.color_bar.color_mapper.low  = self.palette_range.getLow()
+		self.color_bar.color_mapper.high = self.palette_range.getHigh()
 
 		# color_mapper type
 		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='3',width=80)
@@ -412,23 +466,22 @@ class Widgets:
 		logger.info(f"Widgets[{self.id}]::setColorMapperType value={value}")
 
 		palette=self.getPalette()
-		m,M=self.getPaletteRange()
 
+		prange=self.getPaletteRange()
+		vmin,vmax=prange.getLow(), prange.getHigh()
 		self.widgets.colormapper_type.value=value
 
 		assert value=="linear" or value=="log"
 		if value=="log":
 			cls=LogColorMapper
-			low =max(0.01,m)
-			high=max(0.01,M)
+			mapper_low, mapper_high =max(0.01,vmin),max(0.01,vmax)
 		else:
 			cls=LinearColorMapper
-			low=m
-			high=M
+			mapper_low, mapper_high=vmin,vmax
 
-		self.color_bar.color_mapper = cls(palette=palette, low=low, high=high)
+		self.color_bar.color_mapper = cls(palette=palette, low=mapper_low, high=mapper_high)
 		self.setPalette(palette)
-		self.setPaletteRange((m,M))
+		self.setPaletteRange(prange)
 
 		for it in self.children:
 			it.setColorMapperType(value)  
@@ -455,14 +508,23 @@ class Widgets:
 	# setPaletteRange
 	def setPaletteRange(self,value):
 		logger.info(f"Widgets[{self.id}]::setPaletteRange value={value}")
-		m,M=value
-		self.palette_range=(m,M)
-		is_log=isinstance(self.color_bar.color_mapper,LogColorMapper)
-		self.color_bar.color_mapper.low =max(0.01,m) if is_log else m
-		self.color_bar.color_mapper.high=max(0.01,M) if is_log else M 
 
-		for it in self.children:
-			it.setPaletteRange(value)
+		if isinstance(value,tuple) or isinstance(value,list):
+			vmin,vmax=value
+			value=PaletteRange()
+			value.setRange("user",    [vmin,vmax])
+			value.setRange("metadata",[vmin,vmax])
+			value.setMode("user")
+			self.setPaletteRange(value)
+		else:
+			assert(isinstance(value,PaletteRange))
+			self.palette_range=value
+			vmin,vmax=value.getLow(),value.getHigh()
+			is_log=isinstance(self.color_bar.color_mapper,LogColorMapper)
+			self.color_bar.color_mapper.low =max(0.01,vmin) if is_log else vmin
+			self.color_bar.color_mapper.high=max(0.01,vmax) if is_log else vmax
+			for it in self.children:
+				it.setPaletteRange(value)
 
 	# getNumberOfRefinements
 	def getNumberOfRefinements(self):
