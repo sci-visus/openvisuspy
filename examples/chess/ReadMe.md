@@ -88,7 +88,7 @@ tail -f  ${APACHE_LOG_DIR}/*.log
 See OpenVisus `Docker/group-security`` for details about how to add users
 
 
-## Streamable Nexus
+## Streamable NEXUS
 
 
 Run the `convert-nexus-data.ipynb` to convert data to a streamable format 
@@ -139,6 +139,7 @@ curl -L "http://lnx-nsdf01.classe.cornell.edu:10077/run"
 ```
 
 If you want to test from outside CHESS network you need to use ssh-tunneling.
+
 But if you are on Windows VS Code, ports are automaticall forward and you can open (change port as needed) `http://localhost:10077/run`
 
 # PubSub
@@ -189,9 +190,29 @@ python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
 python examples/chess/convert.py init-db
 ```
 
+Note: the db schema is:
+
+```sql
+CREATE TABLE IF NOT EXISTS datasets (
+   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+   
+   name TEXT NOT NULL,
+   src TEXT NOT NULL,
+   dst TEXT NOT NULL,
+   compression TEXT,
+   arco TEXT,
+
+   insert_time timestamp NOT NULL, 
+   conversion_start timestep ,
+   conversion_end   timestamp 
+)
+```
+
 Show the convert db
 
 ```bash
+
+# .schema  datasets;
 sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
 ```
 
@@ -206,14 +227,15 @@ more ${VISUS_CONVERT_CONFIG}
 Send an event for image-stack conversion 
 
 ```bash
+
+
 for i in {1..5} ; do
-  python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
-     'name':'my-chess-group-${i}',
-     'src':'/nfs/chess/nsdf01/vpascucci/allison-1110-3/mg4al-sht/11/nf/*.tif',
-     'dst':'/mnt/data1/nsdf/tmp/remove-me/my-chess-group-${i}/visus.idx',
-     'compression':'raw',
-     'arco':'modvisus'
-}"  
+python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
+   'name':'my-chess-group-${i}',
+   'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif',
+   'dst':'/mnt/data1/nsdf/tmp/remove-me/my-chess-group-${i}/visus.idx',
+   'compression':'zip',
+   'arco':'1mb'}"
 done
 
 # still the db is empty if the converter is not running
@@ -236,4 +258,71 @@ Soon or later the NSDF OpenVisus server will serve it:
 
 ```bash
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
+```
+
+
+# 20231209 Near field
+
+Specs:
+
+```
+W 2048 H 2048 D 366 dtype uint16
+```
+
+```bash
+
+python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_IN}
+python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
+python examples/chess/convert.py init-db
+
+name="scrgiorgio-near-field-20230912-01"
+python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
+   'name':'${name}',
+   'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif',
+   'dst':'/mnt/data1/nsdf/tmp/${name}/visus.idx',
+   'compression':'zip',
+   'arco':'1mb',
+   'metadata': [
+      '/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json',
+      '/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par'
+   ]}"
+
+python examples/chess/convert.py run-convert-loop
+```
+
+# 20231209 Tomo
+
+Specs:
+
+```
+# W 2048 H 2048 D 26 dtype uint16 dtype uint16
+# 15: darkfield            W 2048 H 2048 D   26 dtype uint16
+# 16: brightfield          W 2048 H 2048 D   26 dtype uint16
+# 18: tomo rotation series W 2048 H 2048 D 1449 dtype uint16
+# 19: darkfield            W 2048 H 2048 D   26 dtype uint16
+# 20: brightfield          W 2048 H 2048 D   26 dtype uint16
+```
+
+bash:
+
+```
+python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_IN}
+python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
+python examples/chess/convert.py init-db
+
+seq=18 # [15, 16, 18, 19, 20]
+name="scrgiorgio-tomo-20230912-${seq}"
+python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
+   'name':'${name}',
+   'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/${seq}/nf/nf_*.tif',
+   'dst':'/mnt/data1/nsdf/tmp/${name}/visus.idx',
+   'compression':'zip',
+   'arco':'1mb',
+   'metadata': [
+      '/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.json',
+      '/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.par'
+   ]}"
+
+python examples/chess/convert.py run-convert-loop
+
 ```

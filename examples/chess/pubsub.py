@@ -26,12 +26,12 @@ if __name__=="__main__":
 	if args.action=="pub":
 		msg=json.dumps(eval(args.message))
 		channel.basic_publish(exchange='', routing_key=args.queue ,body=msg)
-		print(f"Published body={args.message} queue={args.queue}")
+		print(f"Published message to queue={args.queue} body=\n{args.message} ")
 
 	elif args.action=="sub":
 		def on_message(channel, method_frame, header_frame, body):
 			body=body.decode("utf-8").strip()
-			print(f"Received body={body} ")
+			print(f"Received message from queue={gs.queu} body=\n{body} ")
 			msg=json.loads(body)
 		channel.basic_consume(args.queue, on_message, auto_ack=True)
 		channel.start_consuming()

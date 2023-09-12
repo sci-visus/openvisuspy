@@ -1,4 +1,4 @@
-import os ,sys, time, logging,shutil,glob,json, string, random, argparse, shutil
+import os ,sys, time, logging,shutil,glob,json, string, random, argparse, shutil, base64
 from datetime import datetime
 import pika
 import sqlite3 
@@ -30,6 +30,7 @@ class Datasets:
 				dst TEXT NOT NULL,
 				compression TEXT,
 				arco TEXT,
+				metadata TEXT,
 				insert_time timestamp NOT NULL, 
 				conversion_start timestep ,
 				conversion_end   timestamp 
@@ -37,13 +38,15 @@ class Datasets:
 		""")
 		self.conn.commit()
 	
-	def pushPendingConvert(self, name, src, dst, compression, arco):
+	# pushPendingConvert
+	def pushPendingConvert(self, name, src, dst, compression, arco, metadata):
 		# TODO: if multiple converters?
-		self.conn.executemany("INSERT INTO datasets (name, src, dst, compression, arco, insert_time) values(?,?,?,?,?,?)",[
-			(name, src, dst, compression, arco, datetime.now())
+		self.conn.executemany("INSERT INTO datasets (name, src, dst, compression, arco, metadata, insert_time) values(?,?,?,?,?,?,?)",[
+			(name, src, dst, compression, arco, json.dumps(metadata), datetime.now())
 		])
 		self.conn.commit()
 
+	# popPendingConvert
 	def popPendingConvert(self):
 		# TODO: if multiple converters?
 		data = self.conn.execute("SELECT * FROM datasets WHERE conversion_end is NULL order by id ASC LIMIT 1")
@@ -51,24 +54,29 @@ class Datasets:
 		if row is None: 
 			return None
 		row={k:row[k] for k in row.keys()}
-		data = self.conn.execute("UPDATE datasets SET conversion_start==? where id=?",(datetime.now(),row["id"], ))
+		row["conversion_start"]=datetime.now()
+		data = self.conn.execute("UPDATE datasets SET conversion_start==? where id=?",(row["conversion_start"],row["id"], ))
 		self.conn.commit()
 		return row
 
+	# setConvertDone
 	def setConvertDone(self, row):
 		row["conversion_end"]=datetime.now()
 		data = self.conn.execute("UPDATE datasets SET conversion_end==? where id=?",(row["conversion_end"],row["id"], ))
 		self.conn.commit()
 		return row
 
+	# getAll
 	def getAll(self):
 		for row in self.conn.execute("SELECT * FROM datasets ORDER BY id ASC"):
 			yield {k:row[k] for k in row.keys()}
 
+	# getConverted
 	def getConverted(self):
 		for row in self.conn.execute("SELECT * FROM datasets WHERE conversion_end is not NULL ORDER BY id ASC"):
 			yield {k:row[k] for k in row.keys()}
 
+	# generateConfig
 	def generateConfig(self, filename):
 		logger.info("generateConfig begin")
 
@@ -142,10 +150,6 @@ def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 
 	logger.info(f"ConvertImageStack src={src} dst={dst} compression={compression} arco={arco} done")
 
-
-	
-
-
 # ///////////////////////////////////////////////////////////////////
 def SetupLogger(filename):
 	logger.setLevel(logging.INFO)
@@ -167,11 +171,6 @@ def SetupLogger(filename):
 # ///////////////////////////////////////////////////////////////////
 if __name__ == "__main__":
 	
-	"""
-
-
-	"""
-
 	CONVERT_LOG_FILENAME=os.environ["CONVERT_LOG_FILENAME"]
 	CONVERT_QUEUE_IN=os.environ["CONVERT_QUEUE_IN"]
 	CONVERT_QUEUE_OUT=os.environ["CONVERT_QUEUE_OUT"]
@@ -190,6 +189,7 @@ if __name__ == "__main__":
 		logger.info("init-db done")	
 		sys.exit(0)
 
+	# single conversion
 	if "--src" in sys.argv:
 		parser = argparse.ArgumentParser(description="convert demo")
 		parser.add_argument("--src", type=str, help="images", required=True)	
@@ -233,9 +233,9 @@ if __name__ == "__main__":
 				if method_frame is None: 
 					break 
 				body=body.decode("utf-8").strip()
-				logger.info(f"Received body={body} ")
 				msg=json.loads(body)
-				logger.info(f"Pushing pending {msg}")
+				logger.info(f"Received message from PubSub queue={CONVERT_QUEUE_IN} body=\n{json.dumps(msg,indent=2)} ")
+				logger.info(f"Pushing pending convert to db msg={msg}")
 				db.pushPendingConvert(**msg)
 
 				# important to do only here, I don't want to loose any message
@@ -246,24 +246,59 @@ if __name__ == "__main__":
 
 			# take one dataset from the database
 			row=db.popPendingConvert()
+
 			if not row:
 				time.sleep(0.1)
 				continue
-			else:
-				logger.info(f"Popped pending {row}")
-				ConvertImageStack(row["src"], row["dst"], compression=row["compression"], arco=row["arco"])
-				row=db.setConvertDone(row)
+
+			logger.info(f"Popped pending conversion row={row}")
+
+			# read metatada (can be a binary file too?)
+			metadata={}
+
+			for filename in json.loads(row["metadata"]):
+				ext=os.path.splitext(filename)[1]
+				try:
+					with open(filename,mode='rb') as f:
+						body=f.read()
+						if ext==".json":
+							body=json.loads(body)
+							encoded=body
+						else:
+							encoded=base64.b64encode(body).decode('ascii') # this should work with streamable nexus data too! or any binary file not too big (i.e. without big 3d data )
+						metadata[filename]=encoded
+						logger.info(f"Read Metadata filename={filename} ext={ext} body_c_size={len(body)} encoded_c_size={len(encoded)}")
+
+				except Exception as ex:
+					logger.info(f"Reading of metadata file {filename} failed {ex}. Skipping it")
+			
+			# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
+			# e.g assuyming /mnt/data1/nsdf/tmp/near-field-scrgiorgio-20230912-01/visus.idx I need to clean up the parent directory
+			# SO MAKE SURE you are using unique directories!
+			src=row["src"]
+			dst=row["dst"]
+
+			if True:
+				logger.info(f" DANGEROUS but needed: removing any file from {os.path.dirname(dst)}")
+				shutil.rmtree(os.path.dirname(dst), ignore_errors=True)
+
+			ConvertImageStack(row["src"], row["dst"], compression=row["compression"], arco=row["arco"])
 
 			# i allow this to fail
 			try:
 				db.generateConfig(VISUS_CONVERT_CONFIG)
 			except:
-				pass	
+				logger.info(f"db.generateConfig('{VISUS_CONVERT_CONFIG}') failed, but ignoring. it may be fixed later")	
 
-			# nofify about the dataset ready (i.e. someone may want to run a dashboard)
-			msg=json.dumps({k:str(v) for k,v in row.items()})
-			channel_out.basic_publish(exchange='', routing_key=CONVERT_QUEUE_OUT ,body=msg)
-			print(f"Published body={msg} queue={CONVERT_QUEUE_OUT}")
+			# only when all successfull I can say it's done
+			row=db.setConvertDone(row)
+
+			out_msg={k:str(v) for k,v in row.items()}
+			out_msg["metadata"]=metadata # self-contained metadata
+
+			# TODO: what if I fail here?
+			channel_out.basic_publish(exchange='', routing_key=CONVERT_QUEUE_OUT ,body=json.dumps(out_msg))
+			print(f"Published to queue={CONVERT_QUEUE_OUT} body=\n{json.dumps(out_msg,indent=2)} ")
 
 		logger.info(f"RunConvertLoop end")
 		channel_in.close();connection_in.close()
