@@ -34,11 +34,10 @@ if __name__.startswith('bokeh'):
 										 default=["num_views", "palette", "dataset", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", 
 										"play-button", "play-sec",
 										"colormapper_type",
-
 										])
 	
 	parser.add_argument('--slice-show-options', type=str, required=False, 
-										 default=["direction", "offset", "viewdep", "status_bar"
+										 default=["direction", "offset", "viewdep", "status_bar","palette_range"
 										])
 	parser.add_argument('--color-mapper', required=False, default="linear") # also "log" possible
 	parser.add_argument('--multi',  action='store_true')
@@ -114,7 +113,7 @@ if __name__.startswith('bokeh'):
 	# palette range
 	if args.palette_range:
 		vmin,vmax=ArgToList(args.palette_range)
-	view.setUserPaletteRange([vmin,vmax])
+	view.setPaletteRange([vmin,vmax])
 
 	view.setPaletteRangeMode("dynamic")
 

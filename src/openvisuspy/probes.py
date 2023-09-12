@@ -72,8 +72,7 @@ class ProbeTool:
 			for dir in range(3):
 				self.probes[dir].append(Probe(status=INACTIVE,button=button,color=color))
 
-		vmin=view.getPaletteRangeLow()
-		vmax=view.getPaletteRangeHigh()
+		vmin,vmax=view.getPaletteRange()
 
 		self.fig = figure(
 			title="Line Plot", 
