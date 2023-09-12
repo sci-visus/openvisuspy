@@ -99,7 +99,9 @@ class QueryNode:
 
 	# start
 	def start(self):
-		assert(self.thread is None)
+		# already running
+		if not self.thread is None:
+			return
 		self.thread = threading.Thread(target=self._threadLoop,daemon=True)
 		self.thread.start()
 
@@ -132,6 +134,9 @@ class QueryNode:
 	# _threadLoop
 	def _threadLoop(self):
 
+		
+		logger.info("entering _threadLoop ...")
+
 		t1=None
 		while True:
 
@@ -140,7 +145,11 @@ class QueryNode:
 				t1=time.time()
 
 			db, kwargs=self.iqueue.get()
-			if db is None: return 
+			if db is None: 
+				logger.info("exiting _threadLoop...")
+				return 
+			
+
 			self.stats.startCollecting() 
 
 			access=kwargs['access'];del kwargs['access']

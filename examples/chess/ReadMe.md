@@ -99,7 +99,7 @@ To show the data in a bokeh dashboard
 
 ```bash
 set PYTHONPATH=./src;C:\projects\OpenVisus\build\RelWithDebInfo
-python -m bokeh serve examples/dashboards/run.py --dev --args --dataset C:/visus_datasets/3scans_HKLI.streamable.nxs  --multi --color-mapper log --palette Viridis256
+python -m bokeh serve examples/dashboards/run.py --dev --args --dataset C:/visus_datasets/3scans_HKLI.streamable.nxs  --num-views 1 --color-mapper log --palette Viridis256 
 ```
 
 

@@ -29,8 +29,16 @@ if __name__.startswith('bokeh'):
 	parser.add_argument("--num-refinements", type=int, required=False, default=3)
 	parser.add_argument("--axis", type=str, required=False, default=[('0','X'),('1','Y'),('2','Z')]) # axis value, axis name
 	parser.add_argument('--num-views', type=int, required=False, default=1)
-	parser.add_argument('--show-options', type=str, required=False, default=["num_views", "palette", "dataset", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", "play-button", "play-sec"])
-	parser.add_argument('--slice-show-options', type=str, required=False, default=["direction", "offset", "viewdep", "status_bar"])
+
+	parser.add_argument('--show-options', type=str, required=False, 
+										 default=["num_views", "palette", "dataset", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", 
+										"play-button", "play-sec",
+										"colormapper_type",
+										])
+	
+	parser.add_argument('--slice-show-options', type=str, required=False, 
+										 default=["direction", "offset", "viewdep", "status_bar","palette_range"
+										])
 	parser.add_argument('--color-mapper', required=False, default="linear") # also "log" possible
 	parser.add_argument('--multi',  action='store_true')
 	parser.add_argument('--single', action='store_true')
@@ -80,28 +88,34 @@ if __name__.startswith('bokeh'):
 
 	show_options=ArgToList(args.show_options) 
 	slice_show_options=ArgToList(args.slice_show_options) 
-	if args.multi:  args.num_views=3
-	if args.single: args.num_views=1	
-	if args.num_views<=1:
+
+	if args.single:
 		view=Slice(show_options=show_options)
 	else:
-		view=Slices(num_views=args.num_views, show_options=show_options, slice_show_options=slice_show_options)
+		view=Slices(show_options=show_options, slice_show_options=slice_show_options)
+		view.setNumberOfViews(args.num_views)
+	if args.dataset == ['chess']:
+		urls = ['https://atlantis.sci.utah.edu/mod_visus?dataset=chess-zip&cached=1', 'http://atlantis.sci.utah.edu/mod_visus?dataset=rabbit&cached=1', 'http://atlantis.sci.utah.edu/mod_visus?dataset=foam-2022-01&cached=1']
+	else:
+		urls=args.dataset
 
-	view.setDatasets([(url,str(I)) for I,url in enumerate(args.dataset)],"Datasets")
-	view.setDataset(args.dataset[0])
+	view.setDatasets([(url,str(I)) for I,url in enumerate(urls)],"Datasets")
+	view.setDataset(urls[0])
 
 	view.setQuality(args.quality)
 	view.setNumberOfRefinements(args.num_refinements)
 	view.setPalette(args.palette) 
 
+	dtype_range=view.db.getField().getDTypeRange()
+	vmin,vmax=dtype_range.From,dtype_range.To
+	view.setMetadataPaletteRange([vmin,vmax])
+
 	# palette range
 	if args.palette_range:
 		vmin,vmax=ArgToList(args.palette_range)
-	else:
-		dtype_range=view.db.getField().getDTypeRange()
-		vmin,vmax=dtype_range.From,dtype_range.To
-	if vmin>=vmax: vmin,vmax=[0.0,255.0]
 	view.setPaletteRange([vmin,vmax])
+
+	view.setPaletteRangeMode("dynamic")
 
 	view.setTimestepDelta(args.timestep_delta)
 
@@ -134,8 +148,9 @@ if __name__.startswith('bokeh'):
 	view.setViewDependent(False if args.no_view_dep else True) 
 
 	# axis
-	view.setDirections(args.axis)
+	view.setDirections(ArgToList(args.axis))
 
+	# linear or log
 	if args.color_mapper:
 		view.setColorMapperType(args.color_mapper)
 
@@ -159,8 +174,8 @@ if __name__.startswith('bokeh'):
 		app.servable()
 	else:
 		import bokeh
-		doc=bokeh.io.curdoc()		
+		doc=bokeh.io.curdoc()
 		main_layout=central.getBokehLayout(doc=doc)
-		doc.add_root(main_layout)	
+		doc.add_root(main_layout)
 	
 
