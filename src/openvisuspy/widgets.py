@@ -1,4 +1,5 @@
-import os,sys,logging,types,time
+import os,sys,logging,types,time,copy
+from typing import Any
 import colorcet
 
 from . utils import *
@@ -45,6 +46,15 @@ PALETTES=[
 	]  
 
 # //////////////////////////////////////////////////////////////////////////////////////
+def cdouble(value):
+	try:
+		return float(value)
+	except:
+		return 0.0
+
+
+
+# //////////////////////////////////////////////////////////////////////////////////////
 class Widgets:
 
 	ID=0
@@ -61,9 +71,6 @@ class Widgets:
 		self.logic_to_physic=[(0.0,1.0)]*3
 		self.children=[]
   
-		self.palette='Greys256'
-		self.palette_range=(0.0,255.0 )
-
 		self.widgets=types.SimpleNamespace()
 
 		# dataset
@@ -71,14 +78,25 @@ class Widgets:
 		self.widgets.dataset.on_change("value",lambda attr,old,new: self.setDataset(new)) 
  
 		# palette
+		self.palette='Greys256'
 		self.widgets.palette = Select(title='Palette', options=PALETTES,value=self.palette,width=100)
 		self.widgets.palette.on_change("value",lambda attr, old, new: self.setPalette(new))  
+
+		# palette range
+		self.metadata_palette_range=[0.0,255.0]
+		self.widgets.palette_range_mode = Select(title="RangeMode",options=["metadata","user","dynamic","dynamic-acc"], value="metadata",width=100)
+		self.widgets.palette_range_vmin = TextInput(title="vmin" ,width=100)
+		self.widgets.palette_range_vmax = TextInput(title="vmax" ,width=100)
+
+		self.widgets.palette_range_mode.on_change("value",lambda attr, old, new: self.setPaletteRangeMode(new))
+		self.widgets.palette_range_vmin.on_change("value",lambda attr, old, new: self.onPaletteRangeChange())
+		self.widgets.palette_range_vmax.on_change("value",lambda attr, old, new: self.onPaletteRangeChange())
 
 		# color_bar
 		self.color_bar = ColorBar()
 		self.color_bar.color_mapper=LinearColorMapper() 
 		self.color_bar.color_mapper.palette=self.palette
-		self.color_bar.color_mapper.low,self.color_bar.color_mapper.high = self.palette_range
+		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()
 
 		# color_mapper type
 		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='3',width=80)
@@ -196,6 +214,11 @@ class Widgets:
 	def createGui(self,central_layout=None,options=[]):
 	 
 		options=[it.replace("-","_") for it in options]
+
+		if "palette_range" in options:
+			options.remove("palette_range")
+			options=options+["palette_range_mode","palette_range_vmin","palette_range_vmax"]
+			
 		first_row=[getattr(self.widgets,it) for it in options if it!="status_bar"]
 	 
 		ret=Column(sizing_mode='stretch_both')
@@ -402,37 +425,7 @@ class Widgets:
 			it.setField(value)  
 		self.refresh()
 
-	# getColorMapperType
-	def getColorMapperType(self):
-		return "log" if isinstance(self.color_bar.color_mapper,LogColorMapper) else "linear"
-
-	# getColorMapperType
-	def setColorMapperType(self,value):
-
-		logger.info(f"Widgets[{self.id}]::setColorMapperType value={value}")
-
-		palette=self.getPalette()
-		m,M=self.getPaletteRange()
-
-		self.widgets.colormapper_type.value=value
-
-		assert value=="linear" or value=="log"
-		if value=="log":
-			cls=LogColorMapper
-			low =max(0.01,m)
-			high=max(0.01,M)
-		else:
-			cls=LinearColorMapper
-			low=m
-			high=M
-
-		self.color_bar.color_mapper = cls(palette=palette, low=low, high=high)
-		self.setPalette(palette)
-		self.setPaletteRange((m,M))
-
-		for it in self.children:
-			it.setColorMapperType(value)  
-		self.refresh()
+	# /////////////////////////////////////////////////////////
 
 	# getPalette
 	def getPalette(self):
@@ -448,21 +441,89 @@ class Widgets:
 			it.setPalette(value)  
 		self.refresh()
 
+
+	# getMetadataPaletteRange
+	def getMetadataPaletteRange(self):
+		return self.metadata_palette_range
+	
+	# setMetadataPaletteRange
+	def setMetadataPaletteRange(self,value):
+		vmin,vmax=value
+		self.metadata_palette_range=[vmin,vmax]
+		for it in self.children:
+			it.setMetadataPaletteRange(value)
+
+	# getPaletteRangeMode
+	def getPaletteRangeMode(self):
+		return self.widgets.palette_range_mode.value
+	
+	# setPaletteRangeMode
+	def setPaletteRangeMode(self,mode):
+		logger.info(f"Widgets[{self.id}]::setPaletteRangeMode mode={mode} ")
+		self.widgets.palette_range_mode.value=mode
+
+		wmin=self.widgets.palette_range_vmin
+		wmax=self.widgets.palette_range_vmax
+
+		if mode=="metadata":
+				wmin.value = str(self.metadata_palette_range[0])
+				wmax.value = str(self.metadata_palette_range[1])
+
+		if mode=="dynamic-acc":
+			wmin.value=str(float('+inf'))
+			wmax.value=str(float('-inf'))
+
+		wmin.disabled=False if mode=="user" else True
+		wmax.disabled=False if mode=="user" else True
+			
+		for it in self.children:
+			it.setPaletteRangeMode(mode)
+		self.refresh()
+
+
 	# getPaletteRange
 	def getPaletteRange(self):
-		return self.palette_range
+		return [
+			cdouble(self.widgets.palette_range_vmin.value),
+			cdouble(self.widgets.palette_range_vmax.value),
+		]
 
-	# setPaletteRange
+	# setPaletteRange (backward compatible)
 	def setPaletteRange(self,value):
-		logger.info(f"Widgets[{self.id}]::setPaletteRange value={value}")
-		m,M=value
-		self.palette_range=(m,M)
-		is_log=isinstance(self.color_bar.color_mapper,LogColorMapper)
-		self.color_bar.color_mapper.low =max(0.01,m) if is_log else m
-		self.color_bar.color_mapper.high=max(0.01,M) if is_log else M 
-
+		vmin,vmax=value
+		self.widgets.palette_range_vmin.value=str(vmin)
+		self.widgets.palette_range_vmax.value=str(vmax)
 		for it in self.children:
 			it.setPaletteRange(value)
+		self.refresh()
+
+	# onPaletteRangeChange
+	def onPaletteRangeChange(self):
+		if self.getPaletteRangeMode()=="user": 
+			vmin,vmax=self.getPaletteRange()
+			self.setPaletteRange([vmin, vmax])
+
+	# getColorMapperType
+	def getColorMapperType(self):
+		return "log" if isinstance(self.color_bar.color_mapper,LogColorMapper) else "linear"
+
+	# getColorMapperType
+	def setColorMapperType(self,value):
+		logger.info(f"Widgets[{self.id}]::setColorMapperType value={value}")
+		palette=self.getPalette()
+		vmin,vmax=self.getPaletteRange()
+		self.widgets.colormapper_type.value=value
+		assert value=="linear" or value=="log"
+		self.color_bar.color_mapper = LogColorMapper(palette=palette) if value=="log"else LinearColorMapper(palette=palette)
+		self.color_bar.color_mapper.low =max(0.01,vmin) if value=="log" else vmin
+		self.color_bar.color_mapper.high=max(0.01,vmax) if value=="log" else vmax
+		for it in self.children:
+			it.setColorMapperType(value)  
+		self.refresh()
+
+
+	# /////////////////////////////////////////////////////////////////
+
 
 	# getNumberOfRefinements
 	def getNumberOfRefinements(self):
@@ -473,7 +534,7 @@ class Widgets:
 		logger.info(f"Widgets[{self.id}]::setNumberOfRefinements value={value}")
 		self.widgets.num_refinements.value=value
 		for it in self.children:
-			it.setNumberOfRefinements(value)      
+			it.setNumberOfRefinements(value)
 		self.refresh()
 
 	# getQuality

@@ -193,10 +193,40 @@ class Slice(Widgets):
 		data=result['data']
 		logic_box=result['logic_box'] 
 		try:
-			vmin,vmax=np.min(data),np.max(data)
+			data_range=np.min(data),np.max(data)
 		except:
-			vmin,max=0.0,0.0
-		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={vmin} M={vmax}")
+			data_range=0.0,0.0
+
+		# depending on the palette range mode, I need to use different color mapper low/high
+		mode=self.getPaletteRangeMode()
+		
+		# refresh the range
+		if True:
+			wmin=self.widgets.palette_range_vmin
+			wmax=self.widgets.palette_range_vmax
+
+			if mode=="dynamic":
+				wmin.value = str(data_range[0])
+				wmax.value = str(data_range[1])
+				
+			if mode=="dynamic-acc":
+				wmin.value = str(min(float(wmin.value), data_range[0]))
+				wmax.value = str(max(float(wmax.value), data_range[1]))
+
+			low,high=self.getPaletteRange()
+			from bokeh.models import LogColorMapper
+			is_log=isinstance(self.color_bar.color_mapper, LogColorMapper)
+			self.color_bar.color_mapper.low =max(0.0001,low) if is_log else low
+			self.color_bar.color_mapper.high=max(0.0001,high) if is_log else high
+
+
+			from bokeh.models import FixedTicker
+			self.color_bar.ticker=FixedTicker(ticks=np.linspace(self.color_bar.color_mapper.low, self.color_bar.color_mapper.high, 10))
+
+
+
+		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
+
 		(x1,y1),(x2,y2)=self.project(logic_box)
 		self.canvas.setImage(data,x1,y1,x2,y2)
 		tot_pixels=data.shape[0]*data.shape[1]
