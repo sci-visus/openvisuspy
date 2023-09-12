@@ -13,8 +13,6 @@ def ArgToList(v):
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
 
-	# special case, NEXUS file (or whatever) containing most metadata
-
 	import argparse
 	parser = argparse.ArgumentParser(description="OpenVisus Dashboards")
 	parser.add_argument("--dataset", type=str, required=False,default=["https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1"], nargs='+', )

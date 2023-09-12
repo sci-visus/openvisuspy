@@ -54,14 +54,14 @@ class Datasets:
 		if row is None: 
 			return None
 		row={k:row[k] for k in row.keys()}
-		row["conversion_start"]=datetime.now()
+		row["conversion_start"]=str(datetime.now())
 		data = self.conn.execute("UPDATE datasets SET conversion_start==? where id=?",(row["conversion_start"],row["id"], ))
 		self.conn.commit()
 		return row
 
 	# setConvertDone
 	def setConvertDone(self, row):
-		row["conversion_end"]=datetime.now()
+		row["conversion_end"]=str(datetime.now())
 		data = self.conn.execute("UPDATE datasets SET conversion_end==? where id=?",(row["conversion_end"],row["id"], ))
 		self.conn.commit()
 		return row
@@ -105,7 +105,7 @@ class Datasets:
 # # ///////////////////////////////////////////////////////////////////
 def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 
-	logger.info(f"ConvertImageStack src={src} dst={dst} compression={compression} arco={arco} START")
+	logger.info(f"ConvertImageStack src={src} dst={dst} compression={compression} arco={arco} start...")
 
 	ext=os.path.splitext(src)[1]
 	logger.info(f"Finding files with ext={ext}")
@@ -124,14 +124,17 @@ def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 	data=np.clip(data,0,70)
 	data=data.astype(np.float32)
 
-	m,M=np.min(data),np.max(data)
+	vmin,vmax=np.min(data),np.max(data)
 	D,H,W=data.shape
-	logger.info(f"Image stack loaded in {time.time() - t1} seconds shape={data.shape} dtype={data.dtype} c_size={W*H*D*4:,} m={m} M={M}")
+	logger.info(f"Image stack loaded in {time.time() - t1} seconds shape={data.shape} dtype={data.dtype} c_size={W*H*D*4:,} vmin={vmin} vmax={vmax}")
 	D,H,W=data.shape
 
 	# write uncompressed
 	idx_filename=dst
-	db=ov.CreateIdx(url=idx_filename, dims=[W,H,D], fields=[ov.Field("data",str(data.dtype),"row_major")], compression="raw", arco=arco)
+	field=ov.Field.fromString(f"""DATA {str(data.dtype)} format(row_major) min({vmin}) max({vmax})""")
+
+	db=ov.CreateIdx(url=idx_filename, dims=[W,H,D], fields=[field], compression="raw", arco=arco)
+
 	# print(db.getDatasetBody().toString())
 	logger.info(f"IDX file={idx_filename} created")
 
@@ -234,8 +237,8 @@ if __name__ == "__main__":
 					break 
 				body=body.decode("utf-8").strip()
 				msg=json.loads(body)
-				logger.info(f"Received message from PubSub queue={CONVERT_QUEUE_IN} body=\n{json.dumps(msg,indent=2)} ")
-				logger.info(f"Pushing pending convert to db msg={msg}")
+				logger.info(f"PubSub received message from queue={CONVERT_QUEUE_IN} body=\n{json.dumps(msg,indent=2)} ")
+				logger.info(f"Pushing PubSub message to local database msg={json.dumps(msg,indent=2)}")
 				db.pushPendingConvert(**msg)
 
 				# important to do only here, I don't want to loose any message
@@ -251,27 +254,32 @@ if __name__ == "__main__":
 				time.sleep(0.1)
 				continue
 
-			logger.info(f"Popped pending conversion row={row}")
+			logger.info(f"Starting conversion spec={json.dumps(row,indent=2)}")
 
 			# read metatada (can be a binary file too?)
-			metadata={}
+			metadata=[]
 
-			for filename in json.loads(row["metadata"]):
+			for it in json.loads(row["metadata"]):
+
+				type=it['type']
+				assert(type=="file") # TODO other cases
+
+				filename=it['path']
 				ext=os.path.splitext(filename)[1]
+
 				try:
 					with open(filename,mode='rb') as f:
 						body=f.read()
 						if ext==".json":
-							body=json.loads(body)
-							encoded=body
+							metadata.append({'type':'json-object','filename': filename, 'object': json.loads(body)})
 						else:
 							encoded=base64.b64encode(body).decode('ascii') # this should work with streamable nexus data too! or any binary file not too big (i.e. without big 3d data )
-						metadata[filename]=encoded
-						logger.info(f"Read Metadata filename={filename} ext={ext} body_c_size={len(body)} encoded_c_size={len(encoded)}")
-
+							metadata.append({'type':'b64encode','filename' : filename,'encoded': encoded})
+						
+						logger.info(f"Read metadata type={type} filename={filename} ext={ext} body_c_size={len(body)}")
 				except Exception as ex:
 					logger.info(f"Reading of metadata file {filename} failed {ex}. Skipping it")
-			
+
 			# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
 			# e.g assuyming /mnt/data1/nsdf/tmp/near-field-scrgiorgio-20230912-01/visus.idx I need to clean up the parent directory
 			# SO MAKE SURE you are using unique directories!
@@ -293,12 +301,18 @@ if __name__ == "__main__":
 			# only when all successfull I can say it's done
 			row=db.setConvertDone(row)
 
-			out_msg={k:str(v) for k,v in row.items()}
-			out_msg["metadata"]=metadata # self-contained metadata
+			out_msg={}
+			out_msg["metadata"]=[{
+				'type':'json-object',
+				'filename': 'generated-nsdf-convert.json', 
+				'object' : {k:str(v) for k,v in row.items() if k!="metadata"}
+			}]
+			out_msg["metadata"].extend(metadata)
 
 			# TODO: what if I fail here?
 			channel_out.basic_publish(exchange='', routing_key=CONVERT_QUEUE_OUT ,body=json.dumps(out_msg))
-			print(f"Published to queue={CONVERT_QUEUE_OUT} body=\n{json.dumps(out_msg,indent=2)} ")
+			print(f"PubSub published message to queue={CONVERT_QUEUE_OUT} body=\n{json.dumps(out_msg,indent=2)} ")
+			print(f"Continuing loop...")
 
 		logger.info(f"RunConvertLoop end")
 		channel_in.close();connection_in.close()

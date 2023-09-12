@@ -283,8 +283,8 @@ python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --mes
    'compression':'zip',
    'arco':'1mb',
    'metadata': [
-      '/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json',
-      '/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par'
+      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json'},
+      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par' }
    ]}"
 
 python examples/chess/convert.py run-convert-loop
@@ -319,8 +319,8 @@ python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --mes
    'compression':'zip',
    'arco':'1mb',
    'metadata': [
-      '/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.json',
-      '/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.par'
+      {'type':'file','path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.json'},
+      {'type':'file','path':/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.par''},
    ]}"
 
 python examples/chess/convert.py run-convert-loop
