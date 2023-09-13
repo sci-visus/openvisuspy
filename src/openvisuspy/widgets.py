@@ -166,7 +166,7 @@ class Widgets:
 		self.widgets.play_sec = Select(title="Frame delay",options=["0.00","0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
 
 		# metadata
-		self.widgets.metadata=Column(sizing_mode='stretch_width')
+		self.widgets.metadata=Column(width=640,sizing_mode='stretch_height')
 		self.widgets.metadata.visible=False
 
 		self.widgets.show_metadata=Button(label="Metadata",width=80,sizing_mode='stretch_height')
@@ -237,24 +237,22 @@ class Widgets:
 			
 		first_row=[getattr(self.widgets,it) for it in options if it!="status_bar"]
 
-		ret=Column(sizing_mode='stretch_both')
+		v=[]
   
-		ret.children.append(Row(
+		v.append(Row(
 	  		children=first_row,
 			sizing_mode="stretch_width"))
 
 		if central_layout:
-			ret.children.append(central_layout)
+			v.append(central_layout)
 		
 		if "status_bar" in options:
-			ret.children.append(Row(
+			v.append(Row(
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'))
   
-		ret.children.append(self.widgets.metadata)
-
-		return ret
+		return Row(Column(*v, sizing_mode='stretch_both'),self.widgets.metadata, sizing_mode='stretch_both')
   
 
 	# setWidgetsDisabled
@@ -393,6 +391,8 @@ class Widgets:
 		self.setPaletteRange([vmin,vmax])
 		self.setPaletteRangeMode("dynamic")
 
+		self.setColorMapperType(config.get("color-mapper-type","linear"))
+
 		# metadata
 		metadata=config.get("metadata",None)
 		if metadata:
@@ -441,7 +441,6 @@ class Widgets:
 					tabs.append(panel)
 
 			self.widgets.metadata.children=[Tabs(tabs=tabs)]
-
 
 		
 		self.refresh() 

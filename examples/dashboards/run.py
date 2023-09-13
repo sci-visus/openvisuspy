@@ -23,7 +23,6 @@ if __name__.startswith('bokeh'):
 		open(sys.argv[1]))
 	
 	view.setConfig(config)
-	view.setColorMapperType("log")
 	
 	#if args.probes:
 	#	from openvisuspy.probes import ProbeTool
