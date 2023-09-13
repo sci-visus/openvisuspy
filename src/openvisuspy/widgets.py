@@ -160,8 +160,20 @@ class Widgets:
 		self.widgets.play_button.on_click(self.togglePlay)
 		self.widgets.play_sec = Select(title="Frame delay",options=["0.00","0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
 
+		# metadata
+		self.metadata=Column(sizing_mode='stretch_width')
+		self.metadata.visible=False
+
+		self.widgets.show_metadata=Button(label="Metadata",width=80,sizing_mode='stretch_height')
+		self.widgets.show_metadata.on_click(self.onShowMetadataClick)
+
 		self.panel_layout=None
 		self.idle_callback=None
+
+	# onShowMetadataClick
+	def onShowMetadataClick(self):
+		self.metadata.visible=not self.metadata.visible
+
 
 	# start
 	def start(self):
@@ -220,7 +232,7 @@ class Widgets:
 			options=options+["palette_range_mode","palette_range_vmin","palette_range_vmax"]
 			
 		first_row=[getattr(self.widgets,it) for it in options if it!="status_bar"]
-	 
+
 		ret=Column(sizing_mode='stretch_both')
   
 		ret.children.append(Row(
@@ -236,6 +248,8 @@ class Widgets:
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'))
   
+		ret.children.append(self.metadata)
+
 		return ret
   
 
