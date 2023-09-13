@@ -121,7 +121,8 @@ def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 	for Z,filename in enumerate(filenames):
 			#print(f"Loading {filename}")
 			data[Z,:,:]=io.imread(filename)
-	data=np.clip(data,0,70)
+
+	# why I am forcing it to be float32? I don't rememeber, maybe for openvisus/bokeh?
 	data=data.astype(np.float32)
 
 	vmin,vmax=np.min(data),np.max(data)
@@ -133,7 +134,11 @@ def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 	idx_filename=dst
 	field=ov.Field.fromString(f"""DATA {str(data.dtype)} format(row_major) min({vmin}) max({vmax})""")
 
-	db=ov.CreateIdx(url=idx_filename, dims=[W,H,D], fields=[field], compression="raw", arco=arco)
+	# TODO: I can I get this information from image stack???
+	idx_physic_box=ov.BoxNd.fromString(f"0 {W} 0 {H} 0 {D}"),
+	idx_axis="X Y Z"
+
+	db=ov.CreateIdx(url=idx_filename, dims=[W,H,D], fields=[field], compression="raw", arco=arco, axis=idx_axis, physic_box=idx_physic_box)
 
 	# print(db.getDatasetBody().toString())
 	logger.info(f"IDX file={idx_filename} created")

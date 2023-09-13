@@ -21,23 +21,12 @@ class Slices(Widgets):
 		self.slice_show_options=slice_show_options
 		self.central_layout=Column(sizing_mode='stretch_both')
 		self.gui=self.createGui(central_layout=self.central_layout, options=show_options)
+		self.setNumberOfViews(1)
 	
 	# setNumberOfViews
 	def setNumberOfViews(self,value):
 
-		datasets=self.getDatasets()
-		quality=self.getQuality()
-		num_refinements=self.getNumberOfRefinements()
-		palette=self.getPalette()
-		palette_range_mode=self.getPaletteRangeMode()
-		palette_range=self.getPaletteRange()
-		timestep_delta=self.getTimestepDelta()
-		timestep=self.getTimestep()
-		field=self.getField()
-		logic_to_physic=self.getLogicToPhysic()
-		no_view_dep=self.getViewDepedent()
-		directions=self.getDirections()
-		colormapper_type=self.getColorMapperType()
+		config=self.getConfig()
 
 		super().stop()
 		super().setNumberOfViews(value)
@@ -76,24 +65,7 @@ class Slices(Widgets):
 		else:
 			raise Exception("internal error")
 		
-
-		self.setDatasets(datasets)
-		if len(datasets):
-			url,index=datasets[0]
-			self.setDataset(url,force=True) # (url,str(index))
-		self.setQuality(quality)
-		self.setNumberOfRefinements(num_refinements)
-		self.setPalette(palette) 
-		self.setPaletteRangeMode(palette_range_mode)
-		self.setPaletteRange(palette_range)
-		self.setTimestepDelta(timestep_delta)
-		self.setTimestep(timestep)
-		self.setField(field)
-		self.setLogicToPhysic(logic_to_physic)
-		self.setViewDependent(no_view_dep) 
-		self.setDirections(directions)
-		self.setColorMapperType(colormapper_type)
-
+		self.setConfig(config)
 		super().start()
 
 
