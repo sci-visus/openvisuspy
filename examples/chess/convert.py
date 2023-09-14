@@ -1,12 +1,21 @@
-import os ,sys, time, logging,shutil,glob,json, string, random, argparse, shutil, base64
+import os ,sys, time, logging,shutil,glob,json, string, random, argparse, shutil, base64,copy
 from datetime import datetime
 import pika
 import sqlite3 
 import numpy as np
 from skimage import io
+
+# python3 -m pip install nexusformat
+from nexusformat.nexus import * 
+from nexusformat.nexus.tree import NX_CONFIG 
+NX_CONFIG['memory']=32000 # alllow data to be 32GB
+
 import OpenVisus as ov
 
 logger = logging.getLogger("nsdf-convert")
+
+# for debugging
+# ov.SetupLogger(logging.getLogger("OpenVisus"), output_stdout=True) 
 
 # ///////////////////////////////////////////////////////////////////////
 class Datasets:
@@ -64,7 +73,6 @@ class Datasets:
 		row["conversion_end"]=str(datetime.now())
 		data = self.conn.execute("UPDATE datasets SET conversion_end==? where id=?",(row["conversion_end"],row["id"], ))
 		self.conn.commit()
-		return row
 
 	# getAll
 	def getAll(self):
@@ -158,6 +166,100 @@ def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 
 	logger.info(f"ConvertImageStack src={src} dst={dst} compression={compression} arco={arco} done")
 
+
+
+
+# ////////////////////////////////////////////////////////////
+class CreateNexusStreamable:
+
+	# TODO: what is the criteria to remove fields?
+	MAX_NXFIELD_BYTES=1024*1024
+
+	# constructor
+	def __init__(self,src_filename, idx_filename_template, streamable_filename):
+		self.src_filename=src_filename
+		self.streamable_filename=streamable_filename
+		self.idx_filename_template=idx_filename_template
+
+	# run
+	def run(self):
+		print(f"NexusCreateStreamable::run filename={self.src_filename} full-size={os.path.getsize(self.src_filename):,}")
+		if os.path.isfile(self.streamable_filename): os.remove(self.streamable_filename)
+		src=nxload(self.src_filename)
+		dst=copy.deepcopy(src)
+		dst.attrs["streamable"]=True
+		self._convertNexusFieldsToOpenVisus(src, dst)
+		nxsave(self.streamable_filename, dst , mode='w')
+		print(f"NexusCreateStreamable::run streamable_filename={self.streamable_filename} reduced-size={os.path.getsize(self.streamable_filename):,}")
+		return dst
+	
+	# _convertNexusFieldsToOpenVisus
+	def _convertNexusFieldsToOpenVisus(self, src, dst):
+
+		if isinstance(src,NXfield):
+
+			if src.nbytes<=self.MAX_NXFIELD_BYTES:
+
+				# deepcopy does not seem to copy nxdata (maybe for the lazy evalation?)
+				dst.nxdata=copy.copy(src.nxdata)
+
+			else:
+
+				print("Removing Nxfield",src.nxname)
+
+				# replace any 'big' field with something virtually empty
+				# TODO: read nexus by slabs
+				t1=time.time()
+				print(f"Reading Nexus field {src.nxname}...")
+				data = src.nxdata
+				print(f"Read Nexus field  in {time.time()-t1} seconds")
+
+				# this is the version without any data
+				new_field=NXfield(value=None, shape=src.shape, dtype=data.dtype)
+
+				idx_filename=self.idx_filename_template.replace("{NxField::nxname}",src.nxname)
+
+				t1=time.time()
+				print(f"Creating IDX file {idx_filename}...")
+				field=ov.Field.fromString(f"""DATA {str(data.dtype)} format(row_major) min({np.min(data)}) max({np.max(data)})""")
+
+				parent=src.nxgroup
+				assert(isinstance(parent,NXdata))
+				axis=[parent[it] for it in parent.attrs["axes"]]
+
+				idx_axis=[]
+				idx_physic_box=[]
+				for it in axis:
+					idx_physic_box=[str(it.nxdata[0]),str(it.nxdata[-1])] + idx_physic_box
+					idx_axis=[it.nxname] +idx_axis
+				idx_axis=" ".join(idx_axis)
+				idx_physic_box=" ".join(idx_physic_box)
+		
+				db=ov.CreateIdx(
+					url=idx_filename, 
+					dims=list(reversed(data.shape)), 
+					fields=[field], 
+					compression="raw",
+					physic_box=ov.BoxNd.fromString(idx_physic_box),
+					axis=idx_axis
+				)
+				db.write(data)
+				print(f"Created IDX file {idx_filename} in {time.time()-t1} seconds")
+
+				# add as attribute (list of openvisus files)
+				new_field.attrs["openvisus"]=repr([idx_filename])
+
+				# need to modify the parent
+				dst.nxgroup[src.nxname]=new_field
+		
+		# recurse
+		if hasattr(src,"items"):
+			for name in src.entries:
+					src_child=src.entries[name]
+					dst_child=dst.entries[name]
+					self._convertNexusFieldsToOpenVisus(src_child, dst_child)
+
+
 # ///////////////////////////////////////////////////////////////////
 def SetupLogger(filename):
 	logger.setLevel(logging.INFO)
@@ -176,20 +278,42 @@ def SetupLogger(filename):
 	logger.addHandler(file_handler)
 	logger.addHandler(stdout_handler)	
 
+
+# ///////////////////////////////////////////////////////////////////
+def LocalFileToMetadata(metadata, filename):
+	try:
+		ext=os.path.splitext(filename)[1]
+		with open(filename,mode='rb') as f:
+			body=f.read()
+
+		if ext==".json":
+			item={'type':'json-object','filename': filename, 'object': json.loads(body)}
+		else:
+			encoded=base64.b64encode(body).decode('ascii') # this should work with streamable nexus data too! or any binary file not too big (i.e. without big 3d data )
+			item={'type':'b64encode','filename' : filename,'encoded': encoded}
+		logger.info(f"Read metadata type={type} filename={filename} ext={ext} body_c_size={len(body)}")
+		metadata.append(item)
+
+	except Exception as ex:
+		logger.info(f"Reading of metadata {filename} failed {ex}. Skipping it")
+
 # ///////////////////////////////////////////////////////////////////
 if __name__ == "__main__":
 	
-	CONVERT_LOG_FILENAME=os.environ["CONVERT_LOG_FILENAME"]
-	CONVERT_QUEUE_IN=os.environ["CONVERT_QUEUE_IN"]
-	CONVERT_QUEUE_OUT=os.environ["CONVERT_QUEUE_OUT"]
-	PUBSUB_URL=os.environ["PUBSUB_URL"]	
-	CONVERT_SQLITE3_FILENAME=os.environ["CONVERT_SQLITE3_FILENAME"]
-	VISUS_CONVERT_CONFIG=os.environ["VISUS_CONVERT_CONFIG"]
+	NSDF_CONVERT_LOG_FILENAME=os.environ["NSDF_CONVERT_LOG_FILENAME"]
+	NSDF_CONVERT_QUEUE_IN=os.environ["NSDF_CONVERT_QUEUE_IN"]
+	NSDF_CONVERT_QUEUE_OUT=os.environ["NSDF_CONVERT_QUEUE_OUT"]
+	NSDF_CONVERT_PUBSUB_URL=os.environ["NSDF_CONVERT_PUBSUB_URL"]	
+	NSDF_CONVERT_SQLITE3_FILENAME=os.environ["NSDF_CONVERT_SQLITE3_FILENAME"]
+	NSDF_CONVERT_GROUP_CONFIG_LOCAL=os.environ["NSDF_CONVERT_GROUP_CONFIG_LOCAL"]
+	NSDF_CONVERT_MODVISUS_CONFIG=os.environ["NSDF_CONVERT_MODVISUS_CONFIG"]
 
-	SetupLogger(CONVERT_LOG_FILENAME)
+	NSDF_CONVERT_SERVER_URL=os.environ["NSDF_CONVERT_SERVER_URL"]
+
+	SetupLogger(NSDF_CONVERT_LOG_FILENAME)
 	
 	if sys.argv[1]=="init-db":
-		db=Datasets(CONVERT_SQLITE3_FILENAME)
+		db=Datasets(NSDF_CONVERT_SQLITE3_FILENAME)
 		db.dropTable()
 		db.createTable()
 		for row in db.getAll():
@@ -209,25 +333,25 @@ if __name__ == "__main__":
 		sys.exit(0)	
 
 	if sys.argv[1]=="dump-datasets":
-		db=Datasets(CONVERT_SQLITE3_FILENAME)
-		body=db.generateConfig(VISUS_CONVERT_CONFIG)
+		db=Datasets(NSDF_CONVERT_SQLITE3_FILENAME)
+		body=db.generateConfig(NSDF_CONVERT_MODVISUS_CONFIG)
 		print(body)
 		sys.exit(0)
 
 	if sys.argv[1]=="run-convert-loop":
 
-		def GetPubSubChannel(name):
-			params = pika.URLParameters(PUBSUB_URL)
+		def GetPubSubChannel(queue_name):
+			params = pika.URLParameters(NSDF_CONVERT_PUBSUB_URL)
 			connection = pika.BlockingConnection(params)
 			ret = connection.channel()
-			ret.queue_declare(queue=name)
+			ret.queue_declare(queue=queue_name)
 			return connection, ret
 
-		connection_in, channel_in  = GetPubSubChannel(CONVERT_QUEUE_IN)
-		connection_out,channel_out = GetPubSubChannel(CONVERT_QUEUE_OUT)
+		connection_in, channel_in  = GetPubSubChannel(NSDF_CONVERT_QUEUE_IN)
+		connection_out,channel_out = GetPubSubChannel(NSDF_CONVERT_QUEUE_OUT)
 
-		db=Datasets(CONVERT_SQLITE3_FILENAME)
-		db.generateConfig(VISUS_CONVERT_CONFIG)
+		db=Datasets(NSDF_CONVERT_SQLITE3_FILENAME)
+		db.generateConfig(NSDF_CONVERT_MODVISUS_CONFIG)
 		logger.info(f"RunConvertLoop start")
 
 		exitNow=False
@@ -235,15 +359,15 @@ if __name__ == "__main__":
 
 			# add all the messages to the database
 			# https://pika.readthedocs.io/en/stable/examples/blocking_consumer_generator.html
-			for method_frame, properties, body in channel_in.consume(CONVERT_QUEUE_IN, auto_ack=False,inactivity_timeout=0.1):
+			for method_frame, properties, body in channel_in.consume(NSDF_CONVERT_QUEUE_IN, auto_ack=False,inactivity_timeout=0.1):
 
 				# timeout
 				if method_frame is None: 
 					break 
 				body=body.decode("utf-8").strip()
 				msg=json.loads(body)
-				logger.info(f"PubSub received message from queue={CONVERT_QUEUE_IN} body=\n{json.dumps(msg,indent=2)} ")
-				logger.info(f"Pushing PubSub message to local database msg={json.dumps(msg,indent=2)}")
+				logger.info(f"PubSub received message from queue={NSDF_CONVERT_QUEUE_IN} body=\n{json.dumps(msg,indent=2)} ")
+				logger.info(f"Adding item top local db")
 				db.pushPendingConvert(**msg)
 
 				# important to do only here, I don't want to loose any message
@@ -255,69 +379,83 @@ if __name__ == "__main__":
 			# take one dataset from the database
 			row=db.popPendingConvert()
 
+			# no database to convert? just wait
 			if not row:
 				time.sleep(0.1)
 				continue
 
 			logger.info(f"Starting conversion spec={json.dumps(row,indent=2)}")
 
+			src,dst=row["src"],row["dst"]
+
+			# extract group_name (name should be in the form `group/whatever`)
+			dataset_fullname=row['name']
+			logger.info(f"dataset_fullname={dataset_fullname}")
+			group_name,__name=dataset_fullname.split("/",1)
+
+			# read group config (if not exists create a new one)
+			group_config={"datasets": []}
+			group_config_filename=f"{NSDF_CONVERT_GROUP_CONFIG_LOCAL}/{group_name}.config.json"
+			if os.path.isfile(group_config_filename):
+				with open(group_config_filename,"r") as f:
+					group_config=json.load(f)
+
 			# read metatada (can be a binary file too?)
+			"""
+				metadata': [
+				    {'type':'file','path':'/nfs/.../file.json'},
+				 ]
+			"""
 			metadata=[]
-
 			for it in json.loads(row["metadata"]):
-
 				type=it['type']
 				assert(type=="file") # TODO other cases
-
 				filename=it['path']
-				ext=os.path.splitext(filename)[1]
-
-				try:
-					with open(filename,mode='rb') as f:
-						body=f.read()
-						if ext==".json":
-							metadata.append({'type':'json-object','filename': filename, 'object': json.loads(body)})
-						else:
-							encoded=base64.b64encode(body).decode('ascii') # this should work with streamable nexus data too! or any binary file not too big (i.e. without big 3d data )
-							metadata.append({'type':'b64encode','filename' : filename,'encoded': encoded})
-						
-						logger.info(f"Read metadata type={type} filename={filename} ext={ext} body_c_size={len(body)}")
-				except Exception as ex:
-					logger.info(f"Reading of metadata file {filename} failed {ex}. Skipping it")
-
-			# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
-			# e.g assuyming /mnt/data1/nsdf/tmp/near-field-scrgiorgio-20230912-01/visus.idx I need to clean up the parent directory
-			# SO MAKE SURE you are using unique directories!
-			src=row["src"]
-			dst=row["dst"]
+				LocalFileToMetadata(metadata,filename)
 
 			if True:
+					# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
+				# e.g assuyming /mnt/data1/nsdf/tmp/near-field-scrgiorgio-20230912-01/visus.idx I need to clean up the parent directory
+				# SO MAKE SURE you are using unique directories!			
 				logger.info(f" DANGEROUS but needed: removing any file from {os.path.dirname(dst)}")
 				shutil.rmtree(os.path.dirname(dst), ignore_errors=True)
 
-			ConvertImageStack(row["src"], row["dst"], compression=row["compression"], arco=row["arco"])
+			src_ext=os.path.splitext(src)[1]
 
-			# i allow this to fail
-			try:
-				db.generateConfig(VISUS_CONVERT_CONFIG)
-			except:
-				logger.info(f"db.generateConfig('{VISUS_CONVERT_CONFIG}') failed, but ignoring. it may be fixed later")	
+			# image stack 
+			if src_ext==".tif":
+				ConvertImageStack(src, dst, compression=row["compression"], arco=row["arco"])
 
-			# only when all successfull I can say it's done
-			row=db.setConvertDone(row)
+			# nexus file
+			elif src_ext ==".nxs":
+				# TODO: not supporting multiple fields inside a nexus file
+				left,ext=os.path.splitext(dst);assert(ext==".idx")
+				streamable_nexus=left + ".nxs"
+				CreateNexusStreamable(src, dst, streamable_nexus).run()
+				LocalFileToMetadata(metadata,streamable_nexus)
+			
+			else:
+				raise Exception("to handle... ")
 
-			out_msg={}
-			out_msg["metadata"]=[{
-				'type':'json-object',
-				'filename': 'generated-nsdf-convert.json', 
-				'object' : {k:str(v) for k,v in row.items() if k!="metadata"}
-			}]
-			out_msg["metadata"].extend(metadata)
+			row["conversion_end"]=str(datetime.now())
 
-			# TODO: what if I fail here?
-			channel_out.basic_publish(exchange='', routing_key=CONVERT_QUEUE_OUT ,body=json.dumps(out_msg))
-			print(f"PubSub published message to queue={CONVERT_QUEUE_OUT} body=\n{json.dumps(out_msg,indent=2)} ")
-			print(f"Continuing loop...")
+			# save group config file (TODO commit to github)
+			group_config["datasets"].append({
+				"name" : dataset_fullname,
+				"url" : f"{NSDF_CONVERT_SERVER_URL}?action=readdataset&dataset={dataset_fullname}",
+				"color-mapper-type":"log",
+				"metadata" : metadata + [{'type':'json-object', 'filename': 'generated-nsdf-convert.json',  'object' : {k:str(v) for k,v in row.items() if k!="metadata"}}]
+			})		
+			with open(group_config_filename,"w") as f:
+				json.dump(f)
+
+			db.generateConfig(NSDF_CONVERT_MODVISUS_CONFIG)
+
+			# channel_out.basic_publish(exchange='', routing_key=NSDF_CONVERT_QUEUE_OUT ,body=json.dumps(out_msg))
+			# print(f"PubSub published message to queue={NSDF_CONVERT_QUEUE_OUT} body=\n{json.dumps(out_msg,indent=2)} ")
+			# print(f"Continuing loop...")
+
+			db.setConvertDone(row)
 
 		logger.info(f"RunConvertLoop end")
 		channel_in.close();connection_in.close()

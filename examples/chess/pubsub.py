@@ -11,14 +11,14 @@ if __name__=="__main__":
 	python ./examples/chess/pubsub.py --action flush --queue my-queue
 	"""
 
-	PUBSUB_URL=os.environ["PUBSUB_URL"]
+	NSDF_CONVERT_PUBSUB_URL=os.environ["NSDF_CONVERT_PUBSUB_URL"]
 	parser = argparse.ArgumentParser(description="pubsub tutorial")
 	parser.add_argument("--action", type=str, help="action name", required=True)	
 	parser.add_argument("--queue", type=str, help="Queue name", required=True)	
 	parser.add_argument("--message", type=str, help="Message to send", default="", required=False)	
 	args = parser.parse_args()
 
-	params = pika.URLParameters(PUBSUB_URL)
+	params = pika.URLParameters(NSDF_CONVERT_PUBSUB_URL)
 	connection = pika.BlockingConnection(params)
 	channel = connection.channel()
 	channel.queue_declare(queue=args.queue)

@@ -32,7 +32,6 @@ source examples/chess/setup.sh
 # then just `Reload` in Visual Code, it should detect the `my-env` conda environment now
 ```
 
-
 # Update OpenVisus
 
 ```bash
@@ -46,18 +45,16 @@ export PATH=/nfs/chess/nsdf01/openvisus/bin/:${PATH}
 which python3
 
 python3 -m OpenVisus dirname
+
+# ******************************************
+# *** IMPORTANT **** make a copy of ${VISUS_CONFIG} before doing this, it will overwrite the file
+# ******************************************
+cp ${VISUS_CONFIG} ${VISUS_CONFIG}.backup
 python3 -m pip install --upgrade OpenVisusNoGui
-```
 
 ## mod_visus 
 
 To enable multi-group security see [https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security](https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security
-
-- [TO-ASK] rights to edit `${APACHE_PASSWORD_FILE}`
-- [TO-ASK] rights to edit `${APACHE_OPENVISUS_CONF_FILE}`
-- [TO-ASK] rights to view `${APACHE_LOG_DIR}/*.log`
-- [TO-ASK] rights to write on `/mnt/data/nsdf` (e.g. `rm -Rf  /mnt/data1/nsdf/remove-me` permission denied) 
-
 
 Restart the server
 
@@ -91,18 +88,10 @@ See OpenVisus `Docker/group-security`` for details about how to add users
 # Dasboard with config
 
 ```
-set MODVISUS_USERNAME=...
-set MODVISUS_PASSWORD=...
 curl -u%MODVISUS_USERNAME%:%MODVISUS_PASSWORD% https://nsdf01.classe.cornell.edu/mod_visus?action=list 
 set PYTHONPATH=./src;c:/projects/OpenVisus/build/RelWithDebInfo
-
-python -m bokeh serve examples/dashboards/run.py --dev --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/test.config.json
-
-
-# examples/chess/config.json
-
+python -m bokeh serve examples/dashboards/run.py --dev --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/test-group.config.json
 ```
-
 
 ## Dashboard DEMO
 
@@ -110,25 +99,7 @@ NOTE:
 - ports are not opened to the outside, but visual code can automatically forward them (just ffor debugging)
 
 ```bash
-BOKEH_PORT=10077 
-DST=/mnt/data1/nsdf/visus-datasets/allison-1110-3-mg4al-sht-11-nf/visus.idx
-python3 -m bokeh serve "examples/dashboards/run.py" \
-   --dev --address 0.0.0.0 --port ${BOKEH_PORT} --args \
-   --dataset "${DST}" \
-   --palette Viridis256  \
-   --palette-range "[0, 70]" \
-   --multi
-```
-
-```bash
-PANEL_PORT=10077
-DST=/mnt/data1/nsdf/visus-datasets/chess/recon_combined_1_fullres/modvisus/zip/visus.idx
-python3 -m panel serve "examples/dashboards/run.py"  \
-   --dev --address 0.0.0.0 --port ${PANEL_PORT} --args \
-   --dataset "${DST}" \
-   --palette Viridis256  \
-   --palette-range "[-0.017141795, 0.012004322]" \
-   --multi
+python3 -m bokeh serve "examples/dashboards/run.py" --dev --address 0.0.0.0 --port 10077 --args "/mnt/data1/nsdf/visus-datasets/allison-1110-3-mg4al-sht-11-nf/visus.idx"
 ```
 
 To test from inside CHESS network:
@@ -186,8 +157,8 @@ python examples/chess/convert.py  \
 Reset the convert queues and db:
 
 ```bash
-python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_IN}
-python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
+python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_IN}
+python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_OUT}
 python examples/chess/convert.py init-db
 ```
 
@@ -214,7 +185,7 @@ Show the convert db
 ```bash
 
 # .schema  datasets;
-sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
+sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
 ```
 
 Convert the db to a `convert.config`
@@ -222,7 +193,7 @@ Convert the db to a `convert.config`
 
 ```bash
 python examples/chess/convert.py dump-datasets
-more ${VISUS_CONVERT_CONFIG}
+more ${NSDF_CONVERT_MODVISUS_CONFIG}
 ```
 
 Send an event for image-stack conversion 
@@ -231,22 +202,22 @@ Send an event for image-stack conversion
 
 
 for i in {1..5} ; do
-python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
-   'name':'my-chess-group-${i}',
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE_IN} --message "{
+   'name':'test-group/${i}',
    'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif',
-   'dst':'/mnt/data1/nsdf/tmp/remove-me/my-chess-group-${i}/visus.idx',
+   'dst':'/mnt/data1/nsdf/tmp/remove-me/test-group/${i}/visus.idx',
    'compression':'zip',
    'arco':'1mb'}"
 done
 
 # still the db is empty if the converter is not running
-sqlite3 ${CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
+sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
 ```
 
 In terminal 2 watch for event in out queue:
 
 ```bash
-python ./examples/chess/pubsub.py --action sub  --queue ${CONVERT_QUEUE_OUT}
+python ./examples/chess/pubsub.py --action sub  --queue ${NSDF_CONVERT_QUEUE_OUT}
 ```
 
 In terminal 1, run the converter loop
@@ -272,12 +243,13 @@ W 2048 H 2048 D 366 dtype uint16
 
 ```bash
 
-python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_IN}
-python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
+python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_IN}
+python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_OUT}
 python examples/chess/convert.py init-db
 
-name="scrgiorgio-near-field-20230912-01"
-python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
+# NOTE: the name is always in the form `group/whatever`
+name="test-group/near-field-20230912-01"
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE_IN} --message "{
    'name':'${name}',
    'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif',
    'dst':'/mnt/data1/nsdf/tmp/${name}/visus.idx',
@@ -307,13 +279,13 @@ Specs:
 bash:
 
 ```
-python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_IN}
-python ./examples/chess/pubsub.py --action flush --queue ${CONVERT_QUEUE_OUT}
+python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_IN}
+python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_OUT}
 python examples/chess/convert.py init-db
 
 seq=18 # [15, 16, 18, 19, 20]
-name="scrgiorgio-tomo-20230912-${seq}"
-python ./examples/chess/pubsub.py --action pub --queue ${CONVERT_QUEUE_IN} --message "{
+name="test-group/tomo-20230912-${seq}"
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE_IN} --message "{
    'name':'${name}',
    'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/${seq}/nf/nf_*.tif',
    'dst':'/mnt/data1/nsdf/tmp/${name}/visus.idx',

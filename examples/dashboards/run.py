@@ -18,20 +18,25 @@ if __name__.startswith('bokeh'):
 		)
 
 	# can load the config file from remote
-	config_filename=sys.argv[1]
-	if config_filename.startswith("http"):
-		if "mod_visus" in config_filename:
-			username=os.environ.get("MODVISUS_USERNAME","")
-			password=os.environ("MODVISUS_PASSWORD","")
-			auth=HTTPBasicAuth(username,password) if username else None
+	url=sys.argv[1]
+	if ".json" in url:
+
+		config_filename=sys.argv[1]
+		if config_filename.startswith("http"):
+			if "mod_visus" in config_filename:
+				username=os.environ.get("MODVISUS_USERNAME","")
+				password=os.environ("MODVISUS_PASSWORD","")
+				auth=HTTPBasicAuth(username,password) if username else None
+			else:
+				auth=None
+			response = requests.get(config_filename,auth = auth)
+			config=response.json()
 		else:
-			auth=None
-		response = requests.get(config_filename,auth = auth)
-		config=response.json()
+			config=json.load(open(sys.argv[1],"r"))
+		
+		view.setConfig(config)
 	else:
-		config=json.load(open(sys.argv[1],"r"))
-	
-	view.setConfig(config)
+		view.setDataset(url)
 	
 	#if args.probes:
 	#	from openvisuspy.probes import ProbeTool

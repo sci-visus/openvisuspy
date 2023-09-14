@@ -332,11 +332,9 @@ class Widgets:
 
 		logger.info(f"Widgets[{self.id}]::setDataset name={name}")
 
-		# create a fake config
+		# it's a url for a single dataset: create a minimal config
 		if not self.config:
-			self.setConfig({
-				"datasets" : [{"name":name,"url":name}]
-			})
+			self.setConfig({"datasets" : [{"name":name, "url":name }]})
 			return
 
 		# rehentrant call
