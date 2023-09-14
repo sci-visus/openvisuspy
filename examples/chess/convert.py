@@ -1,4 +1,4 @@
-import os ,sys, time, logging,shutil,glob,json, string, random, argparse, shutil, base64,copy
+import os ,sys, time, logging,shutil,glob,json, string, random, argparse, shutil, base64,copy,subprocess
 from datetime import datetime
 import pika
 import sqlite3 
@@ -48,7 +48,7 @@ class Datasets:
 		self.conn.commit()
 	
 	# pushPendingConvert
-	def pushPendingConvert(self, name, src, dst, compression, arco, metadata):
+	def pushPendingConvert(self, name, src, dst, compression="zip", arco="modvisus", metadata=[]):
 		# TODO: if multiple converters?
 		self.conn.executemany("INSERT INTO datasets (name, src, dst, compression, arco, metadata, insert_time) values(?,?,?,?,?,?,?)",[
 			(name, src, dst, compression, arco, json.dumps(metadata), datetime.now())
@@ -84,9 +84,9 @@ class Datasets:
 		for row in self.conn.execute("SELECT * FROM datasets WHERE conversion_end is not NULL ORDER BY id ASC"):
 			yield {k:row[k] for k in row.keys()}
 
-	# generateConfig
-	def generateConfig(self, filename):
-		logger.info("generateConfig begin")
+	# generateModVisusConfig
+	def generateModVisusConfig(self, filename):
+		logger.info("generateModVisusConfig begin")
 
 		v=[]
 		converted=self.getConverted()
@@ -107,7 +107,7 @@ class Datasets:
 		with open(filename,"w") as f:
 			f.write(body)
 		logger.info(f"Saved file {filename}")
-		logger.info(f"generateConfig end #datasets={N}")
+		logger.info(f"generateModVisusConfig end #datasets={N}")
 		return body
 
 # # ///////////////////////////////////////////////////////////////////
@@ -143,9 +143,8 @@ def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 	field=ov.Field.fromString(f"""DATA {str(data.dtype)} format(row_major) min({vmin}) max({vmax})""")
 
 	# TODO: I can I get this information from image stack???
-	idx_physic_box=ov.BoxNd.fromString(f"0 {W} 0 {H} 0 {D}"),
+	idx_physic_box=ov.BoxNd.fromString(f"0 {W} 0 {H} 0 {D}")
 	idx_axis="X Y Z"
-
 	db=ov.CreateIdx(url=idx_filename, dims=[W,H,D], fields=[field], compression="raw", arco=arco, axis=idx_axis, physic_box=idx_physic_box)
 
 	# print(db.getDatasetBody().toString())
@@ -321,21 +320,10 @@ if __name__ == "__main__":
 		logger.info("init-db done")	
 		sys.exit(0)
 
-	# single conversion
-	if "--src" in sys.argv:
-		parser = argparse.ArgumentParser(description="convert demo")
-		parser.add_argument("--src", type=str, help="images", required=True)	
-		parser.add_argument("--dst", type=str, help="idx filename", required=True)	
-		parser.add_argument("--compression", type=str, help="compression", required=False, default="raw")
-		parser.add_argument("--arco", type=str, help="arco", required=False, default="modvisus")
-		args = parser.parse_args()
-		ConvertImageStack(args.src, args.dst, compression=args.compression, arco=args.arco)
-		sys.exit(0)	
 
-	if sys.argv[1]=="dump-datasets":
+	if sys.argv[1]=="generate-modvisus-config":
 		db=Datasets(NSDF_CONVERT_SQLITE3_FILENAME)
-		body=db.generateConfig(NSDF_CONVERT_MODVISUS_CONFIG)
-		print(body)
+		db.generateModVisusConfig(NSDF_CONVERT_MODVISUS_CONFIG)
 		sys.exit(0)
 
 	if sys.argv[1]=="run-convert-loop":
@@ -351,8 +339,23 @@ if __name__ == "__main__":
 		connection_out,channel_out = GetPubSubChannel(NSDF_CONVERT_QUEUE_OUT)
 
 		db=Datasets(NSDF_CONVERT_SQLITE3_FILENAME)
-		db.generateConfig(NSDF_CONVERT_MODVISUS_CONFIG)
+		db.generateModVisusConfig(NSDF_CONVERT_MODVISUS_CONFIG)
+
 		logger.info(f"RunConvertLoop start")
+
+		# track changes in github repo and automatically commit
+		def GitLoop():
+			while True:
+				time.sleep(3)
+				for cmd in ['git add *.json','git commit -a -m "new version"','git push']:
+					output=subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True,check=False,cwd=NSDF_CONVERT_GROUP_CONFIG_LOCAL).stdout.decode("utf-8").strip()
+					if not output or "up-to-date" in output or  "nothing to commit" in output: break
+					logger.info(f"GIT cmd={cmd} output={output.strip()}")
+
+		import threading
+		t=threading.Thread(target=GitLoop)
+		t.start()
+		time.sleep(200)
 
 		exitNow=False
 		while not exitNow:
@@ -396,9 +399,12 @@ if __name__ == "__main__":
 			# read group config (if not exists create a new one)
 			group_config={"datasets": []}
 			group_config_filename=f"{NSDF_CONVERT_GROUP_CONFIG_LOCAL}/{group_name}.config.json"
-			if os.path.isfile(group_config_filename):
+			if os.path.isfile(group_config_filename) and os.path.getsize(group_config_filename):
 				with open(group_config_filename,"r") as f:
-					group_config=json.load(f)
+					try:
+						group_config=json.load(f)
+					except Exception as ex:
+						logger.info(f"Loading of JSON file {group_config_filename} failed {ex} ")
 
 			# read metatada (can be a binary file too?)
 			"""
@@ -447,16 +453,19 @@ if __name__ == "__main__":
 				"metadata" : metadata + [{'type':'json-object', 'filename': 'generated-nsdf-convert.json',  'object' : {k:str(v) for k,v in row.items() if k!="metadata"}}]
 			})		
 			with open(group_config_filename,"w") as f:
-				json.dump(f)
+				json.dump(group_config,f, indent=2)
 
-			db.generateConfig(NSDF_CONVERT_MODVISUS_CONFIG)
+			# this sets the conversion_done with is needed for visus config generation
+			db.setConvertDone(row)
+
+			db.generateModVisusConfig(NSDF_CONVERT_MODVISUS_CONFIG)
 
 			# channel_out.basic_publish(exchange='', routing_key=NSDF_CONVERT_QUEUE_OUT ,body=json.dumps(out_msg))
 			# print(f"PubSub published message to queue={NSDF_CONVERT_QUEUE_OUT} body=\n{json.dumps(out_msg,indent=2)} ")
-			# print(f"Continuing loop...")
+			
+			print(f"Re-entering loop...")
 
-			db.setConvertDone(row)
-
+		t.stop()
 		logger.info(f"RunConvertLoop end")
 		channel_in.close();connection_in.close()
 		channel_out.close();connection_out.close()

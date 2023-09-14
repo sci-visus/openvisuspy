@@ -1,7 +1,4 @@
-# CHESS Examples
-
-
-## Setup
+# Setup
 
 NOTE:
 - COnnect to the NSDF entrypoint
@@ -85,22 +82,19 @@ tail -f  ${APACHE_LOG_DIR}/*.log
 See OpenVisus `Docker/group-security`` for details about how to add users
 
 
-# Dasboard with config
-
-```
-curl -u%MODVISUS_USERNAME%:%MODVISUS_PASSWORD% https://nsdf01.classe.cornell.edu/mod_visus?action=list 
-set PYTHONPATH=./src;c:/projects/OpenVisus/build/RelWithDebInfo
-python -m bokeh serve examples/dashboards/run.py --dev --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/test-group.config.json
-```
-
-## Dashboard DEMO
+# Dashboard 
 
 NOTE:
 - ports are not opened to the outside, but visual code can automatically forward them (just ffor debugging)
+- if you are on the CHESS entrypoint, debugging with VSCode, **you will need to remove** `--adress 0.0.0.0` (it cannot bind to the public IP)
+
+Without group config:
 
 ```bash
 python3 -m bokeh serve "examples/dashboards/run.py" --dev --address 0.0.0.0 --port 10077 --args "/mnt/data1/nsdf/visus-datasets/allison-1110-3-mg4al-sht-11-nf/visus.idx"
 ```
+
+
 
 To test from inside CHESS network:
 - change port as needed
@@ -114,45 +108,9 @@ If you want to test from outside CHESS network you need to use ssh-tunneling.
 
 But if you are on Windows VS Code, ports are automaticall forward and you can open (change port as needed) `http://localhost:10077/run`
 
-# PubSub
 
-Links:
-- https://customer.cloudamqp.com/instance
-- https://www.cloudamqp.com/docs/index.html
-- https://www.cloudamqp.com/docs/python.html
+# Convert workflow
 
-Little Lemur - For deplyment is Free
-
-On Terminal 1:
-
-```bash
-python ./examples/chess/pubsub.py --action pub --queue my-queue --message '{"key1":"value1","key2":"value2"}'
-```
-
-On Terminal 2:
-
-```bash
-python ./examples/chess/pubsub.py --action sub --queue my-queue
-```
-
-to flush a queue
-
-```bash
-python ./examples/chess/pubsub.py --action flush --queue my-queue
-```
-
-
-## Run single image-stack conversion
-
-```bash
-python examples/chess/convert.py  \
-   --src "/nfs/chess/nsdf01/vpascucci/allison-1110-3/mg4al-sht/11/nf/*.tif" \
-   --dst "/mnt/data1/nsdf/tmp/merif2023/timeseries/tiff/visus.idx" \
-   --compression raw \
-   --arco modvisus
-```
-
-# Convert Workflow
 
 Reset the convert queues and db:
 
@@ -162,65 +120,36 @@ python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_OU
 python examples/chess/convert.py init-db
 ```
 
-Note: the db schema is:
-
-```sql
-CREATE TABLE IF NOT EXISTS datasets (
-   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-   
-   name TEXT NOT NULL,
-   src TEXT NOT NULL,
-   dst TEXT NOT NULL,
-   compression TEXT,
-   arco TEXT,
-
-   insert_time timestamp NOT NULL, 
-   conversion_start timestep ,
-   conversion_end   timestamp 
-)
-```
-
-Show the convert db
+Show the database
 
 ```bash
-
-# .schema  datasets;
-sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
+sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} ".schema"
+sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets"
 ```
 
-Convert the db to a `convert.config`
+Convert the sqllite database to `${NSDF_CONVERT_MODVISUS_CONFIG}`
 
 
 ```bash
-python examples/chess/convert.py dump-datasets
+python examples/chess/convert.py generate-modvisus-config
 more ${NSDF_CONVERT_MODVISUS_CONFIG}
 ```
 
-Send an event for image-stack conversion 
+Add an image-stack to convert
 
 ```bash
-
-
-for i in {1..5} ; do
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE_IN} --message "{
-   'name':'test-group/${i}',
+   'name':'test-group/example2',
    'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif',
-   'dst':'/mnt/data1/nsdf/tmp/remove-me/test-group/${i}/visus.idx',
+   'dst':'/mnt/data1/nsdf/remove-me/test-group/example/visus.idx',
    'compression':'zip',
    'arco':'1mb'}"
-done
 
 # still the db is empty if the converter is not running
-sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets;" ".exit"
+sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets"
 ```
 
-In terminal 2 watch for event in out queue:
-
-```bash
-python ./examples/chess/pubsub.py --action sub  --queue ${NSDF_CONVERT_QUEUE_OUT}
-```
-
-In terminal 1, run the converter loop
+Run the converter loop
 
 ```bash
 python examples/chess/convert.py run-convert-loop
@@ -230,6 +159,12 @@ Soon or later the NSDF OpenVisus server will serve it:
 
 ```bash
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
+```
+
+Also you can run the dashboard with group config
+
+```
+python -m bokeh serve examples/dashboards/run.py --dev --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/test-group.config.json
 ```
 
 
@@ -298,4 +233,31 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE_IN} 
 
 python examples/chess/convert.py run-convert-loop
 
+```
+
+# PubSub
+
+Links:
+- https://customer.cloudamqp.com/instance
+- https://www.cloudamqp.com/docs/index.html
+- https://www.cloudamqp.com/docs/python.html
+
+Little Lemur - For deplyment is Free
+
+PUBLISHER - On Terminal 1:
+
+```bash
+python ./examples/chess/pubsub.py --action pub --queue test-queue --message '{"key1":"value1","key2":"value2"}'
+```
+
+SUBSCRIBER - On Terminal 2:
+
+```bash
+python ./examples/chess/pubsub.py --action sub --queue test-queue
+```
+
+to flush a queue
+
+```bash
+python ./examples/chess/pubsub.py --action flush --queue test-queue
 ```
