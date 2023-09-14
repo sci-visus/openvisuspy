@@ -91,7 +91,15 @@ See OpenVisus `Docker/group-security`` for details about how to add users
 # Dasboard with config
 
 ```
-python -m bokeh serve examples/dashboards/run.py --dev --args examplex/chess/config.json
+set MODVISUS_USERNAME=...
+set MODVISUS_PASSWORD=...
+curl -u%MODVISUS_USERNAME%:%MODVISUS_PASSWORD% https://nsdf01.classe.cornell.edu/mod_visus?action=list 
+set PYTHONPATH=./src;c:/projects/OpenVisus/build/RelWithDebInfo
+
+python -m bokeh serve examples/dashboards/run.py --dev --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/test.config.json
+
+
+# examples/chess/config.json
 
 ```
 
