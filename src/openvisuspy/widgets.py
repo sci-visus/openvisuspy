@@ -244,7 +244,7 @@ class Widgets:
 			sizing_mode="stretch_width"))
 
 		if central_layout:
-			v.append(central_layout)
+			v.append(Row(central_layout,self.widgets.metadata, sizing_mode='stretch_both'))
 		
 		if "status_bar" in options:
 			v.append(Row(
@@ -252,7 +252,7 @@ class Widgets:
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'))
   
-		return Row(Column(*v, sizing_mode='stretch_both'),self.widgets.metadata, sizing_mode='stretch_both')
+		return Column(*v, sizing_mode='stretch_both')
   
 
 	# setWidgetsDisabled
@@ -356,9 +356,11 @@ class Widgets:
 
 		# timestep
 		timesteps =self.db.getTimesteps()
+		timestep_delta=int(config.get("timestep-delta",1))
+		timestep=int(config.get("timestep",timesteps[0]))
 		self.setTimesteps(timesteps)
-		self.setTimestepDelta(1)
-		self.setTimestep(timesteps[0])
+		self.setTimestepDelta(timestep_delta)
+		self.setTimestep(timestep)
   
 		# direction
 		pdim = self.db.getPointDim()
@@ -368,7 +370,9 @@ class Widgets:
 
 		# field
 		fields =self.db.getFields()
-		field=self.db.getField()
+		default_fieldname=self.db.getField().name
+		fieldname=config.get("field",default_fieldname)
+		field=self.db.getField(fieldname)
 		self.setFields(fields)
 		self.setField(field.name) 
   
@@ -384,20 +388,43 @@ class Widgets:
 		physic_box=[(float(physic_box[I]),float(physic_box[I+1])) for I in range(0,pdim*2,2)]
 		self.setPhysicBox(physic_box)
 
-		# palette range
+		# palette 
+		palette=config.get("palette","Viridis256")
+		palette_range=config.get("palette-range",None)
 		dtype_range=field.getDTypeRange()
+		self.setPalette(palette)
 		vmin,vmax=dtype_range.From,dtype_range.To
 		self.setMetadataPaletteRange([vmin,vmax])
-		self.setPaletteRange([vmin,vmax])
-		self.setPaletteRangeMode("dynamic")
+		if palette_range is None:
+			self.setPaletteRange([vmin,vmax])
+			self.setPaletteRangeMode("dynamic")
+		else:
+			self.setPaletteRange(*palette_range)
+			self.setPaletteRangeMode("user")
 
-		self.setColorMapperType(config.get("color-mapper-type","linear"))
+		# color mapper
+		color_mapper_type=config.get("color-mapper-type","linear")
+		self.setColorMapperType(color_mapper_type)
+
+
+		# view dependent
+		view_dep=bool(config.get('view-dep',True))
+		self.setViewDependent(view_dep) 
+
+
+		# quality (>0 higher quality, <0 lower uality)
+		quality=int(config.get("quality",0))
+		self.setQuality(quality)
+
+		# numrefinements
+		num_refinements=int(config.get("num-refinements",2))
+		self.setNumberOfRefinements(num_refinements)
 
 		# metadata
 		metadata=config.get("metadata",None)
 		if metadata:
 			tabs=[]
-			for item in metadata:
+			for T,item in enumerate(metadata):
 					
 					type=item["type"]
 					filename=item["filename"]
@@ -434,9 +461,11 @@ class Widgets:
 						"""))
 					
 					panel=TabPanel(child=Column(
+						Div(text=f"<b><pre><code>{filename}</code></pre></b>"),
 						download_button,
-						Div(text=f"<div><pre><code>{body_s}</code></pre></div>")), 
-						title=os.path.basename(filename))
+						Div(text=f"<div><pre><code>{body_s}</code></pre></div>"), 
+						),
+						title=f"{T}")
 					
 					tabs.append(panel)
 

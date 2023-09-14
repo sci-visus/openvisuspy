@@ -88,18 +88,11 @@ tail -f  ${APACHE_LOG_DIR}/*.log
 See OpenVisus `Docker/group-security`` for details about how to add users
 
 
-## Streamable NEXUS
+# Dasboard with config
 
+```
+python -m bokeh serve examples/dashboards/run.py --dev --args examplex/chess/config.json
 
-Run the `convert-nexus-data.ipynb` to convert data to a streamable format 
-- metadata will still be in the NEXUS file
-- volumetric big data will be automatically stored in a OpenVisus file
-
-To show the data in a bokeh dashboard
-
-```bash
-set PYTHONPATH=./src;C:\projects\OpenVisus\build\RelWithDebInfo
-python -m bokeh serve examples/dashboards/run.py --dev --args --dataset C:/visus_datasets/3scans_HKLI.streamable.nxs  --num-views 1 --color-mapper log --palette Viridis256 
 ```
 
 
