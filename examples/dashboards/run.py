@@ -1,5 +1,6 @@
 import os,sys,logging,base64,json,types
-import urllib.request
+import requests
+from requests.auth import HTTPBasicAuth
 
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
@@ -18,9 +19,17 @@ if __name__.startswith('bokeh'):
 
 	# can load the config file from remote
 	config_filename=sys.argv[1]
-	config=json.load(
-		urllib.request.urlopen(config_filename) if config_filename.startswith("http") else 
-		open(sys.argv[1]))
+	if config_filename.startswith("http"):
+		if "mod_visus" in config_filename:
+			username=os.environ.get("MODVISUS_USERNAME","")
+			password=os.environ("MODVISUS_PASSWORD","")
+			auth=HTTPBasicAuth(username,password) if username else None
+		else:
+			auth=None
+		response = requests.get(config_filename,auth = auth)
+		config=response.json()
+	else:
+		config=json.load(open(sys.argv[1],"r"))
 	
 	view.setConfig(config)
 	

@@ -181,6 +181,18 @@ class Dataset (BaseDataset):
 	# coinstructor
 	def __init__(self,url):
 		self.url=url
+
+		# handle security
+		if all([
+			"mod_visus" in url,
+			  "MODVISUS_USERNAME" in os.environ,
+				"MODVISUS_PASSWORD" in os.environ,
+				"~auth_username" not in url,
+				"~auth_password" not in url,
+		 	]) :
+
+			url=url + f"&~auth_username={os.environ['MODVISUS_USERNAME']}&~auth_password={os.environ['MODVISUS_PASSWORD']}"
+
 		self.inner=ov.LoadDataset(url)
 		
 	# getUrl

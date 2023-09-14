@@ -346,8 +346,14 @@ class Widgets:
 		config=self.datasets[name]
 		self.current_dataset=config
 		self.widgets.datasets.value=name
-   
-		self.db=LoadDataset(config["url"]) if db is None else db 
+
+		if db is None:
+			url=config["url"]
+			self.db=LoadDataset(url=url)
+		else:
+			self.db=db
+
+
 		self.access=self.db.createAccess()
   
 		# avoid reloading db multiple times by specifying db
