@@ -11,14 +11,14 @@ if __name__=="__main__":
 	python ./examples/chess/pubsub.py --action flush --queue my-queue
 	"""
 
-	PUBSUB_URL=os.environ["PUBSUB_URL"]
+	NSDF_CONVERT_PUBSUB_URL=os.environ["NSDF_CONVERT_PUBSUB_URL"]
 	parser = argparse.ArgumentParser(description="pubsub tutorial")
 	parser.add_argument("--action", type=str, help="action name", required=True)	
 	parser.add_argument("--queue", type=str, help="Queue name", required=True)	
 	parser.add_argument("--message", type=str, help="Message to send", default="", required=False)	
 	args = parser.parse_args()
 
-	params = pika.URLParameters(PUBSUB_URL)
+	params = pika.URLParameters(NSDF_CONVERT_PUBSUB_URL)
 	connection = pika.BlockingConnection(params)
 	channel = connection.channel()
 	channel.queue_declare(queue=args.queue)
@@ -26,12 +26,12 @@ if __name__=="__main__":
 	if args.action=="pub":
 		msg=json.dumps(eval(args.message))
 		channel.basic_publish(exchange='', routing_key=args.queue ,body=msg)
-		print(f"Published message to queue={args.queue} body=\n{args.message} ")
+		print(f"Published message to queue={args.queue} body=\n{args.message}")
 
 	elif args.action=="sub":
 		def on_message(channel, method_frame, header_frame, body):
 			body=body.decode("utf-8").strip()
-			print(f"Received message from queue={gs.queu} body=\n{body} ")
+			print(f"Received message from queue={args.queue} body=\n{body} ")
 			msg=json.loads(body)
 		channel.basic_consume(args.queue, on_message, auto_ack=True)
 		channel.start_consuming()

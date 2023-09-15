@@ -122,7 +122,11 @@ class Slice(Widgets):
 		assert(len(ret)==pdim)
 
 		# scaling/translatation
-		ret=[(ret[I]-self.logic_to_physic[I][0])/self.logic_to_physic[I][1] for I in range(pdim)]
+		try:
+			ret=[(ret[I]-self.logic_to_physic[I][0])/self.logic_to_physic[I][1] for I in range(pdim)]
+		except:
+			print("Problem here",self.logic_to_physic)
+			raise
 
 		
 		# this is the right value in logic domain
@@ -219,11 +223,8 @@ class Slice(Widgets):
 			self.color_bar.color_mapper.low =max(0.0001,low) if is_log else low
 			self.color_bar.color_mapper.high=max(0.0001,high) if is_log else high
 
-
 			from bokeh.models import FixedTicker
 			self.color_bar.ticker=FixedTicker(ticks=np.linspace(self.color_bar.color_mapper.low, self.color_bar.color_mapper.high, 10))
-
-
 
 		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
 

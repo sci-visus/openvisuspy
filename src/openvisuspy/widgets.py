@@ -7,6 +7,10 @@ from . backend import LoadDataset
 import bokeh
 
 from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
+import os,sys,base64,json
+from bokeh.models import TabPanel,Tabs, Button,Column, Div
+from bokeh.models.callbacks import CustomJS
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,21 +68,22 @@ class Widgets:
    
 		self.id=Widgets.ID
 		Widgets.ID+=1
-		self.db=None		
-		self.url=None
+		self.config=None
+		self.db=None
 		self.access=None
+		self.current_dataset=None
 		self.render_id=None # by default I am not rendering
 		self.logic_to_physic=[(0.0,1.0)]*3
 		self.children=[]
   
 		self.widgets=types.SimpleNamespace()
 
-		# dataset
-		self.widgets.dataset = Select(title="Dataset", options=[],width=100) 
-		self.widgets.dataset.on_change("value",lambda attr,old,new: self.setDataset(new)) 
+		# datasets
+		self.widgets.datasets = Select(title="Dataset", options=[],width=100) 
+		self.widgets.datasets.on_change("value",lambda attr,old,new: self.setDataset(new)) 
  
 		# palette
-		self.palette='Greys256'
+		self.palette='Viridis256'
 		self.widgets.palette = Select(title='Palette', options=PALETTES,value=self.palette,width=100)
 		self.widgets.palette.on_change("value",lambda attr, old, new: self.setPalette(new))  
 
@@ -160,8 +165,19 @@ class Widgets:
 		self.widgets.play_button.on_click(self.togglePlay)
 		self.widgets.play_sec = Select(title="Frame delay",options=["0.00","0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
 
+		# metadata
+		self.widgets.metadata=Column(width=640,sizing_mode='stretch_height')
+		self.widgets.metadata.visible=False
+
+		self.widgets.show_metadata=Button(label="Metadata",width=80,sizing_mode='stretch_height')
+		self.widgets.show_metadata.on_click(self.onShowMetadataClick)
+
 		self.panel_layout=None
 		self.idle_callback=None
+
+	# onShowMetadataClick
+	def onShowMetadataClick(self):
+		self.widgets.metadata.visible=not self.widgets.metadata.visible
 
 	# start
 	def start(self):
@@ -220,28 +236,28 @@ class Widgets:
 			options=options+["palette_range_mode","palette_range_vmin","palette_range_vmax"]
 			
 		first_row=[getattr(self.widgets,it) for it in options if it!="status_bar"]
-	 
-		ret=Column(sizing_mode='stretch_both')
+
+		v=[]
   
-		ret.children.append(Row(
+		v.append(Row(
 	  		children=first_row,
 			sizing_mode="stretch_width"))
 
 		if central_layout:
-			ret.children.append(central_layout)
+			v.append(Row(central_layout,self.widgets.metadata, sizing_mode='stretch_both'))
 		
 		if "status_bar" in options:
-			ret.children.append(Row(
+			v.append(Row(
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'))
   
-		return ret
+		return Column(*v, sizing_mode='stretch_both')
   
 
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self,value):
-		self.widgets.dataset.disabled=value
+		self.widgets.datasets.disabled=value
 		self.widgets.palette.disabled=value
 		self.widgets.num_views.disabled=value
 		self.widgets.timestep.disabled=value
@@ -274,18 +290,21 @@ class Widgets:
 		for it in self.children:
 			it.gotoPoint(p) 
   
-	# getDatasets
-	def getDatasets(self):
-		return self.widgets.dataset.options
+	# getConfig
+	def getConfig(self):
+		return self.config
 
-	# getDatasets
-	def setDatasets(self,value,title=None):
-		logger.info(f"Widgets[{self.id}]::setDatasets num={len(value)} value={value}")
-		self.widgets.dataset.options=value
-		if title is not None: 
-			self.widgets.dataset.title=title
+	# setConfig
+	def setConfig(self,value):
+		if value is None: return
+		logger.info(f"Widgets[{self.id}]::setConfig")
+		self.config=value
+		self.datasets={it["name"] : it for it in value["datasets"]}
+		ordered_names=[it["name"] for it in value["datasets"]]
+		self.widgets.datasets.options=ordered_names
 		for it in self.children:
-			it.setDatasets(value,title=title)
+			it.setConfig(value)
+		self.setDataset(ordered_names[0])
   
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
@@ -299,35 +318,53 @@ class Widgets:
 			it.setLogicToPhysic(value)
 		self.refresh()
   
+	# setPhysicBox
+	def setPhysicBox(self, value):
+		dims=self.db.getLogicSize()
+		def LinearMapping(a,b, A,B):
+			s=(B-A)/(b-a)
+			return (A-a*s),s
+		T=[LinearMapping(0,dims[I], *value[I]) for I in range(len(dims))]
+		self.setLogicToPhysic(T)
+
 	# setDataset
-	def setDataset(self, url, db=None,force=False):
-	 
+	def setDataset(self, name, db=None, force=False):
+
+		logger.info(f"Widgets[{self.id}]::setDataset name={name}")
+
+		# it's a url for a single dataset: create a minimal config
+		if not self.config:
+			self.setConfig({"datasets" : [{"name":name, "url":name }]})
+			return
+
 		# rehentrant call
-		if not force and self.url==url:
+		if not force and self.current_dataset and self.current_dataset["name"]==name:
 			return 
 
-		logger.info(f"Widgets[{self.id}]::setDataset value={url}")
+		config=self.datasets[name]
+		self.current_dataset=config
+		self.widgets.datasets.value=name
 
-		self.url=url
-	 
-		try:
-			self.widgets.dataset.value=url
-		except:
-			self.widgets.dataset.options=[url]
-			self.widgets.dataset.value=url
-   
-	 
-		self.db=LoadDataset(url) if db is None else db 
+		if db is None:
+			url=config["url"]
+			self.db=LoadDataset(url=url)
+		else:
+			self.db=db
+
+
 		self.access=self.db.createAccess()
   
+		# avoid reloading db multiple times by specifying db
 		for it in self.children:
-			it.setDataset(url, db=self.db) # avoid reloading db multiple times
+			it.setDataset(name, db=self.db) 
 
 		# timestep
 		timesteps =self.db.getTimesteps()
+		timestep_delta=int(config.get("timestep-delta",1))
+		timestep=int(config.get("timestep",timesteps[0]))
 		self.setTimesteps(timesteps)
-		self.setTimestepDelta(1)
-		self.setTimestep(timesteps[0])
+		self.setTimestepDelta(timestep_delta)
+		self.setTimestep(timestep)
   
 		# direction
 		pdim = self.db.getPointDim()
@@ -336,10 +373,109 @@ class Widgets:
 			it.setDirection((I % 3) if pdim==3 else 2)
 
 		# field
-		fields    =self.db.getFields()
+		fields =self.db.getFields()
+		default_fieldname=self.db.getField().name
+		fieldname=config.get("field",default_fieldname)
+		field=self.db.getField(fieldname)
 		self.setFields(fields)
-		self.setField(fields[0]) 
+		self.setField(field.name) 
   
+		# axis
+		axis=self.db.inner.idxfile.axis.strip().split()
+		if not axis: 
+			axis=["X","Y","Z"][0:pdim]
+		axis=[(str(I),name) for I,name in enumerate(axis)]
+		self.setDirections(axis)
+
+		# physic box
+		physic_box=self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+		physic_box=[(float(physic_box[I]),float(physic_box[I+1])) for I in range(0,pdim*2,2)]
+		self.setPhysicBox(physic_box)
+
+		# palette 
+		palette=config.get("palette","Viridis256")
+		palette_range=config.get("palette-range",None)
+		dtype_range=field.getDTypeRange()
+		self.setPalette(palette)
+		vmin,vmax=dtype_range.From,dtype_range.To
+		self.setMetadataPaletteRange([vmin,vmax])
+		if palette_range is None:
+			self.setPaletteRange([vmin,vmax])
+			self.setPaletteRangeMode("dynamic")
+		else:
+			self.setPaletteRange(*palette_range)
+			self.setPaletteRangeMode("user")
+
+		# color mapper
+		color_mapper_type=config.get("color-mapper-type","linear")
+		self.setColorMapperType(color_mapper_type)
+
+
+		# view dependent
+		view_dep=bool(config.get('view-dep',True))
+		self.setViewDependent(view_dep) 
+
+
+		# quality (>0 higher quality, <0 lower uality)
+		quality=int(config.get("quality",0))
+		self.setQuality(quality)
+
+		# numrefinements
+		num_refinements=int(config.get("num-refinements",2))
+		self.setNumberOfRefinements(num_refinements)
+
+		# metadata
+		metadata=config.get("metadata",None)
+		if metadata:
+			tabs=[]
+			for T,item in enumerate(metadata):
+					
+					type=item["type"]
+					filename=item["filename"]
+
+					if type=="b64encode":
+						# binary encoded in string
+						base64_s=item["encoded"]
+						body_s=base64.b64decode(base64_s).decode("utf-8")
+					else:
+						# json
+						body_s=json.dumps(item,indent=2)
+						base64_s = base64.b64encode(bytes(body_s, 'utf-8')).decode('utf-8') 
+
+					base64_s= 'data:application/octet-stream;base64,' + base64_s
+
+					# download button
+					download_button=Button(label="download")
+					download_button.js_on_click(CustomJS(args=dict(base64_s=base64_s,filename=filename), code="""
+						fetch(base64_s, {cache: "no-store"}).then(response => response.blob())
+						    .then(blob => {
+						        if (navigator.msSaveBlob) {
+						            navigator.msSaveBlob(blob, filename);
+						        }
+						        else {
+						            const link = document.createElement('a')
+						            link.href = URL.createObjectURL(blob)
+						            link.download = filename
+						            link.target = '_blank'
+						            link.style.visibility = 'hidden'
+						            link.dispatchEvent(new MouseEvent('click'))
+						        }
+						        return response.text();
+						    });
+						"""))
+					
+					panel=TabPanel(child=Column(
+						Div(text=f"<b><pre><code>{filename}</code></pre></b>"),
+						download_button,
+						Div(text=f"<div><pre><code>{body_s}</code></pre></div>"), 
+						),
+						title=f"{T}")
+					
+					tabs.append(panel)
+
+			self.widgets.metadata.children=[Tabs(tabs=tabs)]
+
+		
 		self.refresh() 
   
 	# getNumberOfViews
