@@ -167,7 +167,7 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    ]}"
 ```
 
-Check OpenVisus server:
+Check modvisus (you shoud see the new dataset):
 
 ```bash
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list&group=${NSDF_CONVERT_GROUP}" | grep ${NSDF_CONVERT_GROUP}
@@ -184,6 +184,18 @@ Also you can run the dashboard:
 
 ```
 python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG_REMOTE}
+```
+
+On CHPC, you can SSH to CHPC1, OpenFolder `github.com/sci-visus/openvisuspy`:
+- change group as needed
+
+```
+python3 -m pip uninstall openvisuspy
+python3 -m pip install --upgrade OpenVisus boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2
+git pull
+set PYTHONPATH=./src
+python3 -m bokeh serve "examples/dashboards/run.py" --dev --address 0.0.0.0 --port 10077 --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/test-group.json
+# http://chpc1.nationalsciencedatafabric.org:10077/run
 ```
 
 Add a **near field**:
