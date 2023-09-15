@@ -33,17 +33,17 @@ class Datasets:
 	def createTable(self):
 		self.conn.execute("""
 		CREATE TABLE IF NOT EXISTS datasets (
-		    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-		    'group' TEXT NOT NULL, 
-		    name TEXT NOT NULL,
-		    src TEXT NOT NULL,
-				dst TEXT NOT NULL,
-				compression TEXT,
-				arco TEXT,
-				metadata TEXT,
-				insert_time timestamp NOT NULL, 
-				conversion_start timestep ,
-				conversion_end   timestamp 
+			id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+			'group' TEXT NOT NULL, 
+			name TEXT NOT NULL,
+			src TEXT NOT NULL,
+			dst TEXT NOT NULL,
+			compression TEXT,
+			arco TEXT,
+			metadata TEXT,
+			insert_time timestamp NOT NULL, 
+			conversion_start timestep ,
+			conversion_end   timestamp 
 		)
 		""")
 		self.conn.commit()

@@ -10,7 +10,6 @@ Please check the body of the `setup.sh` file since it contains some useful expla
 source examples/chess/setup.sh
 ```
 
-
 # Update NSDF-CHESS OpenVisus Server
 
 ```bash
@@ -64,67 +63,10 @@ tail -f  ${APACHE_LOG_DIR}/*.log
 See OpenVisus `Docker/group-security`` for details about how to add users
 
 
-# Setup a new Dashboard Server
-
-```
-screen -S nsdf-convert-workflow-dashboard
-screen -ls
-# screen -r  2092897.nsdf-convert-workflow-dashboard  
-echo $STY 
-
-export VISUS_CACHE=/tmp/visus-cache/dashboard-cache
-export VISUS_CPP_VERBOSE="1"
-export VISUS_NETSERVICE_VERBOSE="1"
-export BOKEH_ALLOW_WS_ORIGIN="*"
-export BOKEH_LOG_LEVEL="debug"
-
-rm -Rf .venv
-python3 -m venv .venv
-source .venv/bin/activate
-
-python3 -m pip install --upgrade pip
-python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 
-python3 -m pip install --upgrade OpenVisusNoGui
-
-# better to be in git openvisuspy
-# python3 -m pip install --upgrade openvisuspy
-
-git pull
-python3 -m pip  uninstall openvisuspy
-export PYTHONPATH=./src
-
-# you must create a file to access the NSDF OpenVisus server
-source modvisus_identity.sh
-
-# NOTE 0.0.0.0 seems to have problems in general see below
-export ADDRESS=$(curl ifconfig.me)
-export BOKEH_PORT=10334 
-export NSDF_CONVERT_GROUP=test-group
-python3 -m bokeh serve "examples/dashboards/run.py" --dev --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/${NSDF_CONVERT_GROUP}.json
-```
-
-# CHESS Metadata
-
-- `"DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"` **500 files**
-
-```
-kinit -c krb5_ccache $USER 
-
-# example
-/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"technique": "tomography"}' |  jq  
-
-# EMPTY, problem here?
-/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"_id" : "65032a84d2f7654ee374db59"}' |  jq
-
-# OK
-/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"Description" : "Test for Kate"}' | jq
-```
-
-
 
 # Run NSDF Convert Workflow
 
-Open two terminals:
+Open **two terminals** and type:
 
 ```bash
 NSDF_CONVERT_GROUP=test-group
@@ -190,7 +132,7 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    'metadata': []}"
 ```
 
-Add NEXUS reduced example:
+Add **NEXUS reduced** example:
 
 ```bash
 DATASET_NAME=rolf-example-reduced
@@ -208,7 +150,7 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    ]}"
 ```
 
-Add NEXUS reconstructed example:
+Add **NEXUS reconstructed** example:
 
 ```bash
 DATASET_NAME=rolf-example-reconstructed
@@ -269,7 +211,6 @@ seq=18 #
 # 18: tomo rotation series W 2048 H 2048 D 1449 dtype uint16
 # 19: darkfield            W 2048 H 2048 D   26 dtype uint16
 # 20: brightfield          W 2048 H 2048 D   26 dtype uint16
-
 Seq=18
 DATASET_NAME="example-ti-2-exsitu/${Seq}"
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
@@ -288,7 +229,7 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
 Check modvisus (you shoud see the new dataset):
 
 ```bash
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list&group=${NSDF_CONVERT_GROUP}"
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
 ```
 
 Check group configs:
@@ -308,8 +249,81 @@ Also you can run the dashboard:
 - [TODO] probe broken
 
 ```
-python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG_REMOTE}
+python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
 ```
+
+
+# CHPC (i.e. setup a new Dashboard Server)
+
+```
+screen -S nsdf-convert-workflow-dashboard
+screen -ls
+# screen -r  2092897.nsdf-convert-workflow-dashboard  
+echo $STY 
+
+git clone git@github.com:sci-visus/openvisuspy.git
+cd openvisuspy
+rm -Rf .venv
+python3 -m venv .venv
+source .venv/bin/activate
+
+python3 -m pip install --upgrade pip
+python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 
+python3 -m pip install --upgrade OpenVisusNoGui
+# python3 -m pip install --upgrade openvisuspy COMMENTED, I prefer to have the code inline
+
+```
+
+Create a `setup.py` file:
+
+```
+#!/bin/bash
+export MODVISUS_USERNAME=xxxxx
+export MODVISUS_PASSWORD=yyyyy
+
+export VISUS_CACHE=/tmp/visus-cache/dashboard-cache
+export VISUS_CPP_VERBOSE="1"
+export VISUS_NETSERVICE_VERBOSE="1"
+
+export BOKEH_ALLOW_WS_ORIGIN="*"
+export BOKEH_LOG_LEVEL="debug"
+
+source .venv/bin/activate
+
+export PYTHONPATH=./src
+```
+
+THe run the dashboard:
+
+```
+source ./setup.sh
+export PYTHONPATH=./src
+export ADDRESS=$(curl -s ifconfig.me)
+export BOKEH_PORT=10334 
+export NSDF_CONVERT_GROUP=test-group
+curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+python3 -m bokeh serve "examples/dashboards/run.py" --dev --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+```
+
+# 
+
+# CHESS Metadata
+
+- `"DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"` **500 files**
+
+```
+kinit -c krb5_ccache $USER 
+
+# example
+/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"technique": "tomography"}' |  jq  
+
+# EMPTY, problem here?
+/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"_id" : "65032a84d2f7654ee374db59"}' |  jq
+
+# OK
+/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"Description" : "Test for Kate"}' | jq
+```
+
 
 ## Debug Bokeh problems
 
