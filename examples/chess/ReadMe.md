@@ -120,7 +120,7 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
 
 Add **NEXUS**:
 
-```
+```bash
 DATASET_NAME=example-nexus
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
    'group': '${NSDF_CONVERT_GROUP}',
@@ -246,7 +246,11 @@ Also you can run the dashboard:
 -      dynamic
 -      dynamic-acc
 - [DONE] palette choose between linear and log
-- [TODO] probe broken
+- [METADA]
+
+- [TODO] **probe** broken
+- [TODO] add *axis name*
+- [TODO] colormap looses ticks
 
 ```
 python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
