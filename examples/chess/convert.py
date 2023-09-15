@@ -34,6 +34,7 @@ class Datasets:
 		self.conn.execute("""
 		CREATE TABLE IF NOT EXISTS datasets (
 		    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+		    'group' TEXT NOT NULL, 
 		    name TEXT NOT NULL,
 		    src TEXT NOT NULL,
 				dst TEXT NOT NULL,
@@ -48,10 +49,10 @@ class Datasets:
 		self.conn.commit()
 	
 	# pushPendingConvert
-	def pushPendingConvert(self, name, src, dst, compression="zip", arco="modvisus", metadata=[]):
+	def pushPendingConvert(self, group, name, src, dst, compression="zip", arco="modvisus", metadata=[]):
 		# TODO: if multiple converters?
-		self.conn.executemany("INSERT INTO datasets (name, src, dst, compression, arco, metadata, insert_time) values(?,?,?,?,?,?,?)",[
-			(name, src, dst, compression, arco, json.dumps(metadata), datetime.now())
+		self.conn.executemany("INSERT INTO datasets ('group', name, src, dst, compression, arco, metadata, insert_time) values(?,?,?,?,?,?,?,?)",[
+			(group, name, src, dst, compression, arco, json.dumps(metadata), datetime.now())
 		])
 		self.conn.commit()
 
@@ -86,28 +87,22 @@ class Datasets:
 
 	# generateModVisusConfig
 	def generateModVisusConfig(self, filename):
-		logger.info("generateModVisusConfig begin")
+		logger.info(f"generateModVisusConfig begin filename={filename}")
 
 		v=[]
 		converted=self.getConverted()
 
 		N=0
 		for row in converted:
-			v.append(f"""<dataset name='{row["name"]}' url='{row["dst"]}' convert_id='{row["id"]}' />""")
+			v.append(f"""<dataset name='{row["group"]}/{row["name"]}' url='{row["dst"]}' group='{row["group"]}' convert_id='{row["id"]}' />""")
 			N+=1
-		body="\n".join([
-			f"<!-- file automatically generated {str(datetime.now())} -->",
-			"<datasets>"] + v + [
-				"</datasets>",
-				""
-				])
+		body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
 
 		# save the file
-		shutil.move(filename,filename + ".bak")
 		with open(filename,"w") as f:
 			f.write(body)
 		logger.info(f"Saved file {filename}")
-		logger.info(f"generateModVisusConfig end #datasets={N}")
+		logger.info(f"generateModVisusConfig end #datasets={N} filename={filename}")
 		return body
 
 # # ///////////////////////////////////////////////////////////////////
@@ -182,14 +177,14 @@ class CreateNexusStreamable:
 
 	# run
 	def run(self):
-		print(f"NexusCreateStreamable::run filename={self.src_filename} full-size={os.path.getsize(self.src_filename):,}")
+		logger.info(f"NexusCreateStreamable::run filename={self.src_filename} full-size={os.path.getsize(self.src_filename):,}")
 		if os.path.isfile(self.streamable_filename): os.remove(self.streamable_filename)
 		src=nxload(self.src_filename)
 		dst=copy.deepcopy(src)
 		dst.attrs["streamable"]=True
 		self._convertNexusFieldsToOpenVisus(src, dst)
 		nxsave(self.streamable_filename, dst , mode='w')
-		print(f"NexusCreateStreamable::run streamable_filename={self.streamable_filename} reduced-size={os.path.getsize(self.streamable_filename):,}")
+		logger.info(f"NexusCreateStreamable::run streamable_filename={self.streamable_filename} reduced-size={os.path.getsize(self.streamable_filename):,}")
 		return dst
 	
 	# _convertNexusFieldsToOpenVisus
@@ -204,14 +199,14 @@ class CreateNexusStreamable:
 
 			else:
 
-				print("Removing Nxfield",src.nxname)
+				logger.info("Removing Nxfield",src.nxname)
 
 				# replace any 'big' field with something virtually empty
 				# TODO: read nexus by slabs
 				t1=time.time()
-				print(f"Reading Nexus field {src.nxname}...")
+				logger.info(f"Reading Nexus field {src.nxname}...")
 				data = src.nxdata
-				print(f"Read Nexus field  in {time.time()-t1} seconds")
+				logger.info(f"Read Nexus field  in {time.time()-t1} seconds")
 
 				# this is the version without any data
 				new_field=NXfield(value=None, shape=src.shape, dtype=data.dtype)
@@ -219,7 +214,7 @@ class CreateNexusStreamable:
 				idx_filename=self.idx_filename_template.replace("{NxField::nxname}",src.nxname)
 
 				t1=time.time()
-				print(f"Creating IDX file {idx_filename}...")
+				logger.info(f"Creating IDX file {idx_filename}...")
 				field=ov.Field.fromString(f"""DATA {str(data.dtype)} format(row_major) min({np.min(data)}) max({np.max(data)})""")
 
 				parent=src.nxgroup
@@ -243,7 +238,7 @@ class CreateNexusStreamable:
 					axis=idx_axis
 				)
 				db.write(data)
-				print(f"Created IDX file {idx_filename} in {time.time()-t1} seconds")
+				logger.info(f"Created IDX file {idx_filename} in {time.time()-t1} seconds")
 
 				# add as attribute (list of openvisus files)
 				new_field.attrs["openvisus"]=repr([idx_filename])
@@ -296,80 +291,95 @@ def LocalFileToMetadata(metadata, filename):
 	except Exception as ex:
 		logger.info(f"Reading of metadata {filename} failed {ex}. Skipping it")
 
+
+# ///////////////////////////////////////////////////////////////////
+def Touch(filename):
+	from pathlib import Path
+	Path(filename).touch(exist_ok=True)
+
+
 # ///////////////////////////////////////////////////////////////////
 if __name__ == "__main__":
 	
-	NSDF_CONVERT_LOG_FILENAME=os.environ["NSDF_CONVERT_LOG_FILENAME"]
-	NSDF_CONVERT_QUEUE_IN=os.environ["NSDF_CONVERT_QUEUE_IN"]
-	NSDF_CONVERT_QUEUE_OUT=os.environ["NSDF_CONVERT_QUEUE_OUT"]
-	NSDF_CONVERT_PUBSUB_URL=os.environ["NSDF_CONVERT_PUBSUB_URL"]	
-	NSDF_CONVERT_SQLITE3_FILENAME=os.environ["NSDF_CONVERT_SQLITE3_FILENAME"]
-	NSDF_CONVERT_GROUP_CONFIG_LOCAL=os.environ["NSDF_CONVERT_GROUP_CONFIG_LOCAL"]
-	NSDF_CONVERT_MODVISUS_CONFIG=os.environ["NSDF_CONVERT_MODVISUS_CONFIG"]
+	log_filename=os.environ["NSDF_CONVERT_LOG_FILENAME"]
+	convert_queue_name=os.environ["NSDF_CONVERT_QUEUE"]
+	pubsub_url=os.environ["NSDF_CONVERT_PUBSUB_URL"]	
+	sqlite3_filename=os.environ["NSDF_CONVERT_SQLITE3_FILENAME"]
+	modvisus_group_filename=os.environ["NSDF_CONVERT_MODVISUS_CONFIG"]
+	converted_url_template=os.environ["NSDF_CONVERTED_URL_TEMPLATE"]
+	group_config_filename=os.environ["NSDF_CONVERT_GROUP_CONFIG"]
+	modvisus_root_filename=os.environ["MODVISUS_CONFIG"]
 
-	NSDF_CONVERT_SERVER_URL=os.environ["NSDF_CONVERT_SERVER_URL"]
-
-	SetupLogger(NSDF_CONVERT_LOG_FILENAME)
+	SetupLogger(log_filename)
 	
 	if sys.argv[1]=="init-db":
-		db=Datasets(NSDF_CONVERT_SQLITE3_FILENAME)
+		db=Datasets(sqlite3_filename)
 		db.dropTable()
 		db.createTable()
 		for row in db.getAll():
 			logger.info(row)
-		logger.info("init-db done")	
+		logger.info(f"init-db done filename={sqlite3_filename}")	
 		sys.exit(0)
 
 
 	if sys.argv[1]=="generate-modvisus-config":
-		db=Datasets(NSDF_CONVERT_SQLITE3_FILENAME)
-		db.generateModVisusConfig(NSDF_CONVERT_MODVISUS_CONFIG)
+		db=Datasets(sqlite3_filename)
+		db.generateModVisusConfig(modvisus_group_filename)
+		Touch(modvisus_root_filename)
 		sys.exit(0)
 
 	if sys.argv[1]=="run-convert-loop":
 
 		def GetPubSubChannel(queue_name):
-			params = pika.URLParameters(NSDF_CONVERT_PUBSUB_URL)
+			params = pika.URLParameters(pubsub_url)
 			connection = pika.BlockingConnection(params)
 			ret = connection.channel()
 			ret.queue_declare(queue=queue_name)
 			return connection, ret
 
-		connection_in, channel_in  = GetPubSubChannel(NSDF_CONVERT_QUEUE_IN)
-		connection_out,channel_out = GetPubSubChannel(NSDF_CONVERT_QUEUE_OUT)
+		connection_in, channel_in  = GetPubSubChannel(convert_queue_name)
 
-		db=Datasets(NSDF_CONVERT_SQLITE3_FILENAME)
-		db.generateModVisusConfig(NSDF_CONVERT_MODVISUS_CONFIG)
+		db=Datasets(sqlite3_filename)
+		db.generateModVisusConfig(modvisus_group_filename)
+		Touch(modvisus_root_filename)
 
 		logger.info(f"RunConvertLoop start")
 
 		# track changes in github repo and automatically commit
-		def GitLoop():
+		def RunGitLoop():
 			while True:
 				time.sleep(3)
-				for cmd in ['git add *.json','git commit -a -m "new version"','git push']:
-					output=subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True,check=False,cwd=NSDF_CONVERT_GROUP_CONFIG_LOCAL).stdout.decode("utf-8").strip()
-					if not output or "up-to-date" in output or  "nothing to commit" in output: break
-					logger.info(f"GIT cmd={cmd} output={output.strip()}")
+				for I,cmd in enumerate(['git pull', 'git add *.json','git commit -a -m "new version"','git push']):
+					output=subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True,check=False,cwd=os.path.dirname(group_config_filename)).stdout.decode("utf-8").strip()
+					if I==0: continue 
+					if any([
+							not output,
+						 "up-to-date" in output,
+						 "nothing to commit" in output,
+						 "did not match any files" in output,
+					]): 
+						continue
+					logger.info(f"RunGitLoop cmd={cmd} output={output.strip()}")
 
 		import threading
-		t=threading.Thread(target=GitLoop)
+		t=threading.Thread(target=RunGitLoop)
 		t.start()
-		time.sleep(200)
 
+		last_message_time=time.time()
 		exitNow=False
 		while not exitNow:
 
 			# add all the messages to the database
 			# https://pika.readthedocs.io/en/stable/examples/blocking_consumer_generator.html
-			for method_frame, properties, body in channel_in.consume(NSDF_CONVERT_QUEUE_IN, auto_ack=False,inactivity_timeout=0.1):
+			for method_frame, properties, body in channel_in.consume(convert_queue_name, auto_ack=False,inactivity_timeout=0.1):
+				if (time.time()-last_message_time) > 180:
+					logger.info(f"Listening to the queue={convert_queue_name}")
+					last_message_time=time.time()
 
-				# timeout
-				if method_frame is None: 
-					break 
+				if method_frame is None:  break  # timeout
 				body=body.decode("utf-8").strip()
 				msg=json.loads(body)
-				logger.info(f"PubSub received message from queue={NSDF_CONVERT_QUEUE_IN} body=\n{json.dumps(msg,indent=2)} ")
+				logger.info(f"PubSub received message from queue={convert_queue_name} body=\n{json.dumps(msg,indent=2)} ")
 				logger.info(f"Adding item top local db")
 				db.pushPendingConvert(**msg)
 
@@ -392,26 +402,20 @@ if __name__ == "__main__":
 			src,dst=row["src"],row["dst"]
 
 			# extract group_name (name should be in the form `group/whatever`)
-			dataset_fullname=row['name']
-			logger.info(f"dataset_fullname={dataset_fullname}")
-			group_name,__name=dataset_fullname.split("/",1)
+			group_name, dataset_name=row['group'],row['name']
+			logger.info(f"group={group_name} name={dataset_name}")
 
 			# read group config (if not exists create a new one)
 			group_config={"datasets": []}
-			group_config_filename=f"{NSDF_CONVERT_GROUP_CONFIG_LOCAL}/{group_name}.config.json"
 			if os.path.isfile(group_config_filename) and os.path.getsize(group_config_filename):
 				with open(group_config_filename,"r") as f:
 					try:
 						group_config=json.load(f)
+						logger.info(f"Loaded JSON file {group_config_filename}")
 					except Exception as ex:
 						logger.info(f"Loading of JSON file {group_config_filename} failed {ex} ")
 
 			# read metatada (can be a binary file too?)
-			"""
-				metadata': [
-				    {'type':'file','path':'/nfs/.../file.json'},
-				 ]
-			"""
 			metadata=[]
 			for it in json.loads(row["metadata"]):
 				type=it['type']
@@ -447,28 +451,27 @@ if __name__ == "__main__":
 
 			# save group config file (TODO commit to github)
 			group_config["datasets"].append({
-				"name" : dataset_fullname,
-				"url" : f"{NSDF_CONVERT_SERVER_URL}?action=readdataset&dataset={dataset_fullname}",
+				"name" : f"{group_name}/{dataset_name}", # for displaying
+				"url" : converted_url_template.format(group=group_name, name=dataset_name),
 				"color-mapper-type":"log",
 				"metadata" : metadata + [{'type':'json-object', 'filename': 'generated-nsdf-convert.json',  'object' : {k:str(v) for k,v in row.items() if k!="metadata"}}]
 			})		
+
 			with open(group_config_filename,"w") as f:
 				json.dump(group_config,f, indent=2)
+				logger.info(f"Saved group config to filename={group_config_filename}")
 
 			# this sets the conversion_done with is needed for visus config generation
 			db.setConvertDone(row)
 
-			db.generateModVisusConfig(NSDF_CONVERT_MODVISUS_CONFIG)
+			db.generateModVisusConfig(modvisus_group_filename)
+			Touch(modvisus_root_filename) # force modvisus reload
 
-			# channel_out.basic_publish(exchange='', routing_key=NSDF_CONVERT_QUEUE_OUT ,body=json.dumps(out_msg))
-			# print(f"PubSub published message to queue={NSDF_CONVERT_QUEUE_OUT} body=\n{json.dumps(out_msg,indent=2)} ")
-			
-			print(f"Re-entering loop...")
+			logger.info(f"*** Re-entering loop ***")
 
 		t.stop()
 		logger.info(f"RunConvertLoop end")
 		channel_in.close();connection_in.close()
-		channel_out.close();connection_out.close()
 		sys.exit(0)
 
 

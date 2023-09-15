@@ -44,9 +44,9 @@ which python3
 python3 -m OpenVisus dirname
 
 # ******************************************
-# *** IMPORTANT **** make a copy of ${VISUS_CONFIG} before doing this, it will overwrite the file
+# *** IMPORTANT **** make a copy of ${MODVISUS_CONFIG} before doing this, it will overwrite the file
 # ******************************************
-cp ${VISUS_CONFIG} ${VISUS_CONFIG}.backup
+cp ${MODVISUS_CONFIG} ${MODVISUS_CONFIG}.$(date +"%Y_%m_%d_%I_%M_%p").backup
 python3 -m pip install --upgrade OpenVisusNoGui
 
 ## mod_visus 
@@ -95,7 +95,6 @@ python3 -m bokeh serve "examples/dashboards/run.py" --dev --address 0.0.0.0 --po
 ```
 
 
-
 To test from inside CHESS network:
 - change port as needed
 
@@ -112,130 +111,128 @@ But if you are on Windows VS Code, ports are automaticall forward and you can op
 # Convert workflow
 
 
-Reset the convert queues and db:
+Open two temintals and:
 
 ```bash
-python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_IN}
-python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_OUT}
-python examples/chess/convert.py init-db
+NSDF_CONVERT_GROUP=test-group
+source examples/chess/setup.sh
 ```
 
-Show the database
+Group setup:
 
 ```bash
+rm -Rf ${NSDF_CONVERT_DATA}
+rm -f ${NSDF_CONVERT_GROUP_CONFIG}
+mkdir -p ${NSDF_CONVERT_DATA}
+touch ${NSDF_CONVERT_MODVISUS_CONFIG}
+
+# MANUAL OPERATION
+echo "Add this to ${MODVISUS_CONFIG} : <include url='${NSDF_CONVERT_MODVISUS_CONFIG}' />"
+
+pushd $(dirname ${NSDF_CONVERT_GROUP_CONFIG})
+git commit -a -m "cleaning"
+git push
+popd
+
+python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE}
+python examples/chess/convert.py init-db
 sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} ".schema"
 sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets"
-```
 
-Convert the sqllite database to `${NSDF_CONVERT_MODVISUS_CONFIG}`
-
-
-```bash
 python examples/chess/convert.py generate-modvisus-config
 more ${NSDF_CONVERT_MODVISUS_CONFIG}
 ```
 
-Add an image-stack to convert
-
-```bash
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE_IN} --message "{
-   'name':'test-group/example2',
-   'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif',
-   'dst':'/mnt/data1/nsdf/remove-me/test-group/example/visus.idx',
-   'compression':'zip',
-   'arco':'1mb'}"
-
-# still the db is empty if the converter is not running
-sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets"
-```
-
-Run the converter loop
+In terminal 1, run the converter loop
 
 ```bash
 python examples/chess/convert.py run-convert-loop
 ```
 
-Soon or later the NSDF OpenVisus server will serve it:
-
-```bash
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
-```
-
-Also you can run the dashboard with group config
-
-```
-python -m bokeh serve examples/dashboards/run.py --dev --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/test-group.config.json
-```
-
-
-# 20231209 Near field
-
-Specs:
-
-```
-W 2048 H 2048 D 366 dtype uint16
-```
+In terminal 2, convert an **image-stack**:
 
 ```bash
 
-python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_IN}
-python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_OUT}
-python examples/chess/convert.py init-db
-
-# NOTE: the name is always in the form `group/whatever`
-name="test-group/near-field-20230912-01"
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE_IN} --message "{
-   'name':'${name}',
+DATASET_NAME=example-$(date +"%Y_%m_%d_%I_%M_%p")
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
+   'group': '${NSDF_CONVERT_GROUP}',
+   'name':'${DATASET_NAME}',
    'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif',
-   'dst':'/mnt/data1/nsdf/tmp/${name}/visus.idx',
+   'dst':'${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx',
    'compression':'zip',
    'arco':'1mb',
    'metadata': [
       {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json'},
       {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par' }
    ]}"
-
-python examples/chess/convert.py run-convert-loop
 ```
 
-# 20231209 Tomo
+Check OpenVisus server:
 
-Specs:
+```bash
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list&group=${NSDF_CONVERT_GROUP}" | grep ${NSDF_CONVERT_GROUP}
+```
+
+And check group configs:
 
 ```
-# W 2048 H 2048 D 26 dtype uint16 dtype uint16
+curl ${NSDF_CONVERT_GROUP_CONFIG_REMOTE}
+```
+
+
+Also you can run the dashboard:
+
+```
+python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG_REMOTE}
+```
+
+Add a **near field**:
+
+```bash
+DATASET_NAME=example-$(date +"%Y_%m_%d_%I_%M_%p")
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
+   'group': '${NSDF_CONVERT_GROUP}',
+   'name':'${DATASET_NAME}',
+   'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif',
+   'dst':'${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx',
+   'compression':'zip',
+   'arco':'1mb',
+   'metadata': [
+      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json'},
+      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par' }
+   ]}"
+```
+
+Add a **tomo**
+
+```bash:
+seq=18 # 
 # 15: darkfield            W 2048 H 2048 D   26 dtype uint16
 # 16: brightfield          W 2048 H 2048 D   26 dtype uint16
 # 18: tomo rotation series W 2048 H 2048 D 1449 dtype uint16
 # 19: darkfield            W 2048 H 2048 D   26 dtype uint16
 # 20: brightfield          W 2048 H 2048 D   26 dtype uint16
-```
 
-bash:
-
-```
-python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_IN}
-python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE_OUT}
-python examples/chess/convert.py init-db
-
-seq=18 # [15, 16, 18, 19, 20]
-name="test-group/tomo-20230912-${seq}"
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE_IN} --message "{
-   'name':'${name}',
-   'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/${seq}/nf/nf_*.tif',
-   'dst':'/mnt/data1/nsdf/tmp/${name}/visus.idx',
+Seq=18
+DATASET_NAME="example-$(date +"%Y_%m_%d_%I_%M_%p")/${Seq}"
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
+   'group': '${NSDF_CONVERT_GROUP}',
+   'name':'${DATASET_NAME}',
+   'src':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/${Seq}/nf/nf_*.tif',
+   'dst':'${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx',
    'compression':'zip',
    'arco':'1mb',
    'metadata': [
       {'type':'file','path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.json'},
-      {'type':'file','path':/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.par''},
+      {'type':'file','path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.par'},
    ]}"
-
-python examples/chess/convert.py run-convert-loop
-
 ```
 
-# PubSub
+
+
+
+
+# (OLD NOTES) PubSub
 
 Links:
 - https://customer.cloudamqp.com/instance

@@ -33,7 +33,8 @@ if __name__.startswith('bokeh'):
 			config=response.json()
 		else:
 			config=json.load(open(sys.argv[1],"r"))
-		
+
+		# print(json.dumps(config,indent=2))
 		view.setConfig(config)
 	else:
 		view.setDataset(url)
