@@ -436,7 +436,11 @@ class Widgets:
 					if type=="b64encode":
 						# binary encoded in string
 						base64_s=item["encoded"]
-						body_s=base64.b64decode(base64_s).decode("utf-8")
+
+						try:
+							body_s=base64.b64decode(base64_s).decode("utf-8")
+						except:
+							body_s="" # it's probably full binary
 					else:
 						# json
 						body_s=json.dumps(item,indent=2)

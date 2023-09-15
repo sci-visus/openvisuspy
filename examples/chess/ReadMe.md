@@ -4,8 +4,6 @@ NOTE:
 - COnnect to the NSDF entrypoint
 - `OPEN FOLDER` `/mnt/data1/nsdf/openvisuspy`
 
-
-
 Please check the body of the `setup.sh` file since it contains some useful explanations:
 
 ```bash
@@ -13,23 +11,7 @@ source examples/chess/setup.sh
 ```
 
 
-# Handle with Jupyter notebook/Visual Studio Code problems
-
-When you open Jupyter Notebooks.,..
-You should see `my-env` as a Python Kernel on the top-right of the Visual code
-If you do not see it, do:
-
-```
-conda install ipykernel
-python -m ipykernel install --user --name my-env --display-name "my-env" and
-
-# so that the terminal is configured properly
-source examples/chess/setup.sh
-
-# then just `Reload` in Visual Code, it should detect the `my-env` conda environment now
-```
-
-# Update OpenVisus
+# Update NSDF-CHESS OpenVisus Server
 
 ```bash
 
@@ -82,36 +64,67 @@ tail -f  ${APACHE_LOG_DIR}/*.log
 See OpenVisus `Docker/group-security`` for details about how to add users
 
 
-# Dashboard 
+# Setup a new Dashboard Server
 
-NOTE:
-- ports are not opened to the outside, but visual code can automatically forward them (just ffor debugging)
-- if you are on the CHESS entrypoint, debugging with VSCode, **you will need to remove** `--adress 0.0.0.0` (it cannot bind to the public IP)
+```
+screen -S nsdf-convert-workflow-dashboard
+screen -ls
+# screen -r  2092897.nsdf-convert-workflow-dashboard  
+echo $STY 
 
-Without group config:
+export VISUS_CACHE=/tmp/visus-cache/dashboard-cache
+export VISUS_CPP_VERBOSE="1"
+export VISUS_NETSERVICE_VERBOSE="1"
+export BOKEH_ALLOW_WS_ORIGIN="*"
+export BOKEH_LOG_LEVEL="debug"
 
-```bash
-python3 -m bokeh serve "examples/dashboards/run.py" --dev --address 0.0.0.0 --port 10077 --args "/mnt/data1/nsdf/visus-datasets/allison-1110-3-mg4al-sht-11-nf/visus.idx"
+rm -Rf .venv
+python3 -m venv .venv
+source .venv/bin/activate
+
+python3 -m pip install --upgrade pip
+python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 
+python3 -m pip install --upgrade OpenVisusNoGui
+
+# better to be in git openvisuspy
+# python3 -m pip install --upgrade openvisuspy
+
+git pull
+python3 -m pip  uninstall openvisuspy
+export PYTHONPATH=./src
+
+# you must create a file to access the NSDF OpenVisus server
+source modvisus_identity.sh
+
+# NOTE 0.0.0.0 seems to have problems in general see below
+export ADDRESS=$(curl ifconfig.me)
+export BOKEH_PORT=10334 
+export NSDF_CONVERT_GROUP=test-group
+python3 -m bokeh serve "examples/dashboards/run.py" --dev --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/${NSDF_CONVERT_GROUP}.json
+```
+
+# CHESS Metadata
+
+- `"DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"` **500 files**
+
+```
+kinit -c krb5_ccache $USER 
+
+# example
+/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"technique": "tomography"}' |  jq  
+
+# EMPTY, problem here?
+/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"_id" : "65032a84d2f7654ee374db59"}' |  jq
+
+# OK
+/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"Description" : "Test for Kate"}' | jq
 ```
 
 
-To test from inside CHESS network:
-- change port as needed
 
-```bash
-ssh -i ~/.nsdf/vault/id_nsdf lnx201.classe.cornell.edu
-curl -L "http://lnx-nsdf01.classe.cornell.edu:10077/run"
-```
+# Run NSDF Convert Workflow
 
-If you want to test from outside CHESS network you need to use ssh-tunneling.
-
-But if you are on Windows VS Code, ports are automaticall forward and you can open (change port as needed) `http://localhost:10077/run`
-
-
-# Convert workflow
-
-
-Open two temintals and:
+Open two terminals:
 
 ```bash
 NSDF_CONVERT_GROUP=test-group
@@ -128,11 +141,6 @@ touch ${NSDF_CONVERT_MODVISUS_CONFIG}
 
 # MANUAL OPERATION
 echo "Add this to ${MODVISUS_CONFIG} : <include url='${NSDF_CONVERT_MODVISUS_CONFIG}' />"
-
-pushd $(dirname ${NSDF_CONVERT_GROUP_CONFIG})
-git commit -a -m "cleaning"
-git push
-popd
 
 python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE}
 python examples/chess/convert.py init-db
@@ -153,7 +161,7 @@ In terminal 2, convert an **image-stack**:
 
 ```bash
 
-DATASET_NAME=example-$(date +"%Y_%m_%d_%I_%M_%p")
+DATASET_NAME=example-tiff-image-stack
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
    'group': '${NSDF_CONVERT_GROUP}',
    'name':'${DATASET_NAME}',
@@ -167,41 +175,78 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    ]}"
 ```
 
-Check modvisus (you shoud see the new dataset):
+
+Add **NEXUS**:
+
+```
+DATASET_NAME=example-nexus
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
+   'group': '${NSDF_CONVERT_GROUP}',
+   'name':'${DATASET_NAME}',
+   'src':'/mnt/data1/nsdf/3scans_HKLI.nxs',
+   'dst':'${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx',
+   'compression':'zip',
+   'arco':'1mb',
+   'metadata': []}"
+```
+
+Add NEXUS reduced example:
 
 ```bash
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list&group=${NSDF_CONVERT_GROUP}" | grep ${NSDF_CONVERT_GROUP}
+DATASET_NAME=rolf-example-reduced
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
+   'group': '${NSDF_CONVERT_GROUP}',
+   'name':'${DATASET_NAME}',
+   'src':'/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced/reduced_data.nxs',
+   'dst':'${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx',
+   'compression':'zip',
+   'arco':'1mb',
+   'metadata': [
+      {'type': 'file', 'path':'/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/retiga.yaml'},
+      {'type': 'file', 'path':'/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/map.yaml' },
+      {'type': 'file', 'path':'/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml' },
+   ]}"
 ```
 
-And check group configs:
+Add NEXUS reconstructed example:
+
+```bash
+DATASET_NAME=rolf-example-reconstructed
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
+   'group': '${NSDF_CONVERT_GROUP}',
+   'name':'${DATASET_NAME}',
+   'src':'/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced/reconstructed_data.nxs',
+   'dst':'${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx',
+   'compression':'zip',
+   'arco':'1mb',
+   'metadata': [
+      {'type': 'file', 'path':'/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/retiga.yaml'},
+      {'type': 'file', 'path':'/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/map.yaml' },
+      {'type': 'file', 'path':'/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml' },
+   ]}"
+```
+
+Add **numpy** data:
 
 ```
-curl ${NSDF_CONVERT_GROUP_CONFIG_REMOTE}
-```
-
-
-Also you can run the dashboard:
-
-```
-python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG_REMOTE}
-```
-
-On CHPC, you can SSH to CHPC1, OpenFolder `github.com/sci-visus/openvisuspy`:
-- change group as needed
-
-```
-python3 -m pip uninstall openvisuspy
-python3 -m pip install --upgrade OpenVisus boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2
-git pull
-set PYTHONPATH=./src
-python3 -m bokeh serve "examples/dashboards/run.py" --dev --address 0.0.0.0 --port 10077 --args https://raw.githubusercontent.com/nsdf-fabric/chess-convert-workflow/main/test-group.json
-# http://chpc1.nationalsciencedatafabric.org:10077/run
+DATASET_NAME=example-numpy
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
+   'group': '${NSDF_CONVERT_GROUP}',
+   'name':'${DATASET_NAME}',
+   'src':'/mnt/data1/nsdf/recon_combined_1_2_3_fullres.npy',
+   'dst':'${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx',
+   'compression':'zip',
+   'arco':'1mb',
+   'metadata': [
+      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json'},
+      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par' }
+   ]}"
 ```
 
 Add a **near field**:
 
 ```bash
-DATASET_NAME=example-$(date +"%Y_%m_%d_%I_%M_%p")
+DATASET_NAME=example-near-field
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
    'group': '${NSDF_CONVERT_GROUP}',
    'name':'${DATASET_NAME}',
@@ -215,7 +260,7 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    ]}"
 ```
 
-Add a **tomo**
+Add a **tomo** (is it TOMO?)
 
 ```bash:
 seq=18 # 
@@ -226,7 +271,7 @@ seq=18 #
 # 20: brightfield          W 2048 H 2048 D   26 dtype uint16
 
 Seq=18
-DATASET_NAME="example-$(date +"%Y_%m_%d_%I_%M_%p")/${Seq}"
+DATASET_NAME="example-ti-2-exsitu/${Seq}"
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
    'group': '${NSDF_CONVERT_GROUP}',
    'name':'${DATASET_NAME}',
@@ -240,8 +285,66 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    ]}"
 ```
 
+Check modvisus (you shoud see the new dataset):
+
+```bash
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list&group=${NSDF_CONVERT_GROUP}"
+```
+
+Check group configs:
+
+```
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+```
+
+Also you can run the dashboard:
+- [DONE] fix problem with number of view changes (e.g. 3->1) 
+- [DONE] range mode
+-      coming from metadata
+-      user range
+-      dynamic
+-      dynamic-acc
+- [DONE] palette choose between linear and log
+- [TODO] probe broken
+
+```
+python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG_REMOTE}
+```
+
+## Debug Bokeh problems
+
+Check if this is returning <script with the right address
+
+```
+curl -vvv "http://chpc3.nationalsciencedatafabric.org:10334/run"
 
 
+# WRONG
+<script type="text/javascript" src="http://0.0.0.0:10334/static/js/bokeh-widgets      WRONG
+
+# GOOD
+<script type="text/javascript" src="static/js/bokeh.min.js?v=
+
+# GOOD
+<script type="text/javascript" src="http://<servername>/...static/js/bokeh.min.js?v=  
+```
+
+
+# Debug Jupyter Notebooks/Visual Studio Code problems
+
+When you open Jupyter Notebooks.,..
+You should see `my-env` as a Python Kernel on the top-right of the Visual code
+If you do not see it, do:
+
+```
+conda install ipykernel
+python -m ipykernel install --user --name my-env --display-name "my-env" and
+
+# so that the terminal is configured properly
+source examples/chess/setup.sh
+
+# then just `Reload` in Visual Code, it should detect the `my-env` conda environment now
+```
 
 
 # (OLD NOTES) PubSub
