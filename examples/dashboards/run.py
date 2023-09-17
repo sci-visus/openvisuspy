@@ -13,8 +13,8 @@ if __name__.startswith('bokeh'):
 		view=Slice(show_options=["num_views", "palette", "datasets", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", "play-button", "play-sec","colormapper_type","show_metadata"])
 	else:
 		view=Slices(
-			show_options=["num_views", "palette", "datasets", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", "play-button", "play-sec","colormapper_type","show_metadata"], 
-			slice_show_options=["direction", "offset", "viewdep", "status_bar","palette_range"]
+			show_options=["num_views", "palette", "datasets", "field", "viewdep", "quality", "num_refinements", "play-button", "play-sec","colormapper_type","show_metadata"],  # "timestep", "timestep-delta", 
+			slice_show_options=["direction", "offset", "viewdep", "status_bar","palette_range","datasets", ]
 		)
 
 	# can load the config file from remote

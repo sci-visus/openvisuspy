@@ -220,16 +220,22 @@ class Slice(Widgets):
 			low,high=self.getPaletteRange()
 			from bokeh.models import LogColorMapper
 			is_log=isinstance(self.color_bar.color_mapper, LogColorMapper)
-			self.color_bar.color_mapper.low =max(0.0001,low) if is_log else low
+			self.color_bar.color_mapper.low =max(0.0001,low ) if is_log else low
 			self.color_bar.color_mapper.high=max(0.0001,high) if is_log else high
-
-			from bokeh.models import FixedTicker
-			self.color_bar.ticker=FixedTicker(ticks=np.linspace(self.color_bar.color_mapper.low, self.color_bar.color_mapper.high, 10))
 
 		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
 
 		(x1,y1),(x2,y2)=self.project(logic_box)
 		self.canvas.setImage(data,x1,y1,x2,y2)
+
+		import copy
+		dir=self.getDirection()
+		dirs=[it for it in self.getDirections()]
+		if len(dirs)==3:
+			del dirs[dir]
+			self.canvas.fig.xaxis.axis_label  = dirs[0][1]
+			self.canvas.fig.yaxis.axis_label  = dirs[1][1]
+
 		tot_pixels=data.shape[0]*data.shape[1]
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
 		MaxH=self.db.getMaxResolution()

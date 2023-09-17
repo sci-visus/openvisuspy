@@ -10,7 +10,8 @@ from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button
 import os,sys,base64,json
 from bokeh.models import TabPanel,Tabs, Button,Column, Div
 from bokeh.models.callbacks import CustomJS
-
+from bokeh.models import NumeralTickFormatter ,LinearColorMapper, ColorBar, BasicTicker, ColumnDataSource
+from bokeh.models import LogColorMapper, LogTicker, ColorBar
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ class Widgets:
 		self.widgets.palette_range_vmax.on_change("value",lambda attr, old, new: self.onPaletteRangeChange())
 
 		# color_bar
-		self.color_bar = ColorBar()
+		self.color_bar = ColorBar(ticker=BasicTicker(desired_num_ticks=10))
 		self.color_bar.color_mapper=LinearColorMapper() 
 		self.color_bar.color_mapper.palette=self.palette
 		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()
@@ -138,12 +139,12 @@ class Widgets:
 		self.widgets.offset._check_missing_dimension=None # patch
   
 		# num_refimements (0==guess)
-		self.widgets.num_refinements=PatchSlider(Slider(title='#Refinements', value=0, start=0, end=4,width=100))
+		self.widgets.num_refinements=PatchSlider(Slider(title='#Refinements', value=0, start=0, end=4, sizing_mode='stretch_width'))
 		self.widgets.num_refinements.on_change ("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
 		# quality (0==full quality, -1==decreased quality by half-pixels, +1==increase quality by doubling pixels etc)
-		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12,width=100))
+		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12, sizing_mode='stretch_width'))
 		self.widgets.quality.on_change("value",lambda attr, old, new: self.setQuality(int(new)))  
 		self.widgets.quality._check_missing_dimension=None # patch
 
@@ -654,9 +655,16 @@ class Widgets:
 		vmin,vmax=self.getPaletteRange()
 		self.widgets.colormapper_type.value=value
 		assert value=="linear" or value=="log"
-		self.color_bar.color_mapper = LogColorMapper(palette=palette) if value=="log"else LinearColorMapper(palette=palette)
-		self.color_bar.color_mapper.low =max(0.01,vmin) if value=="log" else vmin
-		self.color_bar.color_mapper.high=max(0.01,vmax) if value=="log" else vmax
+
+
+		if value=="log":
+			self.color_bar.color_mapper = LogColorMapper(palette=palette, low =max(0.01,vmin), high=max(0.01,vmax)) 
+			
+			self.color_bar.ticker=LogTicker()
+		else:
+			self.color_bar.color_mapper = LinearColorMapper(palette=palette, low =vmin, high=vmax)
+			self.color_bar.ticker=BasicTicker(desired_num_ticks=10)
+
 		for it in self.children:
 			it.setColorMapperType(value)  
 		self.refresh()

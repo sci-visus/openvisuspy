@@ -247,11 +247,9 @@ Also you can run the dashboard:
 -      dynamic-acc
 - [DONE] palette choose between linear and log
 - [METADA]
-
+- [DONE] add *axis name*
+- [DONE] colormap looses ticks
 - [TODO] **probe** broken
-- [TODO] add *axis name*
-- [TODO] colormap looses ticks
-
 ```
 python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
 ```

@@ -97,7 +97,8 @@ class BaseDataset:
 				else:
 					p1[I]=Clamp(int(math.floor(p1[I])),     0,dims[I])
 					p2[I]=Clamp(int(math.ceil (p2[I])) ,p1[I],dims[I])
-				assert p1[I]<p2[I]
+				if not p1[I]<p2[I]:
+					return None
 			logic_box=(p1,p2)
 		
 		# is view dependent? if so guess max resolution 
