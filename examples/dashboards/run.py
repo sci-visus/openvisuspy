@@ -23,9 +23,9 @@ if __name__.startswith('bokeh'):
 
 		config_filename=sys.argv[1]
 		if config_filename.startswith("http"):
-			if "mod_visus" in config_filename:
-				username=os.environ.get("MODVISUS_USERNAME","")
-				password=os.environ("MODVISUS_PASSWORD","")
+			username=os.environ.get("MODVISUS_USERNAME","")
+			password=os.environ.get("MODVISUS_PASSWORD","")
+			if username and password:
 				auth=HTTPBasicAuth(username,password) if username else None
 			else:
 				auth=None
