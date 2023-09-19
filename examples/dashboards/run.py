@@ -16,7 +16,7 @@ if __name__.startswith('bokeh'):
 	if probe:
 		cls=ProbeTool if True else Slice
 		view=ProbeTool(show_options=[
-			"datasets", "direction", "offset", "palette",  "field", "quality", "num_refinements", "colormapper_type"
+			"datasets", "direction", "offset", "palette",  "field", "quality", "num_refinements", "colormapper_type","palette_range"
 		])
 	else:
 		view=Slices(

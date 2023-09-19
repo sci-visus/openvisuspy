@@ -139,7 +139,7 @@ class Widgets:
 		self.widgets.offset._check_missing_dimension=None # patch
   
 		# num_refimements (0==guess)
-		self.widgets.num_refinements=PatchSlider(Slider(title='#Refinements', value=0, start=0, end=4, sizing_mode='stretch_width'))
+		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4, sizing_mode='stretch_width'))
 		self.widgets.num_refinements.on_change ("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   

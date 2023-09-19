@@ -10,6 +10,8 @@ from bokeh.plotting import figure
 from bokeh.events import ButtonClick,DoubleTap
 from types import SimpleNamespace
 
+from statistics import mean,median,stdev
+
 from openvisuspy import SetupLogger, GetBackend, Slice, Slices,ExecuteBoxQuery
 
 COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"] 
@@ -27,8 +29,9 @@ class Probe:
 		self.color=color
 		self.pos=None
 		self.renderers=SimpleNamespace()
+		self.y_range=[0.0,0.0]
 		self.renderers.target=[]
-		self.renderers.plot=[]
+		self.renderers.plot  =[]
 
 	# setCurrent
 	def setCurrent(self,is_current):
@@ -73,18 +76,18 @@ class ProbeTool(Slice):
 
 		vmin,vmax=self.getPaletteRange()
 
-		self.fig = figure(
+		self.probe_fig = figure(
 			title="Line Plot", 
 			x_axis_label="Z", 
 			y_axis_label="f", 
 			toolbar_location=None, 
-			x_range = (0,1), 
-			y_range = [vmin,vmax],
+			x_range = [0.0,1.0], 
+			y_range = [0.0,1.0], 
 			sizing_mode="stretch_both"
 		) 
 
 		# change the offset on the proble plot
-		self.fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
+		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
 
 		# probe XY space
 		if True:
@@ -132,8 +135,7 @@ class ProbeTool(Slice):
 		return Row(
 				super().getBokehLayout(doc=doc), 
 				Column(
-					Div(text="<style>\n" + self.css_styles + "</style>"),
-					Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+					# Div(text="<style>\n" + self.css_styles + "</style>"),
 					Row(
 						self.slider_x_pos, 
 						self.slider_y_pos, 
@@ -142,7 +144,8 @@ class ProbeTool(Slice):
 						self.slider_z_res, 
 						self.slider_num_points,
 						sizing_mode="stretch_width"),
-					self.fig,
+					Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+					self.probe_fig,
 					sizing_mode="stretch_both"
 				),
 				sizing_mode="stretch_both")
@@ -183,7 +186,7 @@ class ProbeTool(Slice):
 		self.slider_z_range.step  = (pbox[Z][1]-pbox[Z][0])/10000
 		self.slider_z_range.value = [pbox[Z][0], pbox[Z][1]]
 
-		self.fig.xaxis.axis_label = self.slider_z_range.title
+		self.probe_fig.xaxis.axis_label = self.slider_z_range.title
 
 		self.setOffset(pbox[Z][0])
 		self.setCurrentButton(0)
@@ -192,9 +195,9 @@ class ProbeTool(Slice):
 	# setOffset
 	def setOffset(self, value):
 		super().setOffset(value)
-		self.removeRenderer(self.fig, self.renderers.offset)
+		self.removeRenderer(self.probe_fig, self.renderers.offset)
 		self.renderers.offset=None
-		self.renderers.offset=self.fig.line([value,value],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")
+		self.renderers.offset=self.probe_fig.line([value,value],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")
 
 	# onProbeButtonClick
 	def onProbeButtonClick(self,  I):
@@ -244,146 +247,167 @@ class ProbeTool(Slice):
 		for I,probe in enumerate(self.probes[dir]):
 			probe.setCurrent(True if I==value else False) 
 
-	# renderProbe
-	def renderProbe(self, probe, aligned_box, delta, data):
-		dir=self.getDirection()
-		X1,Y1,Z1=aligned_box[0]
-		X2,Y2,Z2=aligned_box[1]
+	# addProbe
+	def addProbe(self, I=None, pos=None):
 
+		dir=self.getDirection()
+		
+		if I is None: 
+			I=self.getCurrentButton()
+			
+		if I is None:
+			I=0
+
+		if pos is None:
+			pos=(self.slider_x_pos.value,self.slider_y_pos.value)
+
+		logger.info(f"addProbe I={I} pos={pos} dir={dir}")
+
+		probe=self.probes[dir][I]
+		self.removeProbe(probe)
+		self.setCurrentButton(I)
+
+		vt=[self.logic_to_physic[I][0] for I in range(3)]
+		vs=[self.logic_to_physic[I][1] for I in range(3)]
+
+		def LogicToPhysic(P):
+			ret=[vt[I] + vs[I]*P[I] for I in range(3)] 
+			last=ret[dir]
+			del ret[dir]
+			ret.append(last)
+			return ret
+
+		def PhysicToLogic(p):
+			ret=[it for it in p]
+			last=ret[2]
+			del ret[2]
+			ret.insert(dir,last)
+			return [(ret[I]-vt[I])/vs[I] for I in range(3)]
+
+		# __________________________________________________________
+		# here is all in physical coordinates
+
+		x,y=pos
+		z1,z2=self.slider_z_range.value
+
+		p1=(x,y,z1)
+		p2=(x,y,z2)
+
+		logger.info(f"Add Probe vs={vs} vt={vt} p1={p1} p2={p2}")
+
+		# automatically update the fig X axis range
+		self.probe_fig.x_range.start = z1
+		self.probe_fig.x_range.end   = z2
+
+		# automatically update the XY slider values
+		self.slider_x_pos.value  = x
+		self.slider_y_pos.value  = y
+
+		# keep the status for later
+		probe.pos = [x,y]
+		
+		# __________________________________________________________
+		# here is all in logical coordinates
+		# compute x1,y1,x2,y2 but eigther extrema included (NOTE: it's working at full-res)
+
+		# compute delta
+		Delta=[1,1,1]
+		endh=self.slider_z_res.value
+		maxh=self.db.getMaxResolution()
+		bitmask=self.db.getBitmask()
+		for K in range(maxh,endh,-1):
+			Delta[ord(bitmask[K])-ord('0')]*=2
+
+		P1=PhysicToLogic(p1)
+		P2=PhysicToLogic(p2)
+		print(P1,P2)
+
+		# align to the bitmask
+		num_points=self.slider_num_points.value
+		for I in range(3):
+			P1[I]=int(Delta[I]*(P1[I]//Delta[I]))
+			P2[I]=int(Delta[I]*(P2[I]//Delta[I])) # P2 is excluded
+			if I!=dir:
+				P2[I]+=(num_points-1)*Delta[I]
+			P2[I]+=Delta[I]
+
+		logger.info(f"Add Probe P1={P1} P2={P2}")
+		
+		# invalid query
+		if not all([P1[I]<P2[I] for I in range(3)]):
+			return
+
+		# for debugging draw points
+		if True:
+			xs,ys=[[],[]]
+			for Z in range(P1[2],P2[2],Delta[2]) if dir!=2 else (P1[2],):
+				for Y in range(P1[1],P2[1],Delta[1]) if dir!=1 else (P1[1],):
+					for X in range(P1[0],P2[0],Delta[0]) if dir!=0 else (P1[0],):
+						x,y,z=LogicToPhysic([X,Y,Z])
+						xs.append(x)
+						ys.append(y)
+			probe.renderers.target.append(self.canvas.fig.scatter(xs, ys, color= probe.color))
+			x1,x2=min(xs),max(xs)
+			y1,y2=min(ys),max(ys)
+			probe.renderers.target.append(self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= probe.color))
+		
+
+
+		# execute the query
+		access=self.db.createAccess()
+		logger.info(f"ExecuteBoxQuery logic_box={[P1,P2]} endh={endh} num_refinements={1} full_dim={True}")
+		multi=ExecuteBoxQuery(self.db, access=access, logic_box=[P1,P2],  endh=endh, num_refinements=1, full_dim=True) # full_dim means I am not quering a slice
+		data=list(multi)[0]['data']
+
+		# render probe
 		if dir==2:
-			xs,ys=list(range(Z1,Z2,delta[2])),[]
+			xs=list(np.linspace(z1,z2, num=data.shape[0]))
+			ys=[]
 			for Y in range(data.shape[1]):
 				for X in range(data.shape[2]):
 					ys.append(list(data[:,Y,X]))
 
 		elif dir==1:
-			xs,ys=list(range(Y1,Y2,delta[1])),[]
+			xs=list(np.linspace(z1,z2, num=data.shape[1]))
+			ys=[]
 			for Z in range(data.shape[0]):
 				for X in range(data.shape[2]):
 					ys.append(list(data[Z,:,X]))
 
 		else:
-			xs,ys=list(range(X1,X2,delta[0])),[]
+			xs=list(np.linspace(z1,z2, num=data.shape[2]))
+			ys=[]
 			for Z in range(data.shape[0]):
 				for Y in range(data.shape[1]):
 					ys.append(list(data[Z,Y,:]))
-
-
-		from statistics import mean,median,stdev
 
 		for it in [self.slider_z_op.active]:
 			op=self.slider_z_op.labels[it]
 		
 			if op=="avg":
-				probe.renderers.plot.append(self.fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.renderers.plot.append(self.probe_fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
 
 			if op=="mM":
-				probe.renderers.plot.append(self.fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
-				probe.renderers.plot.append(self.fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.renderers.plot.append(self.probe_fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.renderers.plot.append(self.probe_fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
 
 			if op=="med":
-				probe.renderers.plot.append(self.fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))	
+				probe.renderers.plot.append(self.probe_fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))	
 
 			if op=="*":
 				for it in ys:
-					probe.renderers.plot.append(self.fig.line(xs, it, line_width=2, legend_label=probe.color, line_color=probe.color))
-				
-		
+					probe.renderers.plot.append(self.probe_fig.line(xs, it, line_width=2, legend_label=probe.color, line_color=probe.color))
 
-	# addProbe
-	def addProbe(self, I=None, pos=None):
-		
-		if I is None: 
-			I=self.getCurrentButton()
+		probe.y_range=[np.min(data),np.max(data)]
+		self.probe_fig.y_range.start=min([probe.y_range[0] for probe in self.probes[dir] if probe.renderers.plot])
+		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.renderers.plot])
 
-		if pos is None:
-			pos=(self.slider_x_pos.value,self.slider_y_pos.value)
-
-		# automatically update the fig X axis range
-		self.fig.x_range.start = self.slider_z_range.value[0]
-		self.fig.x_range.end   = self.slider_z_range.value[1]			
-
-		x,y=pos
-		w=self.slider_x_dim.value
-		h=self.slider_y_dim.value
-
-		dir=self.getDirection()
-		probe=self.probes[dir][I]
-
-		self.removeProbe(probe)
-		self.setCurrentButton(I)
-
-		# update trhe slider values
-		self.slider_x_pos.value  = x
-		self.slider_y_pos.value  = y
-
-		# keep the status for later
-		probe.pos = [x,y]		
-
-		# compute x1,y1,x2,y2 but eigther extrema included (NOTE: it's working at full-res)
-		x,y,w,h=[int(it) for it in (x,y,w,h)]
-		if (w % 2) == 0 : w+=1
-		if (h % 2) == 0 : h+=1
-		x1=x-(w//2);x2=x+(w//2)
-		y1=y-(h//2);y2=y+(h//2)
-		z1=self.slider_z_range.value[0]
-		z2=self.slider_z_range.value[1] 
-		self.renderTarget(probe,x-w//2,y-h//2,x+w//2,y+h//2,line_width=3,color=probe.color)
-
-		maxh=self.db.getMaxResolution()
-		bitmask=self.db.getBitmask()
-
-		P1=self.unproject([x1,y1]);P1[dir]=z1
-		P2=self.unproject([x2,y2]);P2[dir]=z2
-		for I in range(3): P2[I]+=1 # in OpenVisus the  box is [P1,P2) so I am enlarging a little
-
-		endh=self.slider_z_res.value
-
-		# compute delta
-		delta=[1,1,1]
-		for K in range(maxh,endh,-1):
-			delta[ord(bitmask[K])-ord('0')]*=2
-
-		# compute aligned start point inside the full-res target 
-		A=[0,0,0]
-		for I in range(3):
-			A[I]=int(delta[I]*(P1[I]//delta[I]))
-			while A[I]<P1[I]:  A[I]+=delta[I] 
-
-		# target aligned end point, just outside the full-res target
-		B=[A[0],A[1],A[2]]
-		for I in range(3):
-			while B[I]<P2[I]: B[I]+=delta[I]
-
-		# for debugging draw points
-		if True:
-			logger.info(f"Executing probe query  bitmask={bitmask} maxh={maxh} (x1,y1)={(x1,y1)} (x2,y2)={(x2,y2)} endh={endh} delta={delta}")
-			logger.info(f"unprojected box at full-res [{P1},{P2}) ")
-			logger.info(f"aligned box at endh resolution  [{A},{B})")
-			
-			points=[[],[]]
-			for Z in range(A[2],B[2],delta[2]):
-				for Y in range(A[1],B[1],delta[1]):
-					for X in range(A[0],B[0],delta[0]):
-						x,y=self.project([X,Y,Z])
-						points[0].append(x)
-						points[1].append(y)
-			probe.renderers.target.append(self.canvas.fig.scatter(points[0], points[1], color= "black"))
-
-		# execute the query
-		if all([P1[I]<P2[I] for I in range(3)]):
-			access=self.db.createAccess()
-			data=list(ExecuteBoxQuery(self.db, access=access, logic_box=[A,B],  endh=endh, num_refinements=1, full_dim=True))[0]['data']
-			self.fig.y_range.start=min(self.fig.y_range.start,np.min(data))
-			self.fig.y_range.end  =max(self.fig.y_range.end  ,np.max(data))	
-			self.renderProbe(probe, [A,B], delta, data)
 
 	# removeProbe
 	def removeProbe(self, probe):
 		self.removeRenderer(self.canvas.fig, probe.renderers.target)
+		self.removeRenderer(self.probe_fig , probe.renderers.plot)
 		probe.renderers.target=[]
-
-		self.removeRenderer(self.fig, probe.renderers.plot)
 		probe.renderers.plot=[]
 
 	# refreshAllProbes
@@ -391,8 +415,11 @@ class ProbeTool(Slice):
 		Button=self.getCurrentButton()
 		dir=self.getDirection()
 		for I,probe in enumerate(self.probes[dir]):
+
 			if probe.status == INACTIVE or probe.pos is None: 
 				continue 
+			
 			# automatic add only if it was added previosly
 			self.addProbe(I=I, pos=probe.pos)
+		
 		self.setCurrentButton(Button)
