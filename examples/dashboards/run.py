@@ -10,11 +10,13 @@ if __name__.startswith('bokeh'):
 	logger.info(f"GetBackend()={GetBackend()}")
 
 	if False:
-		view=Slice(show_options=["num_views", "palette", "datasets", "timestep", "timestep-delta", "field", "viewdep", "quality", "num_refinements", "play-button", "play-sec","colormapper_type","show_metadata"])
+		view=Slice(show_options=[
+			"datasets", "num_views", "palette",  "timestep", "timestep-delta", "field", "quality", "num_refinements", "colormapper_type","show_metadata"
+		])
 	else:
 		view=Slices(
-			show_options=["num_views", "palette", "datasets", "field", "viewdep", "quality", "num_refinements", "play-button", "play-sec","colormapper_type","show_metadata"],  # "timestep", "timestep-delta", 
-			slice_show_options=["direction", "offset", "viewdep", "status_bar","palette_range","datasets", ]
+			show_options=["datasets", "num_views", "palette", "field", "quality", "num_refinements", "colormapper_type","show_metadata"],  
+			slice_show_options=["datasets", "direction", "offset", "palette_range"]
 		)
 
 	# can load the config file from remote

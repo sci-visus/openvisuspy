@@ -538,8 +538,6 @@ class Widgets:
 			it.setField(value)  
 		self.refresh()
 
-	# /////////////////////////////////////////////////////////
-
 	# getPalette
 	def getPalette(self):
 		return self.palette
@@ -553,7 +551,6 @@ class Widgets:
 		for it in self.children:
 			it.setPalette(value)  
 		self.refresh()
-
 
 	# getMetadataPaletteRange
 	def getMetadataPaletteRange(self):
@@ -593,7 +590,6 @@ class Widgets:
 			it.setPaletteRangeMode(mode)
 		self.refresh()
 
-
 	# getPaletteRange
 	def getPaletteRange(self):
 		return [
@@ -628,7 +624,6 @@ class Widgets:
 		self.widgets.colormapper_type.value=value
 		assert value=="linear" or value=="log"
 
-
 		if value=="log":
 			self.color_bar.color_mapper = LogColorMapper(palette=palette, low =max(0.01,vmin), high=max(0.01,vmax)) 
 			
@@ -640,9 +635,6 @@ class Widgets:
 		for it in self.children:
 			it.setColorMapperType(value)  
 		self.refresh()
-
-
-	# /////////////////////////////////////////////////////////////////
 
 
 	# getNumberOfRefinements
@@ -735,8 +727,6 @@ class Widgets:
   
 		self.refresh()
   
-	# ///////////////////////////////////////// PLAY
-
 	# togglePlay
 	def togglePlay(self,evt=None):
 		if self.play.is_playing:
@@ -766,7 +756,6 @@ class Widgets:
 		self.widgets.play_button.disabled=False
 		self.widgets.play_button.label="Play"
   
-
 	# playNextIfNeeded
 	def playNextIfNeeded(self):
 	 
