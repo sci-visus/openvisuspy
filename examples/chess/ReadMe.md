@@ -1,14 +1,9 @@
 # Setup
 
 NOTE:
-- COnnect to the NSDF entrypoint
+- Connect to the NSDF entrypoint
 - `OPEN FOLDER` `/mnt/data1/nsdf/openvisuspy`
-
-Please check the body of the `setup.sh` file since it contains some useful explanations:
-
-```bash
-source examples/chess/setup.sh
-```
+- run `source examples/chess/setup.sh` in your terminal
 
 # Update NSDF-CHESS OpenVisus Server
 
@@ -62,11 +57,16 @@ tail -f  ${APACHE_LOG_DIR}/*.log
 
 See OpenVisus `Docker/group-security`` for details about how to add users
 
+# Debug dashboard on windows
 
+```
+
+python -m bokeh serve examples/dashboards/run.py --dev --args C:\visus_datasets\chess\3scans_HKLI\3scans_HKLI.counts.idx
+```
 
 # Run NSDF Convert Workflow
 
-Open **two terminals** and type:
+Open **two terminals** on the NSDF entrypoint and type:
 
 ```bash
 NSDF_CONVERT_GROUP=test-group
@@ -239,75 +239,73 @@ curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.c
 ```
 
 Also you can run the dashboard:
+
 - [DONE] fix problem with number of view changes (e.g. 3->1) 
-- [DONE] range mode
--      coming from metadata
--      user range
--      dynamic
--      dynamic-acc
+- [DONE] range mode (*)  from metadata (*) user range (*) dynamic (*) dynamic-acc
 - [DONE] palette choose between linear and log
-- [METADA]
+- [DONE] METADATA
 - [DONE] add *axis name*
 - [DONE] colormap looses ticks
-- [TODO] **probe** broken
+- [DONE] probe working
 ```
 python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
 ```
 
+# Setup a new Dashboard Server
 
-# CHPC (i.e. setup a new Dashboard Server)
+```bash
 
-```
-screen -S nsdf-convert-workflow-dashboard
-screen -ls
-# screen -r  2092897.nsdf-convert-workflow-dashboard  
-echo $STY 
+# ASSUMING ubuntu 22 here
+sudo apt update
+sudo  apt install -y python3.10-venv 
+
+# MANUALLY copy id_nsdf* to ~/.ssh and rename to /.ssh/id_rsa*
+chmod 700 ~/.ssh/id_rsa*
+
+cat <<EOF >~/.screenrc
+defscrollback 100000
+termcapinfo xterm* ti@:te@EOF
+EOF
+
+mkdir -p github.com/sci-visus
+cd github.com/sci-visus
 
 git clone git@github.com:sci-visus/openvisuspy.git
 cd openvisuspy
-rm -Rf .venv
+
 python3 -m venv .venv
 source .venv/bin/activate
-
 python3 -m pip install --upgrade pip
-python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 
+python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2
 python3 -m pip install --upgrade OpenVisusNoGui
-# python3 -m pip install --upgrade openvisuspy COMMENTED, I prefer to have the code inline
 
-```
+screen -S nsdf-convert-workflow-dashboard
+# screen -ls
+# screen -r  2092897.nsdf-convert-workflow-dashboard  
+# echo $STY 
 
-Create a `setup.py` file:
-
-```
-#!/bin/bash
+# change as needed
 export MODVISUS_USERNAME=xxxxx
 export MODVISUS_PASSWORD=yyyyy
-
-export VISUS_CACHE=/tmp/visus-cache/dashboard-cache
+export VISUS_CACHE=/tmp/nsdf-convert-workflow/visus-cache
 export VISUS_CPP_VERBOSE="1"
 export VISUS_NETSERVICE_VERBOSE="1"
-
 export BOKEH_ALLOW_WS_ORIGIN="*"
-export BOKEH_LOG_LEVEL="debug"
+export BOKEH_LOG_LEVEL="info"
+export PYTHONPATH=./src
+export ADDRESS=$(curl -s https://ifconfig.me)
+export BOKEH_PORT=10334 
 
 source .venv/bin/activate
-
-export PYTHONPATH=./src
-```
-
-THe run the dashboard:
-
-```
-source ./setup.sh
-export PYTHONPATH=./src
-export ADDRESS=$(curl -s ifconfig.me)
-export BOKEH_PORT=10334 
 export NSDF_CONVERT_GROUP=test-group
+
+# check you can reach the CHESS json file
 curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
-python3 -m bokeh serve "examples/dashboards/run.py" --dev --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+
+# add `--dev` for debugging
+python3 -m bokeh serve "examples/dashboards/run.py" --use-xheaders   --allow-websocket-origin="*" --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 ```
 
-# 
 
 # CHESS Metadata
 
@@ -363,7 +361,7 @@ source examples/chess/setup.sh
 ```
 
 
-# (OLD NOTES) PubSub
+# Simple PubSub
 
 Links:
 - https://customer.cloudamqp.com/instance
