@@ -5,16 +5,15 @@ from . backend import Aborted,LoadDataset,QueryNode
 from . canvas import Canvas
 from . widgets import Widgets
 
+from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
+
 logger = logging.getLogger(__name__)
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(Widgets):
 	
 	# constructor
-	def __init__(self,
-			show_options=["palette","timestep","field","direction","offset","viewdep","quality","status_bar"],
-			toolbar_location=None
-			):
+	def __init__(self,show_options=["palette","timestep","field","direction","offset","viewdep","quality","status_bar"]):
 
 		super().__init__()
 		self.render_id     = 0
@@ -22,14 +21,36 @@ class Slice(Widgets):
 		self.new_job       = False
 		self.current_img   = None
 		self.options={}
-		self.canvas = Canvas(self.id, self.color_bar, sizing_mode='stretch_both',toolbar_location=toolbar_location)
-		self.canvas.on_resize=self.onCanvasResize
-		# self.canvas.enableDoubleTap(lambda x,y: self.gotoPoint(self.unproject([x,y])))
+
 		self.last_logic_box = None
-		self.gui=self.createGui(central_layout=self.canvas.fig, options=show_options)
+		self.gui=self.createGui(options=show_options)
 		self.query_node=QueryNode()
 		self.t1=time.time()
 		self.H=None
+
+
+	# createGui
+	def createGui(self,options=[]):
+	 
+		options=[it.replace("-","_") for it in options]
+
+		if "palette_range" in options:
+			idx=options.index("palette_range")
+			options=options[0:idx] + ["palette_range_mode","palette_range_vmin","palette_range_vmax"] + options[idx+1:]
+
+		self.canvas = Canvas(self.id, self.color_bar, sizing_mode='stretch_both',toolbar_location=None)
+		self.canvas.on_resize=self.onCanvasResize
+		# self.canvas.enableDoubleTap(lambda x,y: self.gotoPoint(self.unproject([x,y])))
+
+		return Column(
+			Row(children=[getattr(self.widgets,it) for it in options if it!="status_bar"],sizing_mode="stretch_width"),
+			Row(self.canvas.fig, self.widgets.metadata, sizing_mode='stretch_both'),
+			Row(
+				self.widgets.status_bar["request"],
+				self.widgets.status_bar["response"], 
+				sizing_mode='stretch_width'),
+			sizing_mode='stretch_both')
+  
 
 	# start
 	def start(self):

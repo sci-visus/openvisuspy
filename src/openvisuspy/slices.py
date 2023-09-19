@@ -19,10 +19,27 @@ class Slices(Widgets):
 			slice_show_options=["direction","offset","viewdep","status_bar"]):
 		super().__init__()
 		self.slice_show_options=slice_show_options
-		self.central_layout=Column(sizing_mode='stretch_both')
-		self.gui=self.createGui(central_layout=self.central_layout, options=show_options)
+		
+		self.gui=self.createGui(options=show_options)
 		self.setNumberOfViews(1)
 	
+	# createGui
+	def createGui(self,options=[]):
+	 
+		options=[it.replace("-","_") for it in options]
+
+		self.central_layout=Column(sizing_mode='stretch_both')
+
+		if "palette_range" in options:
+			idx=options.index("palette_range")
+			options=options[0:idx] + ["palette_range_mode","palette_range_vmin","palette_range_vmax"] + options[idx+1:]
+			
+		return Column(
+			Row(children=[getattr(self.widgets,it) for it in options if it!="status_bar"],sizing_mode="stretch_width"),
+			Row(self.central_layout,self.widgets.metadata, sizing_mode='stretch_both'),
+			  sizing_mode='stretch_both')
+  
+
 	# setNumberOfViews
 	def setNumberOfViews(self,value):
 
