@@ -11,17 +11,18 @@ if __name__.startswith('bokeh'):
 	logger=SetupLogger()
 	logger.info(f"GetBackend()={GetBackend()}")
 
-	probe=False
+	probe=True
+	cls=ProbeTool if probe else Slice
 
-	if probe:
-		cls=ProbeTool if True else Slice
-		view=ProbeTool(show_options=[
-			"datasets", "direction", "offset", "palette",  "field", "quality", "num_refinements", "colormapper_type","palette_range"
+	if False:
+		view=cls(show_options=[
+			"datasets", "direction", "offset", "palette",  "field", "quality", "num_refinements", "colormapper_type","palette_range_mode","palette_range_vmin","palette_range_vmax"
 		])
 	else:
 		view=Slices(
 			show_options=["datasets", "num_views", "palette", "field", "quality", "num_refinements", "colormapper_type","show_metadata"],  
-			slice_show_options=["datasets", "direction", "offset", "palette_range"]
+			slice_show_options=["datasets", "direction", "offset", "palette_range_mode","palette_range_vmin","palette_range_vmax"],
+			cls=cls
 		)
 
 	# can load the config file from remote

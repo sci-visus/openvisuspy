@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class Slice(Widgets):
 	
 	# constructor
-	def __init__(self,show_options=["palette","timestep","field","direction","offset","viewdep","quality","status_bar"]):
+	def __init__(self,show_options=["palette","timestep","field","direction","offset","viewdep","quality"]):
 
 		super().__init__()
 		self.render_id     = 0
@@ -49,7 +49,7 @@ class Slice(Widgets):
 			options=options[0:idx] + ["palette_range_mode","palette_range_vmin","palette_range_vmax"] + options[idx+1:]
 
 		ret = Column(
-			Row(children=[getattr(self.widgets,it) for it in options if it!="status_bar"],sizing_mode="stretch_width"),
+			Row(children=[getattr(self.widgets,it) for it in options ],sizing_mode="stretch_width"),
 			Row(self.canvas.fig, self.widgets.metadata, sizing_mode='stretch_both'),
 			Row(
 				self.widgets.status_bar["request"],

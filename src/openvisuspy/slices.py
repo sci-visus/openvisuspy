@@ -17,11 +17,13 @@ class Slices(Widgets):
 	# constructor
 	def __init__(self, 
 			show_options=["num_views","palette","timestep","field","viewdep","quality"],
-			slice_show_options=["direction","offset","viewdep","status_bar"]):
+			slice_show_options=["direction","offset","viewdep"],
+			cls=Slice
+		):
 		super().__init__()
+		self.cls=cls
 		self.slice_show_options=slice_show_options
 		self.show_options=show_options
-
 		self.central_layout=Column(sizing_mode='stretch_both')
 
 	
@@ -33,14 +35,16 @@ class Slices(Widgets):
 
 		options=[it.replace("-","_") for it in self.show_options]
 
-		if "palette_range" in options:
-			idx=options.index("palette_range")
-			options=options[0:idx] + ["palette_range_mode","palette_range_vmin","palette_range_vmax"] + options[idx+1:]
-			
+		first_row=[getattr(self.widgets,it) for it in options ]
+
 		ret=Column(
-			Row(children=[getattr(self.widgets,it) for it in options if it!="status_bar"],sizing_mode="stretch_width"),
-			Row(self.central_layout,self.widgets.metadata, sizing_mode='stretch_both'),
-			  sizing_mode='stretch_both')
+			Row(*first_row,sizing_mode="stretch_width"),
+			Row(
+				self.central_layout,
+				self.widgets.metadata, 
+				sizing_mode='stretch_both'
+			),
+			sizing_mode='stretch_both')
 
 		if IsPyodide():
 			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
@@ -64,8 +68,8 @@ class Slices(Widgets):
 
 		self.children=[]
 		for I in range(value):
-			slice=Slice(show_options=self.slice_show_options) 
-			self.children.append(slice)
+			child=self.cls(self.slice_show_options) 
+			self.children.append(child)
   
 		layouts=[it.getBokehLayout() for it in self.children]
 		if value<=2:

@@ -131,9 +131,12 @@ class ProbeTool(Slice):
 			self.slider_z_res.end=self.db.getMaxResolution()
 
 	# getBokehLayout
-	def getBokehLayout(self, doc):
+	def getBokehLayout(self, doc=None):
+
+		slice_layout=super().getBokehLayout(doc=doc)
+
 		return Row(
-				super().getBokehLayout(doc=doc), 
+				slice_layout, 
 				Column(
 					# Div(text="<style>\n" + self.css_styles + "</style>"),
 					Row(

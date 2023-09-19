@@ -24,7 +24,7 @@ if __name__.startswith('bokeh'):
 
 	view=Slices(
 		show_options=["palette","timestep","timestep-delta","field","quality","play-button", "play-sec"],
-		slice_show_options=["direction","offset","status_bar"])
+		slice_show_options=["direction","offset"])
 
 	view.setNumberOfViews(num_views)  
 
