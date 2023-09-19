@@ -7,6 +7,7 @@ from bokeh.layouts import grid as Grid
 
 from . widgets import Widgets
 from . slice   import Slice
+from . utils   import IsPyodide, AddAsyncLoop
 
 logger = logging.getLogger(__name__)
 
@@ -19,26 +20,39 @@ class Slices(Widgets):
 			slice_show_options=["direction","offset","viewdep","status_bar"]):
 		super().__init__()
 		self.slice_show_options=slice_show_options
-		
-		self.gui=self.createGui(options=show_options)
-		self.setNumberOfViews(1)
-	
-	# createGui
-	def createGui(self,options=[]):
-	 
-		options=[it.replace("-","_") for it in options]
+		self.show_options=show_options
 
 		self.central_layout=Column(sizing_mode='stretch_both')
+
+	
+	# getBokehLayout 
+	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
+	def getBokehLayout(self, doc=None):
+		import bokeh.io
+		doc=bokeh.io.curdoc() if doc is None else doc
+
+		options=[it.replace("-","_") for it in self.show_options]
 
 		if "palette_range" in options:
 			idx=options.index("palette_range")
 			options=options[0:idx] + ["palette_range_mode","palette_range_vmin","palette_range_vmax"] + options[idx+1:]
 			
-		return Column(
+		ret=Column(
 			Row(children=[getattr(self.widgets,it) for it in options if it!="status_bar"],sizing_mode="stretch_width"),
 			Row(self.central_layout,self.widgets.metadata, sizing_mode='stretch_both'),
 			  sizing_mode='stretch_both')
-  
+
+		if IsPyodide():
+			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
+		else:
+			self.idle_callback=doc.add_periodic_callback(self.onIdle, 1000//30)
+		self.start()
+
+		# this will fill out the central_layout
+		self.setNumberOfViews(1)
+
+		return ret
+
 
 	# setNumberOfViews
 	def setNumberOfViews(self,value):
@@ -53,7 +67,7 @@ class Slices(Widgets):
 			slice=Slice(show_options=self.slice_show_options) 
 			self.children.append(slice)
   
-		layouts=[it.gui for it in self.children]
+		layouts=[it.getBokehLayout() for it in self.children]
 		if value<=2:
 			self.central_layout.children=[
 				Row(*layouts, sizing_mode='stretch_both')

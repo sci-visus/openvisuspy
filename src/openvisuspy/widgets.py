@@ -191,22 +191,11 @@ class Widgets:
 		for it in self.children:
 			it.stop()		
 
-	# getBokehLayout 
-	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getBokehLayout(self, doc=None):
-		import bokeh.io
-		doc=bokeh.io.curdoc() if doc is None else doc
-		if IsPyodide():
-			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
-		else:
-			self.idle_callback=doc.add_periodic_callback(self.onIdle, 1000//30)
-		self.start()
-		return self.gui
-
 	# getPanelLayout
 	def getPanelLayout(self):
+		raise Exception("TODO")
 		import panel as pn
-		ret=pn.pane.Bokeh(self.gui,sizing_mode="stretch_both")
+		ret=pn.pane.Bokeh(self.getBokehLayout(),sizing_mode="stretch_both")
 		self.panel_layout=ret
 		if IsPyodide():
 			self.idle_callback=AddAsyncLoop(f"{self}::onIdle (panel)",self.onIdle,1000//30)

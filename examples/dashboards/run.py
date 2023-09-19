@@ -11,7 +11,7 @@ if __name__.startswith('bokeh'):
 	logger=SetupLogger()
 	logger.info(f"GetBackend()={GetBackend()}")
 
-	probe=True
+	probe=False
 
 	if probe:
 		cls=ProbeTool if True else Slice

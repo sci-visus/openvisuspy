@@ -5,6 +5,8 @@ from . backend import Aborted,LoadDataset,QueryNode
 from . canvas import Canvas
 from . widgets import Widgets
 
+from . utils   import IsPyodide, AddAsyncLoop
+
 from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
 
 logger = logging.getLogger(__name__)
@@ -23,26 +25,30 @@ class Slice(Widgets):
 		self.options={}
 
 		self.last_logic_box = None
-		self.gui=self.createGui(options=show_options)
+		self.show_options=show_options
 		self.query_node=QueryNode()
 		self.t1=time.time()
 		self.H=None
 
+		# create Gui
+		self.canvas = Canvas(self.id, self.color_bar, sizing_mode='stretch_both',toolbar_location=None)
+		self.canvas.on_resize=self.onCanvasResize
+		self.canvas.enableDoubleTap(self.onDoubleTap)
 
-	# createGui
-	def createGui(self,options=[]):
-	 
-		options=[it.replace("-","_") for it in options]
+
+	# getBokehLayout 
+	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
+	def getBokehLayout(self, doc=None):
+		import bokeh.io
+		doc=bokeh.io.curdoc() if doc is None else doc
+
+		options=[it.replace("-","_") for it in self.show_options]
 
 		if "palette_range" in options:
 			idx=options.index("palette_range")
 			options=options[0:idx] + ["palette_range_mode","palette_range_vmin","palette_range_vmax"] + options[idx+1:]
 
-		self.canvas = Canvas(self.id, self.color_bar, sizing_mode='stretch_both',toolbar_location=None)
-		self.canvas.on_resize=self.onCanvasResize
-		self.canvas.enableDoubleTap(self.onDoubleTap)
-
-		return Column(
+		ret = Column(
 			Row(children=[getattr(self.widgets,it) for it in options if it!="status_bar"],sizing_mode="stretch_width"),
 			Row(self.canvas.fig, self.widgets.metadata, sizing_mode='stretch_both'),
 			Row(
@@ -50,9 +56,16 @@ class Slice(Widgets):
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'),
 			sizing_mode='stretch_both')
-	  
-		# add probe in case of double click
-		
+
+		if IsPyodide():
+			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
+		else:
+			self.idle_callback=doc.add_periodic_callback(self.onIdle, 1000//30)
+		self.start()
+
+		return ret
+
+
 	# onDoubleTap
 	def onDoubleTap(self,x,y):
 		if False:
