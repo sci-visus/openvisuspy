@@ -114,9 +114,10 @@ class ProbeTool(Slice):
 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
 			self.slider_z_op.on_change("active",lambda attr,old, z: self.refreshAllProbes()) 	
 
-		# add probe in case of double click
-		self.canvas.enableDoubleTap(lambda x,y: self.addProbe(pos=(x,y)))
-
+	# onDoubleTap
+	def onDoubleTap(self,x,y):
+		logger.info(f"onDoubleTap x={x} y={y}")
+		self.addProbe(pos=(x,y))
 
 	# setDataset
 	def setDataset(self, url,db=None, force=False):
@@ -188,7 +189,6 @@ class ProbeTool(Slice):
 		self.setCurrentButton(0)
 		self.refreshAllProbes()
 
-
 	# setOffset
 	def setOffset(self, value):
 		super().setOffset(value)
@@ -217,18 +217,16 @@ class ProbeTool(Slice):
 			self.setCurrentButton(I)
 			probe=self.probes[dir][I]
 			if probe.pos is not None:
-				self.addProbe(I=I, pos=probe.pos)		
+				self.addProbe(I=I, pos=probe.pos)
 		else:
 			raise Exception("internal Error")
 
 	# removeRenderer
 	def removeRenderer(self, fig, value):
-
 		if hasattr(value, '__iter__'):
 			for it in value:
 				self.removeRenderer(fig,it)
 		else:
-
 			if value in fig.renderers:
 				fig.renderers.remove(value)
 

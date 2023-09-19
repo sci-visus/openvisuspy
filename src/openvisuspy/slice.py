@@ -40,7 +40,7 @@ class Slice(Widgets):
 
 		self.canvas = Canvas(self.id, self.color_bar, sizing_mode='stretch_both',toolbar_location=None)
 		self.canvas.on_resize=self.onCanvasResize
-		# self.canvas.enableDoubleTap(lambda x,y: self.gotoPoint(self.unproject([x,y])))
+		self.canvas.enableDoubleTap(self.onDoubleTap)
 
 		return Column(
 			Row(children=[getattr(self.widgets,it) for it in options if it!="status_bar"],sizing_mode="stretch_width"),
@@ -51,6 +51,13 @@ class Slice(Widgets):
 				sizing_mode='stretch_width'),
 			sizing_mode='stretch_both')
 	  
+		# add probe in case of double click
+		
+	# onDoubleTap
+	def onDoubleTap(self,x,y):
+		if False:
+			self.gotoPoint(self.unproject([x,y]))
+
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
 	def getLogicAxis(self):
 		dir=self.getDirection()
