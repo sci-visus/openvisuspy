@@ -227,34 +227,6 @@ class Widgets:
 		for it in self.children:
 			await it.onIdle()
 
-	# createGui
-	def createGui(self,central_layout=None,options=[]):
-	 
-		options=[it.replace("-","_") for it in options]
-
-		if "palette_range" in options:
-			options.remove("palette_range")
-			options=options+["palette_range_mode","palette_range_vmin","palette_range_vmax"]
-			
-		first_row=[getattr(self.widgets,it) for it in options if it!="status_bar"]
-
-		v=[]
-  
-		v.append(Row(
-	  		children=first_row,
-			sizing_mode="stretch_width"))
-
-		if central_layout:
-			v.append(Row(central_layout,self.widgets.metadata, sizing_mode='stretch_both'))
-		
-		if "status_bar" in options:
-			v.append(Row(
-				self.widgets.status_bar["request"],
-				self.widgets.status_bar["response"], 
-				sizing_mode='stretch_width'))
-  
-		return Column(*v, sizing_mode='stretch_both')
-  
 
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self,value):

@@ -50,7 +50,21 @@ class Slice(Widgets):
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'),
 			sizing_mode='stretch_both')
-  
+	  
+	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
+	def getLogicAxis(self):
+		dir=self.getDirection()
+		dirs=self.getDirections()
+		titles=[it[1] for it in dirs]
+
+		# this is the projected slice
+		XY=[int(it[0]) for it in dirs]
+		del XY[dir]
+		X,Y=XY
+
+		# this is the cross dimension
+		Z=int(dirs[dir][0])
+		return (X,Y,Z),(titles[X],titles[Y],titles[Z])
 
 	# start
 	def start(self):
@@ -97,6 +111,14 @@ class Slice(Widgets):
 		self.aborted.setTrue()
 		self.new_job=True	
    
+	# logic2physic
+	def logic2physic(self,value):
+		return self.project(value)
+	 
+	# physic2logic
+	def physic2logic(self,value):
+		return self.unproject(value)
+
 	# project (e.g. logic->physic)
 	def project(self,value):
 
@@ -249,13 +271,9 @@ class Slice(Widgets):
 		(x1,y1),(x2,y2)=self.project(logic_box)
 		self.canvas.setImage(data,x1,y1,x2,y2)
 
-		import copy
-		dir=self.getDirection()
-		dirs=[it for it in self.getDirections()]
-		if len(dirs)==3:
-			del dirs[dir]
-			self.canvas.fig.xaxis.axis_label  = dirs[0][1]
-			self.canvas.fig.yaxis.axis_label  = dirs[1][1]
+		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
+		self.canvas.fig.xaxis.axis_label  = tX
+		self.canvas.fig.yaxis.axis_label  = tY
 
 		tot_pixels=data.shape[0]*data.shape[1]
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()

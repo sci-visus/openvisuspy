@@ -183,8 +183,8 @@ class ProbeTool:
 		self.setCurrentButton(0)
 		self.refreshAllProbes()
 
-	# getoffset
-	def getoffset(self):
+	# getOffset
+	def getOffset(self):
 		return self.view.getOffset()
 
 	# setOffset
