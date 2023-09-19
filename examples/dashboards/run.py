@@ -9,7 +9,9 @@ if __name__.startswith('bokeh'):
 	logger=SetupLogger()
 	logger.info(f"GetBackend()={GetBackend()}")
 
-	if False:
+	probe=True
+
+	if probe:
 		view=Slice(show_options=[
 			"datasets", "num_views", "palette",  "timestep", "timestep-delta", "field", "quality", "num_refinements", "colormapper_type","show_metadata"
 		])
@@ -41,11 +43,11 @@ if __name__.startswith('bokeh'):
 	else:
 		view.setDataset(url)
 	
-	#if args.probes:
-	#	from openvisuspy.probes import ProbeTool
-	#	central=ProbeTool(view)
-	#else:
-	central=view
+	if probe:
+		from openvisuspy.probes import ProbeTool
+		central=ProbeTool(view)
+	else:
+		central=view
 
 	if IsPanelServe():
 		from openvisuspy.app import GetPanelApp

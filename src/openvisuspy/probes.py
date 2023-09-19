@@ -4,7 +4,7 @@ import numpy as np
 # bokeh dep
 import bokeh
 from bokeh.io import show
-from bokeh.models import Range1d,Select,CheckboxButtonGroup,Slider, RangeSlider,Button,Row,Column,Div,CheckboxGroup
+from bokeh.models import Range1d,Select,CheckboxButtonGroup,Slider, RangeSlider,Button,Row,Column,Div,CheckboxGroup, RadioButtonGroup
 from bokeh.layouts import column, row
 from bokeh.plotting import figure
 from bokeh.events import ButtonClick,DoubleTap
@@ -48,12 +48,12 @@ class Probe:
 class ProbeTool:
 
 	# constructor
-	def __init__(self, view):
-		self.view=view
+	def __init__(self, slice):
+		self.slice=slice
 		self.renderers=SimpleNamespace()
 		self.renderers.offset=None
 		self.probes={0: [], 1: [], 2: []}
-		self.db=self.view.db
+		self.db=self.slice.db
 
 		# create buttons
 		self.buttons=[]
@@ -72,7 +72,7 @@ class ProbeTool:
 			for dir in range(3):
 				self.probes[dir].append(Probe(status=INACTIVE,button=button,color=color))
 
-		vmin,vmax=view.getPaletteRange()
+		vmin,vmax=slice.getPaletteRange()
 
 		self.fig = figure(
 			title="Line Plot", 
@@ -116,46 +116,40 @@ class ProbeTool:
 			self.slider_z_res.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
 
 			# Z op
-			self.slider_z_op = CheckboxButtonGroup(labels=["avg","mM","med","*"], active=[0])
+			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
 			self.slider_z_op.on_change("active",lambda attr,old, z: self.refreshAllProbes()) 	
 
-			self.debug_mode = CheckboxButtonGroup(labels=["Debug"], active=[])
-			self.debug_mode.on_change("active",lambda attr,old, z: self.refreshAllProbes())		
+
 
 		# add probe in case of double click
-		self.view.canvas.enableDoubleTap(lambda x,y: self.addProbe(pos=(x,y)))
+		self.slice.canvas.enableDoubleTap(lambda x,y: self.addProbe(pos=(x,y)))
 
 		# need to take control 
-		self.view.__setOffset=self.view.setOffset
-		self.view.__setDirection=self.view.setDirection
-		self.view.setOffset    = self.setOffset
-		self.view.setDirection = self.setDirection
+		self.slice.__setOffset=self.slice.setOffset
+		self.slice.__setDirection=self.slice.setDirection
+		self.slice.setOffset    = self.setOffset
+		self.slice.setDirection = self.setDirection
 		self.setDirection(2)
 
 
 	# getBokehLayout
 	def getBokehLayout(self, doc):
-		return Column(
-			Div(text="<style>\n" + self.css_styles + "</style>"),
-			Row(self.slider_x_pos, self.slider_x_dim, sizing_mode="stretch_width"),
-			Row(self.slider_y_pos, self.slider_y_dim, sizing_mode="stretch_width"),
-			Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
-			Row(
-				self.view.getBokehLayout(doc=doc), 
-				
+		return Row(
+				self.slice.getBokehLayout(doc=doc), 
 				Column(
-					Row(self.debug_mode, self.slider_z_range,self. slider_z_res, self.slider_z_op, sizing_mode="stretch_width"),
+					Div(text="<style>\n" + self.css_styles + "</style>"),
+					Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+					Row(self.slider_x_pos, self.slider_x_dim, sizing_mode="stretch_width"),
+					Row(self.slider_y_pos, self.slider_y_dim, sizing_mode="stretch_width"),
+					Row(self.slider_z_range,self. slider_z_res, self.slider_z_op, sizing_mode="stretch_width"),
 					self.fig,
 					sizing_mode="stretch_both"
 				),
-				sizing_mode="stretch_both"
-			),
-			sizing_mode="stretch_both")		
-
+				sizing_mode="stretch_both")
 
 	# getDirection
 	def getDirection(self):
-		return self.view.getDirection()
+		return self.slice.getDirection()
 
 	# clearProbes
 	def clearProbes(self):
@@ -167,10 +161,10 @@ class ProbeTool:
 	def setDirection(self, dir):
 
 		self.clearProbes()
-		self.view.__setDirection(dir)  
+		self.slice.__setDirection(dir)  
 		P1,P2=self.db.getLogicBox()
-		x1,y1=self.view.project(P1);z1=P1[dir]
-		x2,y2=self.view.project(P2);z2=P2[dir]
+		x1,y1=self.slice.project(P1);z1=P1[dir]
+		x2,y2=self.slice.project(P2);z2=P2[dir]
 
 		self.slider_x_pos.start = x1;self.slider_x_pos.end   = x2-1;self.slider_x_pos.value = x1
 		self.slider_y_pos.start = y2;self.slider_y_pos.end   = y2-1;self.slider_y_pos.value = y1
@@ -185,11 +179,11 @@ class ProbeTool:
 
 	# getOffset
 	def getOffset(self):
-		return self.view.getOffset()
+		return self.slice.getOffset()
 
 	# setOffset
 	def setOffset(self, value):
-		self.view.__setOffset(value) # internally this update the slider widget
+		self.slice.__setOffset(value) # internally this update the slider widget
 		self.removeRenderer(self.fig, self.renderers.offset)
 		self.renderers.offset=None
 		self.renderers.offset=self.fig.line([value,value],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")
@@ -249,9 +243,9 @@ class ProbeTool:
 		
 		x=(x1+x2)/2.0
 		y=(y1+y2)/2.0
-		probe.renderers.target.append(self.view.canvas.fig.line([x-0.5, x+0.5], [y,y], line_width=line_width, color= color))
-		probe.renderers.target.append(self.view.canvas.fig.line([x, x], [y-0.5,y+0.5], line_width=line_width, color= color))
-		probe.renderers.target.append(self.view.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=line_width, color= color))
+		probe.renderers.target.append(self.slice.canvas.fig.line([x-0.5, x+0.5], [y,y], line_width=line_width, color= color))
+		probe.renderers.target.append(self.slice.canvas.fig.line([x, x], [y-0.5,y+0.5], line_width=line_width, color= color))
+		probe.renderers.target.append(self.slice.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=line_width, color= color))
 
 	# renderProbe
 	def renderProbe(self, probe, aligned_box, delta, data):
@@ -280,7 +274,7 @@ class ProbeTool:
 
 		from statistics import mean,median,stdev
 
-		for it in self.slider_z_op.active:
+		for it in [self.slider_z_op.active]:
 			op=self.slider_z_op.labels[it]
 		
 			if op=="avg":
@@ -342,8 +336,8 @@ class ProbeTool:
 		maxh=self.db.getMaxResolution()
 		bitmask=self.db.getBitmask()
 
-		P1=self.view.unproject([x1,y1]);P1[dir]=z1
-		P2=self.view.unproject([x2,y2]);P2[dir]=z2
+		P1=self.slice.unproject([x1,y1]);P1[dir]=z1
+		P2=self.slice.unproject([x2,y2]);P2[dir]=z2
 		for I in range(3): P2[I]+=1 # in OpenVisus the  box is [P1,P2) so I am enlarging a little
 
 		endh=self.slider_z_res.value
@@ -365,7 +359,7 @@ class ProbeTool:
 			while B[I]<P2[I]: B[I]+=delta[I]
 
 		# for debugging draw points
-		if self.debug_mode.active==[0]:
+		if True:
 			print(f"Executing probe query  bitmask={bitmask} maxh={maxh} (x1,y1)={(x1,y1)} (x2,y2)={(x2,y2)} endh={endh} delta={delta}")
 			print(f"unprojected box at full-res [{P1},{P2}) ")
 			print(f"aligned box at endh resolution  [{A},{B})")
@@ -374,10 +368,10 @@ class ProbeTool:
 			for Z in range(A[2],B[2],delta[2]):
 				for Y in range(A[1],B[1],delta[1]):
 					for X in range(A[0],B[0],delta[0]):
-						x,y=self.view.project([X,Y,Z])
+						x,y=self.slice.project([X,Y,Z])
 						points[0].append(x)
 						points[1].append(y)
-			probe.renderers.target.append(self.view.canvas.fig.scatter(points[0], points[1], color= "black"))
+			probe.renderers.target.append(self.slice.canvas.fig.scatter(points[0], points[1], color= "black"))
 
 		# execute the query
 		if all([P1[I]<P2[I] for I in range(3)]):
@@ -389,7 +383,7 @@ class ProbeTool:
 
 	# removeProbe
 	def removeProbe(self, probe):
-		self.removeRenderer(self.view.canvas.fig, probe.renderers.target)
+		self.removeRenderer(self.slice.canvas.fig, probe.renderers.target)
 		probe.renderers.target=[]
 
 		self.removeRenderer(self.fig, probe.renderers.plot)
