@@ -10,12 +10,12 @@ from bokeh.plotting import figure
 from bokeh.events import ButtonClick,DoubleTap
 from types import SimpleNamespace
 
-# OpenVisus depencency
 from openvisuspy import SetupLogger, GetBackend, Slice, Slices,ExecuteBoxQuery
-
 
 COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"] 
 INACTIVE,ACTIVE,CURRENT=0,1,2	
+
+logger = logging.getLogger(__name__)
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Probe:
@@ -91,28 +91,25 @@ class ProbeTool:
 		if True:
 
 			# where the center of the probe (can be set by double click or using this)
-			self.slider_x_pos=Slider(step=1, title="X coordinate", sizing_mode="stretch_width" )
+			self.slider_x_pos=Slider(value=0, start=0, end=1, step=1, title="X coordinate", sizing_mode="stretch_width" )
 			self.slider_x_pos .on_change('value_throttled', lambda attr,old, x: self.addProbe())
 
-			self.slider_y_pos=Slider(value=0, step=1, title="Y coordinate", sizing_mode="stretch_width" )
+			self.slider_y_pos=Slider(value=0, start=0, end=1, step=1, title="Y coordinate", sizing_mode="stretch_width" )
 			self.slider_y_pos .on_change('value_throttled', lambda attr,old, y: self.addProbe())
 
-			# probe dims (i.e. rect sizes on the left fiew)
-			self.slider_x_dim=Slider(start=1, end=33, value=15 , step=2, title="X size")
-			self.slider_x_dim.on_change('value_throttled', lambda attr,old, x: self.refreshAllProbes())	
+			self.slider_num_points=Slider(value=2 , start=1, end=8, step=1, title="# points",width=80)
+			self.slider_num_points.on_change('value_throttled', lambda attr,old, x: self.refreshAllProbes())	
 
-			self.slider_y_dim=Slider(start=1, end=33, value=15, step=2, title="Y size")
-			self.slider_y_dim.on_change('value_throttled', lambda attr,old, y: self.refreshAllProbes())
 
 		# probe Z space
 		if True:
 
 			# Z range
-			self.slider_z_range = RangeSlider(step=1, title="Range")
+			self.slider_z_range = RangeSlider(start=0.0, end=1.0, value=(0.0,1.0), title="Range", sizing_mode="stretch_width")
 			self.slider_z_range.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
 
 			# Z resolution 
-			self.slider_z_res = Slider(start=1, end=self.db.getMaxResolution(), value=self.db.getMaxResolution(), step=1, title="Res")
+			self.slider_z_res = Slider(value=21, start=1, end=self.db.getMaxResolution(), step=1, title="Res", sizing_mode="stretch_width")
 			self.slider_z_res.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
 
 			# Z op
@@ -120,16 +117,15 @@ class ProbeTool:
 			self.slider_z_op.on_change("active",lambda attr,old, z: self.refreshAllProbes()) 	
 
 
-
 		# add probe in case of double click
 		self.slice.canvas.enableDoubleTap(lambda x,y: self.addProbe(pos=(x,y)))
 
 		# need to take control 
-		self.slice.__setOffset=self.slice.setOffset
-		self.slice.__setDirection=self.slice.setDirection
-		self.slice.setOffset    = self.setOffset
-		self.slice.setDirection = self.setDirection
-		self.setDirection(2)
+		self.originalSetDirection = self.slice.setDirection
+		self.originalSetOffset    = self.slice.setOffset
+		self.slice.setDirection   = self.setDirection
+		self.slice.setOffset      = self.setOffset
+		#self.setDirection(2)
 
 
 	# getBokehLayout
@@ -139,9 +135,14 @@ class ProbeTool:
 				Column(
 					Div(text="<style>\n" + self.css_styles + "</style>"),
 					Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
-					Row(self.slider_x_pos, self.slider_x_dim, sizing_mode="stretch_width"),
-					Row(self.slider_y_pos, self.slider_y_dim, sizing_mode="stretch_width"),
-					Row(self.slider_z_range,self. slider_z_res, self.slider_z_op, sizing_mode="stretch_width"),
+					Row(
+						self.slider_x_pos, 
+						self.slider_y_pos, 
+						self.slider_z_range,
+						self.slider_z_op, 
+						self.slider_z_res, 
+						self.slider_num_points,
+						sizing_mode="stretch_width"),
 					self.fig,
 					sizing_mode="stretch_both"
 				),
@@ -160,20 +161,35 @@ class ProbeTool:
 	# setDirection
 	def setDirection(self, dir):
 
+		self.originalSetDirection(dir)
+
 		self.clearProbes()
-		self.slice.__setDirection(dir)  
-		P1,P2=self.db.getLogicBox()
-		x1,y1=self.slice.project(P1);z1=P1[dir]
-		x2,y2=self.slice.project(P2);z2=P2[dir]
+		pbox=self.slice.getPhysicBox()
+		logger.info(f"physic-box={pbox}")
 
-		self.slider_x_pos.start = x1;self.slider_x_pos.end   = x2-1;self.slider_x_pos.value = x1
-		self.slider_y_pos.start = y2;self.slider_y_pos.end   = y2-1;self.slider_y_pos.value = y1
-		self.slider_z_range.start=z1;self.slider_z_range.end  =z2-1;self.slider_z_range.value=[z1, z2-1]
+		(X,Y,Z),titles=self.slice.getLogicAxis()
 
-		self.fig.x_range.start = self.slider_z_range.start
-		self.fig.x_range.end   = self.slider_z_range.end
+		self.slider_x_pos.title   = titles[0]
+		self.slider_x_pos.start   = pbox[X][0]
+		self.slider_x_pos.end     = pbox[X][1]
+		self.slider_x_pos.step    = (pbox[X][1]-pbox[X][0])/10000
+		self.slider_x_pos.value   = pbox[X][0]
 
-		self.setOffset(z1)
+		self.slider_y_pos.title   = titles[1]
+		self.slider_y_pos.start   = pbox[Y][0]
+		self.slider_y_pos.end     = pbox[Y][1]
+		self.slider_y_pos.step    = (pbox[Y][1]-pbox[Y][0])/10000
+		self.slider_y_pos.value   = pbox[Y][0]
+
+		self.slider_z_range.title = titles[2]
+		self.slider_z_range.start = pbox[Z][0]
+		self.slider_z_range.end   = pbox[Z][1]
+		self.slider_z_range.step  = (pbox[Z][1]-pbox[Z][0])/10000
+		self.slider_z_range.value = [pbox[Z][0], pbox[Z][1]]
+
+		self.fig.xaxis.axis_label = self.slider_z_range.title
+
+		self.setOffset(pbox[Z][0])
 		self.setCurrentButton(0)
 		self.refreshAllProbes()
 
@@ -183,7 +199,7 @@ class ProbeTool:
 
 	# setOffset
 	def setOffset(self, value):
-		self.slice.__setOffset(value) # internally this update the slider widget
+		self.originalSetOffset(value)
 		self.removeRenderer(self.fig, self.renderers.offset)
 		self.renderers.offset=None
 		self.renderers.offset=self.fig.line([value,value],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")
@@ -237,15 +253,6 @@ class ProbeTool:
 		dir=self.getDirection()
 		for I,probe in enumerate(self.probes[dir]):
 			probe.setCurrent(True if I==value else False) 
-
-	# renderTarget
-	def renderTarget(self,probe,x1,y1,x2,y2,line_width=1,color="black"):
-		
-		x=(x1+x2)/2.0
-		y=(y1+y2)/2.0
-		probe.renderers.target.append(self.slice.canvas.fig.line([x-0.5, x+0.5], [y,y], line_width=line_width, color= color))
-		probe.renderers.target.append(self.slice.canvas.fig.line([x, x], [y-0.5,y+0.5], line_width=line_width, color= color))
-		probe.renderers.target.append(self.slice.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=line_width, color= color))
 
 	# renderProbe
 	def renderProbe(self, probe, aligned_box, delta, data):
@@ -360,9 +367,9 @@ class ProbeTool:
 
 		# for debugging draw points
 		if True:
-			print(f"Executing probe query  bitmask={bitmask} maxh={maxh} (x1,y1)={(x1,y1)} (x2,y2)={(x2,y2)} endh={endh} delta={delta}")
-			print(f"unprojected box at full-res [{P1},{P2}) ")
-			print(f"aligned box at endh resolution  [{A},{B})")
+			logger.info(f"Executing probe query  bitmask={bitmask} maxh={maxh} (x1,y1)={(x1,y1)} (x2,y2)={(x2,y2)} endh={endh} delta={delta}")
+			logger.info(f"unprojected box at full-res [{P1},{P2}) ")
+			logger.info(f"aligned box at endh resolution  [{A},{B})")
 			
 			points=[[],[]]
 			for Z in range(A[2],B[2],delta[2]):

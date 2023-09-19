@@ -291,12 +291,28 @@ class Widgets:
 			it.setLogicToPhysic(value)
 		self.refresh()
   
+	# getPhysicBox
+	def getPhysicBox(self):
+		dims=self.db.getLogicSize()
+		vt=[it[0] for it in self.logic_to_physic]
+		vs=[it[1] for it in self.logic_to_physic]
+		return [[
+			      0*vs[I] + vt[I], 
+			dims[I]*vs[I] + vt[I]
+			] for I in range(len(dims))]
+
+		# pdim = self.db.getPointDim()
+		# physic_box=self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+		# physic_box=[(float(physic_box[I]),float(physic_box[I+1])) for I in range(0,pdim*2,2)]
+		# return physic_box
+
 	# setPhysicBox
 	def setPhysicBox(self, value):
 		dims=self.db.getLogicSize()
 		def LinearMapping(a,b, A,B):
-			s=(B-A)/(b-a)
-			return (A-a*s),s
+			vs=(B-A)/(b-a)
+			vt=A-a*vs
+			return vt,vs
 		T=[LinearMapping(0,dims[I], *value[I]) for I in range(len(dims))]
 		self.setLogicToPhysic(T)
 
