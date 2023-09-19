@@ -6,14 +6,17 @@ from requests.auth import HTTPBasicAuth
 if __name__.startswith('bokeh'):
 
 	from openvisuspy import SetupLogger,IsPanelServe,GetBackend,Slice, Slices,cbool
+	from openvisuspy.probes import ProbeTool
+	
 	logger=SetupLogger()
 	logger.info(f"GetBackend()={GetBackend()}")
 
 	probe=True
 
 	if probe:
-		view=Slice(show_options=[
-			"datasets", "num_views", "palette",  "timestep", "timestep-delta", "field", "quality", "num_refinements", "colormapper_type","show_metadata"
+		cls=ProbeTool if True else Slice
+		view=ProbeTool(show_options=[
+			"datasets", "palette",  "field", "quality", "num_refinements", "colormapper_type"
 		])
 	else:
 		view=Slices(
@@ -43,11 +46,7 @@ if __name__.startswith('bokeh'):
 	else:
 		view.setDataset(url)
 	
-	if probe:
-		from openvisuspy.probes import ProbeTool
-		central=ProbeTool(view)
-	else:
-		central=view
+	central=view
 
 	if IsPanelServe():
 		from openvisuspy.app import GetPanelApp

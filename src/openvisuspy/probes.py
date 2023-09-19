@@ -45,15 +45,14 @@ class Probe:
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
-class ProbeTool:
+class ProbeTool(Slice):
 
 	# constructor
-	def __init__(self, slice):
-		self.slice=slice
+	def __init__(self, show_options):
+		super().__init__(show_options)
 		self.renderers=SimpleNamespace()
 		self.renderers.offset=None
 		self.probes={0: [], 1: [], 2: []}
-		self.db=self.slice.db
 
 		# create buttons
 		self.buttons=[]
@@ -61,7 +60,7 @@ class ProbeTool:
 		for I,color in enumerate(COLORS):
 			button = Button(label=color, sizing_mode="stretch_width")
 			button.css_classes=[f"custom_button_0_{color}"]
-			button.on_event(ButtonClick, lambda evt,I=I:  self.onButtonClick(I))
+			button.on_event(ButtonClick, lambda evt,I=I:  self.onProbeButtonClick(I))
 			self.buttons.append(button)
 			self.css_styles +=  """
 				.custom_button_0_{color} button.bk.bk-btn.bk-btn-default  {}
@@ -72,7 +71,7 @@ class ProbeTool:
 			for dir in range(3):
 				self.probes[dir].append(Probe(status=INACTIVE,button=button,color=color))
 
-		vmin,vmax=slice.getPaletteRange()
+		vmin,vmax=self.getPaletteRange()
 
 		self.fig = figure(
 			title="Line Plot", 
@@ -100,7 +99,6 @@ class ProbeTool:
 			self.slider_num_points=Slider(value=2 , start=1, end=8, step=1, title="# points",width=80)
 			self.slider_num_points.on_change('value_throttled', lambda attr,old, x: self.refreshAllProbes())	
 
-
 		# probe Z space
 		if True:
 
@@ -109,29 +107,29 @@ class ProbeTool:
 			self.slider_z_range.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
 
 			# Z resolution 
-			self.slider_z_res = Slider(value=21, start=1, end=self.db.getMaxResolution(), step=1, title="Res", sizing_mode="stretch_width")
+			self.slider_z_res = Slider(value=21, start=1, end=31, step=1, title="Res", sizing_mode="stretch_width")
 			self.slider_z_res.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
 
 			# Z op
 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
 			self.slider_z_op.on_change("active",lambda attr,old, z: self.refreshAllProbes()) 	
 
-
 		# add probe in case of double click
-		self.slice.canvas.enableDoubleTap(lambda x,y: self.addProbe(pos=(x,y)))
+		self.canvas.enableDoubleTap(lambda x,y: self.addProbe(pos=(x,y)))
 
-		# need to take control 
-		self.originalSetDirection = self.slice.setDirection
-		self.originalSetOffset    = self.slice.setOffset
-		self.slice.setDirection   = self.setDirection
-		self.slice.setOffset      = self.setOffset
-		#self.setDirection(2)
 
+	# setDataset
+	def setDataset(self, url,db=None, force=False):
+		super().setDataset(url, db=db, force=force)
+
+		# rehentrant call
+		if self.db: 
+			self.slider_z_res.end=self.db.getMaxResolution()
 
 	# getBokehLayout
 	def getBokehLayout(self, doc):
 		return Row(
-				self.slice.getBokehLayout(doc=doc), 
+				super().getBokehLayout(doc=doc), 
 				Column(
 					Div(text="<style>\n" + self.css_styles + "</style>"),
 					Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
@@ -148,9 +146,6 @@ class ProbeTool:
 				),
 				sizing_mode="stretch_both")
 
-	# getDirection
-	def getDirection(self):
-		return self.slice.getDirection()
 
 	# clearProbes
 	def clearProbes(self):
@@ -161,13 +156,13 @@ class ProbeTool:
 	# setDirection
 	def setDirection(self, dir):
 
-		self.originalSetDirection(dir)
+		super().setDirection(dir)
 
 		self.clearProbes()
-		pbox=self.slice.getPhysicBox()
+		pbox=self.getPhysicBox()
 		logger.info(f"physic-box={pbox}")
 
-		(X,Y,Z),titles=self.slice.getLogicAxis()
+		(X,Y,Z),titles=self.getLogicAxis()
 
 		self.slider_x_pos.title   = titles[0]
 		self.slider_x_pos.start   = pbox[X][0]
@@ -193,19 +188,16 @@ class ProbeTool:
 		self.setCurrentButton(0)
 		self.refreshAllProbes()
 
-	# getOffset
-	def getOffset(self):
-		return self.slice.getOffset()
 
 	# setOffset
 	def setOffset(self, value):
-		self.originalSetOffset(value)
+		super().setOffset(value)
 		self.removeRenderer(self.fig, self.renderers.offset)
 		self.renderers.offset=None
 		self.renderers.offset=self.fig.line([value,value],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")
 
-	# onButtonClick
-	def onButtonClick(self,  I):
+	# onProbeButtonClick
+	def onProbeButtonClick(self,  I):
 		
 		dir=self.getDirection()
 		status=self.probes[dir][I].status
@@ -343,8 +335,8 @@ class ProbeTool:
 		maxh=self.db.getMaxResolution()
 		bitmask=self.db.getBitmask()
 
-		P1=self.slice.unproject([x1,y1]);P1[dir]=z1
-		P2=self.slice.unproject([x2,y2]);P2[dir]=z2
+		P1=self.unproject([x1,y1]);P1[dir]=z1
+		P2=self.unproject([x2,y2]);P2[dir]=z2
 		for I in range(3): P2[I]+=1 # in OpenVisus the  box is [P1,P2) so I am enlarging a little
 
 		endh=self.slider_z_res.value
@@ -375,10 +367,10 @@ class ProbeTool:
 			for Z in range(A[2],B[2],delta[2]):
 				for Y in range(A[1],B[1],delta[1]):
 					for X in range(A[0],B[0],delta[0]):
-						x,y=self.slice.project([X,Y,Z])
+						x,y=self.project([X,Y,Z])
 						points[0].append(x)
 						points[1].append(y)
-			probe.renderers.target.append(self.slice.canvas.fig.scatter(points[0], points[1], color= "black"))
+			probe.renderers.target.append(self.canvas.fig.scatter(points[0], points[1], color= "black"))
 
 		# execute the query
 		if all([P1[I]<P2[I] for I in range(3)]):
@@ -390,7 +382,7 @@ class ProbeTool:
 
 	# removeProbe
 	def removeProbe(self, probe):
-		self.removeRenderer(self.slice.canvas.fig, probe.renderers.target)
+		self.removeRenderer(self.canvas.fig, probe.renderers.target)
 		probe.renderers.target=[]
 
 		self.removeRenderer(self.fig, probe.renderers.plot)
