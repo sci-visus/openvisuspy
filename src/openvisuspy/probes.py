@@ -76,6 +76,9 @@ class ProbeTool(Slice):
 
 		vmin,vmax=self.getPaletteRange()
 
+		self.widgets.show_probe=Button(label="Probe",width=80,sizing_mode="stretch_height")
+		self.widgets.show_probe.on_click(self.toggleShowProbe)
+
 		self.probe_fig = figure(
 			title="Line Plot", 
 			x_axis_label="Z", 
@@ -117,6 +120,19 @@ class ProbeTool(Slice):
 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
 			self.slider_z_op.on_change("active",lambda attr,old, z: self.refreshAllProbes()) 	
 
+	# toggleShowProbe
+	def toggleShowProbe(self):
+		value=not self.probe_layout.visible
+		self.probe_layout.visible=value
+
+		# I need to give time to Javascript to sync on the real dimensions
+		def tick_callback():
+			self.setDirection(self.getDirection())
+			self.setOffset(self.getOffset())
+
+		self.doc.add_timeout_callback(tick_callback,200)
+
+
 	# onDoubleTap
 	def onDoubleTap(self,x,y):
 		logger.info(f"onDoubleTap x={x} y={y}")
@@ -133,26 +149,28 @@ class ProbeTool(Slice):
 	# getBokehLayout
 	def getBokehLayout(self, doc=None):
 
-		slice_layout=super().getBokehLayout(doc=doc)
+		slice_layout=super().getBokehLayout(doc=doc, first_row_widgets=[self.widgets.show_probe])
+
+		self.probe_layout=Column(
+				# Div(text="<style>\n" + self.css_styles + "</style>"),
+				Row(
+					self.slider_x_pos, 
+					self.slider_y_pos, 
+					self.slider_z_range,
+					self.slider_z_op, 
+					self.slider_z_res, 
+					self.slider_num_points,
+					sizing_mode="stretch_width"),
+				Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+				self.probe_fig,
+				sizing_mode="stretch_both"
+			)
+		self.probe_layout.visible=False
 
 		return Row(
 				slice_layout, 
-				Column(
-					# Div(text="<style>\n" + self.css_styles + "</style>"),
-					Row(
-						self.slider_x_pos, 
-						self.slider_y_pos, 
-						self.slider_z_range,
-						self.slider_z_op, 
-						self.slider_z_res, 
-						self.slider_num_points,
-						sizing_mode="stretch_width"),
-					Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
-					self.probe_fig,
-					sizing_mode="stretch_both"
-				),
+				self.probe_layout,
 				sizing_mode="stretch_both")
-
 
 	# clearProbes
 	def clearProbes(self):

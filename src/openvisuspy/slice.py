@@ -38,18 +38,16 @@ class Slice(Widgets):
 
 	# getBokehLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getBokehLayout(self, doc=None):
+	def getBokehLayout(self, doc=None, first_row_widgets=[]):
 		import bokeh.io
-		doc=bokeh.io.curdoc() if doc is None else doc
+		self.doc=bokeh.io.curdoc() if doc is None else doc
 
 		options=[it.replace("-","_") for it in self.show_options]
 
-		if "palette_range" in options:
-			idx=options.index("palette_range")
-			options=options[0:idx] + ["palette_range_mode","palette_range_vmin","palette_range_vmax"] + options[idx+1:]
+		first_row_widgets=[getattr(self.widgets,it) for it in options ] + first_row_widgets
 
 		ret = Column(
-			Row(children=[getattr(self.widgets,it) for it in options ],sizing_mode="stretch_width"),
+			Row(*first_row_widgets,sizing_mode="stretch_width"),
 			Row(self.canvas.fig, self.widgets.metadata, sizing_mode='stretch_both'),
 			Row(
 				self.widgets.status_bar["request"],
@@ -60,7 +58,7 @@ class Slice(Widgets):
 		if IsPyodide():
 			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
 		else:
-			self.idle_callback=doc.add_periodic_callback(self.onIdle, 1000//30)
+			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
 		self.start()
 
 		return ret

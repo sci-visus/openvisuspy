@@ -31,7 +31,7 @@ class Slices(Widgets):
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
 	def getBokehLayout(self, doc=None):
 		import bokeh.io
-		doc=bokeh.io.curdoc() if doc is None else doc
+		self.doc=bokeh.io.curdoc() if doc is None else doc
 
 		options=[it.replace("-","_") for it in self.show_options]
 
@@ -49,7 +49,7 @@ class Slices(Widgets):
 		if IsPyodide():
 			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
 		else:
-			self.idle_callback=doc.add_periodic_callback(self.onIdle, 1000//30)
+			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
 		self.start()
 
 		# this will fill out the central_layout
