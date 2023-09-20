@@ -21,7 +21,7 @@ if __name__.startswith('bokeh'):
 	else:
 		view=Slices(
 			show_options=["datasets", "num_views", "palette", "field", "quality", "num_refinements", "colormapper_type","show_metadata"],  
-			slice_show_options=["datasets", "direction", "offset", "palette_range_mode","palette_range_vmin","palette_range_vmax"],
+			slice_show_options=["datasets", "direction", "offset", "colormapper_type", "palette_range_mode","palette_range_vmin","palette_range_vmax"],
 			cls=cls
 		)
 

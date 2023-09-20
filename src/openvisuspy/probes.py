@@ -20,6 +20,11 @@ INACTIVE,ACTIVE,CURRENT=0,1,2
 logger = logging.getLogger(__name__)
 
 # //////////////////////////////////////////////////////////////////////////////////////
+def RemoveRenderer(fig, value):
+	if value in fig.renderers:
+		fig.renderers.remove(value)
+
+# //////////////////////////////////////////////////////////////////////////////////////
 class Probe:
 
 	# constructor
@@ -28,10 +33,9 @@ class Probe:
 		self.button=button
 		self.color=color
 		self.pos=None
-		self.renderers=SimpleNamespace()
 		self.y_range=[0.0,0.0]
-		self.renderers.target=[]
-		self.renderers.plot  =[]
+		self.target_renderers=[]
+		self.plot_renderers=[]
 
 	# setCurrent
 	def setCurrent(self,is_current):
@@ -53,8 +57,7 @@ class ProbeTool(Slice):
 	# constructor
 	def __init__(self, show_options):
 		super().__init__(show_options)
-		self.renderers=SimpleNamespace()
-		self.renderers.offset=None
+		self.offset_renderers=[]
 		self.probes={0: [], 1: [], 2: []}
 
 		# create buttons
@@ -120,10 +123,22 @@ class ProbeTool(Slice):
 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
 			self.slider_z_op.on_change("active",lambda attr,old, z: self.refreshAllProbes()) 	
 
+	# isVisible
+	def isVisible(self):
+		return self.probe_layout.visible
+
+	# setVisible
+	def setVisible(self,value):
+		self.probe_layout.visible=value
+
 	# toggleShowProbe
 	def toggleShowProbe(self):
-		value=not self.probe_layout.visible
-		self.probe_layout.visible=value
+		value=not self.isVisible()
+		self.setVisible(value)
+		if value:
+			self.refreshAllProbes()
+		else:
+			self.removeAllProbes()
 
 	# onDoubleTap
 	def onDoubleTap(self,x,y):
@@ -164,8 +179,8 @@ class ProbeTool(Slice):
 				self.probe_layout,
 				sizing_mode="stretch_both")
 
-	# clearProbes
-	def clearProbes(self):
+	# removeAllProbes
+	def removeAllProbes(self):
 		for dir in range(3):
 			for probe in self.probes[dir]:
 				self.removeProbe(probe)
@@ -175,7 +190,7 @@ class ProbeTool(Slice):
 
 		super().setDirection(dir)
 
-		self.clearProbes()
+		self.removeAllProbes()
 		pbox=self.getPhysicBox()
 		logger.info(f"physic-box={pbox}")
 
@@ -203,14 +218,16 @@ class ProbeTool(Slice):
 
 		self.setOffset(pbox[Z][0])
 		self.setCurrentButton(0)
-		self.refreshAllProbes()
+
+		if self.isVisible():
+			self.refreshAllProbes()
 
 	# setOffset
 	def setOffset(self, value):
 		super().setOffset(value)
-		self.removeRenderer(self.probe_fig, self.renderers.offset)
-		self.renderers.offset=None
-		self.renderers.offset=self.probe_fig.line([value,value],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")
+		for it in self.offset_renderers:
+			RemoveRenderer(self.probe_fig, it)
+		self.offset_renderers=[self.probe_fig.line([value,value],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")]
 
 	# onProbeButtonClick
 	def onProbeButtonClick(self,  I):
@@ -237,14 +254,7 @@ class ProbeTool(Slice):
 		else:
 			raise Exception("internal Error")
 
-	# removeRenderer
-	def removeRenderer(self, fig, value):
-		if hasattr(value, '__iter__'):
-			for it in value:
-				self.removeRenderer(fig,it)
-		else:
-			if value in fig.renderers:
-				fig.renderers.remove(value)
+
 
 	# getCurrentButton
 	def getCurrentButton(self):
@@ -359,12 +369,16 @@ class ProbeTool(Slice):
 						x,y,z=LogicToPhysic([X,Y,Z])
 						xs.append(x)
 						ys.append(y)
-			probe.renderers.target.append(self.canvas.fig.scatter(xs, ys, color= probe.color))
+
+			r=self.canvas.fig.scatter(xs, ys, color= probe.color)
+			probe.target_renderers.append(r)
+			logger.info(f"!!!!!!!!!!! ADDING PROBLE {self.canvas.fig} {r}")
+
 			x1,x2=min(xs),max(xs)
 			y1,y2=min(ys),max(ys)
-			probe.renderers.target.append(self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= probe.color))
-		
-
+			r=self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= probe.color)
+			probe.target_renderers.append(r)
+			logger.info(f"!!!!!!!!!!! ADDING PROBLE {self.canvas.fig} {r}")
 
 		# execute the query
 		access=self.db.createAccess()
@@ -398,30 +412,35 @@ class ProbeTool(Slice):
 			op=self.slider_z_op.labels[it]
 		
 			if op=="avg":
-				probe.renderers.plot.append(self.probe_fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.plot_renderers.append(self.probe_fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
 
 			if op=="mM":
-				probe.renderers.plot.append(self.probe_fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
-				probe.renderers.plot.append(self.probe_fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.plot_renderers.append(self.probe_fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.plot_renderers.append(self.probe_fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
 
 			if op=="med":
-				probe.renderers.plot.append(self.probe_fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))	
+				probe.plot_renderers.append(self.probe_fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))	
 
 			if op=="*":
 				for it in ys:
-					probe.renderers.plot.append(self.probe_fig.line(xs, it, line_width=2, legend_label=probe.color, line_color=probe.color))
+					probe.plot_renderers.append(self.probe_fig.line(xs, it, line_width=2, legend_label=probe.color, line_color=probe.color))
 
 		probe.y_range=[np.min(data),np.max(data)]
-		self.probe_fig.y_range.start=min([probe.y_range[0] for probe in self.probes[dir] if probe.renderers.plot])
-		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.renderers.plot])
+		self.probe_fig.y_range.start=min([probe.y_range[0] for probe in self.probes[dir] if probe.plot_renderers])
+		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.plot_renderers])
 
 
-	# removeProbe
+	# removeProbe (NOTE: I am removing plots and renderers, I am keeping its status)
 	def removeProbe(self, probe):
-		self.removeRenderer(self.canvas.fig, probe.renderers.target)
-		self.removeRenderer(self.probe_fig , probe.renderers.plot)
-		probe.renderers.target=[]
-		probe.renderers.plot=[]
+
+		for it in probe.target_renderers:
+			logger.info(f"REMOVING PROBE {self.canvas.fig} {it}")
+			RemoveRenderer(self.canvas.fig, it)
+		probe.target_renderers=[]
+
+		for it in probe.plot_renderers:
+			RemoveRenderer(self.probe_fig , it)
+		probe.plot_renderers=[]
 
 	# refreshAllProbes
 	def refreshAllProbes(self):

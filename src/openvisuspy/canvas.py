@@ -107,7 +107,7 @@ class Canvas:
 			x1,y1=cx-w/2,cy-h/2
 			x2,y2=cx+w/2,cy+h/2
 
-		logger.info(f"\n\n\n\nsetViewport {x1} {x2} {y1} {y2} W={W} H={H}")
+		logger.info(f"setViewport {x1} {x2} {y1} {y2} W={W} H={H}")
 		self.fig.x_range.start=x1
 		self.fig.y_range.start=y1
 		self.fig.x_range.end  =x2
