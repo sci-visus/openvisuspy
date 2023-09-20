@@ -125,14 +125,6 @@ class ProbeTool(Slice):
 		value=not self.probe_layout.visible
 		self.probe_layout.visible=value
 
-		# I need to give time to Javascript to sync on the real dimensions
-		def tick_callback():
-			self.setDirection(self.getDirection())
-			self.setOffset(self.getOffset())
-
-		self.doc.add_timeout_callback(tick_callback,200)
-
-
 	# onDoubleTap
 	def onDoubleTap(self,x,y):
 		logger.info(f"onDoubleTap x={x} y={y}")

@@ -27,14 +27,33 @@ class Canvas:
 		self.fig.sizing_mode = self.sizing_mode
 		# self.fig.add_tools(bokeh.models.HoverTool(tooltips=[ ("(x, y)", "($x, $y)"),("RGB", "(@R, @G, @B)")])) # is it working?
 
-		# https://github.com/bokeh/bokeh/issues/9136
-		# https://github.com/bokeh/bokeh/pull/9308
+
 		self.on_resize=None
 		self.last_width=0
-		self.last_height=0
-		self.fig.on_change('inner_width' , self.onResize)
-		self.fig.on_change('inner_height', self.onResize)
-  
+		self.last_height=0		
+
+		# huge problems with inner_ thingy ... HTML does not reflect real values
+		# problems here, not getting real-time resizes
+		# https://github.com/bokeh/bokeh/issues/9136
+		# https://github.com/bokeh/bokeh/pull/9308
+		# self.fig.on_change('inner_width' , self.onResize)
+		# self.fig.on_change('inner_height', self.onResize)
+
+		def CheckFigureResize():
+			try:
+				w=self.fig.inner_width
+				h=self.fig.inner_height
+			except:
+				return
+			if not w or not h: return
+			if w==self.last_width and h==self.last_height: return
+			self.last_width =w
+			self.last_height=h
+			self.onResize()
+
+		doc=bokeh.io.curdoc()
+		doc.add_periodic_callback(CheckFigureResize, 1000//10)
+		
 		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_bar.color_mapper)  
 		self.fig.add_layout(self.color_bar, 'right')
@@ -44,44 +63,17 @@ class Canvas:
 		self.color_mapper = self.color_bar.color_mapper
 
 	# onResize
-	def onResize(self,attr, old, new):
-		w,h=self.getWidth(),self.getHeight()
-
-		if w<=0 or h<=0:
-			return 
-
-		# getting spurious events with marginal changes (in particular with jupyter notebook)
-		if self.last_width>0 and self.last_height>0:
-			# is change too marginal?
-			if abs(w-self.last_width)<=5 or abs(h-self.last_height)<5:
-				return
-
-		self.last_width =w
-		self.last_height=h
-		
-		logger.info(f"Canvas[{self.id}] Calling on_resize callback w={w} h={h}")
+	def onResize(self):
 		if self.on_resize is not None:
 			self.on_resize()
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
-		# https://docs.bokeh.org/en/2.4.3/docs/reference/models/plots.html
-		#  This is the exact width of the plotting canvas, i.e. the width of
-		# 	the actual plot, without toolbars etc. Note this is computed in a
-		# 	web browser, so this property will work only in backends capable of		
-		try:	
-			return self.fig.inner_width
-		except:
-			return 0
+		return self.last_width
 
 	# getHeight (this is number of pixels along Y  for the canvas)
 	def getHeight(self):
-		# JavaScript can fill the inner_width/inner_height values late, try catch
-		# eliminates the UnsetValueError.
-		try:
-			return self.fig.inner_height
-		except:
-			return 0
+		return self.last_height
 
 	# enableDoubleTap
 	def enableDoubleTap(self,fn):
@@ -115,8 +107,7 @@ class Canvas:
 			x1,y1=cx-w/2,cy-h/2
 			x2,y2=cx+w/2,cy+h/2
 
-
-		logger.info(f"\n\n\n\n setViewport {x1} {x2} {y1} {y2} W={W} H={H}")
+		logger.info(f"\n\n\n\nsetViewport {x1} {x2} {y1} {y2} W={W} H={H}")
 		self.fig.x_range.start=x1
 		self.fig.y_range.start=y1
 		self.fig.x_range.end  =x2
