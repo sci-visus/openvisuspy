@@ -293,8 +293,8 @@ export VISUS_NETSERVICE_VERBOSE="1"
 export BOKEH_ALLOW_WS_ORIGIN="*"
 export BOKEH_LOG_LEVEL="info"
 export PYTHONPATH=./src
-export ADDRESS=$(curl -s https://ifconfig.me)
-export BOKEH_PORT=10334 
+export ADDRESS=$(curl -s checkip.amazonaws.com)
+export BOKEH_PORT=10334
 
 source .venv/bin/activate
 export NSDF_CONVERT_GROUP=test-group
@@ -303,7 +303,7 @@ export NSDF_CONVERT_GROUP=test-group
 curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 
 # add `--dev` for debugging
-python3 -m bokeh serve "examples/dashboards/app" --use-xheaders   --allow-websocket-origin="*" --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+python3 -m bokeh serve "examples/dashboards/app" --allow-websocket-origin="*" --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 ```
 
 
