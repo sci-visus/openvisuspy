@@ -61,7 +61,7 @@ See OpenVisus `Docker/group-security`` for details about how to add users
 
 ```
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
-python -m bokeh serve examples/dashboards/run.py --dev --args C:\visus_datasets\chess\3scans_HKLI\3scans_HKLI.counts.idx
+python -m bokeh serve examples/dashboards/app --dev --args C:\visus_datasets\chess\3scans_HKLI\3scans_HKLI.counts.idx
 ```
 
 # Run NSDF Convert Workflow
@@ -248,7 +248,7 @@ Also you can run the dashboard:
 - [DONE] colormap looses ticks
 - [DONE] probe working
 ```
-python -m bokeh serve examples/dashboards/run.py --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
+python -m bokeh serve examples/dashboards/app --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
 ```
 
 # Setup a new Dashboard Server
@@ -303,7 +303,7 @@ export NSDF_CONVERT_GROUP=test-group
 curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 
 # add `--dev` for debugging
-python3 -m bokeh serve "examples/dashboards/run.py" --use-xheaders   --allow-websocket-origin="*" --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+python3 -m bokeh serve "examples/dashboards/app" --use-xheaders   --allow-websocket-origin="*" --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 ```
 
 

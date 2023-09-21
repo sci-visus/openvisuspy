@@ -60,7 +60,7 @@ mkdir -p ${VISUS_CACHE}
 export BOKEH_ALLOW_WS_ORIGIN=*
 export BOKEH_LOG_LEVEL=debug
 
-curl -o ~/nasa-bellows.py "https://raw.githubusercontent.com/sci-visus/openvisuspy/main/examples/dashboards/run.py"
+curl -o ~/nasa-bellows.py "https://raw.githubusercontent.com/sci-visus/openvisuspy/main/examples/dashboards/app"
 
 python3 -m panel serve \
     ~/nasa-bellows.py \
@@ -140,7 +140,7 @@ python3 -c "import openvisuspy;print(openvisuspy.__path__)"
 export BOKEH_ALLOW_WS_ORIGIN=*
 export BOKEH_LOG_LEVEL=debug
 
-curl -o ./nasa-bellows-ver2.py "https://raw.githubusercontent.com/sci-visus/openvisuspy/main/examples/dashboards/run.py"
+curl -o ./nasa-bellows-ver2.py "https://raw.githubusercontent.com/sci-visus/openvisuspy/main/examples/dashboards/app"
 
 python3 -m panel serve ./nasa-bellows-ver2.py    \
    --dev    \

@@ -9,78 +9,51 @@ from bokeh.layouts import column, row
 from bokeh.plotting import figure
 from bokeh.events import ButtonClick,DoubleTap
 from types import SimpleNamespace
+from bokeh.models import InlineStyleSheet
 
 from statistics import mean,median,stdev
 
 from openvisuspy import SetupLogger, GetBackend, Slice, Slices,ExecuteBoxQuery
 
-COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"] 
-INACTIVE,ACTIVE,CURRENT=0,1,2	
-
 logger = logging.getLogger(__name__)
-
-# //////////////////////////////////////////////////////////////////////////////////////
-def RemoveRenderer(fig, value):
-	if value in fig.renderers:
-		fig.renderers.remove(value)
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Probe:
 
 	# constructor
-	def __init__(self, status=INACTIVE, button=None,color=None):
-		self.status=status
-		self.button=button
-		self.color=color
+	def __init__(self):
 		self.pos=None
+
+		# run-time
+		self.last_pos=None
 		self.y_range=[0.0,0.0]
-		self.target_renderers=[]
-		self.plot_renderers=[]
-
-	# setCurrent
-	def setCurrent(self,is_current):
-
-		if is_current:
-			self.status=CURRENT
-		else:
-			if self.status==INACTIVE or self.pos is None:
-				self.status=INACTIVE
-			else:
-				self.status=ACTIVE
-
-		self.button.css_classes=[f"custom_button_{self.status}_{self.color}"]
+		self.renderers=[]
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class ProbeTool(Slice):
 
+	colors = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"] 
+
 	# constructor
 	def __init__(self, show_options):
 		super().__init__(show_options)
-		self.offset_renderers=[]
-		self.probes={0: [], 1: [], 2: []}
+		self.render_offset=None
+
+		N=len(self.colors)
+		self.probes={0: [Probe() for I in range(N)], 1: [Probe() for I in range(N)], 2: [Probe() for I in range(N)]}
+		self.slot=None
+		self.button_css=[None]*N
 
 		# create buttons
-		self.buttons=[]
-		self.css_styles = ""
-		for I,color in enumerate(COLORS):
-			button = Button(label=color, sizing_mode="stretch_width")
-			button.css_classes=[f"custom_button_0_{color}"]
-			button.on_event(ButtonClick, lambda evt,I=I:  self.onProbeButtonClick(I))
-			self.buttons.append(button)
-			self.css_styles +=  """
-				.custom_button_0_{color} button.bk.bk-btn.bk-btn-default  {}
-				.custom_button_1_{color} button.bk.bk-btn.bk-btn-default  {background-color: {color}; }
-				.custom_button_2_{color} button.bk.bk-btn.bk-btn-default  {background-color: {color}; box-shadow: 2px 2px; }
-			""".replace("{color}",color)
-
-			for dir in range(3):
-				self.probes[dir].append(Probe(status=INACTIVE,button=button,color=color))
+		self.buttons=[Button(label=color, sizing_mode="stretch_width") for color in self.colors]
+		for slot,button in enumerate(self.buttons):
+			button.on_event(ButtonClick, lambda evt,slot=slot: self.onButtonClick(slot=slot))
 
 		vmin,vmax=self.getPaletteRange()
 
 		self.widgets.show_probe=Button(label="Probe",width=80,sizing_mode="stretch_height")
-		self.widgets.show_probe.on_click(self.toggleShowProbe)
+		self.widgets.show_probe.on_click(self.toggleVisible)
 
 		self.probe_fig = figure(
 			title="Line Plot", 
@@ -100,67 +73,120 @@ class ProbeTool(Slice):
 
 			# where the center of the probe (can be set by double click or using this)
 			self.slider_x_pos=Slider(value=0.0, start=0.0, end=1.0, step=1.0, title="X coordinate", sizing_mode="stretch_width" )
-			self.slider_x_pos .on_change('value_throttled', lambda attr,old, new: self.addProbe())
+			self.slider_x_pos .on_change('value_throttled', lambda attr,old, new: self.onXYChange())
 
 			self.slider_y_pos=Slider(value=0, start=0, end=1, step=1, title="Y coordinate", sizing_mode="stretch_width" )
-			self.slider_y_pos .on_change('value_throttled', lambda attr,old, new: self.addProbe())
+			self.slider_y_pos .on_change('value_throttled', lambda attr,old, new: self.onXYChange())
 
 			self.slider_num_points=Slider(value=2 , start=1, end=8, step=1, title="#points",width=60)
-			self.slider_num_points.on_change('value_throttled', lambda attr,old, new: self.refreshAllProbes())	
+			self.slider_num_points.on_change('value_throttled', lambda attr,old, new: self.refreshAll())	
 
 		# probe Z space
 		if True:
 
 			# Z range
 			self.slider_z_range = RangeSlider(start=0.0, end=1.0, value=(0.0,1.0), title="Range", sizing_mode="stretch_width")
-			self.slider_z_range.on_change('value_throttled', lambda attr,old, new: self.refreshAllProbes())
+			self.slider_z_range.on_change('value_throttled', lambda attr,old, new: self.refreshAll())
 
 			# Z resolution 
 			self.slider_z_res = Slider(value=21, start=1, end=31, step=1, title="Res", width=80)
-			self.slider_z_res.on_change('value_throttled', lambda attr,old, new: self.refreshAllProbes())
+			self.slider_z_res.on_change('value_throttled', lambda attr,old, new: self.refreshAll())
 
 			# Z op
 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
-			self.slider_z_op.on_change("active",lambda attr,old, new: self.refreshAllProbes()) 	
+			self.slider_z_op.on_change("active",lambda attr,old, new: self.refreshAll()) 	
+
+	
+	# updateButtons
+	def updateButtons(self):
+
+		logger.info(f"[{self.id}] updateButtons self.slot={self.slot}")
+		
+		dir=self.getDirection()
+		for slot, button in enumerate(self.buttons):
+			color=self.colors[slot]
+			probe=self.probes[dir][slot]
+
+			css=[".bk-btn-default {"]
+
+			if slot==self.slot:
+				css.append("border: 1px solid black;")
+
+			if probe.renderers or slot==self.slot:
+				css.append("background-color: " + color + " !important;")
+
+			css.append("}")
+			css=" ".join(css)
+			
+			if self.button_css[slot]!=css:
+				self.button_css[slot]=css
+				button.stylesheets=[InlineStyleSheet(css=css)] 
+
+
+	# onXYChange
+	def onXYChange(self):
+		dir=self.getDirection()
+		slot=self.slot
+		probe=self.probes[dir][slot]
+		pos=(self.slider_x_pos.value,self.slider_y_pos.value)
+		self.addRenderers(dir=dir,slot=slot,pos=pos)
+
+	# removeRenderers
+	def removeRenderers(self, dir, slot):
+		probe=self.probes[dir][slot]
+		if probe.pos is not None:
+			probe.last_pos=probe.pos
+		probe.pos=None
+		for fig,r in probe.renderers:
+			if r in fig.renderers:
+				fig.renderers.remove(r)
+		probe.renderers=[]
+
+	# removeAll
+	def removeAll(self):
+		for dir in range(3):
+			for slot in range(len(self.buttons)):
+				self.removeRenderers(dir, slot)
+		self.updateButtons()
+
+	# refreshAll
+	def refreshAll(self):
+		self.removeAll()
+		if not self.isVisible(): return
+		dir=self.getDirection()
+		for slot,probe in enumerate(self.probes[dir]):
+			if probe.pos is not None:
+				self.addRenderers(dir=dir, slot=slot, pos=probe.pos) 
 
 	# isVisible
 	def isVisible(self):
 		return self.probe_layout.visible
 
 	# setVisible
-	def setVisible(self,value,force=False):
-		if not force and value==self.isVisible(): return
+	def setVisible(self,value):
 		self.probe_layout.visible=value
 
-	# toggleShowProbe
-	def toggleShowProbe(self):
+	# toggleVisible
+	def toggleVisible(self):
 		value=not self.isVisible()
 		self.setVisible(value)
-		if value:
-			self.refreshAllProbes()
-		else:
-			self.removeAllProbes()
-
+		self.refreshAll()
+			
 	# onDoubleTap
 	def onDoubleTap(self,x,y):
 		logger.info(f"onDoubleTap x={x} y={y}")
-		self.addProbe(pos=(x,y))
+		dir=self.getDirection()
+		self.addRenderers(dir=dir, slot=self.slot, pos=(x,y))
 
 	# setDataset
 	def setDataset(self, url,db=None, force=False):
 		super().setDataset(url, db=db, force=force)
-
-		# rehentrant call
-		if self.db: 
-			self.slider_z_res.end=self.db.getMaxResolution()
+		if self.db: self.slider_z_res.end=self.db.getMaxResolution() # rehentrant call
 
 	# getBokehLayout
 	def getBokehLayout(self, doc=None):
-
 		slice_layout=super().getBokehLayout(doc=doc, first_row_widgets=[self.widgets.show_probe])
-
 		self.probe_layout=Column(
-				# Div(text="<style>\n" + self.css_styles + "</style>"),
 				Row(
 					self.slider_x_pos, 
 					self.slider_y_pos, 
@@ -174,26 +200,15 @@ class ProbeTool(Slice):
 				sizing_mode="stretch_both"
 			)
 		self.probe_layout.visible=False
-
 		return Row(
 				slice_layout, 
 				self.probe_layout,
 				sizing_mode="stretch_both")
 
-	# removeAllProbes
-	def removeAllProbes(self):
-		for dir in range(3):
-			for probe in self.probes[dir]:
-				self.removeProbe(probe)
-
 	# setDirection
-	def setDirection(self, dir,force=False):
-		if not force and dir==self.getDirection():
-			return
-
+	def setDirection(self, dir):
 		super().setDirection(dir)
 
-		self.removeAllProbes()
 		pbox=self.getPhysicBox()
 		logger.info(f"[{self.id}] physic-box={pbox}")
 
@@ -220,77 +235,57 @@ class ProbeTool(Slice):
 		self.probe_fig.xaxis.axis_label = self.slider_z_range.title
 		self.guessOffset()
 
-		self.setCurrentButton(0)
-
-		if self.isVisible():
-			self.refreshAllProbes()
+		self.refreshAll()
+		self.slot=None
 
 	# setOffset
-	def setOffset(self, value,force=False):
-		if not force and value==self.getOffset(): return
+	def setOffset(self, value):
 		super().setOffset(value)
-		for it in self.offset_renderers:
-			RemoveRenderer(self.probe_fig, it)
-		self.offset_renderers=[self.probe_fig.line([value,value],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")]
+		self.drawOffsetLine()
 
-	# onProbeButtonClick
-	def onProbeButtonClick(self,  I):
-		
+	# drawOffsetLine
+	def drawOffsetLine(self):
+		offset=self.getOffset()
+		if self.render_offset in self.probe_fig.renderers:
+			self.probe_fig.renderers.remove(self.render_offset)
+		self.render_offset=self.probe_fig.line([offset,offset],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")
+
+	# onButtonClick
+	def onButtonClick(self, slot):
 		dir=self.getDirection()
-		status=self.probes[dir][I].status
+		probe=self.probes[dir][slot]
+		logger.info(f"[{self.id}] onButtonClick slot={slot} self.slot={self.slot} probe.last_pos={probe.last_pos}")
 		
-		# current -> inactive
-		if  status== CURRENT:
-			self.probes[dir][I].status = INACTIVE  
-			self.removeProbe(self.probes[dir][I])
-			self.setCurrentButton(None)
+		if self.slot==slot:
+			self.removeRenderers(dir,slot)
+			self.slot=None
 
-		# active->current
-		elif status==ACTIVE:
-			self.setCurrentButton(I)
-
-		# inactive ->  current
-		elif status==INACTIVE:
-			self.setCurrentButton(I)
-			probe=self.probes[dir][I]
-			if probe.pos is not None:
-				self.addProbe(I=I, pos=probe.pos)
 		else:
-			raise Exception("internal Error")
+			if probe.renderers:
+				pass
+			else:
+				if probe.last_pos is not None:
+					self.addRenderers(dir=dir, slot=slot, pos=probe.last_pos)
+			self.slot=slot
 
-	# getCurrentButton
-	def getCurrentButton(self):
-		dir=self.getDirection()
-		for I,probe in enumerate(self.probes[dir]):
-			if probe.status==CURRENT:
-				return I
-		return None
-	
-	# setCurrentButton
-	def setCurrentButton(self, value):
-		dir=self.getDirection()
-		for I,probe in enumerate(self.probes[dir]):
-			probe.setCurrent(True if I==value else False) 
+		self.updateButtons()
 
-	# addProbe
-	def addProbe(self, I=None, pos=None):
-
-		dir=self.getDirection()
+	# addRenderers
+	def addRenderers(self, dir=None, slot=None, pos=None):
 		
-		if I is None: 
-			I=self.getCurrentButton()
-			
-		if I is None:
-			I=0
+		if dir is None: 
+			dir=self.getDirection()
 
-		if pos is None:
-			pos=(self.slider_x_pos.value,self.slider_y_pos.value)
+		if slot is None:
+			slot=self.slot
+			if slot is None: slot=0
 
-		logger.info(f"addProbe I={I} pos={pos} dir={dir}")
+		logger.info(f"addRenderers dir={dir} slot={slot} pos={pos}")
 
-		probe=self.probes[dir][I]
-		self.removeProbe(probe)
-		self.setCurrentButton(I)
+		x,y=pos
+		probe=self.probes[dir][slot]
+		probe.pos = [x,y]
+		self.removeRenderers(dir, slot)
 
 		vt=[self.logic_to_physic[I][0] for I in range(3)]
 		vs=[self.logic_to_physic[I][1] for I in range(3)]
@@ -312,9 +307,7 @@ class ProbeTool(Slice):
 		# __________________________________________________________
 		# here is all in physical coordinates
 
-		x,y=pos
 		z1,z2=self.slider_z_range.value
-
 		p1=(x,y,z1)
 		p2=(x,y,z2)
 
@@ -329,7 +322,6 @@ class ProbeTool(Slice):
 		self.slider_y_pos.value  = y
 
 		# keep the status for later
-		probe.pos = [x,y]
 		
 		# __________________________________________________________
 		# here is all in logical coordinates
@@ -361,6 +353,8 @@ class ProbeTool(Slice):
 		# invalid query
 		if not all([P1[I]<P2[I] for I in range(3)]):
 			return
+		
+		color=self.colors[slot]
 
 		# for debugging draw points
 		if True:
@@ -372,13 +366,13 @@ class ProbeTool(Slice):
 						xs.append(x)
 						ys.append(y)
 
-			r=self.canvas.fig.scatter(xs, ys, color= probe.color)
-			probe.target_renderers.append(r)
+			r=self.canvas.fig.scatter(xs, ys, color= color)
+			probe.renderers.append([self.canvas.fig,r])
 
 			x1,x2=min(xs),max(xs)
 			y1,y2=min(ys),max(ys)
-			r=self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= probe.color)
-			probe.target_renderers.append(r)
+			r=self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= color)
+			probe.renderers.append([self.canvas.fig, r])
 
 		# execute the query
 		access=self.db.createAccess()
@@ -412,46 +406,24 @@ class ProbeTool(Slice):
 			op=self.slider_z_op.labels[it]
 		
 			if op=="avg":
-				probe.plot_renderers.append(self.probe_fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
 
 			if op=="mM":
-				probe.plot_renderers.append(self.probe_fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
-				probe.plot_renderers.append(self.probe_fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))
+				probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
+				probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
 
 			if op=="med":
-				probe.plot_renderers.append(self.probe_fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=probe.color, line_color=probe.color))	
+				probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])	
 
 			if op=="*":
 				for it in ys:
-					probe.plot_renderers.append(self.probe_fig.line(xs, it, line_width=2, legend_label=probe.color, line_color=probe.color))
+					probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color)])
 
 		probe.y_range=[np.min(data),np.max(data)]
-		self.probe_fig.y_range.start=min([probe.y_range[0] for probe in self.probes[dir] if probe.plot_renderers])
-		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.plot_renderers])
+		self.probe_fig.y_range.start=min([probe.y_range[0] for probe in self.probes[dir] if probe.renderers])
+		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.renderers])
+		self.updateButtons()
 
 
-	# removeProbe (NOTE: I am removing plots and renderers, I am keeping its status)
-	def removeProbe(self, probe):
 
-		for it in probe.target_renderers:
-			logger.info(f"REMOVING PROBE {self.canvas.fig} {it}")
-			RemoveRenderer(self.canvas.fig, it)
-		probe.target_renderers=[]
 
-		for it in probe.plot_renderers:
-			RemoveRenderer(self.probe_fig , it)
-		probe.plot_renderers=[]
-
-	# refreshAllProbes
-	def refreshAllProbes(self):
-		Button=self.getCurrentButton()
-		dir=self.getDirection()
-		for I,probe in enumerate(self.probes[dir]):
-
-			if probe.status == INACTIVE or probe.pos is None: 
-				continue 
-			
-			# automatic add only if it was added previosly
-			self.addProbe(I=I, pos=probe.pos)
-		
-		self.setCurrentButton(Button)

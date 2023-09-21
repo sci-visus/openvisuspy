@@ -144,14 +144,14 @@ class Widgets:
 
 		def onOffsetChange(attr, old, new):
 			if old==new: return
-			logging.info(f"[{self.id}] on_change calling setOffset({new})")
+			logging.info(f"\n\n\n\n\n[{self.id}] on_change calling setOffset({new})")
 			self.setOffset(new)
 
-		self.widgets.offset.on_change ("value_throttled",onOffsetChange)
+		self.widgets.offset.on_change ("value",onOffsetChange)
   
 		# num_refimements (0==guess)
 		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4))
-		self.widgets.num_refinements.on_change ("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
+		self.widgets.num_refinements.on_change("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
 		# quality (0==full quality, -1==decreased quality by half-pixels, +1==increase quality by doubling pixels etc)
@@ -284,8 +284,7 @@ class Widgets:
 		return self.logic_to_physic
 
 	# setLogicToPhysic
-	def setLogicToPhysic(self,value, force=False):
-		if not force and value==self.getLogicToPhysic(): return
+	def setLogicToPhysic(self,value):
 		logger.info(f"[{self.id}]::setLogicToPhysic value={value}")
 		self.logic_to_physic=value
 		for it in self.children:
@@ -308,8 +307,7 @@ class Widgets:
 		# return physic_box
 
 	# setPhysicBox
-	def setPhysicBox(self, value, force=False):
-		if not force and value==self.getPhysicBox(): return
+	def setPhysicBox(self, value):
 		dims=self.db.getLogicSize()
 		def LinearMapping(a,b, A,B):
 			vs=(B-A)/(b-a)
@@ -475,8 +473,7 @@ class Widgets:
 		return int(self.widgets.num_views.value)
 
 	# setNumberOfViews
-	def setNumberOfViews(self,value,force=False):
-		if not force and value==self.getNumberOfViews(): return
+	def setNumberOfViews(self,value):
 		logger.info(f"[{self.id}]::setNumberOfViews value={value}")
 		self.widgets.num_views.value=str(value)
 
@@ -488,8 +485,7 @@ class Widgets:
 			return []
 
 	# setTimesteps
-	def setTimesteps(self,value,force=False):
-		if not force and value==self.getTimesteps(): return
+	def setTimesteps(self,value):
 		logger.info(f"[{self.id}]::setTimesteps start={value[0]} end={value[-1]}")
 		self.widgets.timestep.start =  value[0]
 		self.widgets.timestep.end   =  value[-1]
@@ -508,8 +504,7 @@ class Widgets:
 		return self.speedFromOption(self.widgets.timestep_delta.value)
 
 	# setTimestepDelta
-	def setTimestepDelta(self,value,force=False):
-		if not force and value==self.getTimestepDelta(): return
+	def setTimestepDelta(self,value):
 		logger.info(f"[{self.id}]::setTimestepDelta value={value}")
 		self.widgets.timestep_delta.value=self.optionFromSpeed (value)
 		self.widgets.timestep.step=value
@@ -530,8 +525,7 @@ class Widgets:
 		return int(self.widgets.timestep.value)
 
 	# setTimestep
-	def setTimestep(self, value,force=False):
-		if not force and value==self.getTimestep(): return
+	def setTimestep(self, value):
 		logger.info(f"[{self.id}]::setTimestep value={value} A")
 		self.widgets.timestep.value=value
 		logger.info(f"[{self.id}]::setTimestep value={value} B")
@@ -544,8 +538,7 @@ class Widgets:
 		return self.widgets.field.options 
   
 	# setFields
-	def setFields(self, value,force=False):
-		if not force and  value==self.getFields(): return
+	def setFields(self, value):
 		logger.info(f"[{self.id}]::setFields value={value}")
 		self.widgets.field.options =list(value)
 
@@ -554,8 +547,7 @@ class Widgets:
 		return str(self.widgets.field.value)
 
 	# setField
-	def setField(self,value,force=False):
-		if not force and value==self.getField(): return
+	def setField(self,value):
 		logger.info(f"[{self.id}]::setField value={value}")
 		if value is None: return
 		self.widgets.field.value=value
@@ -568,8 +560,7 @@ class Widgets:
 		return self.palette
 
 	# setPalette
-	def setPalette(self, value,force=False):	 
-		if not force and value==self.getPalette(): return
+	def setPalette(self, value):	 
 		logger.info(f"[{self.id}]::setPalette value={value}")
 		self.palette=value
 		self.widgets.palette.value=value
@@ -583,8 +574,7 @@ class Widgets:
 		return self.metadata_palette_range
 	
 	# setMetadataPaletteRange
-	def setMetadataPaletteRange(self,value,force=False):
-		if not force and value==self.getMetadataPaletteRange(): return
+	def setMetadataPaletteRange(self,value):
 		vmin,vmax=value
 		self.metadata_palette_range=[vmin,vmax]
 		for it in self.children:
@@ -595,8 +585,7 @@ class Widgets:
 		return self.widgets.palette_range_mode.value
 	
 	# setPaletteRangeMode
-	def setPaletteRangeMode(self,mode,force=False):
-		if not force and mode==self.getPaletteRangeMode(): return
+	def setPaletteRangeMode(self,mode):
 		logger.info(f"[{self.id}]::setPaletteRangeMode mode={mode} ")
 		self.widgets.palette_range_mode.value=mode
 
@@ -626,8 +615,7 @@ class Widgets:
 		]
 
 	# setPaletteRange (backward compatible)
-	def setPaletteRange(self,value,force=False):
-		if not force and value==self.getPaletteRange(): return
+	def setPaletteRange(self,value):
 		vmin,vmax=value
 		self.widgets.palette_range_vmin.value=str(vmin)
 		self.widgets.palette_range_vmax.value=str(vmax)
@@ -646,8 +634,7 @@ class Widgets:
 		return "log" if isinstance(self.color_bar.color_mapper,LogColorMapper) else "linear"
 
 	# getColorMapperType
-	def setColorMapperType(self,value,force=False):
-		if not force and value==self.getColorMapperType(): return
+	def setColorMapperType(self,value):
 		logger.info(f"[{self.id}]::setColorMapperType value={value}")
 		palette=self.getPalette()
 		vmin,vmax=self.getPaletteRange()
@@ -672,8 +659,7 @@ class Widgets:
 		return self.widgets.num_refinements.value
 
 	# setNumberOfRefinements
-	def setNumberOfRefinements(self,value,force=False):
-		if not force and value==self.getNumberOfRefinements(): return
+	def setNumberOfRefinements(self,value):
 		logger.info(f"[{self.id}]::setNumberOfRefinements value={value}")
 		self.widgets.num_refinements.value=value
 		for it in self.children:
@@ -685,8 +671,7 @@ class Widgets:
 		return self.widgets.quality.value
 
 	# setQuality
-	def setQuality(self,value,force=False):
-		if not value and value==self.getQuality(): return
+	def setQuality(self,value):
 		logger.info(f"[{self.id}]::setQuality value={value}")
 		self.widgets.quality.value=value
 		for it in self.children:
@@ -698,8 +683,7 @@ class Widgets:
 		return cbool(self.widgets.viewdep.value)
 
 	# setViewDependent
-	def setViewDependent(self,value,force=False):
-		if not force and value==self.getViewDepedent(): return
+	def setViewDependent(self,value):
 		logger.info(f"[{self.id}]::setViewDependent value={value}")
 		self.widgets.viewdep.value=str(int(value))
 		for it in self.children:
@@ -711,8 +695,7 @@ class Widgets:
 		return self.widgets.direction.options
 
 	# setDirections
-	def setDirections(self,value,force=False):
-		if not force and value==self.getDirections(): return
+	def setDirections(self,value):
 		logger.info(f"[{self.id}]::setDirections value={value}")
 		self.widgets.direction.options=value
 		for it in self.children:
@@ -723,8 +706,7 @@ class Widgets:
 		return int(self.widgets.direction.value)
 
 	# setDirection
-	def setDirection(self,value,force=False):
-		if not force and value==self.getDirection(): return
+	def setDirection(self,value):
 		logger.info(f"[{self.id}]::setDirection value={value}")
 		pdim=self.getPointDim()
 		if pdim==2: value=2
@@ -759,9 +741,8 @@ class Widgets:
 		return self.widgets.offset.start, self.widgets.offset.end,self.widgets.offset.step
 
 	# setOffsetStartEnd
-	def setOffsetStartEndStep(self, value,force=False):
+	def setOffsetStartEndStep(self, value):
 		A,B,step=value
-		if not force and [A,B,step]==self.getOffsetStartEnd(): return
 		logger.info(f"[{self.id}]::setOffsetStartEndStep value={value}")
 		self.widgets.offset.start, self.widgets.offset.end,self.widgets.offset.step=A,B,step
 		for it in self.children:
@@ -772,16 +753,8 @@ class Widgets:
 		return self.widgets.offset.value
 
 	# setOffset (3d only) (in physic domain)
-	def setOffset(self,value,force=False):
-		if not force and value==self.getOffset(): return
+	def setOffset(self,value):
 		logger.info(f"[{self.id}]::setOffset new-value={value} old-value={self.getOffset()} A")
-
-		if value==710:
-			try:
-				raise Exception("problem")
-			except Exception as ex:
-				import traceback
-				traceback.print_stack()
 
 		self.widgets.offset.value=value
 		assert(self.widgets.offset.value==value)

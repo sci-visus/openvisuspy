@@ -53,7 +53,7 @@ class Slice(Widgets):
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'),
-			sizing_mode='stretch_both',border_color="beige")
+			sizing_mode='stretch_both')
 
 		if IsPyodide():
 			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
@@ -85,10 +85,8 @@ class Slice(Widgets):
 		if not self.db: return
 		dir=self.getDirection()
 		offset=self.getOffset()
-		logging.info(f"[{self.id}]::onCanvasResize A offset=({offset})")
-		self.setDirection(dir, force=True)
-		logging.info(f"[{self.id}]::onCanvasResize B offset=({offset})")
-		self.setOffset(offset, force=True)
+		self.setDirection(dir)
+		self.setOffset(offset)
 
 	# onIdle
 	async def onIdle(self):
@@ -118,8 +116,7 @@ class Slice(Widgets):
 		return self.toLogic([(x1,y1),(x2,y2)])
 
 	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
-	def setQueryLogicBox(self,value,force=False):
-		if not force and value==self.getQueryLogicBox(): return
+	def setQueryLogicBox(self,value,):
 		logger.info(f"[{self.id}]::setQueryLogicBox value={value}")
 		proj=self.toPhysic(value) 
 		self.canvas.setViewport(*(proj[0] + proj[1]))
@@ -220,6 +217,8 @@ class Slice(Widgets):
   
 	# pushJobIfNeeded
 	def pushJobIfNeeded(self):
+
+		
      
 		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
 		query_logic_box=self.getQueryLogicBox()
