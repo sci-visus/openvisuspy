@@ -40,7 +40,7 @@ if __name__.startswith('bokeh'):
 	view.setLogicToPhysic([(0.0,1.0), (0.0,1.0), (0.0,30.0)])
 
 	view.children[0].setDirection(2)
-	view.children[0].setOffset(0)
+	view.children[0].guessOffset()
 
 	if IsPanelServe():
 		from openvisuspy.app import GetPanelApp

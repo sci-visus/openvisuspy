@@ -430,8 +430,7 @@ def LoadDataset(url):
 	
 
 	#box,delta,num_pixels=ret.getAlignedBox(logic_box=[[0,0,539],[2048,2048,540]],endh=22,slice_dir=2)
-	#print("!!!!!",box,delta,num_pixels)
-
+	
 	return ret
 
 # ////////////////////////////////////////////////////////////////////////////////////////////////////////////

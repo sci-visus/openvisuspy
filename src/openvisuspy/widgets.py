@@ -67,7 +67,7 @@ class Widgets:
 	# constructor
 	def __init__(self):
    
-		self.id=Widgets.ID
+		self.id=f"{type(self).__name__}/{Widgets.ID}"
 		Widgets.ID+=1
 		self.config=None
 		self.db=None
@@ -80,19 +80,19 @@ class Widgets:
 		self.widgets=types.SimpleNamespace()
 
 		# datasets
-		self.widgets.datasets = Select(title="Dataset", options=[],width=100) 
+		self.widgets.datasets = Select(title="Dataset", options=[],width=60) 
 		self.widgets.datasets.on_change("value",lambda attr,old,new: self.setDataset(new)) 
  
 		# palette
 		self.palette='Viridis256'
-		self.widgets.palette = Select(title='Palette', options=PALETTES,value=self.palette,width=100)
+		self.widgets.palette = Select(title='Palette', options=PALETTES,value=self.palette)
 		self.widgets.palette.on_change("value",lambda attr, old, new: self.setPalette(new))  
 
 		# palette range
 		self.metadata_palette_range=[0.0,255.0]
-		self.widgets.palette_range_mode = Select(title="RangeMode",options=["metadata","user","dynamic","dynamic-acc"], value="metadata",width=100)
-		self.widgets.palette_range_vmin = TextInput(title="vmin" ,width=100)
-		self.widgets.palette_range_vmax = TextInput(title="vmax" ,width=100)
+		self.widgets.palette_range_mode = Select(title="range",options=["metadata","user","dynamic","dynamic-acc"], value="metadata",width=80)
+		self.widgets.palette_range_vmin = TextInput(title="vmin" ,width=80)
+		self.widgets.palette_range_vmax = TextInput(title="vmax" ,width=80)
 
 		self.widgets.palette_range_mode.on_change("value",lambda attr, old, new: self.setPaletteRangeMode(new))
 		self.widgets.palette_range_vmin.on_change("value",lambda attr, old, new: self.onPaletteRangeChange())
@@ -105,7 +105,7 @@ class Widgets:
 		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()
 
 		# color_mapper type
-		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='3',width=80)
+		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='3')
 		self.widgets.colormapper_type.on_change("value",lambda attr, old, new: self.setColorMapperType(new)) 
 
 		def PatchSlider(slider):
@@ -113,12 +113,18 @@ class Widgets:
 			return slider
   
 		# num_views
-		self.widgets.num_views=Select(title='#Views',  options=["1","2","3","4"],value='3',width=100)
+		self.widgets.num_views=Select(title='#Views',  options=["1","2","3","4"],value='3')
 		self.widgets.num_views.on_change("value",lambda attr, old, new: self.setNumberOfViews(int(new))) 
  
 		# timestep
 		self.widgets.timestep = PatchSlider(Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width'))
-		self.widgets.timestep.on_change ("value",lambda attr, old, new: self.setTimestep(int(new)))
+
+		def onTimestepChange(attr, old, new):
+			if old==new: return
+			logger.info("onTimestepChange old={old} new={new}")
+			self.setTimestep(int(new))
+
+		self.widgets.timestep.on_change("value",onTimestepChange)
 
 		# timestep delta
 		speed_options=["1x","2x","4x","8x","16x","32x","64x","128x"]
@@ -126,25 +132,30 @@ class Widgets:
 		self.widgets.timestep_delta.on_change("value", lambda attr, old, new: self.setTimestepDelta(self.speedFromOption(new)))   
 
 		# field
-		self.widgets.field = Select(title='Field',  options=[],value='data',width=100)
+		self.widgets.field = Select(title='Field',  options=[],value='data')
 		self.widgets.field.on_change("value",lambda attr, old, new: self.setField(new))  
   
 		# direction 
-		self.widgets.direction = Select(title='Direction', options=[('0','X'), ('1','Y'), ('2','Z')],value='2',width=100)
+		self.widgets.direction = Select(title='Direction', options=[('0','X'), ('1','Y'), ('2','Z')],value='2')
 		self.widgets.direction.on_change ("value",lambda attr, old, new: self.setDirection(int(new)))  
   
 		# offset 
 		self.widgets.offset = PatchSlider(Slider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width'))
-		self.widgets.offset.on_change ("value",lambda attr, old, new: self.setOffset(int(new)))
-		self.widgets.offset._check_missing_dimension=None # patch
+
+		def onOffsetChange(attr, old, new):
+			if old==new: return
+			logging.info(f"[{self.id}] on_change calling setOffset({new})")
+			self.setOffset(new)
+
+		self.widgets.offset.on_change ("value_throttled",onOffsetChange)
   
 		# num_refimements (0==guess)
-		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4, sizing_mode='stretch_width'))
+		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4))
 		self.widgets.num_refinements.on_change ("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
 		# quality (0==full quality, -1==decreased quality by half-pixels, +1==increase quality by doubling pixels etc)
-		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12, sizing_mode='stretch_width'))
+		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12))
 		self.widgets.quality.on_change("value",lambda attr, old, new: self.setQuality(int(new)))  
 		self.widgets.quality._check_missing_dimension=None # patch
 
@@ -167,7 +178,7 @@ class Widgets:
 		self.widgets.play_sec = Select(title="Frame delay",options=["0.00","0.01","0.1","0.2","0.1","1","2"], value="0.01",width=120)
 
 		# metadata
-		self.widgets.metadata=Column(width=640,sizing_mode='stretch_height')
+		self.widgets.metadata=Column(width=640,sizing_mode='stretch_both')
 		self.widgets.metadata.visible=False
 
 		self.widgets.show_metadata=Button(label="Metadata",width=80,sizing_mode='stretch_height')
@@ -187,7 +198,7 @@ class Widgets:
 
 	# stop
 	def stop(self):
-		logger.info(f"{type(self)} stop")
+		logger.info(f"[{self.id}]:: stop ")
 		for it in self.children:
 			it.stop()		
 
@@ -259,7 +270,7 @@ class Widgets:
 	# setConfig
 	def setConfig(self,value):
 		if value is None: return
-		logger.info(f"Widgets[{self.id}]::setConfig")
+		logger.info(f"[{self.id}]::setConfig")
 		self.config=value
 		self.datasets={it["name"] : it for it in value["datasets"]}
 		ordered_names=[it["name"] for it in value["datasets"]]
@@ -273,8 +284,9 @@ class Widgets:
 		return self.logic_to_physic
 
 	# setLogicToPhysic
-	def setLogicToPhysic(self,value):
-		logger.info(f"Widgets[{self.id}]::setLogicToPhysic value={value}")
+	def setLogicToPhysic(self,value, force=False):
+		if not force and value==self.getLogicToPhysic(): return
+		logger.info(f"[{self.id}]::setLogicToPhysic value={value}")
 		self.logic_to_physic=value
 		for it in self.children:
 			it.setLogicToPhysic(value)
@@ -296,7 +308,8 @@ class Widgets:
 		# return physic_box
 
 	# setPhysicBox
-	def setPhysicBox(self, value):
+	def setPhysicBox(self, value, force=False):
+		if not force and value==self.getPhysicBox(): return
 		dims=self.db.getLogicSize()
 		def LinearMapping(a,b, A,B):
 			vs=(B-A)/(b-a)
@@ -308,8 +321,6 @@ class Widgets:
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
 
-		logger.info(f"Widgets[{self.id}]::setDataset name={name}")
-
 		# it's a url for a single dataset: create a minimal config
 		if not self.config:
 			self.setConfig({"datasets" : [{"name":name, "url":name }]})
@@ -318,6 +329,8 @@ class Widgets:
 		# rehentrant call
 		if not force and self.current_dataset and self.current_dataset["name"]==name:
 			return 
+
+		logger.info(f"[{self.id}]::setDataset name={name}")
 
 		config=self.datasets[name]
 		self.current_dataset=config
@@ -329,12 +342,13 @@ class Widgets:
 		else:
 			self.db=db
 
-
 		self.access=self.db.createAccess()
   
 		# avoid reloading db multiple times by specifying db
 		for it in self.children:
 			it.setDataset(name, db=self.db) 
+
+		pdim = self.db.getPointDim()
 
 		# timestep
 		timesteps =self.db.getTimesteps()
@@ -343,20 +357,6 @@ class Widgets:
 		self.setTimesteps(timesteps)
 		self.setTimestepDelta(timestep_delta)
 		self.setTimestep(timestep)
-  
-		# direction
-		pdim = self.db.getPointDim()
-		self.setDirection(2)
-		for I,it in enumerate(self.children):
-			it.setDirection((I % 3) if pdim==3 else 2)
-
-		# field
-		fields =self.db.getFields()
-		default_fieldname=self.db.getField().name
-		fieldname=config.get("field",default_fieldname)
-		field=self.db.getField(fieldname)
-		self.setFields(fields)
-		self.setField(field.name) 
   
 		# axis
 		axis=self.db.inner.idxfile.axis.strip().split()
@@ -369,6 +369,19 @@ class Widgets:
 		physic_box=self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
 		physic_box=[(float(physic_box[I]),float(physic_box[I+1])) for I in range(0,pdim*2,2)]
 		self.setPhysicBox(physic_box)
+
+		# field
+		fields =self.db.getFields()
+		default_fieldname=self.db.getField().name
+		fieldname=config.get("field",default_fieldname)
+		field=self.db.getField(fieldname)
+		self.setFields(fields)
+		self.setField(field.name) 
+  
+		# direction
+		self.setDirection(2)
+		for I,it in enumerate(self.children):
+			it.setDirection((I % 3) if pdim==3 else 2)
 
 		# palette 
 		palette=config.get("palette","Viridis256")
@@ -388,17 +401,15 @@ class Widgets:
 		color_mapper_type=config.get("color-mapper-type","linear")
 		self.setColorMapperType(color_mapper_type)
 
-
 		# view dependent
 		view_dep=bool(config.get('view-dep',True))
 		self.setViewDependent(view_dep) 
-
 
 		# quality (>0 higher quality, <0 lower uality)
 		quality=int(config.get("quality",0))
 		self.setQuality(quality)
 
-		# numrefinements
+		# num_refinements
 		num_refinements=int(config.get("num-refinements",2))
 		self.setNumberOfRefinements(num_refinements)
 
@@ -457,7 +468,6 @@ class Widgets:
 
 			self.widgets.metadata.children=[Tabs(tabs=tabs)]
 
-		
 		self.refresh() 
   
 	# getNumberOfViews
@@ -465,27 +475,32 @@ class Widgets:
 		return int(self.widgets.num_views.value)
 
 	# setNumberOfViews
-	def setNumberOfViews(self,value):
-		logger.info(f"Widgets[{self.id}]::setNumberOfViews value={value}")
+	def setNumberOfViews(self,value,force=False):
+		if not force and value==self.getNumberOfViews(): return
+		logger.info(f"[{self.id}]::setNumberOfViews value={value}")
 		self.widgets.num_views.value=str(value)
 
 	# getTimesteps
 	def getTimesteps(self):
-		return [int(value) for value in self.db.db.getTimesteps().asVector()]
+		try:
+			return [int(value) for value in self.db.db.getTimesteps().asVector()]
+		except:
+			return []
 
 	# setTimesteps
-	def setTimesteps(self,value):
-		logger.info(f"Widgets[{self.id}]::setTimesteps start={value[0]} end={value[-1]}")
+	def setTimesteps(self,value,force=False):
+		if not force and value==self.getTimesteps(): return
+		logger.info(f"[{self.id}]::setTimesteps start={value[0]} end={value[-1]}")
 		self.widgets.timestep.start =  value[0]
 		self.widgets.timestep.end   =  value[-1]
 		self.widgets.timestep.step  = 1
 
 	# speedFromOption
-	def speedFromOption (self,option):
-				return (int(option[:-1]))
+	def speedFromOption(self,option):
+		return (int(option[:-1]))
 
 	# optionFromSpeed
-	def optionFromSpeed (self,speed):
+	def optionFromSpeed(self,speed):
 		return (str(speed)+"x")
 
 	# getTimestepDelta
@@ -493,8 +508,9 @@ class Widgets:
 		return self.speedFromOption(self.widgets.timestep_delta.value)
 
 	# setTimestepDelta
-	def setTimestepDelta(self,value):
-		logger.info(f"Widgets[{self.id}]::setTimestepDelta value={value}")
+	def setTimestepDelta(self,value,force=False):
+		if not force and value==self.getTimestepDelta(): return
+		logger.info(f"[{self.id}]::setTimestepDelta value={value}")
 		self.widgets.timestep_delta.value=self.optionFromSpeed (value)
 		self.widgets.timestep.step=value
 		A=self.widgets.timestep.start
@@ -514,9 +530,11 @@ class Widgets:
 		return int(self.widgets.timestep.value)
 
 	# setTimestep
-	def setTimestep(self, value):
-		logger.info(f"Widgets[{self.id}]::setTimestep value={value}")
+	def setTimestep(self, value,force=False):
+		if not force and value==self.getTimestep(): return
+		logger.info(f"[{self.id}]::setTimestep value={value} A")
 		self.widgets.timestep.value=value
+		logger.info(f"[{self.id}]::setTimestep value={value} B")
 		for it in self.children:
 			it.setTimestep(value)  
 		self.refresh()
@@ -526,8 +544,9 @@ class Widgets:
 		return self.widgets.field.options 
   
 	# setFields
-	def setFields(self, value):
-		logger.info(f"Widgets[{self.id}]::setFields value={value}")
+	def setFields(self, value,force=False):
+		if not force and  value==self.getFields(): return
+		logger.info(f"[{self.id}]::setFields value={value}")
 		self.widgets.field.options =list(value)
 
 	# getField
@@ -535,8 +554,9 @@ class Widgets:
 		return str(self.widgets.field.value)
 
 	# setField
-	def setField(self,value):
-		logger.info(f"Widgets[{self.id}]::setField value={value}")
+	def setField(self,value,force=False):
+		if not force and value==self.getField(): return
+		logger.info(f"[{self.id}]::setField value={value}")
 		if value is None: return
 		self.widgets.field.value=value
 		for it in self.children:
@@ -548,8 +568,9 @@ class Widgets:
 		return self.palette
 
 	# setPalette
-	def setPalette(self, value):	 
-		logger.info(f"Widgets[{self.id}]::setPalette value={value}")
+	def setPalette(self, value,force=False):	 
+		if not force and value==self.getPalette(): return
+		logger.info(f"[{self.id}]::setPalette value={value}")
 		self.palette=value
 		self.widgets.palette.value=value
 		self.color_bar.color_mapper.palette=getattr(colorcet,value[len("colorcet."):]) if value.startswith("colorcet.") else value
@@ -562,7 +583,8 @@ class Widgets:
 		return self.metadata_palette_range
 	
 	# setMetadataPaletteRange
-	def setMetadataPaletteRange(self,value):
+	def setMetadataPaletteRange(self,value,force=False):
+		if not force and value==self.getMetadataPaletteRange(): return
 		vmin,vmax=value
 		self.metadata_palette_range=[vmin,vmax]
 		for it in self.children:
@@ -573,8 +595,9 @@ class Widgets:
 		return self.widgets.palette_range_mode.value
 	
 	# setPaletteRangeMode
-	def setPaletteRangeMode(self,mode):
-		logger.info(f"Widgets[{self.id}]::setPaletteRangeMode mode={mode} ")
+	def setPaletteRangeMode(self,mode,force=False):
+		if not force and mode==self.getPaletteRangeMode(): return
+		logger.info(f"[{self.id}]::setPaletteRangeMode mode={mode} ")
 		self.widgets.palette_range_mode.value=mode
 
 		wmin=self.widgets.palette_range_vmin
@@ -603,7 +626,8 @@ class Widgets:
 		]
 
 	# setPaletteRange (backward compatible)
-	def setPaletteRange(self,value):
+	def setPaletteRange(self,value,force=False):
+		if not force and value==self.getPaletteRange(): return
 		vmin,vmax=value
 		self.widgets.palette_range_vmin.value=str(vmin)
 		self.widgets.palette_range_vmax.value=str(vmax)
@@ -622,8 +646,9 @@ class Widgets:
 		return "log" if isinstance(self.color_bar.color_mapper,LogColorMapper) else "linear"
 
 	# getColorMapperType
-	def setColorMapperType(self,value):
-		logger.info(f"Widgets[{self.id}]::setColorMapperType value={value}")
+	def setColorMapperType(self,value,force=False):
+		if not force and value==self.getColorMapperType(): return
+		logger.info(f"[{self.id}]::setColorMapperType value={value}")
 		palette=self.getPalette()
 		vmin,vmax=self.getPaletteRange()
 		self.widgets.colormapper_type.value=value
@@ -647,8 +672,9 @@ class Widgets:
 		return self.widgets.num_refinements.value
 
 	# setNumberOfRefinements
-	def setNumberOfRefinements(self,value):
-		logger.info(f"Widgets[{self.id}]::setNumberOfRefinements value={value}")
+	def setNumberOfRefinements(self,value,force=False):
+		if not force and value==self.getNumberOfRefinements(): return
+		logger.info(f"[{self.id}]::setNumberOfRefinements value={value}")
 		self.widgets.num_refinements.value=value
 		for it in self.children:
 			it.setNumberOfRefinements(value)
@@ -659,8 +685,9 @@ class Widgets:
 		return self.widgets.quality.value
 
 	# setQuality
-	def setQuality(self,value):
-		logger.info(f"Widgets[{self.id}]::setQuality value={value}")
+	def setQuality(self,value,force=False):
+		if not value and value==self.getQuality(): return
+		logger.info(f"[{self.id}]::setQuality value={value}")
 		self.widgets.quality.value=value
 		for it in self.children:
 			it.setQuality(value) 
@@ -671,8 +698,9 @@ class Widgets:
 		return cbool(self.widgets.viewdep.value)
 
 	# setViewDependent
-	def setViewDependent(self,value):
-		logger.info(f"Widgets[{self.id}]::setViewDependent value={value}")
+	def setViewDependent(self,value,force=False):
+		if not force and value==self.getViewDepedent(): return
+		logger.info(f"[{self.id}]::setViewDependent value={value}")
 		self.widgets.viewdep.value=str(int(value))
 		for it in self.children:
 			it.setViewDependent(value)     
@@ -683,8 +711,9 @@ class Widgets:
 		return self.widgets.direction.options
 
 	# setDirections
-	def setDirections(self,value):
-		logger.info(f"Widgets[{self.id}]::setDirections value={value}")
+	def setDirections(self,value,force=False):
+		if not force and value==self.getDirections(): return
+		logger.info(f"[{self.id}]::setDirections value={value}")
 		self.widgets.direction.options=value
 		for it in self.children:
 			it.setDirections(value)
@@ -694,44 +723,169 @@ class Widgets:
 		return int(self.widgets.direction.value)
 
 	# setDirection
-	def setDirection(self,value):
-		logger.info(f"Widgets[{self.id}]::setDirection value={value}")
+	def setDirection(self,value,force=False):
+		if not force and value==self.getDirection(): return
+		logger.info(f"[{self.id}]::setDirection value={value}")
 		pdim=self.getPointDim()
 		if pdim==2: value=2
 		dims=[int(it) for it in self.db.getLogicSize()]
 		self.widgets.direction.value = str(value)
 
-		# 2d there is no direction 
-		pdim=self.getPointDim()
-		if pdim==2:
-			assert value==2
-			self.widgets.offset.start, self.widgets.offset.end= 0,1-1
-			self.widgets.offset.value = 0
-		else:
-			self.widgets.offset.start, self.widgets.offset.end = 0,int(dims[value])-1
-			self.widgets.offset.value = int(dims[value]//2)
-   
-		# DO NOT PROPAGATE
-		# for it in self.children:
-		#	it.setDirection(value)
+		# default behaviour is to guess the offset
+		self.guessOffset()
+
+		for it in self.children:
+			it.setDirection(value)
    
 		self.refresh()
 
-	# getOffset
+	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
+	def getLogicAxis(self):
+		dir=self.getDirection()
+		dirs=self.getDirections()
+		titles=[it[1] for it in dirs]
+
+		# this is the projected slice
+		XY=[int(it[0]) for it in dirs]
+		del XY[dir]
+		X,Y=XY
+
+		# this is the cross dimension
+		Z=int(dirs[dir][0])
+		return (X,Y,Z),(titles[X],titles[Y],titles[Z])
+
+	# getOffsetStartEnd
+	def getOffsetStartEnd(self):
+		return self.widgets.offset.start, self.widgets.offset.end,self.widgets.offset.step
+
+	# setOffsetStartEnd
+	def setOffsetStartEndStep(self, value,force=False):
+		A,B,step=value
+		if not force and [A,B,step]==self.getOffsetStartEnd(): return
+		logger.info(f"[{self.id}]::setOffsetStartEndStep value={value}")
+		self.widgets.offset.start, self.widgets.offset.end,self.widgets.offset.step=A,B,step
+		for it in self.children:
+			it.setOffsetStartEndStep(value)
+
+	# getOffset (in physic domain)
 	def getOffset(self):
 		return self.widgets.offset.value
 
-	# setOffset (3d only)
-	def setOffset(self,value):
-		logger.info(f"Widgets[{self.id}]::getOffset value={value}")
+	# setOffset (3d only) (in physic domain)
+	def setOffset(self,value,force=False):
+		if not force and value==self.getOffset(): return
+		logger.info(f"[{self.id}]::setOffset new-value={value} old-value={self.getOffset()} A")
+
+		if value==710:
+			try:
+				raise Exception("problem")
+			except Exception as ex:
+				import traceback
+				traceback.print_stack()
+
 		self.widgets.offset.value=value
-  
- 		# DO NOT PROPAGATE
-		# for it in self.children:
-		#	it.setDirection(dir) 
-  
+		assert(self.widgets.offset.value==value)
+		logger.info(f"[{self.id}]::setOffset value={value} B")
+		for it in self.children:
+			logging.info(f"[{self.id}] recursively calling setOffset({value}) for children={it.id}")
+			it.setOffset(value) 
 		self.refresh()
   
+	# guessOffset
+	def guessOffset(self):
+		
+		pdim=self.getPointDim()
+		dir=self.getDirection()
+
+		# 2d there is no direction 
+		if pdim==2:
+			logging.info(f"[{self.id}]::guessOffset pdim==2calling setOffset({value})")
+			assert dir==2
+			self.setOffsetStartEndStep([0,0,1]) # both extrema included
+			value=0
+			self.setOffset(value)
+		else:
+			vt=[self.logic_to_physic[I][0] for I in range(pdim)]
+			vs=[self.logic_to_physic[I][1] for I in range(pdim)]
+
+			if all([it==0 for it in vt]) and all([it==1.0 for it in vs]):
+				dims=[int(it) for it in self.db.getLogicSize()]
+				value=dims[dir]//2
+				logging.info(f"[{self.id}]::guessOffset CASE pdim==3 calling integer setOffset({value})")
+				self.setOffsetStartEndStep([0,int(dims[dir])-1,1])
+				self.setOffset(value)
+			else:
+				A,B=self.getPhysicBox()[dir]
+				value=(A+B)/2.0				
+				logging.info(f"[{self.id}]::guessOffset pdim==3 calling float setOffset({value})")
+
+				self.setOffsetStartEndStep([A,B,1e-6])
+				self.setOffset(value)
+
+
+	# toPhysic
+	def toPhysic(self,value):
+
+		# is a box
+		if hasattr(value[0],"__iter__"):
+			p1,p2=[self.toPhysic(p) for p in value]
+			return [p1,p2]
+
+		pdim=self.getPointDim()
+		dir=self.getDirection()
+		assert(pdim==len(value))
+
+		vt=[self.logic_to_physic[I][0] for I in range(pdim)]
+		vs=[self.logic_to_physic[I][1] for I in range(pdim)]
+
+		# apply scaling and translating
+		ret=[vs[I]*value[I] + vt[I] for I in range(pdim)]
+
+		if pdim==3: del ret[dir] # project
+
+		assert(len(ret)==2)
+		return ret
+
+	# toLogic
+	def toLogic(self,value):
+		assert(len(value)==2)
+		pdim=self.getPointDim() 
+		dir=self.getDirection()
+
+		# is a box?
+		if hasattr(value[0],"__iter__"):
+			p1,p2=[self.toLogic(p) for p in value]
+			if pdim==3: 
+				p2[dir]+=1 # make full dimensional
+			return [p1,p2]
+
+		ret=list(value)
+
+		# unproject
+		if pdim==3:
+			ret.insert(dir, 0)
+
+		assert(len(ret)==pdim)
+		
+		vt=[self.logic_to_physic[I][0] for I in range(pdim)]
+		vs=[self.logic_to_physic[I][1] for I in range(pdim)]
+
+		# scaling/translatation
+		try:
+			ret=[(ret[I]-vt[I])/vs[I] for I in range(pdim)]
+		except:
+			print("Problem here",self.logic_to_physic)
+			raise
+
+		# unproject
+		
+		if pdim==3:
+			offset=self.getOffset() # this is in physic coordinates
+			ret[dir]=int((offset-vt[dir])/vs[dir])
+
+		assert(len(ret)==pdim)
+		return ret
+
 	# togglePlay
 	def togglePlay(self,evt=None):
 		if self.play.is_playing:
@@ -741,7 +895,7 @@ class Widgets:
 			
 	# startPlay
 	def startPlay(self):
-		logger.info(f"Widgets[{self.id}]::startPlay")
+		logger.info(f"[{self.id}]::startPlay")
 		self.play.is_playing=True
 		self.play.t1=time.time()
 		self.play.wait_render_id=None
@@ -753,7 +907,7 @@ class Widgets:
 	
 	# stopPlay
 	def stopPlay(self):
-		logger.info(f"Widgets[{self.id}]::stopPlay")
+		logger.info(f"[{self.id}]::stopPlay")
 		self.play.is_playing=False
 		self.play.wait_render_id=None
 		self.setNumberOfRefinements(self.play.num_refinements)
@@ -786,7 +940,7 @@ class Widgets:
 		if T>=self.widgets.timestep.end: 
 			T=self.timesteps.widgets.timestep.start
    
-		logger.info(f"Widgets[{self.id}]::playing timestep={T}")
+		logger.info(f"[{self.id}]::playing timestep={T}")
 		
 		# I will wait for the resolution to be displayed
 		self.play.wait_render_id=[(it+1) if it is not None else None for it in render_id]

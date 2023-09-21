@@ -21,16 +21,14 @@ class Canvas:
 		self.sizing_mode=sizing_mode
 		self.color_bar=color_bar
 		self.fig=bokeh.plotting.figure(active_scroll = "wheel_zoom") 
-		self.fig.x_range = bokeh.models.Range1d(0,0)   
-		self.fig.y_range = bokeh.models.Range1d(512,512) 
+		self.fig.x_range = bokeh.models.Range1d(0,512)   
+		self.fig.y_range = bokeh.models.Range1d(0,512) 
 		self.fig.toolbar_location=toolbar_location
 		self.fig.sizing_mode = self.sizing_mode
 		# self.fig.add_tools(bokeh.models.HoverTool(tooltips=[ ("(x, y)", "($x, $y)"),("RGB", "(@R, @G, @B)")])) # is it working?
-
-
 		self.on_resize=None
 		self.last_width=0
-		self.last_height=0		
+		self.last_height=0
 
 		# huge problems with inner_ thingy ... HTML does not reflect real values
 		# problems here, not getting real-time resizes
@@ -79,16 +77,17 @@ class Canvas:
 	def enableDoubleTap(self,fn):
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: fn(evt.x,evt.y))
 
-	  # getViewport -> x1,y1,x2,y2
+	  # getViewport (x1,y1,x2,y2)
 	def getViewport(self):
+
 		return [
-			self.fig.x_range.start,
+			self.fig.x_range.start, 
 			self.fig.y_range.start,
 			self.fig.x_range.end,
 			self.fig.y_range.end
 		]
 
-	  # getViewport
+	  # setViewport
 	def setViewport(self,x1,y1,x2,y2):
 		if (x2<x1): x1,x2=x2,x1
 		if (y2<y1): y1,y2=y2,y1
@@ -107,12 +106,10 @@ class Canvas:
 			x1,y1=cx-w/2,cy-h/2
 			x2,y2=cx+w/2,cy+h/2
 
-		logger.info(f"setViewport {x1} {x2} {y1} {y2} W={W} H={H}")
-		self.fig.x_range.start=x1
-		self.fig.y_range.start=y1
-		self.fig.x_range.end  =x2
-		self.fig.y_range.end  =y2
-
+		logger.info(f"setViewport {x1} {y1} {x2} {y2} W={W} H={H}")
+		self.fig.x_range.start,self.fig.x_range.end=x1,x2
+		self.fig.y_range.start,self.fig.y_range.end=y1,y2
+		
 
 	# renderPoints
 	def renderPoints(self,points, size=20, color="red", marker="cross"):

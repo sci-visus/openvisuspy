@@ -24,7 +24,7 @@ class Slice(Widgets):
 		self.current_img   = None
 		self.options={}
 
-		self.last_logic_box = None
+		self.last_query_logic_box = None
 		self.show_options=show_options
 		self.query_node=QueryNode()
 		self.t1=time.time()
@@ -53,7 +53,7 @@ class Slice(Widgets):
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'),
-			sizing_mode='stretch_both')
+			sizing_mode='stretch_both',border_color="beige")
 
 		if IsPyodide():
 			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
@@ -61,28 +61,13 @@ class Slice(Widgets):
 			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
 		self.start()
 
+	
 		return ret
 
-
-	# onDoubleTap
+	# onDoubleTap (NOTE: x,y are in physic coords)
 	def onDoubleTap(self,x,y):
-		if False:
-			self.gotoPoint(self.unproject([x,y]))
-
-	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
-	def getLogicAxis(self):
-		dir=self.getDirection()
-		dirs=self.getDirections()
-		titles=[it[1] for it in dirs]
-
-		# this is the projected slice
-		XY=[int(it[0]) for it in dirs]
-		del XY[dir]
-		X,Y=XY
-
-		# this is the cross dimension
-		Z=int(dirs[dir][0])
-		return (X,Y,Z),(titles[X],titles[Y],titles[Z])
+		if False: 
+			self.gotoPoint([x,y])
 
 	# start
 	def start(self):
@@ -100,8 +85,10 @@ class Slice(Widgets):
 		if not self.db: return
 		dir=self.getDirection()
 		offset=self.getOffset()
-		self.setDirection(dir)
-		self.setOffset(offset)
+		logging.info(f"[{self.id}]::onCanvasResize A offset=({offset})")
+		self.setDirection(dir, force=True)
+		logging.info(f"[{self.id}]::onCanvasResize B offset=({offset})")
+		self.setOffset(offset, force=True)
 
 	# onIdle
 	async def onIdle(self):
@@ -118,138 +105,69 @@ class Slice(Widgets):
 		self.renderResultIfNeeded()
 		self.pushJobIfNeeded()
 
-	# setDataset
-	def setDataset(self, url,db=None, force=False):
-		super().setDataset(url,db=db,force=force)
-		self.last_canvas_size=[0,0] 
-
 	# refresh
 	def refresh(self):
 		super().refresh()
 		self.aborted.setTrue()
 		self.new_job=True	
-   
-	# logic2physic
-	def logic2physic(self,value):
-		return self.project(value)
-	 
-	# physic2logic
-	def physic2logic(self,value):
-		return self.unproject(value)
 
-	# project (e.g. logic->physic)
-	def project(self,value):
-
-		pdim=self.getPointDim()
-		dir=self.getDirection()
-
-		# is a box
-		if hasattr(value[0],"__iter__"):
-			p1,p2=[self.project(p) for p in value]
-			return [p1,p2]
-
-		assert(pdim==len(value))
-
-		# apply scaling and translating
-		ret=[self.logic_to_physic[I][0] + self.logic_to_physic[I][1]*value[I] for I in range(pdim)]
-
-		if pdim==3:
-			del ret[dir]
-
-		assert(len(ret)==2)
-		return ret
-
-	# unproject
-	def unproject(self,value):
-
-		assert(len(value)==2)
-
-		pdim=self.getPointDim() 
-		dir=self.getDirection()
-
-		# is a box?
-		if hasattr(value[0],"__iter__"):
-			p1,p2=[self.unproject(p) for p in value]
-			if pdim==3: 
-				p2[dir]+=1 # make full dimensional
-			return [p1,p2]
-
-		ret=list(value)
-
-		# reinsert removed coordinate
-		if pdim==3:
-			ret.insert(dir, 0)
-
-		assert(len(ret)==pdim)
-
-		# scaling/translatation
-		try:
-			ret=[(ret[I]-self.logic_to_physic[I][0])/self.logic_to_physic[I][1] for I in range(pdim)]
-		except:
-			print("Problem here",self.logic_to_physic)
-			raise
-
-		
-		# this is the right value in logic domain
-		if pdim==3:
-			ret[dir]=self.getOffset()
-
-		assert(len(ret)==pdim)
-		return ret
   
-	# getLogicBox
-	def getLogicBox(self):
+	# getQueryLogicBox
+	def getQueryLogicBox(self):
 		x1,y1,x2,y2=self.canvas.getViewport()
-		return self.unproject(((x1,y1),(x2,y2)))
+		return self.toLogic([(x1,y1),(x2,y2)])
 
-	# setLogicBox (NOTE: it ignores the coordinates on the direction)
-	def setLogicBox(self,value):
-		logger.info(f"Slice[{self.id}]::setLogicBox value={value}")
-		proj=self.project(value)
+	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
+	def setQueryLogicBox(self,value,force=False):
+		if not force and value==self.getQueryLogicBox(): return
+		logger.info(f"[{self.id}]::setQueryLogicBox value={value}")
+		proj=self.toPhysic(value) 
 		self.canvas.setViewport(*(proj[0] + proj[1]))
 		self.refresh()
   
 	# getLogicCenter
 	def getLogicCenter(self):
 		pdim=self.getPointDim()  
-		p1,p2=self.getLogicBox()
+		p1,p2=self.getQueryLogicBox()
 		assert(len(p1)==pdim and len(p2)==pdim)
 		return [(p1[I]+p2[I])*0.5 for I in range(pdim)]
 
 	# getLogicSize
 	def getLogicSize(self):
 		pdim=self.getPointDim()
-		p1,p2=self.getLogicBox()
+		p1,p2=self.getQueryLogicBox()
 		assert(len(p1)==pdim and len(p2)==pdim)
 		return [(p2[I]-p1[I]) for I in range(pdim)]
+
+	# setDirection
+	def setDirection(self,dir):
+		super().setDirection(dir)
+		dims=[int(it) for it in self.db.getLogicSize()]
+		self.setQueryLogicBox(([0]*self.getPointDim(),dims))
+		self.refresh()
+  
 
 	# setAccess
 	def setAccess(self, value):
 		self.access=value
 		self.refresh()
 
-	# setDirection
-	def setDirection(self,dir):
-		super().setDirection(dir)
-		dims=[int(it) for it in self.db.getLogicSize()]
-		self.setLogicBox(([0]*self.getPointDim(),dims))
-		self.refresh()
-  
   # gotoPoint
 	def gotoPoint(self,point):
-		logger.info(f"Slice[{self.id}]::gotoPoint point={point}")
+		assert(False) # not sure if point is in physic or logic corrdinates (I think physic)
+		logger.info(f"[{self.id}]::gotoPoint point={point}")
 		pdim=self.getPointDim()
 		# go to the slice
 		if pdim==3:
 			dir=self.getDirection()
 			self.setOffset(point[dir])
 		# the point should be centered in p3d
-		(p1,p2),dims=self.getLogicBox(),self.getLogicSize()
+		(p1,p2),dims=self.getQueryLogicBox(),self.getLogicSize()
 		p1,p2=list(p1),list(p2)
 		for I in range(pdim):
 			p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
-		self.setLogicBox([p1,p2])
-		self.canvas.renderPoints([self.project(point)])
+		self.setQueryLogicBox([p1,p2])
+		self.canvas.renderPoints([self.toPhysic(point)])
   
 	# renderResultIfNeeded
 	def renderResultIfNeeded(self):
@@ -284,9 +202,9 @@ class Slice(Widgets):
 			self.color_bar.color_mapper.low =max(0.0001,low ) if is_log else low
 			self.color_bar.color_mapper.high=max(0.0001,high) if is_log else high
 
-		logger.info(f"Slice[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
+		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
 
-		(x1,y1),(x2,y2)=self.project(logic_box)
+		(x1,y1),(x2,y2)=self.toPhysic(logic_box)
 		self.canvas.setImage(data,x1,y1,x2,y2)
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
@@ -304,13 +222,12 @@ class Slice(Widgets):
 	def pushJobIfNeeded(self):
      
 		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
- 
-		logic_box=self.getLogicBox()
+		query_logic_box=self.getQueryLogicBox()
 		pdim=self.getPointDim()
-		if not self.new_job and str(self.last_logic_box)==str(logic_box):
+		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
 			return
 
-		logger.info(f"pushing new job Slice[{self.id}] {time.time()}...")
+		logger.info(f"[{self.id}] pushing new job query_logic_box={query_logic_box}...")
 
 		# abort the last one
 		self.aborted.setTrue()
@@ -336,7 +253,7 @@ class Slice(Widgets):
 		
 		timestep=self.getTimestep()
 		field=self.getField()
-		box_i=[[int(it) for it in jt] for jt in logic_box]
+		box_i=[[int(it) for it in jt] for jt in query_logic_box]
 		self.widgets.status_bar["request"].value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
 
 		self.query_node.pushJob(
@@ -344,13 +261,13 @@ class Slice(Widgets):
 			access=self.access,
 			timestep=timestep, 
 			field=field, 
-			logic_box=logic_box, 
+			logic_box=query_logic_box, 
 			max_pixels=max_pixels, 
 			num_refinements=num_refinements, 
 			endh=endh, 
 			aborted=self.aborted
 		)
-		self.last_logic_box=logic_box
+		self.last_query_logic_box=query_logic_box
 		self.new_job=False
 
-		logger.info(f"pushed new job Slice[{self.id}]{time.time()}")
+		logger.info(f"[{self.id}] pushed new job query_logic_box={query_logic_box}")

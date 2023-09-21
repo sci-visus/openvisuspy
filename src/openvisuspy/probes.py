@@ -92,43 +92,44 @@ class ProbeTool(Slice):
 			sizing_mode="stretch_both"
 		) 
 
-		# change the offset on the proble plot
+		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
 
 		# probe XY space
 		if True:
 
 			# where the center of the probe (can be set by double click or using this)
-			self.slider_x_pos=Slider(value=0, start=0, end=1, step=1, title="X coordinate", sizing_mode="stretch_width" )
-			self.slider_x_pos .on_change('value_throttled', lambda attr,old, x: self.addProbe())
+			self.slider_x_pos=Slider(value=0.0, start=0.0, end=1.0, step=1.0, title="X coordinate", sizing_mode="stretch_width" )
+			self.slider_x_pos .on_change('value_throttled', lambda attr,old, new: self.addProbe())
 
 			self.slider_y_pos=Slider(value=0, start=0, end=1, step=1, title="Y coordinate", sizing_mode="stretch_width" )
-			self.slider_y_pos .on_change('value_throttled', lambda attr,old, y: self.addProbe())
+			self.slider_y_pos .on_change('value_throttled', lambda attr,old, new: self.addProbe())
 
-			self.slider_num_points=Slider(value=2 , start=1, end=8, step=1, title="# points",width=80)
-			self.slider_num_points.on_change('value_throttled', lambda attr,old, x: self.refreshAllProbes())	
+			self.slider_num_points=Slider(value=2 , start=1, end=8, step=1, title="#points",width=60)
+			self.slider_num_points.on_change('value_throttled', lambda attr,old, new: self.refreshAllProbes())	
 
 		# probe Z space
 		if True:
 
 			# Z range
 			self.slider_z_range = RangeSlider(start=0.0, end=1.0, value=(0.0,1.0), title="Range", sizing_mode="stretch_width")
-			self.slider_z_range.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
+			self.slider_z_range.on_change('value_throttled', lambda attr,old, new: self.refreshAllProbes())
 
 			# Z resolution 
-			self.slider_z_res = Slider(value=21, start=1, end=31, step=1, title="Res", sizing_mode="stretch_width")
-			self.slider_z_res.on_change('value_throttled', lambda attr,old, z: self.refreshAllProbes())
+			self.slider_z_res = Slider(value=21, start=1, end=31, step=1, title="Res", width=80)
+			self.slider_z_res.on_change('value_throttled', lambda attr,old, new: self.refreshAllProbes())
 
 			# Z op
 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
-			self.slider_z_op.on_change("active",lambda attr,old, z: self.refreshAllProbes()) 	
+			self.slider_z_op.on_change("active",lambda attr,old, new: self.refreshAllProbes()) 	
 
 	# isVisible
 	def isVisible(self):
 		return self.probe_layout.visible
 
 	# setVisible
-	def setVisible(self,value):
+	def setVisible(self,value,force=False):
+		if not force and value==self.isVisible(): return
 		self.probe_layout.visible=value
 
 	# toggleShowProbe
@@ -186,13 +187,15 @@ class ProbeTool(Slice):
 				self.removeProbe(probe)
 
 	# setDirection
-	def setDirection(self, dir):
+	def setDirection(self, dir,force=False):
+		if not force and dir==self.getDirection():
+			return
 
 		super().setDirection(dir)
 
 		self.removeAllProbes()
 		pbox=self.getPhysicBox()
-		logger.info(f"physic-box={pbox}")
+		logger.info(f"[{self.id}] physic-box={pbox}")
 
 		(X,Y,Z),titles=self.getLogicAxis()
 
@@ -215,15 +218,16 @@ class ProbeTool(Slice):
 		self.slider_z_range.value = [pbox[Z][0], pbox[Z][1]]
 
 		self.probe_fig.xaxis.axis_label = self.slider_z_range.title
+		self.guessOffset()
 
-		self.setOffset(pbox[Z][0])
 		self.setCurrentButton(0)
 
 		if self.isVisible():
 			self.refreshAllProbes()
 
 	# setOffset
-	def setOffset(self, value):
+	def setOffset(self, value,force=False):
+		if not force and value==self.getOffset(): return
 		super().setOffset(value)
 		for it in self.offset_renderers:
 			RemoveRenderer(self.probe_fig, it)
@@ -253,8 +257,6 @@ class ProbeTool(Slice):
 				self.addProbe(I=I, pos=probe.pos)
 		else:
 			raise Exception("internal Error")
-
-
 
 	# getCurrentButton
 	def getCurrentButton(self):
@@ -372,13 +374,11 @@ class ProbeTool(Slice):
 
 			r=self.canvas.fig.scatter(xs, ys, color= probe.color)
 			probe.target_renderers.append(r)
-			logger.info(f"!!!!!!!!!!! ADDING PROBLE {self.canvas.fig} {r}")
 
 			x1,x2=min(xs),max(xs)
 			y1,y2=min(ys),max(ys)
 			r=self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= probe.color)
 			probe.target_renderers.append(r)
-			logger.info(f"!!!!!!!!!!! ADDING PROBLE {self.canvas.fig} {r}")
 
 		# execute the query
 		access=self.db.createAccess()

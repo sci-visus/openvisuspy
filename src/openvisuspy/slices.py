@@ -66,6 +66,11 @@ class Slices(Widgets):
 		super().stop()
 		super().setNumberOfViews(value)
 
+		# remove old children
+		v=self.children
+		logger.info(f"[{self.id}] deleting old children {[it.id for it in v]}")
+		for it in v: del it
+
 		self.children=[]
 		for I in range(value):
 			child=self.cls(self.slice_show_options) 

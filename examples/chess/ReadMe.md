@@ -60,7 +60,7 @@ See OpenVisus `Docker/group-security`` for details about how to add users
 # Debug dashboard on windows
 
 ```
-
+set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
 python -m bokeh serve examples/dashboards/run.py --dev --args C:\visus_datasets\chess\3scans_HKLI\3scans_HKLI.counts.idx
 ```
 
