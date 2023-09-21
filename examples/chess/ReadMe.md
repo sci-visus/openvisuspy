@@ -247,6 +247,17 @@ Also you can run the dashboard:
 - [DONE] add *axis name*
 - [DONE] colormap looses ticks
 - [DONE] probe working
+
+- [FIXED] 2 views, 2 datasets
+- [FIXED] probe - viewport problem (ratio)
+- [FIXED] remove the targes on show/hide probes
+- [FIXED] add colormap to child Slice
+- [FIXED] offset in logic vs physic coordinates
+- [FIXED] bokeh button stylesheet
+- [TODO] bokeh -export and import status
+- [TODO] TODO: Tabs 1 simple viewer, 2 double dataset, 3 probe 
+
+- 
 ```
 python -m bokeh serve examples/dashboards/app --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
 ```
