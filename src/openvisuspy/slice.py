@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 class Slice(Widgets):
 	
 	# constructor
-	def __init__(self, doc=None, is_panel=False, parent=None, show_options=["palette","timestep","field","direction","offset","viewdep","quality"]):
+	def __init__(self, doc=None, is_panel=False, parent=None):
 
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
+		self.show_options  = ["palette","timestep","field","direction","offset","viewdep","quality"]
 		self.render_id     = 0
 		self.aborted       = Aborted()
 		self.new_job       = False
@@ -25,7 +26,6 @@ class Slice(Widgets):
 		self.options={}
 
 		self.last_query_logic_box = None
-		self.show_options=show_options
 		self.query_node=QueryNode()
 		self.t1=time.time()
 		self.H=None
@@ -35,17 +35,23 @@ class Slice(Widgets):
 		self.canvas.on_resize=self.onCanvasResize
 		self.canvas.enableDoubleTap(self.onDoubleTap)
 
+	# getShowOptions
+	def getShowOptions(self):
+		return self.show_options
+
+	# setShowOptions
+	def setShowOptions(self,value):
+		self.show_options=value
+		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
 
 	# getMainLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getMainLayout(self, first_row_widgets=[]):
+	def getMainLayout(self):
 
-		options=[it.replace("-","_") for it in self.show_options]
-
-		first_row_widgets=[getattr(self.widgets,it) for it in options ] + first_row_widgets
+		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
 
 		ret = Column(
-			Row(*first_row_widgets,sizing_mode="stretch_width"),
+			self.first_row_layout,
 			Row(self.canvas.fig, self.widgets.metadata, sizing_mode='stretch_both'),
 			Row(
 				self.widgets.status_bar["request"],

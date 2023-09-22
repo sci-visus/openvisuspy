@@ -263,6 +263,52 @@ Also you can run the dashboard:
 python -m bokeh serve examples/dashboards/app --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
 ```
 
+
+Example of import-export, maybe a schema could be this:
+
+```
+{
+  "datasets": [
+    {
+      "name" : "name to show in the list box",
+      "url" : "url for loaddataset", 
+      "color-mapper-type": "linear",
+      "quality" : -6,
+      "physic-box": [[-3.0,3.0],[-7.0,7.0],[-7.0,7.0]],
+      "palette": "Viridis256",
+      "palette-range" : [0.0,100.0],
+      "num-views": 1,
+      "timestep": 0,
+      "timestep-delta": 1,
+      "field" : "DATA",
+      "num-refinements" : 2,
+      "view-dep" : true,
+      "show-options" : [["palette","show-probe"],["offset","direction"]],
+
+      "direction" : 2,
+      "offset": 3.1,
+      "viewport" : [[-1.0,1.0],[-3.0,3.0]],
+
+      "children" : [
+
+		],
+
+      "probes": [
+        {
+          "direction": 2,
+          "color": "red",
+          "pos": [1.0,4.0],
+        }
+      ],
+     "metadata" : [
+        {"type": "json-object", "filename": "generated-nsdf-convert.json",  "object": {} },
+        {"type": "b64encode", "filename": "...", "encoded": "xxxxx="}
+      ]
+    }
+  ]
+}
+```
+
 # Setup a new Dashboard Server
 
 ```bash

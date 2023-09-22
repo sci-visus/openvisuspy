@@ -31,11 +31,11 @@ if __name__.startswith('bokeh'):
 		doc=bokeh.io.curdoc()
 		doc.theme = 'light_minimal'
 
-	view=Slices(
-		doc=doc,
-		is_panel=is_panel
-		show_options=["palette","timestep","timestep-delta","field","quality","play-button", "play-sec"],
-		slice_show_options=["direction","offset"])
+	view=Slices(doc=doc, is_panel=is_panel)
+	view.setShowOptions([
+		["palette","timestep","timestep-delta","field","quality","play-button", "play-sec"],
+		["direction","offset"]
+	])
 
 	view.setNumberOfViews(num_views)  
 

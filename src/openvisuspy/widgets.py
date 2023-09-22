@@ -89,6 +89,8 @@ class Widgets:
 		self.logic_to_physic=[(0.0,1.0)]*3
 		self.children=[]
   
+		self.first_row_layout=Row(sizing_mode="stretch_width")
+
 		self.widgets=types.SimpleNamespace()
 
 		# datasets

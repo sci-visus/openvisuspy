@@ -15,31 +15,33 @@ logger = logging.getLogger(__name__)
 class Slices(Widgets):
 
 	# constructor
-	def __init__(self, 
-			doc=None,
-			is_panel=False,
-			parent=None,
-			show_options=["num_views","palette","timestep","field","viewdep","quality"],
-			slice_show_options=["direction","offset","viewdep"],
-			cls=Slice
-		):
+	def __init__(self, doc=None, is_panel=False, parent=None, cls=Slice):
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.cls=cls
-		self.slice_show_options=slice_show_options
-		self.show_options=show_options
+		self.show_options=["num_views","palette","timestep","field","viewdep","quality"]
+		self.slice_show_options=["direction","offset","viewdep"]
 		self.central_layout=Column(sizing_mode='stretch_both')
 
-	
+	# getShowOptions
+	def getShowOptions(self):
+		return [self.show_options,self.slice_show_options]
+
+	# setShowOptions
+	def setShowOptions(self, value):
+		if isinstance(value,tuple) or isinstance(value,list):
+			self.show_options,self.slice_show_options=value
+		else:
+			self.show_otions,self.slice_show_options=value,None
+		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+
 	# getMainLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
 	def getMainLayout(self):
 
-		options=[it.replace("-","_") for it in self.show_options]
-
-		first_row=[getattr(self.widgets,it) for it in options ]
+		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
 
 		ret=Column(
-			Row(*first_row,sizing_mode="stretch_width"),
+			self.first_row_layout,
 			Row(
 				self.central_layout,
 				self.widgets.metadata, 
@@ -83,7 +85,9 @@ class Slices(Widgets):
 
 		self.children=[]
 		for I in range(value):
-			child=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self, show_options=self.slice_show_options) 
+			child=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
+			if self.slice_show_options is not None:
+				child.setShowOptions(self.slice_show_options)
 			self.children.append(child)
   
 		layouts=[it.getMainLayout() for it in self.children]

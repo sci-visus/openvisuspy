@@ -36,8 +36,9 @@ class ProbeTool(Slice):
 	colors = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"] 
 
 	# constructor
-	def __init__(self, doc=None, is_panel=False, parent=None, show_options=["palette","timestep","field","direction","offset","viewdep","quality","show-probe"]):
-		super().__init__(doc=doc, is_panel=is_panel, parent=parent, show_options=show_options)
+	def __init__(self, doc=None, is_panel=False, parent=None):
+		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
+		self.show_options.append("show-probe")
 		self.render_offset=None
 
 		N=len(self.colors)
@@ -193,7 +194,7 @@ class ProbeTool(Slice):
 
 	# getMainLayout
 	def getMainLayout(self):
-		slice_layout=super().getMainLayout(first_row_widgets=[self.widgets.show_probe])
+		slice_layout=super().getMainLayout()
 		self.probe_layout=Column(
 				Row(
 					self.slider_x_pos, 
