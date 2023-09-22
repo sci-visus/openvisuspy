@@ -128,14 +128,16 @@ class Slice(Widgets):
   
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
-		x1,y1,x2,y2=self.canvas.getViewport()
+		(x1,x2),(y1,y2)=self.canvas.getViewport()
 		return self.toLogic([(x1,y1),(x2,y2)])
 
 	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
 	def setQueryLogicBox(self,value,):
 		logger.info(f"[{self.id}]::setQueryLogicBox value={value}")
 		proj=self.toPhysic(value) 
-		self.canvas.setViewport(*(proj[0] + proj[1]))
+		x1,y1=proj[0]
+		x2,y2=proj[1]
+		self.canvas.setViewport([(x1,x2),(y1,y2)])
 		self.refresh()
   
 	# getLogicCenter

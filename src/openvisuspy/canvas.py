@@ -97,18 +97,16 @@ class Canvas:
 	def enableDoubleTap(self,fn):
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: fn(evt.x,evt.y))
 
-	  # getViewport (x1,y1,x2,y2)
+	  # getViewport [[x1,x2],[y1,y2])
 	def getViewport(self):
-
 		return [
-			self.fig.x_range.start, 
-			self.fig.y_range.start,
-			self.fig.x_range.end,
-			self.fig.y_range.end
+			[self.fig.x_range.start, self.fig.x_range.end],
+			[self.fig.y_range.start, self.fig.y_range.end]
 		]
 
 	  # setViewport
-	def setViewport(self,x1,y1,x2,y2):
+	def setViewport(self,value):
+		(x1,x2),(y1,y2)=value
 		if (x2<x1): x1,x2=x2,x1
 		if (y2<y1): y1,y2=y2,y1
 
@@ -126,10 +124,9 @@ class Canvas:
 			x1,y1=cx-w/2,cy-h/2
 			x2,y2=cx+w/2,cy+h/2
 
-		logger.info(f"setViewport {x1} {y1} {x2} {y2} W={W} H={H}")
+		logger.info(f"setViewport x1={x1} x2={x2} y1={y1} y2={y2} W={W} H={H}")
 		self.fig.x_range.start,self.fig.x_range.end=x1,x2
 		self.fig.y_range.start,self.fig.y_range.end=y1,y2
-		
 
 	# renderPoints
 	def renderPoints(self,points, size=20, color="red", marker="cross"):

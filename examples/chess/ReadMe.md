@@ -263,7 +263,6 @@ Also you can run the dashboard:
 python -m bokeh serve examples/dashboards/app --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
 ```
 
-
 Example of import-export, maybe a schema could be this:
 
 ```
@@ -307,6 +306,158 @@ Example of import-export, maybe a schema could be this:
     }
   ]
 }
+```
+
+To add:
+
+```
+
+diff --git a/src/openvisuspy/probes.py b/src/openvisuspy/probes.py
+index f098636..d071b61 100644
+--- a/src/openvisuspy/probes.py
++++ b/src/openvisuspy/probes.py
+@@ -36,8 +36,10 @@ class ProbeTool(Slice):
+ 	colors = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"] 
+ 
+
+ 		N=len(self.colors)
+@@ -96,6 +98,37 @@ class ProbeTool(Slice):
+ 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
+ 			self.slider_z_op.on_change("active",lambda attr,old, new: self.refreshAll()) 	
+ 
++	# getProbes
++	def getProbes(self):
++		ret=[]
++		for dir in range(3):
++			for probe in self.probes[dir]:
++				if probe.pos is not None and probe.enabled:
++					ret.append(
++						{
++							"direction": dir,
++							"pos": probe.pos
++
++							# TODO....not sure this is the right level...
++							# "range" : [self.slider_z_range.start,self.slider_z_range.end],
++							# "res" : self.slider_z_res.value,
++							# "op": self.slider_z_op.value,
++							# "num_points": self.slider_num_points.value
++						}
++					)
++		return ret
++
++	# setProbes
++	def setProbes(self,value):
++		self.disableAllProbes()
++		for it in value:
++			dir,pos,color=it["direction"],it["pos"],it["color"]
++			slot=self.colors.index(color)
++			assert(slot>=0 and slot<len(self.colors))
++			probe=self.probes[dir][slot]
++			probe.pos=pos
++			self.enableProbe(probe)
++		self.updateButtons()
+ 
+ 	# updateButtons
+ 	def updateButtons(self):
+@@ -152,6 +185,12 @@ class ProbeTool(Slice):
+ 		probe.enabled=False
+ 		self.updateButtons()
+ 
++	# disableAllProbes
++	def disableAllProbes(self):
++		for dir in range(3):
++			for probe in self.probes[dir]:
++				self.disableProbe(self)
++	
+
+-  
+ 	# getQueryLogicBox
+ 	def getQueryLogicBox(self):
+-		x1,y1,x2,y2=self.canvas.getViewport()
++		(x1,x2),(y1,y2)=self.canvas.getViewport()
+ 		return self.toLogic([(x1,y1),(x2,y2)])
+ 
+ 	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
+ 	def setQueryLogicBox(self,value,):
+ 		logger.info(f"[{self.id}]::setQueryLogicBox value={value}")
+ 		proj=self.toPhysic(value) 
+-		self.canvas.setViewport(*(proj[0] + proj[1]))
++		x1,y1,x2,y2=proj[0] + proj[1]
++		self.setViewport([[x1,x2],[y1,y2]])
+ 		self.refresh()
+   
+
++
++# getViewport
++def getViewport(self):
++	return self.canvas.getViewport() if self.canvas is not None else [(0,0),(0,0)]
++
++# setViewport
++def setViewport(self,value):
++	self.canvas.setViewport(value) if self.canvas is not None else None
++
+-
+
+"name":name, "url": name }]})
+@@ -351,8 +385,9 @@ class Widgets:
+ 		self.setDirections(axis)
+ 
+ 		# physic box
+-		physic_box=self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+-		physic_box=[(float(physic_box[I]),float(physic_box[I+1])) for I in range(0,pdim*2,2)]
++		default_physic_box=self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
++		default_physic_box=[(float(physic_box[I]),float(physic_box[I+1])) for I in range(0,pdim*2,2)]
++		physic_box=config.get("physic-box", default_physic_box)
+ 		self.setPhysicBox(physic_box)
+ 
+ 		# field
+@@ -364,9 +399,13 @@ class Widgets:
+ 		self.setField(field.name) 
+   
+ 		# direction
+-		self.setDirection(2)
+-		for I,it in enumerate(self.children):
+-			it.setDirection((I % 3) if pdim==3 else 2)
++		direction=config.get("direction",2)
++		self.setDirection(direction)
++
++		# offset
++		offset=config.get("offset",None)
++		if offset is not None:
++			self.setOffset(offset)
+ 
+ 		# palette 
+ 		palette=config.get("palette","Viridis256")
+@@ -399,13 +438,53 @@ class Widgets:
+ 		self.setNumberOfRefinements(num_refinements)
+ 
+ 		# metadata
+-		metadata=config.get("metadata",None)
+-		if metadata:
++		self.setMetadata(config.get("metadata",None))
++
++		# show_options
++		show_options=config.get("show-options",None)
++		if show_options:
++			self.setShowOptions(show_options)
++
++		# num_views
++		num_views=config.get("num-views",None)
++		if num_views:
++			self.setNumberOfViews(num_views)
++
++		# viewport
++		viewport=config.get("viewport",None)
++		if viewport is not None:
++			self.setViewport(viewport)
++
++		# probes
++		probes=config.get("probes",None)
++		if probes is not None:
++			self.setProbes(probes)
++
++		self.refresh() 
++
 ```
 
 # Setup a new Dashboard Server
