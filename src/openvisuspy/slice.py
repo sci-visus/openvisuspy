@@ -38,9 +38,16 @@ class Slice(Widgets):
 
 	# getBokehLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getBokehLayout(self, doc=None, first_row_widgets=[]):
+	def getBokehLayout(self, doc=None, first_row_widgets=[], sizing_mode=None,height=None):
 		import bokeh.io
 		self.doc=bokeh.io.curdoc() if doc is None else doc
+
+		from .utils import IsJupyter
+		if IsJupyter():
+			sizing_mode='stretch_width'
+			if height is None: height=600
+		else:
+			sizing_mode='stretch_both'
 
 		options=[it.replace("-","_") for it in self.show_options]
 
@@ -52,16 +59,16 @@ class Slice(Widgets):
 			Row(
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
-				sizing_mode='stretch_width'),
-			sizing_mode='stretch_both')
+				sizing_mode='stretch_width'
+			),
+			sizing_mode=sizing_mode,
+			height=height)
 
 		if IsPyodide():
 			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
 		else:
 			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
 		self.start()
-
-	
 		return ret
 
 	# onDoubleTap (NOTE: x,y are in physic coords)
@@ -94,6 +101,8 @@ class Slice(Widgets):
 		# not ready for jobs
 		if not self.db:
 			return
+		
+		self.canvas.checkFigureResize()
 
 		# problem in pyodide, I will not get pixel size until I resize the window (remember)
 		if self.canvas.getWidth()<=0 or self.canvas.getHeight()<=0:
@@ -218,8 +227,6 @@ class Slice(Widgets):
 	# pushJobIfNeeded
 	def pushJobIfNeeded(self):
 
-		
-     
 		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
 		query_logic_box=self.getQueryLogicBox()
 		pdim=self.getPointDim()

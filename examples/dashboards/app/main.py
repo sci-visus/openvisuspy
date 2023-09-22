@@ -54,7 +54,7 @@ if __name__.startswith('bokeh'):
 	central=view
 
 	if IsPanelServe():
-		from openvisuspy.app import GetPanelApp
+		from openvisuspy.utils import GetPanelApp
 		main_layout=central.getPanelLayout()
 		app=GetPanelApp(main_layout)
 		app.servable()

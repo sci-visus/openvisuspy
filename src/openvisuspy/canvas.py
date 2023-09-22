@@ -30,28 +30,6 @@ class Canvas:
 		self.last_width=0
 		self.last_height=0
 
-		# huge problems with inner_ thingy ... HTML does not reflect real values
-		# problems here, not getting real-time resizes
-		# https://github.com/bokeh/bokeh/issues/9136
-		# https://github.com/bokeh/bokeh/pull/9308
-		# self.fig.on_change('inner_width' , self.onResize)
-		# self.fig.on_change('inner_height', self.onResize)
-
-		def CheckFigureResize():
-			try:
-				w=self.fig.inner_width
-				h=self.fig.inner_height
-			except:
-				return
-			if not w or not h: return
-			if w==self.last_width and h==self.last_height: return
-			self.last_width =w
-			self.last_height=h
-			self.onResize()
-
-		doc=bokeh.io.curdoc()
-		doc.add_periodic_callback(CheckFigureResize, 1000//10)
-		
 		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=self.color_bar.color_mapper)  
 		self.fig.add_layout(self.color_bar, 'right')
@@ -59,6 +37,27 @@ class Canvas:
 		self.points       = None
 		self.dtype        = None
 		self.color_mapper = self.color_bar.color_mapper
+
+	# checkFigureResize
+	def checkFigureResize(self):
+
+		# huge problems with inner_ thingy ... HTML does not reflect real values
+		# problems here, not getting real-time resizes
+		# https://github.com/bokeh/bokeh/issues/9136
+		# https://github.com/bokeh/bokeh/pull/9308
+		# self.fig.on_change('inner_width' , self.onResize)
+		# self.fig.on_change('inner_height', self.onResize)
+
+		try:
+			w=self.fig.inner_width
+			h=self.fig.inner_height
+		except Exception as ex:
+			return
+		if not w or not h: return
+		if w==self.last_width and h==self.last_height: return
+		self.last_width =w
+		self.last_height=h
+		self.onResize()
 
 	# onResize
 	def onResize(self):

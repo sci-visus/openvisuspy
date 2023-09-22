@@ -29,9 +29,16 @@ class Slices(Widgets):
 	
 	# getBokehLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getBokehLayout(self, doc=None):
+	def getBokehLayout(self, doc=None, num_views=1,sizing_mode=None,height=None):
 		import bokeh.io
 		self.doc=bokeh.io.curdoc() if doc is None else doc
+
+		from .utils import IsJupyter
+		if IsJupyter():
+			sizing_mode='stretch_width'
+			if height is None: height=600
+		else:
+			sizing_mode='stretch_both',
 
 		options=[it.replace("-","_") for it in self.show_options]
 
@@ -44,7 +51,8 @@ class Slices(Widgets):
 				self.widgets.metadata, 
 				sizing_mode='stretch_both'
 			),
-			sizing_mode='stretch_both')
+			sizing_mode=sizing_mode,
+			height=height)
 
 		if IsPyodide():
 			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
@@ -53,7 +61,7 @@ class Slices(Widgets):
 		self.start()
 
 		# this will fill out the central_layout
-		self.setNumberOfViews(1)
+		self.setNumberOfViews(num_views)
 
 		return ret
 

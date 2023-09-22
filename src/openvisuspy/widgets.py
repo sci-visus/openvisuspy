@@ -726,15 +726,23 @@ class Widgets:
 		dir=self.getDirection()
 		dirs=self.getDirections()
 		titles=[it[1] for it in dirs]
+		# print(dir,dirs,titles)
 
 		# this is the projected slice
 		XY=[int(it[0]) for it in dirs]
-		del XY[dir]
+
+		if len(XY)==3:
+			del XY[dir]
+		else:
+			assert(len(XY)==2)
 		X,Y=XY
 
 		# this is the cross dimension
-		Z=int(dirs[dir][0])
-		return (X,Y,Z),(titles[X],titles[Y],titles[Z])
+		Z=2
+		if len(dirs)==3:
+			Z=int(dirs[dir][0])
+			
+		return (X,Y,Z),(titles[X],titles[Y],titles[Z] if len(titles)==3 else 'Z')
 
 	# getOffsetStartEnd
 	def getOffsetStartEnd(self):
@@ -772,10 +780,10 @@ class Widgets:
 
 		# 2d there is no direction 
 		if pdim==2:
-			logging.info(f"[{self.id}]::guessOffset pdim==2calling setOffset({value})")
 			assert dir==2
-			self.setOffsetStartEndStep([0,0,1]) # both extrema included
 			value=0
+			logging.info(f"[{self.id}]::guessOffset pdim==2calling setOffset({value})")
+			self.setOffsetStartEndStep([0,0,1]) # both extrema included
 			self.setOffset(value)
 		else:
 			vt=[self.logic_to_physic[I][0] for I in range(pdim)]
@@ -846,8 +854,8 @@ class Widgets:
 		# scaling/translatation
 		try:
 			ret=[(ret[I]-vt[I])/vs[I] for I in range(pdim)]
-		except:
-			print("Problem here",self.logic_to_physic)
+		except Exception as ex:
+			logger.info(f"Exception {ex} with logic_to_physic={self.logic_to_physic}",self.logic_to_physic)
 			raise
 
 		# unproject

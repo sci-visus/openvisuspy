@@ -43,7 +43,7 @@ if __name__.startswith('bokeh'):
 	view.children[0].guessOffset()
 
 	if IsPanelServe():
-		from openvisuspy.app import GetPanelApp
+		from openvisuspy.utils import GetPanelApp
 		main_layout=view.getPanelLayout()
 		app=GetPanelApp(main_layout)
 		app.servable()
