@@ -1,6 +1,6 @@
 import os,sys,logging,base64,json,types
 import requests
-from requests.auth import HTTPBasicAuth
+
 
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
@@ -27,50 +27,23 @@ if __name__.startswith('bokeh'):
 			cls=cls
 		)
 
-	# can load the config file from remote
-	url=sys.argv[1]
-	if ".json" in url:
+	view.setDataset(sys.argv[1])
 
-		config_filename=sys.argv[1]
-		if config_filename.startswith("http"):
-			username=os.environ.get("MODVISUS_USERNAME","")
-			password=os.environ.get("MODVISUS_PASSWORD","")
-			if username and password:
-				auth=HTTPBasicAuth(username,password) if username else None
-			else:
-				auth=None
-			response = requests.get(config_filename,auth = auth)
-			config=response.json()
-		else:
-			config=json.load(open(sys.argv[1],"r"))
-
-		# print(json.dumps(config,indent=2))
-		view.setConfig(config)
-	else:
-		view.setDataset(url)
-	
-	central=view
-
-	is_panel=IsPanelServe()
-
-	if  is_panel:
+	if  IsPanelServe():
 		import panel as pn
-		doc=None
-	else:
-		import bokeh
-		doc=bokeh.io.curdoc()
-		doc.theme = 'light_minimal'
-
-	main_layout=view.getBokehLayout(doc=doc,is_panel=is_panel)
-
-	if is_panel:
+		main_layout=view.getBokehLayout(doc=None,is_panel=True)
 		use_template=True
 		if use_template:
 			template = pn.template.MaterialTemplate(title='NSDF Dashboard')
 			template.main.append(main_layout)
 			template.servable()
 		else:
-			main_layout.servable()
+			main_layout.servable()		
 	else:
+		import bokeh
+		doc=bokeh.io.curdoc()
+		doc.theme = 'light_minimal'
+		main_layout=view.getBokehLayout(doc=doc,is_panel=False)
 		doc.add_root(main_layout)
+	
 

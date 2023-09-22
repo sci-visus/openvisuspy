@@ -1,6 +1,8 @@
 import os,sys,logging,types,time,copy
 from typing import Any
 import colorcet
+from requests.auth import HTTPBasicAuth
+import requests
 
 from . utils import *
 from . backend import LoadDataset
@@ -306,11 +308,29 @@ class Widgets:
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
 
-		# it's a url for a single dataset: create a minimal config
+		# it's an url
 		if not self.config:
-			self.setConfig({"datasets" : [{"name":name, "url":name }]})
-			return
+			url=name
+			ext=os.path.splitext(url)[1]
 
+			# json file 
+			if ext==".json":
+				if url.startswith("http"):
+					username=os.environ.get("MODVISUS_USERNAME","")
+					password=os.environ.get("MODVISUS_PASSWORD","")
+					if username and password:
+						auth=HTTPBasicAuth(username,password) if username else None
+					else:
+						auth=None
+					response = requests.get(url,auth = auth)
+					config=response.json()
+				else:
+					config=json.load(open(url,"r"))
+				return self.setConfig(config)
+			else:
+				# it's a url for a single dataset: create a minimal config
+				return self.setConfig({"datasets" : [{"name": url, "url": url }]})
+		
 		# rehentrant call
 		if not force and self.current_dataset and self.current_dataset["name"]==name:
 			return 
