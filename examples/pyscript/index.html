@@ -64,8 +64,7 @@ view=Slices()
 view.setDataset(url)
 view.setPalette("Greys256") 
 view.setPaletteRange([0,255])
-main_layout=view.getPanelLayout()
-app=GetPanelApp(main_layout)
+app=view.getBokehLayout(is_panel=True)
 app.servable(target='my_app')
 
 </py-script>

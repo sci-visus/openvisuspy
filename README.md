@@ -50,17 +50,17 @@ export PYTHONPATH=./src;/projects/OpenVisus/build/RelWithDebInfo
 ## Bokeh Dashboards 
 
 ```
-python3 -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --args --single
-python3 -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --args --multi
-python3 -m bokeh serve "examples/dashboards/nasa.py" --dev --address localhost --args --single
+python3 -m bokeh serve "examples/dashboards/app"  --dev --address localhost --args --single
+python3 -m bokeh serve "examples/dashboards/app"  --dev --address localhost --args --multi
+python3 -m bokeh serve "examples/dashboards/nasa" --dev --address localhost --args --single
 ```
 
 Other misc examples:
 
 ```
-python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1" --palette Greys256    --palette-range "[0, 255]"
-python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=1"           --palette Greys256    --palette-range "[0, 255]"
-python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=chess-zip&cached=1"        --palette Viridis256  --palette-range "[-0.017141795, 0.012004322]" --num-views 3 
+python -m bokeh serve "examples/dashboards/app"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=1" --palette Greys256    --palette-range "[0, 255]"
+python -m bokeh serve "examples/dashboards/app"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=1"           --palette Greys256    --palette-range "[0, 255]"
+python -m bokeh serve "examples/dashboards/app"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=chess-zip&cached=1"        --palette Viridis256  --palette-range "[-0.017141795, 0.012004322]" --num-views 3 
 
 ```
 
@@ -86,7 +86,7 @@ python3 -m pip install --upgrade OpenVisus openvisuspy
 
 ```bash
 screen -S chess-probes
-python3  -m bokeh serve examples/dashboards/run.py \
+python3  -m bokeh serve examples/dashboards/app \
     --dev    \
     --address="0.0.0.0"    \
     --port 10933 \
@@ -106,7 +106,7 @@ Foam, Multiple timesteps (range can be changed as needed):
 
 ```bash
 screen -S foam-probes 
-python3  -m bokeh serve examples/dashboards/run.py \
+python3  -m bokeh serve examples/dashboards/app \
     --dev \
     --address="0.0.0.0"    \
     --port 10934 \
@@ -124,15 +124,15 @@ Open `http://chpc3.nationalsciencedatafabric.org:10934/run`
 ## Demo of multiple data sets on one dashboard
 
 ```
-python -m bokeh serve "examples/dashboards/run.py"  --dev --args --dataset  "chess" --palette Viridis256  --palette-range "[-0.017141795, 0.012004322]" --num-views 3
+python -m bokeh serve "examples/dashboards/app"  --dev --args --dataset  "chess" --palette Viridis256  --palette-range "[-0.017141795, 0.012004322]" --num-views 3
 ```
 
 ## Panel Dashboards
 
 ```bash
-python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --args --single
-python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --args --multi
-python -m panel serve "examples/dashboards/nasa.py" --dev --address localhost --args --single
+python -m panel serve "examples/dashboards/app"  --dev --address localhost --args --single
+python -m panel serve "examples/dashboards/app"  --dev --address localhost --args --multi
+python -m panel serve "examples/dashboards/nasa" --dev --address localhost --args --single
 ```
 
 ## Jupyter Notebooks
@@ -179,15 +179,15 @@ It **will not work with S3 cloud-storage blocks**.
 Bokeh dashboards:
 
 ```
-python3 -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py  --single
-python3 -m bokeh serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py  --multi
+python3 -m bokeh serve "examples/dashboards/app"  --dev --address localhost --port 8888 --args --py  --single
+python3 -m bokeh serve "examples/dashboards/app"  --dev --address localhost --port 8888 --args --py  --multi
 ```
 
 Panel dashboards:
 
 ```
-python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --single
-python -m panel serve "examples/dashboards/run.py"  --dev --address localhost --port 8888 --args --py --multi
+python -m panel serve "examples/dashboards/app"  --dev --address localhost --port 8888 --args --py --single
+python -m panel serve "examples/dashboards/app"  --dev --address localhost --port 8888 --args --py --multi
 ```
 
 Jupyter notebooks:

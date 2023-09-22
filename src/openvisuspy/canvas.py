@@ -55,6 +55,15 @@ class Canvas:
 			return
 		if not w or not h: return
 		if w==self.last_width and h==self.last_height: return
+
+		# getting spurious events with marginal changes (in particular with jupyter notebook)
+		# is change too marginal?
+		if True:
+			from .utils import IsJupyter
+			max_diff_pixels=3
+			if IsJupyter() and self.last_width>0 and self.last_height>0 and abs(w-self.last_width)<=max_diff_pixels or abs(h-self.last_height)<max_diff_pixels:
+				return
+
 		self.last_width =w
 		self.last_height=h
 		self.onResize()

@@ -51,8 +51,7 @@ view=Slices()
 view.setDataset(url)
 view.setPalette("Viridis256") 
 view.setPaletteRange([-0.017141795,0.012004322]) 
-main_layout=view.getPanelLayout()
-app=GetPanelApp(main_layout)
+app=view.getBokehLayout(is_panel=True)
 app.servable(target='my_app')
 
 </py-script>

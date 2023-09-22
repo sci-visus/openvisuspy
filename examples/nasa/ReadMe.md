@@ -23,7 +23,8 @@ python3 -m pip install --upgrade OpenVisusNoGui openvisuspy
 python3 -m OpenVisus configure
 python3 -m OpenVisus dirname
 
-curl -o ~/nasa.py "https://raw.githubusercontent.com/sci-visus/openvisuspy/main/examples/dashboards/nasa.py"
+curl -o ~/nasa/__init__.py "https://raw.githubusercontent.com/sci-visus/openvisuspy/main/examples/dashboards/nasa/__init__.py"
+curl -o ~/nasa/main.py     "https://raw.githubusercontent.com/sci-visus/openvisuspy/main/examples/dashboards/nasa/main.py"
 
 screen -S nasa-demo-20tb
 # echo $STY 
@@ -38,12 +39,11 @@ mkdir -p ${VISUS_CACHE}
 export BOKEH_ALLOW_WS_ORIGIN=*
 export BOKEH_LOG_LEVEL=debug
 
-python3 -m panel serve "nasa.py"  \
+python3 -m panel serve "nasa"  \
     --dev \
     --address="0.0.0.0" \
     --port 10888 \
     --args -cpp --single
-
 ```
 
 Check cache by `du -hs ${VISUS_CACHE}`

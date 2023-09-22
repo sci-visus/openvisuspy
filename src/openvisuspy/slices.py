@@ -29,16 +29,20 @@ class Slices(Widgets):
 	
 	# getBokehLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getBokehLayout(self, doc=None, num_views=1,sizing_mode=None,height=None):
-		import bokeh.io
-		self.doc=bokeh.io.curdoc() if doc is None else doc
+	def getBokehLayout(self, doc=None, num_views=1, sizing_mode=None, height=None, is_panel=False):
+
+		if is_panel:
+			import panel as pn
+		else:
+			import bokeh.io
+			self.doc=bokeh.io.curdoc() if doc is None else doc
 
 		from .utils import IsJupyter
 		if IsJupyter():
 			sizing_mode='stretch_width'
 			if height is None: height=600
 		else:
-			sizing_mode='stretch_both',
+			sizing_mode='stretch_both'
 
 		options=[it.replace("-","_") for it in self.show_options]
 
@@ -51,13 +55,20 @@ class Slices(Widgets):
 				self.widgets.metadata, 
 				sizing_mode='stretch_both'
 			),
-			sizing_mode=sizing_mode,
-			height=height)
+			sizing_mode=sizing_mode if not is_panel else 'stretch_both',
+			height=height if not is_panel else None)
 
 		if IsPyodide():
-			AddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
+			self.idle_callbackAddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
+
+		elif is_panel:
+			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
+			self.panel_layout=pn.pane.Bokeh(ret,sizing_mode=sizing_mode, height=height)
+			ret=self.panel_layout
+
 		else:
 			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
+
 		self.start()
 
 		# this will fill out the central_layout

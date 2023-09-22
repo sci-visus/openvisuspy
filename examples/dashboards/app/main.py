@@ -53,16 +53,25 @@ if __name__.startswith('bokeh'):
 	
 	central=view
 
-	if IsPanelServe():
-		from openvisuspy.utils import GetPanelApp
-		main_layout=central.getPanelLayout()
-		app=GetPanelApp(main_layout)
-		app.servable()
+	is_panel=IsPanelServe()
+
+	if  is_panel:
+		import panel as pn
+		doc=None
 	else:
 		import bokeh
 		doc=bokeh.io.curdoc()
-		main_layout=central.getBokehLayout(doc=doc)
-		doc.add_root(main_layout)
 
-	
+	main_layout=view.getBokehLayout(doc=doc,is_panel=is_panel)
+
+	if is_panel:
+		use_template=True
+		if use_template:
+			template = pn.template.MaterialTemplate(title='NSDF Dashboard')
+			template.main.append(main_layout)
+			template.servable()
+		else:
+			main_layout.servable()
+	else:
+		doc.add_root(main_layout)
 

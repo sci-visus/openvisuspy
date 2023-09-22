@@ -202,19 +202,6 @@ class Widgets:
 		for it in self.children:
 			it.stop()		
 
-	# getPanelLayout
-	def getPanelLayout(self):
-		raise Exception("TODO")
-		import panel as pn
-		ret=pn.pane.Bokeh(self.getBokehLayout(),sizing_mode="stretch_both")
-		self.panel_layout=ret
-		if IsPyodide():
-			self.idle_callback=AddAsyncLoop(f"{self}::onIdle (panel)",self.onIdle,1000//30)
-		else:
-			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
-		self.start()
-		return ret
-
 	# onIdle
 	async def onIdle(self):
 
