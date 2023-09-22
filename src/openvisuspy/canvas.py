@@ -48,20 +48,30 @@ class Canvas:
 		# self.fig.on_change('inner_width' , self.onResize)
 		# self.fig.on_change('inner_height', self.onResize)
 
+
 		try:
 			w=self.fig.inner_width
 			h=self.fig.inner_height
 		except Exception as ex:
+			
 			return
-		if not w or not h: return
-		if w==self.last_width and h==self.last_height: return
+		if not w or not h: 
+			return
+		if w==self.last_width and h==self.last_height: 
+			return
 
 		# getting spurious events with marginal changes (in particular with jupyter notebook)
 		# is change too marginal?
 		if True:
 			from .utils import IsJupyter
 			max_diff_pixels=3
-			if IsJupyter() and self.last_width>0 and self.last_height>0 and abs(w-self.last_width)<=max_diff_pixels or abs(h-self.last_height)<max_diff_pixels:
+			if all([
+				IsJupyter(),
+				self.last_width>0,
+				self.last_height>0,
+				abs(w-self.last_width )<=max_diff_pixels,
+				abs(h-self.last_height)<=max_diff_pixels
+			]):
 				return
 
 		self.last_width =w

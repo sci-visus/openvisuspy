@@ -47,7 +47,8 @@ if __name__.startswith('bokeh'):
 	doc=None
 	if not is_panel:
 		import bokeh
-		doc=bokeh.io.curdoc()		
+		doc=bokeh.io.curdoc()
+		doc.theme = 'light_minimal'
 
 	main_layout=view.getBokehLayout(is_panel=is_panel)
 

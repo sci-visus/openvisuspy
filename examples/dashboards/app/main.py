@@ -26,8 +26,6 @@ if __name__.startswith('bokeh'):
 			slice_show_options=["datasets", "direction", "offset", "colormapper_type", "palette_range_mode","palette_range_vmin","palette_range_vmax"],
 			cls=cls
 		)
-		import bokeh.io
-		bokeh.io.curdoc().theme = 'light_minimal'
 
 	# can load the config file from remote
 	url=sys.argv[1]
@@ -61,6 +59,7 @@ if __name__.startswith('bokeh'):
 	else:
 		import bokeh
 		doc=bokeh.io.curdoc()
+		doc.theme = 'light_minimal'
 
 	main_layout=view.getBokehLayout(doc=doc,is_panel=is_panel)
 
