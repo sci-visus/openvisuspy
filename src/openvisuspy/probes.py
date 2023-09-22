@@ -23,9 +23,9 @@ class Probe:
 	# constructor
 	def __init__(self):
 		self.pos=None
+		self.enabled=True
 
 		# run-time
-		self.last_pos=None
 		self.y_range=[0.0,0.0]
 		self.renderers=[]
 
@@ -103,6 +103,7 @@ class ProbeTool(Slice):
 		logger.info(f"[{self.id}] updateButtons self.slot={self.slot}")
 		
 		dir=self.getDirection()
+
 		for slot, button in enumerate(self.buttons):
 			color=self.colors[slot]
 			probe=self.probes[dir][slot]
@@ -110,9 +111,10 @@ class ProbeTool(Slice):
 			css=[".bk-btn-default {"]
 
 			if slot==self.slot:
-				css.append("border: 1px solid black;")
+				css.append("font-weight: bold;")
+				css.append("border: 2px solid black;")
 
-			if probe.renderers or slot==self.slot:
+			if slot==self.slot or (probe.pos is not None and probe.enabled):
 				css.append("background-color: " + color + " !important;")
 
 			css.append("}")
@@ -128,35 +130,36 @@ class ProbeTool(Slice):
 		dir=self.getDirection()
 		slot=self.slot
 		probe=self.probes[dir][slot]
-		pos=(self.slider_x_pos.value,self.slider_y_pos.value)
-		self.addRenderers(dir=dir,slot=slot,pos=pos)
+		probe.pos=(self.slider_x_pos.value,self.slider_y_pos.value)
+		self.enableProbe(probe)
 
 	# removeRenderers
-	def removeRenderers(self, dir, slot):
-		probe=self.probes[dir][slot]
-		if probe.pos is not None:
-			probe.last_pos=probe.pos
-		probe.pos=None
+	def removeRenderers(self,probe):
 		for fig,r in probe.renderers:
 			if r in fig.renderers:
 				fig.renderers.remove(r)
-		probe.renderers=[]
+		probe.renderers=[]	
 
-	# removeAll
-	def removeAll(self):
+	# removeAllRenderers
+	def removeAllRenderers(self):
 		for dir in range(3):
-			for slot in range(len(self.buttons)):
-				self.removeRenderers(dir, slot)
-		self.updateButtons()
+			for probe in self.probes[dir]:
+				self.removeRenderers(probe)
 
+	# disableProbe
+	def disableProbe(self, probe):
+		self.removeRenderers(probe)
+		probe.enabled=False
+		self.updateButtons()
+	
 	# refreshAll
 	def refreshAll(self):
-		self.removeAll()
-		if not self.isVisible(): return
-		dir=self.getDirection()
-		for slot,probe in enumerate(self.probes[dir]):
-			if probe.pos is not None:
-				self.addRenderers(dir=dir, slot=slot, pos=probe.pos) 
+		dir=self.getDirection() # only in current direction
+		self.removeAllRenderers()
+		if self.isVisible():
+			for slot,probe in enumerate(self.probes[dir]):
+				if probe.pos is not None and probe.enabled:
+					self.enableProbe(probe)
 
 	# isVisible
 	def isVisible(self):
@@ -176,7 +179,11 @@ class ProbeTool(Slice):
 	def onDoubleTap(self,x,y):
 		logger.info(f"onDoubleTap x={x} y={y}")
 		dir=self.getDirection()
-		self.addRenderers(dir=dir, slot=self.slot, pos=(x,y))
+		slot=self.slot
+		if slot is None: slot=0
+		probe=self.probes[dir][slot]
+		probe.pos=[x,y]
+		self.enableProbe(probe)
 
 	# setDataset
 	def setDataset(self, url,db=None, force=False):
@@ -254,38 +261,34 @@ class ProbeTool(Slice):
 	def onButtonClick(self, slot):
 		dir=self.getDirection()
 		probe=self.probes[dir][slot]
-		logger.info(f"[{self.id}] onButtonClick slot={slot} self.slot={self.slot} probe.last_pos={probe.last_pos}")
+		logger.info(f"[{self.id}] onButtonClick slot={slot} self.slot={self.slot} probe.pos={probe.pos} probe.enabled={probe.enabled}")
 		
+		# when I click on the same slot, I am disabling the probe
 		if self.slot==slot:
-			self.removeRenderers(dir,slot)
+			self.disableProbe(probe)
 			self.slot=None
-
 		else:
-			if probe.renderers:
-				pass
-			else:
-				if probe.last_pos is not None:
-					self.addRenderers(dir=dir, slot=slot, pos=probe.last_pos)
+			# when I click on a new slot..
 			self.slot=slot
+
+			# automatically enable a disabled probe
+			if not probe.enabled and probe.pos is not None:
+				self.enableProbe(probe)
 
 		self.updateButtons()
 
+	# findProbe
+	def findProbe(self,probe):
+		for dir in range(3):
+			for slot in range(len(self.colors)):
+				if self.probes[dir][slot]==probe:
+					return dir,slot
+		return None
+
 	# addRenderers
-	def addRenderers(self, dir=None, slot=None, pos=None):
+	def addRenderers(self, probe):
 		
-		if dir is None: 
-			dir=self.getDirection()
-
-		if slot is None:
-			slot=self.slot
-			if slot is None: slot=0
-
-		logger.info(f"addRenderers dir={dir} slot={slot} pos={pos}")
-
-		x,y=pos
-		probe=self.probes[dir][slot]
-		probe.pos = [x,y]
-		self.removeRenderers(dir, slot)
+		dir,slot=self.findProbe(probe)
 
 		vt=[self.logic_to_physic[I][0] for I in range(3)]
 		vs=[self.logic_to_physic[I][1] for I in range(3)]
@@ -306,7 +309,8 @@ class ProbeTool(Slice):
 
 		# __________________________________________________________
 		# here is all in physical coordinates
-
+		assert(probe.pos is not None)
+		x,y=probe.pos
 		z1,z2=self.slider_z_range.value
 		p1=(x,y,z1)
 		p2=(x,y,z2)
@@ -337,7 +341,7 @@ class ProbeTool(Slice):
 
 		P1=PhysicToLogic(p1)
 		P2=PhysicToLogic(p2)
-		print(P1,P2)
+		# print(P1,P2)
 
 		# align to the bitmask
 		num_points=self.slider_num_points.value
@@ -421,7 +425,15 @@ class ProbeTool(Slice):
 
 		probe.y_range=[np.min(data),np.max(data)]
 		self.probe_fig.y_range.start=min([probe.y_range[0] for probe in self.probes[dir] if probe.renderers])
-		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.renderers])
+		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.renderers])		
+
+	# enableProbe
+	def enableProbe(self, probe):
+		dir,slot=self.findProbe(probe)
+		logger.info(f"enableProbe dir={dir} slot={slot} probe.pos={probe.pos}")
+		self.removeRenderers(probe)
+		probe.enabled = True
+		self.addRenderers(probe)
 		self.updateButtons()
 
 
