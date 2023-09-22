@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 class Slice(Widgets):
 	
 	# constructor
-	def __init__(self,show_options=["palette","timestep","field","direction","offset","viewdep","quality"]):
+	def __init__(self, doc=None, is_panel=False, parent=None, show_options=["palette","timestep","field","direction","offset","viewdep","quality"]):
 
-		super().__init__()
+		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.render_id     = 0
 		self.aborted       = Aborted()
 		self.new_job       = False
@@ -36,15 +36,9 @@ class Slice(Widgets):
 		self.canvas.enableDoubleTap(self.onDoubleTap)
 
 
-	# getBokehLayout 
+	# getMainLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getBokehLayout(self, doc=None, first_row_widgets=[], is_panel=False):
-
-		if not is_panel:
-			import bokeh.io
-			self.doc=bokeh.io.curdoc() if doc is None else doc
-		else:
-			import panel as pn
+	def getMainLayout(self, first_row_widgets=[]):
 
 		options=[it.replace("-","_") for it in self.show_options]
 
@@ -63,14 +57,18 @@ class Slice(Widgets):
 		if IsPyodide():
 			self.idle_callback=AddAsyncLoop(f"{self}::onIdle",self.onIdle,1000//30)
 
-		elif not is_panel:
+		elif self.is_panel:
+			import panel as pn
+			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
+
+			# i should return some panel
+			if self.parent is None:
+				self.panel_layout=pn.pane.Bokeh(ret,sizing_mode="stretch_both")
+				ret=self.panel_layout
+
+		else:
 			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
 			
-		else:
-			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
-			self.panel_layout=pn.pane.Bokeh(ret,sizing_mode="stretch_both")
-			ret=self.panel_layout
-
 		self.start()
 		return ret
 

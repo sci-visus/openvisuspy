@@ -22,7 +22,18 @@ if __name__.startswith('bokeh'):
 	logger=SetupLogger()
 	logger.info(f"GetBackend()={GetBackend()}")
 
+	is_panel=IsPanelServe()
+	if is_panel:
+		import panel as pn
+		doc=None
+	else:
+		import bokeh
+		doc=bokeh.io.curdoc()
+		doc.theme = 'light_minimal'
+
 	view=Slices(
+		doc=doc,
+		is_panel=is_panel
 		show_options=["palette","timestep","timestep-delta","field","quality","play-button", "play-sec"],
 		slice_show_options=["direction","offset"])
 
@@ -42,15 +53,7 @@ if __name__.startswith('bokeh'):
 	view.children[0].setDirection(2)
 	view.children[0].guessOffset()
 
-	is_panel=IsPanelServe()
-
-	doc=None
-	if not is_panel:
-		import bokeh
-		doc=bokeh.io.curdoc()
-		doc.theme = 'light_minimal'
-
-	main_layout=view.getBokehLayout(is_panel=is_panel)
+	main_layout=view.getMainLayout()
 
 	if is_panel:
 		main_layout.servable()

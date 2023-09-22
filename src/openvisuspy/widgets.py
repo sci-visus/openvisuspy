@@ -67,8 +67,18 @@ class Widgets:
 	ID=0
 
 	# constructor
-	def __init__(self):
-   
+	def __init__(self,doc=None, is_panel=False, parent=None):
+
+		if doc is None and not is_panel:
+			import bokeh.io
+			doc=bokeh.io.curdoc()
+
+		assert(not isinstance(doc,list))
+
+		self.is_panel=is_panel
+		self.doc=doc
+		self.parent=parent
+
 		self.id=f"{type(self).__name__}/{Widgets.ID}"
 		Widgets.ID+=1
 		self.config=None
@@ -115,7 +125,7 @@ class Widgets:
 			return slider
   
 		# num_views
-		self.widgets.num_views=Select(title='#Views',  options=["1","2","3","4"],value='3')
+		self.widgets.num_views=Select(title='#Views',  options=["1","2","3","4"],value='1')
 		self.widgets.num_views.on_change("value",lambda attr, old, new: self.setNumberOfViews(int(new))) 
  
 		# timestep

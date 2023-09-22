@@ -47,11 +47,11 @@ import panel as pn
 pn.extension(sizing_mode='stretch_both')
 
 url="https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1"
-view=Slices()
+view=Slices(is_panel=True)
 view.setDataset(url)
 view.setPalette("Greys256") 
 view.setPaletteRange([0,255])
-app=view.getBokehLayout(is_panel=True)
+app=view.getMainLayout()
 app.servable(target='my_app')
 
 </py-script>

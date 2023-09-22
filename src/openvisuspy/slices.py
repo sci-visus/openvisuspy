@@ -16,26 +16,23 @@ class Slices(Widgets):
 
 	# constructor
 	def __init__(self, 
+			doc=None,
+			is_panel=False,
+			parent=None,
 			show_options=["num_views","palette","timestep","field","viewdep","quality"],
 			slice_show_options=["direction","offset","viewdep"],
 			cls=Slice
 		):
-		super().__init__()
+		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.cls=cls
 		self.slice_show_options=slice_show_options
 		self.show_options=show_options
 		self.central_layout=Column(sizing_mode='stretch_both')
 
 	
-	# getBokehLayout 
+	# getMainLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getBokehLayout(self, doc=None, is_panel=False):
-
-		if is_panel:
-			import panel as pn
-		else:
-			import bokeh.io
-			self.doc=bokeh.io.curdoc() if doc is None else doc
+	def getMainLayout(self):
 
 		options=[it.replace("-","_") for it in self.show_options]
 
@@ -53,10 +50,12 @@ class Slices(Widgets):
 		if IsPyodide():
 			self.idle_callbackAddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
 
-		elif is_panel:
+		elif self.is_panel:
+			import panel as pn
 			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
-			self.panel_layout=pn.pane.Bokeh(ret,sizing_mode='stretch_both')
-			ret=self.panel_layout
+			if self.parent is None:
+				self.panel_layout=pn.pane.Bokeh(ret,sizing_mode='stretch_both')
+				ret=self.panel_layout
 
 		else:
 			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
@@ -84,10 +83,10 @@ class Slices(Widgets):
 
 		self.children=[]
 		for I in range(value):
-			child=self.cls(self.slice_show_options) 
+			child=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self, show_options=self.slice_show_options) 
 			self.children.append(child)
   
-		layouts=[it.getBokehLayout() for it in self.children]
+		layouts=[it.getMainLayout() for it in self.children]
 		if value<=2:
 			self.central_layout.children=[
 				Row(*layouts, sizing_mode='stretch_both')
