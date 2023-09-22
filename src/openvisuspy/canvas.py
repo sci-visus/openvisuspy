@@ -64,7 +64,7 @@ class Canvas:
 		# is change too marginal?
 		if True:
 			from .utils import IsJupyter
-			max_diff_pixels=3
+			max_diff_pixels=5
 			if all([
 				IsJupyter(),
 				self.last_width>0,

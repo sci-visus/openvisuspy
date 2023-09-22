@@ -29,7 +29,7 @@ class Slices(Widgets):
 	
 	# getBokehLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getBokehLayout(self, doc=None, num_views=1, sizing_mode=None, height=None, is_panel=False):
+	def getBokehLayout(self, doc=None, sizing_mode=None, height=None, is_panel=False):
 
 		if is_panel:
 			import panel as pn
@@ -72,7 +72,7 @@ class Slices(Widgets):
 		self.start()
 
 		# this will fill out the central_layout
-		self.setNumberOfViews(num_views)
+		self.setNumberOfViews(self.getNumberOfViews())
 
 		return ret
 
