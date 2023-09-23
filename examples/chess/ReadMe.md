@@ -518,19 +518,31 @@ python3 -m bokeh serve "examples/dashboards/app" --allow-websocket-origin="*" --
 
 # CHESS Metadata
 
+
+
 - `"DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"` **500 files**
 
 ```
-kinit -c krb5_ccache $USER 
+kinit -f gscorzelli
+ldapsearch sAMAccountName=$USER -LLL msDS-KeyVersionNumber 2>/dev/null | grep KeyVersionNumber | awk '{print $2}'
+ktutil
+addent -password -p gscorzelli@CLASSE.CORNELL.EDU -k KVNO -e aes256-cts-hmac-sha1-96
+# type gscorzelli
+# type <password>
+# type wkt /home/USER/krb5_keytab
+# type quit
+ls -la ~/krb5_keytab
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache  -uri https://chessdata.classe.cornell.edu:8244 -query="pi:verberg"  | jq
 
 # example
-/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"technique": "tomography"}' |  jq  
+/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"technique": "tomography"}' |  jq  
 
 # EMPTY, problem here?
-/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"_id" : "65032a84d2f7654ee374db59"}' |  jq
+/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"_id" : "65032a84d2f7654ee374db59"}' |  jq
 
 # OK
-/nfs/chess/sw/chessdata/chess_client -krbFile krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"Description" : "Test for Kate"}' | jq
+/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"Description" : "Test for Kate"}' | jq
 ```
 
 
