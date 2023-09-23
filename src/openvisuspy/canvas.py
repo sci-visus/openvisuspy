@@ -64,10 +64,10 @@ class Canvas:
 		# is change too marginal?
 		if True:
 			from .utils import IsJupyter
-			max_x=self.last_width *0.02 # 2% variation
-			max_y=self.last_height*0.02
+			max_x=self.last_width *0.05 # 5% variation
+			max_y=self.last_height*0.05
 			if all([
-				IsJupyter(),
+				# IsJupyter(),
 				self.last_width>0,
 				self.last_height>0,
 				abs(w-self.last_width )<=max_x,
@@ -75,7 +75,7 @@ class Canvas:
 			]):
 				return
 
-		# print("***RESIZE",self.last_width,self.last_height,w,h)
+		print("***!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! RESIZE",self.last_width,self.last_height,w,h)
 		self.last_width =w
 		self.last_height=h
 		self.onResize()
