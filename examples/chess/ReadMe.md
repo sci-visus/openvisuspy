@@ -85,8 +85,8 @@ python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE}
 python examples/chess/convert.py init-db
 
 # MANUAL OPERATION
-# Add this to ${MODVISUS_CONFIG} 
-# <include url='${NSDF_CONVERT_MODVISUS_CONFIG}' />
+# Add this to ${MODVISUS_CONFIG} (do not remove the group, otherwise it will not work)
+# <group name="${NSDF_CONVERT_MODVISUS_CONFIG}"><include url='/mnt/data1/nsdf-convert-workflow/${NSDF_CONVERT_MODVISUS_CONFIG}/visus.config' /></group> 
 
 
 sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} ".schema"
