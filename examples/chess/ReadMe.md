@@ -70,7 +70,7 @@ python -m panel serve examples/dashboards/app --dev --args C:\visus_datasets\che
 Open **two terminals** on the NSDF entrypoint and type:
 
 ```bash
-NSDF_CONVERT_GROUP=test-group
+NSDF_CONVERT_GROUP=test-group-2
 source examples/chess/setup.sh
 ```
 
@@ -81,12 +81,14 @@ rm -Rf ${NSDF_CONVERT_DATA}
 rm -f ${NSDF_CONVERT_GROUP_CONFIG}
 mkdir -p ${NSDF_CONVERT_DATA}
 touch ${NSDF_CONVERT_MODVISUS_CONFIG}
-
-# MANUAL OPERATION
-echo "Add this to ${MODVISUS_CONFIG} : <include url='${NSDF_CONVERT_MODVISUS_CONFIG}' />"
-
 python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE}
 python examples/chess/convert.py init-db
+
+# MANUAL OPERATION
+# Add this to ${MODVISUS_CONFIG} 
+# <include url='${NSDF_CONVERT_MODVISUS_CONFIG}' />
+
+
 sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} ".schema"
 sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets"
 
@@ -104,6 +106,9 @@ In terminal 2, convert an **image-stack**:
 
 ```bash
 
+# for CHESS metadata
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+
 DATASET_NAME=example-tiff-image-stack
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
    'group': '${NSDF_CONVERT_GROUP}',
@@ -113,8 +118,7 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    'compression':'zip',
    'arco':'1mb',
    'metadata': [
-      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json'},
-      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par' }
+      {'type': 'chess-metadata', 'query': {'technique': 'tomography'} }, 
    ]}"
 ```
 
@@ -130,7 +134,10 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    'dst':'${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx',
    'compression':'zip',
    'arco':'1mb',
-   'metadata': []}"
+   'metadata': [
+      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json'},
+      {'type': 'file', 'path':'/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par' },
+   ]}"
 ```
 
 Add **NEXUS reduced** example:
@@ -519,8 +526,7 @@ python3 -m bokeh serve "examples/dashboards/app" --allow-websocket-origin="*" --
 # CHESS Metadata
 
 
-
-- `"DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"` **500 files**
+Once only:
 
 ```
 kinit -f gscorzelli
@@ -529,9 +535,13 @@ ktutil
 addent -password -p gscorzelli@CLASSE.CORNELL.EDU -k KVNO -e aes256-cts-hmac-sha1-96
 # type gscorzelli
 # type <password>
-# type wkt /home/USER/krb5_keytab
+# type wkt /home/gscorzelli/krb5_keytab
 # type quit
 ls -la ~/krb5_keytab
+```
+
+Then you can run the queries 
+```
 kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
 /nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache  -uri https://chessdata.classe.cornell.edu:8244 -query="pi:verberg"  | jq
 
@@ -545,6 +555,23 @@ kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
 /nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"Description" : "Test for Kate"}' | jq
 ```
 
+You can use the python client https://github.com/CHESSComputing/chessdata-pyclient`:
+
+```
+python -m pip install chessdata-pyclient
+
+# modified /mnt/data1/nsdf/miniforge3/envs/my-env/lib/python3.9/site-packages/chessdata/__init__.py added at line 49 `verify=False`
+# otherwise I need a certificate `export REQUESTS_CA_BUNDLE=`
+
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+
+python 
+from chessdata import query, insert
+records = query('{"technique":"tomography"}')
+print(records)
+
+insert('record.json', 'test')
+```
 
 ## Debug Bokeh problems
 

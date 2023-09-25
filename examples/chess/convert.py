@@ -380,23 +380,47 @@ def SetupLogger(filename):
 
 
 # ///////////////////////////////////////////////////////////////////
-def LocalFileToMetadata(metadata, filename):
-	try:
-		ext=os.path.splitext(filename)[1]
-		with open(filename,mode='rb') as f:
-			body=f.read()
+def LoadMetadataFromFile(filename):
+	
+	ext=os.path.splitext(filename)[1]
+	with open(filename,mode='rb') as f:
+		body=f.read()
 
-		if ext==".json":
-			item={'type':'json-object','filename': filename, 'object': json.loads(body)}
-		else:
-			encoded=base64.b64encode(body).decode('ascii') # this should work with streamable nexus data too! or any binary file not too big (i.e. without big 3d data )
-			item={'type':'b64encode','filename' : filename,'encoded': encoded}
-		logger.info(f"Read metadata type={type} filename={filename} ext={ext} body_c_size={len(body)}")
-		metadata.append(item)
+	if ext==".json":
+		item={
+			'type':'json-object',
+			'filename': filename, 
+			'object': json.loads(body)
+		}
+	else:
+		encoded=base64.b64encode(body).decode('ascii') # this should work with streamable nexus data too! or any binary file not too big (i.e. without big 3d data )
+		item={
+			'type':'b64encode',
+			'filename' : filename,
+			'encoded': encoded
+		}
+	logger.info(f"Read metadata type={type} filename={filename} ext={ext} body_c_size={len(body)}")
+	return item
 
-	except Exception as ex:
-		logger.info(f"Reading of metadata {filename} failed {ex}. Skipping it")
 
+# ///////////////////////////////////////////////////////////////////
+def LoadMetadataFromChess(q):
+	"""
+	python -m pip install chessdata-pyclient
+
+	# modified /mnt/data1/nsdf/miniforge3/envs/my-env/lib/python3.9/site-packages/chessdata/__init__.py added at line 49 `verify=False`
+	# otherwise I need a certificate `export REQUESTS_CA_BUNDLE=`
+	"""
+	import chessdata 
+	records = chessdata.query(q)
+	logger.info(f"Read metadata from CHESS query={q} #records={len(records)}")
+
+	return {
+		'type':'json-object',
+		'filename': '/dev/null', 
+		'query'   : q,
+		'records' : records,
+	}
 
 # ///////////////////////////////////////////////////////////////////
 def Touch(filename):
@@ -500,9 +524,20 @@ if __name__ == "__main__":
 			metadata=[]
 			for it in json.loads(row["metadata"]):
 				type=it['type']
-				assert(type=="file") # TODO other cases
-				filename=it['path']
-				LocalFileToMetadata(metadata,filename)
+				if type=="file":
+					filename=it['path']
+					try:
+						metadata.append(LoadMetadataFromFile(filename))
+					except Exception as ex:
+						logger.info(f"LoadMetadataFromFile filename={filename} failed {ex}. Skipping it")
+				elif type=="chess-metadata":
+					query=it['query']
+					try:
+						metadata.append(LoadMetadataFromChess(query))
+					except Exception as ex:
+						logger.info(f"LoadMetadataFromChess query={q} failed {ex}. Skipping it")
+				else:
+					raise Exception("todo")
 
 			if True:
 					# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
@@ -538,11 +573,15 @@ if __name__ == "__main__":
 				"name" : f"{group_name}/{dataset_name}", # for displaying
 				"url" : converted_url_template.format(group=group_name, name=dataset_name),
 				"color-mapper-type":"log",
-				"metadata" : metadata + [{'type':'json-object', 'filename': 'generated-nsdf-convert.json',  'object' : {k:str(v) for k,v in row.items() if k!="metadata"}}]
+				"metadata" : metadata + [{
+					'type':'json-object', 
+					'filename': 'generated-nsdf-convert.json',  
+					'object' : {k:str(v) for k,v in row.items() if k!="metadata"}
+				}]
 			})		
 
-			with open(group_config_filename,"w") as f:
-				json.dump(group_config,f, indent=2)
+			with open(group_config_filename,"w") as fp:
+				json.dump(group_config, fp, indent=2)
 				logger.info(f"Saved group config to filename={group_config_filename}")
 
 			# this sets the conversion_done with is needed for visus config generation
