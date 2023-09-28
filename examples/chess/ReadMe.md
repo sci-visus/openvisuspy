@@ -61,8 +61,10 @@ See OpenVisus `Docker/group-security`` for details about how to add users
 
 ```
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
-python -m bokeh serve examples/dashboards/app --dev --args C:\visus_datasets\chess\3scans_HKLI\3scans_HKLI.counts.idx
-python -m panel serve examples/dashboards/app --dev --args C:\visus_datasets\chess\3scans_HKLI\3scans_HKLI.counts.idx
+set MODVISUS_USERNAME=xxxxx
+set MODVISUS_PASSWORD=yyyyy
+python -m bokeh serve examples/dashboards/app --dev --args C:\big\visus_datasets\3scans_HKLI\3scans_HKLI.counts.idx
+python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group-2.json"
 ```
 
 # Run NSDF Convert Workflow
