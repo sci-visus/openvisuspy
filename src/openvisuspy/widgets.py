@@ -65,6 +65,8 @@ class Widgets:
 
 	ID=0
 
+	epsilon=0.001
+
 	# constructor
 	def __init__(self,doc=None, is_panel=False, parent=None):
 
@@ -651,7 +653,7 @@ class Widgets:
 	def getColorMapperType(self):
 		return "log" if isinstance(self.color_bar.color_mapper,LogColorMapper) else "linear"
 
-	# getColorMapperType
+	# setColorMapperType
 	def setColorMapperType(self,value):
 
 		assert value=="linear" or value=="log"
@@ -661,7 +663,7 @@ class Widgets:
 		self.widgets.colormapper_type.value=value
 
 		if value=="log":
-			self.color_bar.color_mapper = LogColorMapper(palette=palette, low =max(0.01,vmin), high=max(0.01,vmax)) 
+			self.color_bar.color_mapper = LogColorMapper(palette=palette, low =max(self.epsilon,vmin), high=max(self.epsilon,vmax)) 
 			self.color_bar.ticker=LogTicker()
 		else:
 			self.color_bar.color_mapper = LinearColorMapper(palette=palette, low =vmin, high=vmax)

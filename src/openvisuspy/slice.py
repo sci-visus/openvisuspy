@@ -220,8 +220,8 @@ class Slice(Widgets):
 			low,high=self.getPaletteRange()
 			is_log=isinstance(self.color_bar.color_mapper, LogColorMapper)
 			if is_log:
-				low=max(0.0001,low )
-				high=max(0.0001,high)
+				low =max(self.epsilon,low )
+				high=max(self.epsilon,high)
 
 			self.color_bar.color_mapper.low = low
 			self.color_bar.color_mapper.high= high

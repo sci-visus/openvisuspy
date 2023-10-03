@@ -70,8 +70,8 @@ class ProbeTool(Slice):
 
 		self.probe_fig = bokeh.plotting.figure(
 			title=None, 
-			x_axis_label="Z", 
-			y_axis_label="f", 
+			x_axis_label="Z", x_axis_type ="linear",
+			y_axis_label="f", y_axis_type ="log",
 			toolbar_location=None, 
 			x_range = [0.0,1.0], 
 			y_range = [0.0,1.0], 
@@ -101,7 +101,7 @@ class ProbeTool(Slice):
 
 			# Z range
 			self.slider_z_range = RangeSlider(start=0.0, end=1.0, value=(0.0,1.0), title="Range", sizing_mode="stretch_width")
-			self.slider_z_range.on_change('value_throttled', lambda attr,old, new: self.recomputeProbes())
+			self.slider_z_range.on_change('value_throttled', lambda attr,old, new: self.recompute())
 
 			# Z resolution 
 			self.slider_z_res = Slider(value=24, start=1, end=31, step=1, title="Res", width=80)
@@ -125,6 +125,7 @@ class ProbeTool(Slice):
 	def onProbeXYChange(self):
 		dir=self.getDirection()
 		slot=self.slot
+		if slot is None: return
 		probe=self.probes[dir][slot]
 		probe.pos=(self.slider_x_pos.value,self.slider_y_pos.value)
 		self.addProbe(probe)
@@ -171,9 +172,10 @@ class ProbeTool(Slice):
 					self.slider_z_op, 
 					self.slider_z_res, 
 					self.slider_num_points,
-					sizing_mode="stretch_width"),
-				Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+					sizing_mode="stretch_width"
+				),
 				self.probe_fig_col,
+				Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
 				sizing_mode="stretch_both"
 			)
 		self.probe_layout.visible=False
@@ -382,10 +384,15 @@ class ProbeTool(Slice):
 			if op=="*":
 				ys=[it for it in ys]
 
+
 			for it in ys:
+				if self.getColorMapperType()=="log":
+					it=[max(self.epsilon,value) for value in it]
 				self.renderers[probe]["fig"].append(self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
 		self.refresh()	
+
+
 
 
 	# removeProbe
@@ -399,33 +406,6 @@ class ProbeTool(Slice):
 		self.renderers[probe]["fig"]=[]
 
 		probe.enabled=False
-		self.refresh()
-
-	# recompute
-	def recompute(self):
-
-		visible=self.isVisible()
-		logger.info(f"\n\n\n RECOMPUTE PROBES visible={visible}")
-
-		# remove all old probes
-		was_enabled={}
-		for dir in range(3):
-			for probe in self.probes[dir]:
-				was_enabled[probe]=probe.enabled
-				self.removeProbe(probe)
-
-		# restore enabled
-		for dir in range(3):
-			for probe in self.probes[dir]:
-				probe.enabled=was_enabled[probe]
-
-		# add the probes only if sibile
-		if visible:
-			dir=self.getDirection()
-			for slot,probe in enumerate(self.probes[dir]):
-				if probe.pos is not None and probe.enabled:
-					self.addProbe(probe)
-
 		self.refresh()
 
 
@@ -467,8 +447,8 @@ class ProbeTool(Slice):
 
 		# Y axis
 		if True:
-			self.probe_fig.y_range.start = 0.0001 # self.color_bar.color_mapper.low
-			self.probe_fig.y_range.end   = 8 # self.color_bar.color_mapper.high
+			self.probe_fig.y_range.start = self.color_bar.color_mapper.low
+			self.probe_fig.y_range.end   = self.color_bar.color_mapper.high
 
 		# draw figure line for offset
 		if True:
@@ -478,6 +458,34 @@ class ProbeTool(Slice):
 				[offset,offset],
 				[self.probe_fig.y_range.start, self.probe_fig.y_range.end],
 				line_width=1,color="black")
+
+	# recompute
+	def recompute(self):
+
+		self.refresh()
+
+		# remove all old probes
+		was_enabled={}
+		for dir in range(3):
+			for probe in self.probes[dir]:
+				was_enabled[probe]=probe.enabled
+				self.removeProbe(probe)
+
+		# restore enabled
+		for dir in range(3):
+			for probe in self.probes[dir]:
+				probe.enabled=was_enabled[probe]
+
+		# add the probes only if sibile
+		if self.isVisible():
+			dir=self.getDirection()
+			for slot,probe in enumerate(self.probes[dir]):
+				if probe.pos is not None and probe.enabled:
+					self.addProbe(probe)
+
+		
+
+
 
 	# gotNewData
 	def gotNewData(self, result):
