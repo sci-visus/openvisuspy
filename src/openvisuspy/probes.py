@@ -17,6 +17,8 @@ from openvisuspy import SetupLogger, GetBackend, Slice, Slices,ExecuteBoxQuery
 
 logger = logging.getLogger(__name__)
 
+
+
 # //////////////////////////////////////////////////////////////////////////////////////
 class Probe:
 
@@ -24,9 +26,6 @@ class Probe:
 	def __init__(self):
 		self.pos=None
 		self.enabled=True
-
-		# run-time
-		self.renderers=[]
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +40,22 @@ class ProbeTool(Slice):
 		self.render_offset=None
 
 		N=len(self.colors)
-		self.probes={0: [Probe() for I in range(N)], 1: [Probe() for I in range(N)], 2: [Probe() for I in range(N)]}
+
+		self.probes={}
+		self.renderers={
+			"offset" : None
+		}
+		for dir in range(3):
+			self.probes[dir]=[]
+			for I in range(N):
+				probe=Probe()
+				self.probes[dir].append(probe)
+				self.renderers[probe]={
+					"canvas" : [],
+					"fig" : []
+				}
+
+
 		self.slot=None
 		self.button_css=[None]*N
 
@@ -98,6 +112,10 @@ class ProbeTool(Slice):
 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
 			self.slider_z_op.on_change("active",lambda attr,old, new: self.recompute()) 	
 
+	# removeRenderer
+	def removeRenderer(self, target,value):
+		if value in target.renderers:
+			target.renderers.remove(value)
 	
 	# setColorMapperType
 	def setColorMapperType(self,value):
@@ -313,12 +331,12 @@ class ProbeTool(Slice):
 						ys.append(y)
 
 			r=self.canvas.fig.scatter(xs, ys, color= color)
-			probe.renderers.append([self.canvas.fig,r])
+			self.renderers[probe]["canvas"].append(r)
 
 			x1,x2=min(xs),max(xs)
 			y1,y2=min(ys),max(ys)
 			r=self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= color)
-			probe.renderers.append([self.canvas.fig, r])
+			self.renderers[probe]["canvas"].append(r)
 
 		# execute the query
 		access=self.db.createAccess()
@@ -352,43 +370,56 @@ class ProbeTool(Slice):
 			op=self.slider_z_op.labels[it]
 		
 			if op=="avg":
-				probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
+				self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
 
 			if op=="mM":
-				probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
-				probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
+				self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
+				self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
 
 			if op=="med":
-				probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])	
+				self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])	
 
 			if op=="*":
 				for it in ys:
-					probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color)])
+					self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color)])
 
 		self.refresh()	
 
 
 	# removeProbe
 	def removeProbe(self, probe):
-		for fig,r in probe.renderers:
-			if r in fig.renderers:
-				fig.renderers.remove(r)
-		probe.renderers=[]	
+		for r in self.renderers[probe]["canvas"]:
+			self.removeRenderer(self.canvas.fig,r)
+		self.renderers[probe]["canvas"]=[]
+
+		for r in self.renderers[probe]["fig"]:
+			self.removeRenderer(self.probe_fig,  r)
+		self.renderers[probe]["fig"]=[]
+
 		probe.enabled=False
 		self.refresh()
 
 	# recompute
 	def recompute(self):
 
-		dir=self.getDirection()
+		visible=self.isVisible()
+		logger.info(f"\n\n\n RECOMPUTE PROBES visible={visible}")
 
 		# remove all old probes
+		was_enabled={}
 		for dir in range(3):
 			for probe in self.probes[dir]:
+				was_enabled[probe]=probe.enabled
 				self.removeProbe(probe)
 
+		# restore enabled
+		for dir in range(3):
+			for probe in self.probes[dir]:
+				probe.enabled=was_enabled[probe]
+
 		# add the probes only if sibile
-		if self.isVisible():
+		if visible:
+			dir=self.getDirection()
 			for slot,probe in enumerate(self.probes[dir]):
 				if probe.pos is not None and probe.enabled:
 					self.addProbe(probe)
@@ -434,15 +465,14 @@ class ProbeTool(Slice):
 
 		# Y axis
 		if True:
-			self.probe_fig.y_range.start=self.color_bar.color_mapper.low
-			self.probe_fig.y_range.end  =self.color_bar.color_mapper.high
+			self.probe_fig.y_range.start=0.001 #self.color_bar.color_mapper.low
+			self.probe_fig.y_range.end  = 6 # self.color_bar.color_mapper.high
 
 		# draw figure line for offset
 		if True:
 			offset=self.getOffset()
-			if self.render_offset in self.probe_fig.renderers:
-				self.probe_fig.renderers.remove(self.render_offset)
-			self.render_offset=self.probe_fig.line(
+			self.removeRenderer(self.probe_fig,self.renderers["offset"])
+			self.renderers["offset"]=self.probe_fig.line(
 				[offset,offset],
 				[self.probe_fig.y_range.start, self.probe_fig.y_range.end],
 				line_width=1,color="black")

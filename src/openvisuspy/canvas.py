@@ -75,7 +75,7 @@ class Canvas:
 			]):
 				return
 
-		print("***!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! RESIZE",self.last_width,self.last_height,w,h)
+		# print("***!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! RESIZE",self.last_width,self.last_height,w,h)
 		self.last_width =w
 		self.last_height=h
 		self.onResize()
