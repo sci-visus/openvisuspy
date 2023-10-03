@@ -127,9 +127,7 @@ class Widgets:
 			slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
 			return slider
   
-		# view_mode
-		self.widgets.view_mode=Select(title='ViewMode',  options=["1","2","4"],value="1")
-		self.widgets.view_mode.on_change("value",lambda attr, old, new: self.setViewMode(new)) 
+
  
 		# timestep
 		self.widgets.timestep = PatchSlider(Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width'))
@@ -232,7 +230,6 @@ class Widgets:
 	def setWidgetsDisabled(self,value):
 		self.widgets.datasets.disabled=value
 		self.widgets.palette.disabled=value
-		self.widgets.view_mode.disabled=value
 		self.widgets.timestep.disabled=value
 		self.widgets.timestep_delta.disabled=value
 		self.widgets.field.disabled=value
@@ -485,15 +482,7 @@ class Widgets:
 			self.widgets.metadata.children=[Tabs(tabs=tabs)]
 
 		self.refresh() 
-  
-	# getViewMode
-	def getViewMode(self):
-		return self.widgets.view_mode.value
 
-	# setViewMode
-	def setViewMode(self,value):
-		logger.info(f"[{self.id}] value={value}")
-		self.widgets.view_mode.value=value
 
 	# getTimesteps
 	def getTimesteps(self):

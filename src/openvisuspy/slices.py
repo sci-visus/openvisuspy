@@ -9,6 +9,8 @@ from . widgets import Widgets
 from . slice   import Slice
 from . utils   import IsPyodide, AddAsyncLoop
 
+from bokeh.models import TabPanel,Tabs, Button,Column, Div
+
 logger = logging.getLogger(__name__)
 
 # //////////////////////////////////////////////////////////////////////////////////////
@@ -18,9 +20,18 @@ class Slices(Widgets):
 	def __init__(self, doc=None, is_panel=False, parent=None, cls=Slice):
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.cls=cls
-		self.show_options=["view_mode","palette","timestep","field","viewdep","quality"]
+		self.show_options=["palette","timestep","field","viewdep","quality"]
 		self.slice_show_options=["direction","offset","viewdep"]
-		self.central_layout=Column(sizing_mode='stretch_both')
+
+		# view_mode
+		self.widgets.view_mode=Tabs(tabs=[
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="1"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="2"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="4"),
+			],
+			sizing_mode="stretch_both")
+		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(self.widgets.view_mode.tabs[new].title)) 
+
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -35,15 +46,15 @@ class Slices(Widgets):
 		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
 
 	# getMainLayout 
-	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
 	def getMainLayout(self):
 
-		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+		options=[it.replace("-","_") for it in self.show_options]
+		self.first_row_layout.children=[getattr(self.widgets,it) for it in options]
 
 		ret=Column(
 			self.first_row_layout,
 			Row(
-				self.central_layout,
+				self.widgets.view_mode,
 				self.widgets.metadata, 
 				sizing_mode='stretch_both'
 			),
@@ -64,29 +75,46 @@ class Slices(Widgets):
 
 		self.start()
 
-		# this will fill out the central_layout
-		view_mode=self.getViewMode()
-		self.setViewMode(view_mode)
+		# this will fill out the layout
+		self.setViewMode(self.getViewMode())
 
 		return ret
 
-	# setNumberOfViews (backward compatible)
-	def setNumberOfViews(self, value):
-		self.setViewMode(str(value))
+	# getViewMode
+	def getViewMode(self):
+		tab=self.widgets.view_mode.tabs[self.widgets.view_mode.active]
+		return tab.title
 
 	# setViewMode
-	def setViewMode(self,value):
+	def setViewMode(self, value):
+		logger.info(f"[{self.id}] value={value}")		
+
+		tabs=self.widgets.view_mode.tabs
+		current=None
+		for I,tab in enumerate(tabs):
+			if tab.title==value:
+				self.widgets.view_mode.active=I
+				current=tab
+				break
+
+		if not current:
+			return
+		
+		print(current)
 
 		config=self.getConfig()
-
 		super().stop()
-		super().setViewMode(value)
 
 		# remove old children
 		v=self.children
 		logger.info(f"[{self.id}] deleting old children {[it.id for it in v]}")
 		for it in v: del it
-		
+
+		# empty all tabs
+		for tab in self.widgets.view_mode.tabs:
+			tab.child.children=[]
+
+
 		def CreateChild():
 			ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
 			if self.slice_show_options is not None:
@@ -95,25 +123,27 @@ class Slices(Widgets):
 
 		if value=="1":
 			self.children=[CreateChild()]
-			self.central_layout.children=[
-				Row(self.children[0].getMainLayout(), sizing_mode='stretch_both')
-			]
+			current.child.children=[Row(
+				self.children[0].getMainLayout(), 
+				sizing_mode="stretch_both"
+				)]
 
 		elif value=="2":
 			self.children=[CreateChild(),CreateChild()]
-			self.central_layout.children=[
-				Row(self.children[0].getMainLayout(),self.children[1].getMainLayout(), sizing_mode='stretch_both')
-			]
+			current.child.children=[Row(
+				self.children[0].getMainLayout(),
+				self.children[1].getMainLayout(), 
+					sizing_mode="stretch_both"
+				)]
 
 		elif value=="4":
 			self.children=[CreateChild(),CreateChild(),CreateChild(),CreateChild()]
-			self.central_layout.children=[
-				Grid(
+			current.child.children=[Grid(
 					children=[self.children[I].getMainLayout() for I in range(4)],
 					nrows=2, 
 					ncols=2, 
-					sizing_mode="stretch_both")	
-				]
+					sizing_mode="stretch_both")
+			]	
 			
 		else:
 			raise Exception("internal error")
@@ -122,4 +152,7 @@ class Slices(Widgets):
 		super().start()
 
 
+	# setNumberOfViews (backward compatible)
+	def setNumberOfViews(self, value):
+		self.setViewMode(str(value))
 

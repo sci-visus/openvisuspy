@@ -50,7 +50,8 @@ class Slice(Widgets):
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
 	def getMainLayout(self):
 
-		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+		options=[it.replace("-","_") for it in self.show_options]
+		self.first_row_layout.children=[getattr(self.widgets,it) for it in options] 
 
 		ret = Column(
 			self.first_row_layout,

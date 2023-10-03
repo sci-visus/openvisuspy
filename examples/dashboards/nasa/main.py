@@ -3,10 +3,7 @@ import os,sys,logging,time
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
 
-	if "--multi" in sys.argv:
-		view_mode="4"
-	else:
-		view_mode="1"
+	view_mode="4" if "--multi" in sys.argv else "1"
 
 	if "--py" in sys.argv:
 		backend="py"
