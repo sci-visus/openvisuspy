@@ -129,8 +129,7 @@ class Slice(Widgets):
 	def refresh(self):
 		super().refresh()
 		self.aborted.setTrue()
-		self.new_job=True	
-
+		self.new_job=True
   
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
@@ -189,6 +188,7 @@ class Slice(Widgets):
 			p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
 		self.setQueryLogicBox([p1,p2])
 		self.canvas.renderPoints([self.toPhysic(point)])
+  
   
 
 	# gotNewData

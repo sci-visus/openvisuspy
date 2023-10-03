@@ -71,7 +71,7 @@ class ProbeTool(Slice):
 		self.probe_fig = bokeh.plotting.figure(
 			title=None, 
 			x_axis_label="Z", x_axis_type ="linear",
-			y_axis_label="f", y_axis_type ="log",
+			y_axis_label="f", y_axis_type =self.getColorMapperType(),
 			toolbar_location=None, 
 			x_range = [0.0,1.0], 
 			y_range = [0.0,1.0], 
@@ -119,7 +119,21 @@ class ProbeTool(Slice):
 	# setColorMapperType
 	def setColorMapperType(self,value):
 		super().setColorMapperType(value)
-		self.recompute() # need to recomute to create a brand new figure (because Bokeh cannot change the type of Y axis)
+
+		# need to recomute to create a brand new figure (because Bokeh cannot change the type of Y axis)
+		old_probe_fig=self.probe_fig
+		self.probe_fig = bokeh.plotting.figure(
+			title=None, 
+			x_axis_label="Z", 
+			y_axis_label="f", y_axis_type = value,
+			toolbar_location=None, 
+			x_range = [0.0,1.0], 
+			y_range = [0.0,1.0], 
+			sizing_mode="stretch_both"
+		) 
+		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
+		self.probe_fig_col.children=[self.probe_fig]
+		self.recompute() 
 
 	# onProbeXYChange
 	def onProbeXYChange(self):
@@ -174,8 +188,8 @@ class ProbeTool(Slice):
 					self.slider_num_points,
 					sizing_mode="stretch_width"
 				),
-				self.probe_fig_col,
 				Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+				self.probe_fig_col,
 				sizing_mode="stretch_both"
 			)
 		self.probe_layout.visible=False
@@ -218,7 +232,7 @@ class ProbeTool(Slice):
 	# setOffset
 	def setOffset(self, value):
 		super().setOffset(value)
-		self.refresh()
+		self.refreshProbe()
 
 	# onButtonClick
 	def onButtonClick(self, slot):
@@ -238,7 +252,7 @@ class ProbeTool(Slice):
 			if not probe.enabled and probe.pos is not None:
 				self.addProbe(probe)
 
-		self.refresh()
+		self.refreshProbe()
 
 	# findProbe
 	def findProbe(self,probe):
@@ -390,10 +404,7 @@ class ProbeTool(Slice):
 					it=[max(self.epsilon,value) for value in it]
 				self.renderers[probe]["fig"].append(self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
-		self.refresh()	
-
-
-
+		self.refreshProbe()	
 
 	# removeProbe
 	def removeProbe(self, probe):
@@ -406,15 +417,15 @@ class ProbeTool(Slice):
 		self.renderers[probe]["fig"]=[]
 
 		probe.enabled=False
-		self.refresh()
+		self.refreshProbe()
 
 
-	# refresh
-	def refresh(self):
+	# refreshProbe
+	def refreshProbe(self):
 
 		dir=self.getDirection()
 
-		# refresh buttons
+		# buttons
 		if True:
 			
 			for slot, button in enumerate(self.buttons):
@@ -438,7 +449,7 @@ class ProbeTool(Slice):
 					button.stylesheets=[InlineStyleSheet(css=css)] 
 
 
-		# refresh X axis
+		# X axis
 		if True:
 			z1,z2=self.slider_z_range.value
 			self.probe_fig.xaxis.axis_label = self.slider_z_range.title
@@ -462,7 +473,7 @@ class ProbeTool(Slice):
 	# recompute
 	def recompute(self):
 
-		self.refresh()
+		self.refreshProbe()
 
 		# remove all old probes
 		was_enabled={}
@@ -490,4 +501,4 @@ class ProbeTool(Slice):
 	# gotNewData
 	def gotNewData(self, result):
 		super().gotNewData(result)
-		self.refresh()
+		self.refreshProbe()
