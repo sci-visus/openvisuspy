@@ -66,7 +66,8 @@ class ProbeTool(Slice):
 		vmin,vmax=self.getPaletteRange()
 
 		self.widgets.show_probe=Button(label="Probe",width=80,sizing_mode="stretch_height")
-		self.widgets.show_probe.on_click(self.toggleVisible)
+		self.widgets.show_probe.on_click(self.toggleProbeVisibility)
+
 
 		self.probe_fig = bokeh.plotting.figure(
 			title=None, 
@@ -111,6 +112,23 @@ class ProbeTool(Slice):
 			self.slider_z_op = RadioButtonGroup(labels=["avg","mM","med","*"], active=0)
 			self.slider_z_op.on_change("active",lambda attr,old, new: self.recompute()) 	
 
+		self.probe_layout=Column(
+			Row(
+				self.slider_x_pos, 
+				self.slider_y_pos, 
+				self.slider_z_range,
+				self.slider_z_op, 
+				self.slider_z_res, 
+				self.slider_num_points,
+				sizing_mode="stretch_width"
+			),
+			Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+			self.probe_fig_col,
+			sizing_mode="stretch_both"
+		)
+		self.probe_layout.visible=False
+
+
 	# removeRenderer
 	def removeRenderer(self, target,value):
 		if value in target.renderers:
@@ -145,18 +163,18 @@ class ProbeTool(Slice):
 		self.addProbe(probe)
 
 	
-	# isVisible
-	def isVisible(self):
+	# isProbeVisible
+	def isProbeVisible(self):
 		return self.probe_layout.visible
 
-	# setVisible
-	def setVisible(self,value):
+	# setProbeVisible
+	def setProbeVisible(self,value):
 		self.probe_layout.visible=value
 
-	# toggleVisible
-	def toggleVisible(self):
-		value=not self.isVisible()
-		self.setVisible(value)
+	# toggleProbeVisibility
+	def toggleProbeVisibility(self):
+		value=not self.isProbeVisible()
+		self.setProbeVisible(value)
 		self.recompute()
 			
 	# onDoubleTap
@@ -177,24 +195,8 @@ class ProbeTool(Slice):
 
 	# getMainLayout
 	def getMainLayout(self):
-		slice_layout=super().getMainLayout()
-		self.probe_layout=Column(
-				Row(
-					self.slider_x_pos, 
-					self.slider_y_pos, 
-					self.slider_z_range,
-					self.slider_z_op, 
-					self.slider_z_res, 
-					self.slider_num_points,
-					sizing_mode="stretch_width"
-				),
-				Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
-				self.probe_fig_col,
-				sizing_mode="stretch_both"
-			)
-		self.probe_layout.visible=False
 		return Row(
-				slice_layout, 
+				super().getMainLayout(), 
 				self.probe_layout,
 				sizing_mode="stretch_both")
 
@@ -488,7 +490,7 @@ class ProbeTool(Slice):
 				probe.enabled=was_enabled[probe]
 
 		# add the probes only if sibile
-		if self.isVisible():
+		if self.isProbeVisible():
 			dir=self.getDirection()
 			for slot,probe in enumerate(self.probes[dir]):
 				if probe.pos is not None and probe.enabled:

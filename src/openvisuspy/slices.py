@@ -27,6 +27,7 @@ class Slices(Widgets):
 		self.widgets.view_mode=Tabs(tabs=[
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="1"),
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="2"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="probe"),
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="4"),
 			],
 			sizing_mode="stretch_both")
@@ -76,6 +77,13 @@ class Slices(Widgets):
 		tab=self.widgets.view_mode.tabs[self.widgets.view_mode.active]
 		return tab.title
 
+	# createChild
+	def createChild(self):
+		ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
+		if self.slice_show_options is not None:
+			ret.setShowOptions(self.slice_show_options)	
+		return ret
+
 	# setViewMode
 	def setViewMode(self, value):
 		logger.info(f"[{self.id}] value={value}")		
@@ -103,22 +111,23 @@ class Slices(Widgets):
 		for tab in self.widgets.view_mode.tabs:
 			tab.child.children=[]
 
-		def CreateChild():
-			ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
-			if self.slice_show_options is not None:
-				ret.setShowOptions(self.slice_show_options)	
-			return ret
-		
+
 		if value=="1":
-			self.children=[CreateChild()]
+			self.children=[self.createChild()]
 			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
 		elif value=="2":
-			self.children=[CreateChild(),CreateChild()]
+			self.children=[self.createChild(),self.createChild()]
 			central=Row(self.children[0].getMainLayout(),self.children[1].getMainLayout(), sizing_mode="stretch_both")
 
+		elif "probe" in value:
+			child=self.createChild()
+			child.setProbeVisible(True)
+			self.children=[child]
+			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")			
+
 		elif value=="4":
-			self.children=[CreateChild(),CreateChild(),CreateChild(),CreateChild()]
+			self.children=[self.createChild(),self.createChild(),self.createChild(),self.createChild()]
 			central=Grid(children=[self.children[I].getMainLayout() for I in range(4)],nrows=2, ncols=2, sizing_mode="stretch_both")
 			
 		else:
