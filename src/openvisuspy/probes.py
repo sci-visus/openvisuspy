@@ -383,7 +383,7 @@ class ProbeTool(Slice):
 				ys=[it for it in ys]
 
 			for it in ys:
-				self.renderers[probe]["fig"].append(self.probe_fig.line(xs, ys, line_width=2, legend_label=color, line_color=color))
+				self.renderers[probe]["fig"].append(self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
 		self.refresh()	
 
@@ -467,8 +467,8 @@ class ProbeTool(Slice):
 
 		# Y axis
 		if True:
-			self.probe_fig.y_range.start = self.color_bar.color_mapper.low
-			self.probe_fig.y_range.end   = self.color_bar.color_mapper.high
+			self.probe_fig.y_range.start = 0.0001 # self.color_bar.color_mapper.low
+			self.probe_fig.y_range.end   = 8 # self.color_bar.color_mapper.high
 
 		# draw figure line for offset
 		if True:
