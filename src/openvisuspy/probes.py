@@ -161,7 +161,7 @@ class ProbeTool(Slice):
 			
 	# onDoubleTap
 	def onDoubleTap(self,x,y):
-		logger.info(f"onDoubleTap x={x} y={y}")
+		logger.info(f"[{self.id}] x={x} y={y}")
 		dir=self.getDirection()
 		slot=self.slot
 		if slot is None: slot=0
@@ -238,7 +238,7 @@ class ProbeTool(Slice):
 	def onButtonClick(self, slot):
 		dir=self.getDirection()
 		probe=self.probes[dir][slot]
-		logger.info(f"[{self.id}] onButtonClick slot={slot} self.slot={self.slot} probe.pos={probe.pos} probe.enabled={probe.enabled}")
+		logger.info(f"[{self.id}] slot={slot} self.slot={self.slot} probe.pos={probe.pos} probe.enabled={probe.enabled}")
 		
 		# when I click on the same slot, I am disabling the probe
 		if self.slot==slot:
@@ -265,7 +265,7 @@ class ProbeTool(Slice):
 	# addProbe
 	def addProbe(self, probe):
 		dir,slot=self.findProbe(probe)
-		logger.info(f"addProbe dir={dir} slot={slot} probe.pos={probe.pos}")
+		logger.info(f"[{self.id}] dir={dir} slot={slot} probe.pos={probe.pos}")
 		self.removeProbe(probe)
 		probe.enabled = True
 
@@ -294,7 +294,7 @@ class ProbeTool(Slice):
 		p1=(x,y,z1)
 		p2=(x,y,z2)
 
-		logger.info(f"Add Probe vs={vs} vt={vt} p1={p1} p2={p2}")
+		#logger.info(f"Add Probe vs={vs} vt={vt} p1={p1} p2={p2}")
 
 		# automatically update the XY slider values
 		self.slider_x_pos.value  = x
@@ -327,7 +327,7 @@ class ProbeTool(Slice):
 				P2[I]+=(num_points-1)*Delta[I]
 			P2[I]+=Delta[I]
 
-		logger.info(f"Add Probe P1={P1} P2={P2}")
+		# logger.info(f"Add Probe P1={P1} P2={P2}")
 		
 		# invalid query
 		if not all([P1[I]<P2[I] for I in range(3)]):

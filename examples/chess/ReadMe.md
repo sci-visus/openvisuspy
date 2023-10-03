@@ -450,10 +450,10 @@ index f098636..d071b61 100644
 +		if show_options:
 +			self.setShowOptions(show_options)
 +
-+		# num_views
-+		num_views=config.get("num-views",None)
-+		if num_views:
-+			self.setNumberOfViews(num_views)
++		# view_mode
++		view_mode=config.get("view-mode",None)
++		if view_mode:
++			self.setViewMode(view_mode)
 +
 +		# viewport
 +		viewport=config.get("viewport",None)

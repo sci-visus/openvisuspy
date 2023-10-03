@@ -26,7 +26,7 @@ if __name__.startswith('bokeh'):
 	else:
 		view=Slices(doc=doc, is_panel=is_panel, cls=ProbeTool)
 		view.setShowOptions([
-			["datasets", "num_views", "palette",  "quality", "num_refinements", "colormapper_type","show_metadata"],
+			["datasets", "view_mode", "palette",  "quality", "num_refinements", "colormapper_type","show_metadata"],
 			["datasets", "direction", "offset", "colormapper_type", "palette_range_mode","palette_range_vmin","palette_range_vmax","show-probe"] 
 		])
 

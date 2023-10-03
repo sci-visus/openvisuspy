@@ -4,11 +4,9 @@ import os,sys,logging,time
 if __name__.startswith('bokeh'):
 
 	if "--multi" in sys.argv:
-		num_views=3
-	elif "--single" in sys.argv:
-		num_views=1
+		view_mode="4"
 	else:
-		num_views=1
+		view_mode="1"
 
 	if "--py" in sys.argv:
 		backend="py"
@@ -37,7 +35,7 @@ if __name__.startswith('bokeh'):
 		["direction","offset"]
 	])
 
-	view.setNumberOfViews(num_views)  
+	view.setViewmode(view_mode)  
 
 	timestep_delta=4
 

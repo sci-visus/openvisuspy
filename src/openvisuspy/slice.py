@@ -138,7 +138,7 @@ class Slice(Widgets):
 
 	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
 	def setQueryLogicBox(self,value,):
-		logger.info(f"[{self.id}]::setQueryLogicBox value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		proj=self.toPhysic(value) 
 		x1,y1=proj[0]
 		x2,y2=proj[1]
@@ -175,7 +175,7 @@ class Slice(Widgets):
   # gotoPoint
 	def gotoPoint(self,point):
 		assert(False) # not sure if point is in physic or logic corrdinates (I think physic)
-		logger.info(f"[{self.id}]::gotoPoint point={point}")
+		logger.info(f"[{self.id}] point={point}")
 		pdim=self.getPointDim()
 		# go to the slice
 		if pdim==3:

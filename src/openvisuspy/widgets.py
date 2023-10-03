@@ -127,16 +127,15 @@ class Widgets:
 			slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
 			return slider
   
-		# num_views
-		self.widgets.num_views=Select(title='#Views',  options=["1","2","3","4"],value='1')
-		self.widgets.num_views.on_change("value",lambda attr, old, new: self.setNumberOfViews(int(new))) 
+		# view_mode
+		self.widgets.view_mode=Select(title='ViewMode',  options=["1","2","4"],value="1")
+		self.widgets.view_mode.on_change("value",lambda attr, old, new: self.setViewMode(new)) 
  
 		# timestep
 		self.widgets.timestep = PatchSlider(Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width'))
 
 		def onTimestepChange(attr, old, new):
 			if old==new: return
-			logger.info("onTimestepChange old={old} new={new}")
 			self.setTimestep(int(new))
 
 		self.widgets.timestep.on_change("value",onTimestepChange)
@@ -159,7 +158,6 @@ class Widgets:
 
 		def onOffsetChange(attr, old, new):
 			if old==new: return
-			logging.info(f"\n\n\n\n\n[{self.id}] on_change calling setOffset({new})")
 			self.setOffset(new)
 
 		self.widgets.offset.on_change ("value",onOffsetChange)
@@ -234,7 +232,7 @@ class Widgets:
 	def setWidgetsDisabled(self,value):
 		self.widgets.datasets.disabled=value
 		self.widgets.palette.disabled=value
-		self.widgets.num_views.disabled=value
+		self.widgets.view_mode.disabled=value
 		self.widgets.timestep.disabled=value
 		self.widgets.timestep_delta.disabled=value
 		self.widgets.field.disabled=value
@@ -272,7 +270,7 @@ class Widgets:
 	# setConfig
 	def setConfig(self,value):
 		if value is None: return
-		logger.info(f"[{self.id}]::setConfig")
+		logger.info(f"[{self.id}] value=...")
 		self.config=value
 		self.datasets={it["name"] : it for it in value["datasets"]}
 		ordered_names=[it["name"] for it in value["datasets"]]
@@ -287,7 +285,7 @@ class Widgets:
 
 	# setLogicToPhysic
 	def setLogicToPhysic(self,value):
-		logger.info(f"[{self.id}]::setLogicToPhysic value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.logic_to_physic=value
 		for it in self.children:
 			it.setLogicToPhysic(value)
@@ -348,7 +346,7 @@ class Widgets:
 		if not force and self.current_dataset and self.current_dataset["name"]==name:
 			return 
 
-		logger.info(f"[{self.id}]::setDataset name={name}")
+		logger.info(f"[{self.id}] name={name}")
 
 		config=self.datasets[name]
 		self.current_dataset=config
@@ -488,14 +486,14 @@ class Widgets:
 
 		self.refresh() 
   
-	# getNumberOfViews
-	def getNumberOfViews(self):
-		return int(self.widgets.num_views.value)
+	# getViewMode
+	def getViewMode(self):
+		return self.widgets.view_mode.value
 
-	# setNumberOfViews
-	def setNumberOfViews(self,value):
-		logger.info(f"[{self.id}]::setNumberOfViews value={value}")
-		self.widgets.num_views.value=str(value)
+	# setViewMode
+	def setViewMode(self,value):
+		logger.info(f"[{self.id}] value={value}")
+		self.widgets.view_mode.value=value
 
 	# getTimesteps
 	def getTimesteps(self):
@@ -506,7 +504,7 @@ class Widgets:
 
 	# setTimesteps
 	def setTimesteps(self,value):
-		logger.info(f"[{self.id}]::setTimesteps start={value[0]} end={value[-1]}")
+		logger.info(f"[{self.id}] start={value[0]} end={value[-1]}")
 		self.widgets.timestep.start =  value[0]
 		self.widgets.timestep.end   =  value[-1]
 		self.widgets.timestep.step  = 1
@@ -525,7 +523,7 @@ class Widgets:
 
 	# setTimestepDelta
 	def setTimestepDelta(self,value):
-		logger.info(f"[{self.id}]::setTimestepDelta value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.timestep_delta.value=self.optionFromSpeed (value)
 		self.widgets.timestep.step=value
 		A=self.widgets.timestep.start
@@ -546,9 +544,8 @@ class Widgets:
 
 	# setTimestep
 	def setTimestep(self, value):
-		logger.info(f"[{self.id}]::setTimestep value={value} A")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.timestep.value=value
-		logger.info(f"[{self.id}]::setTimestep value={value} B")
 		for it in self.children:
 			it.setTimestep(value)  
 		self.refresh()
@@ -559,7 +556,7 @@ class Widgets:
   
 	# setFields
 	def setFields(self, value):
-		logger.info(f"[{self.id}]::setFields value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.field.options =list(value)
 
 	# getField
@@ -568,7 +565,7 @@ class Widgets:
 
 	# setField
 	def setField(self,value):
-		logger.info(f"[{self.id}]::setField value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		if value is None: return
 		self.widgets.field.value=value
 		for it in self.children:
@@ -581,7 +578,7 @@ class Widgets:
 
 	# setPalette
 	def setPalette(self, value):	 
-		logger.info(f"[{self.id}]::setPalette value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.palette=value
 		self.widgets.palette.value=value
 		self.color_bar.color_mapper.palette=getattr(colorcet,value[len("colorcet."):]) if value.startswith("colorcet.") else value
@@ -606,7 +603,7 @@ class Widgets:
 	
 	# setPaletteRangeMode
 	def setPaletteRangeMode(self,mode):
-		logger.info(f"[{self.id}]::setPaletteRangeMode mode={mode} ")
+		logger.info(f"[{self.id}] mode={mode} ")
 		self.widgets.palette_range_mode.value=mode
 
 		wmin=self.widgets.palette_range_vmin
@@ -657,7 +654,7 @@ class Widgets:
 	def setColorMapperType(self,value):
 
 		assert value=="linear" or value=="log"
-		logger.info(f"[{self.id}]::setColorMapperType value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		palette=self.getPalette()
 		vmin,vmax=self.getPaletteRange()
 		self.widgets.colormapper_type.value=value
@@ -680,7 +677,7 @@ class Widgets:
 
 	# setNumberOfRefinements
 	def setNumberOfRefinements(self,value):
-		logger.info(f"[{self.id}]::setNumberOfRefinements value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.num_refinements.value=value
 		for it in self.children:
 			it.setNumberOfRefinements(value)
@@ -692,7 +689,7 @@ class Widgets:
 
 	# setQuality
 	def setQuality(self,value):
-		logger.info(f"[{self.id}]::setQuality value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.quality.value=value
 		for it in self.children:
 			it.setQuality(value) 
@@ -704,7 +701,7 @@ class Widgets:
 
 	# setViewDependent
 	def setViewDependent(self,value):
-		logger.info(f"[{self.id}]::setViewDependent value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.viewdep.value=str(int(value))
 		for it in self.children:
 			it.setViewDependent(value)     
@@ -716,7 +713,7 @@ class Widgets:
 
 	# setDirections
 	def setDirections(self,value):
-		logger.info(f"[{self.id}]::setDirections value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.direction.options=value
 		for it in self.children:
 			it.setDirections(value)
@@ -727,7 +724,7 @@ class Widgets:
 
 	# setDirection
 	def setDirection(self,value):
-		logger.info(f"[{self.id}]::setDirection value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		pdim=self.getPointDim()
 		if pdim==2: value=2
 		dims=[int(it) for it in self.db.getLogicSize()]
@@ -771,7 +768,7 @@ class Widgets:
 	# setOffsetStartEnd
 	def setOffsetStartEndStep(self, value):
 		A,B,step=value
-		logger.info(f"[{self.id}]::setOffsetStartEndStep value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.offset.start, self.widgets.offset.end,self.widgets.offset.step=A,B,step
 		for it in self.children:
 			it.setOffsetStartEndStep(value)
@@ -782,11 +779,10 @@ class Widgets:
 
 	# setOffset (3d only) (in physic domain)
 	def setOffset(self,value):
-		logger.info(f"[{self.id}]::setOffset new-value={value} old-value={self.getOffset()} A")
+		logger.info(f"[{self.id}] new-value={value} old-value={self.getOffset()}")
 
 		self.widgets.offset.value=value
 		assert(self.widgets.offset.value==value)
-		logger.info(f"[{self.id}]::setOffset value={value} B")
 		for it in self.children:
 			logging.info(f"[{self.id}] recursively calling setOffset({value}) for children={it.id}")
 			it.setOffset(value) 
@@ -802,7 +798,7 @@ class Widgets:
 		if pdim==2:
 			assert dir==2
 			value=0
-			logging.info(f"[{self.id}]::guessOffset pdim==2calling setOffset({value})")
+			logging.info(f"[{self.id}] pdim==2 calling setOffset({value})")
 			self.setOffsetStartEndStep([0,0,1]) # both extrema included
 			self.setOffset(value)
 		else:
@@ -812,14 +808,11 @@ class Widgets:
 			if all([it==0 for it in vt]) and all([it==1.0 for it in vs]):
 				dims=[int(it) for it in self.db.getLogicSize()]
 				value=dims[dir]//2
-				logging.info(f"[{self.id}]::guessOffset CASE pdim==3 calling integer setOffset({value})")
 				self.setOffsetStartEndStep([0,int(dims[dir])-1,1])
 				self.setOffset(value)
 			else:
 				A,B=self.getPhysicBox()[dir]
-				value=(A+B)/2.0				
-				logging.info(f"[{self.id}]::guessOffset pdim==3 calling float setOffset({value})")
-
+				value=(A+B)/2.0
 				self.setOffsetStartEndStep([A,B,1e-6])
 				self.setOffset(value)
 

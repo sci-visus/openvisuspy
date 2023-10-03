@@ -18,7 +18,7 @@ class Slices(Widgets):
 	def __init__(self, doc=None, is_panel=False, parent=None, cls=Slice):
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.cls=cls
-		self.show_options=["num_views","palette","timestep","field","viewdep","quality"]
+		self.show_options=["view_mode","palette","timestep","field","viewdep","quality"]
 		self.slice_show_options=["direction","offset","viewdep"]
 		self.central_layout=Column(sizing_mode='stretch_both')
 
@@ -65,52 +65,51 @@ class Slices(Widgets):
 		self.start()
 
 		# this will fill out the central_layout
-		self.setNumberOfViews(self.getNumberOfViews())
+		view_mode=self.getViewMode()
+		self.setViewMode(view_mode)
 
 		return ret
 
+	# setNumberOfViews (backward compatible)
+	def setNumberOfViews(self, value):
+		self.setViewMode(str(value))
 
-	# setNumberOfViews
-	def setNumberOfViews(self,value):
+	# setViewMode
+	def setViewMode(self,value):
 
 		config=self.getConfig()
 
 		super().stop()
-		super().setNumberOfViews(value)
+		super().setViewMode(value)
 
 		# remove old children
 		v=self.children
 		logger.info(f"[{self.id}] deleting old children {[it.id for it in v]}")
 		for it in v: del it
-
-		self.children=[]
-		for I in range(value):
-			child=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
+		
+		def CreateChild():
+			ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
 			if self.slice_show_options is not None:
-				child.setShowOptions(self.slice_show_options)
-			self.children.append(child)
-  
-		layouts=[it.getMainLayout() for it in self.children]
-		if value<=2:
+				ret.setShowOptions(self.slice_show_options)	
+			return ret
+
+		if value=="1":
+			self.children=[CreateChild()]
 			self.central_layout.children=[
-				Row(*layouts, sizing_mode='stretch_both')
+				Row(self.children[0].getMainLayout(), sizing_mode='stretch_both')
 			]
 
-		elif value==3:
+		elif value=="2":
+			self.children=[CreateChild(),CreateChild()]
 			self.central_layout.children=[
-				Row(
-					layouts[2], 
-					Column(
-						children=layouts[0:2],
-						sizing_mode='stretch_both'
-					),
-					sizing_mode='stretch_both')
-				]
-			
-		elif value==4:
+				Row(self.children[0].getMainLayout(),self.children[1].getMainLayout(), sizing_mode='stretch_both')
+			]
+
+		elif value=="4":
+			self.children=[CreateChild(),CreateChild(),CreateChild(),CreateChild()]
 			self.central_layout.children=[
 				Grid(
-					children=layouts,
+					children=[self.children[I].getMainLayout() for I in range(4)],
 					nrows=2, 
 					ncols=2, 
 					sizing_mode="stretch_both")	
