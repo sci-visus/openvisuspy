@@ -299,3 +299,9 @@ class Slice(Widgets):
 		self.new_job=False
 
 		logger.info(f"[{self.id}] pushed new job query_logic_box={query_logic_box}")
+
+		# link views
+		if self.isLinkEnabled() and self.parent:
+			idx=self.parent.children.index(self)
+			for child in self.parent.children[idx+1:]:
+				child.setQueryLogicBox(query_logic_box)

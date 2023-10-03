@@ -11,7 +11,7 @@ import bokeh
 
 from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div, LogTicker, NumeralTickFormatter, BasicTicker,ColumnDataSource
 
-from bokeh.models import TabPanel,Tabs, Button,Column, Div
+from bokeh.models import TabPanel,Tabs, Button,Column, Div,CheckboxGroup
 from bokeh.models.callbacks import CustomJS
 
 logger = logging.getLogger(__name__)
@@ -127,8 +127,6 @@ class Widgets:
 			slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
 			return slider
   
-
- 
 		# timestep
 		self.widgets.timestep = PatchSlider(Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width'))
 
@@ -173,6 +171,10 @@ class Widgets:
 		# viewdep
 		self.widgets.viewdep = Select(title="View Dep",options=[('1','Enabled'),('0','Disabled')], value="True",width=100)
 		self.widgets.viewdep.on_change("value",lambda attr, old, new: self.setViewDependent(int(new)))  
+
+		# link
+		self.widgets.link = CheckboxGroup(labels=["Link"], active=[])
+		self.widgets.link.on_change("active",lambda attr, old, new: self.setLinkEnabled(0 in new))
   
 		# status_bar
 		self.widgets.status_bar= {}
@@ -194,9 +196,18 @@ class Widgets:
 
 		self.widgets.show_metadata=Button(label="Metadata",width=80,sizing_mode='stretch_height')
 		self.widgets.show_metadata.on_click(self.onShowMetadataClick)
+		
 
 		self.panel_layout=None
 		self.idle_callback=None
+
+	# isLinkEnabled
+	def isLinkEnabled(self):
+		return 0 in self.widgets.link.active
+
+	# setLinkEnabled
+	def setLinkEnabled(self,value):
+		self.widgets.link.active=[0] if value else []
 
 	# onShowMetadataClick
 	def onShowMetadataClick(self):

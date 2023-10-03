@@ -78,10 +78,10 @@ class Slices(Widgets):
 		return tab.title
 
 	# createChild
-	def createChild(self):
+	def createChild(self, extra_options=[]):
 		ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
 		if self.slice_show_options is not None:
-			ret.setShowOptions(self.slice_show_options)	
+			ret.setShowOptions(self.slice_show_options + extra_options)	
 		return ret
 
 	# setViewMode
@@ -117,7 +117,7 @@ class Slices(Widgets):
 			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
 		elif value=="2":
-			self.children=[self.createChild(),self.createChild()]
+			self.children=[self.createChild(extra_options=["link"]),self.createChild()]
 			central=Row(self.children[0].getMainLayout(),self.children[1].getMainLayout(), sizing_mode="stretch_both")
 
 		elif "probe" in value:
