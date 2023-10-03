@@ -37,7 +37,6 @@ class ProbeTool(Slice):
 	def __init__(self, doc=None, is_panel=False, parent=None):
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.show_options.append("show-probe")
-		self.render_offset=None
 
 		N=len(self.colors)
 
@@ -330,13 +329,12 @@ class ProbeTool(Slice):
 						xs.append(x)
 						ys.append(y)
 
-			r=self.canvas.fig.scatter(xs, ys, color= color)
-			self.renderers[probe]["canvas"].append(r)
-
 			x1,x2=min(xs),max(xs)
 			y1,y2=min(ys),max(ys)
-			r=self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= color)
-			self.renderers[probe]["canvas"].append(r)
+			self.renderers[probe]["canvas"]=[
+				self.canvas.fig.scatter(xs, ys, color= color),
+				self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= color)
+			]
 
 		# execute the query
 		access=self.db.createAccess()
@@ -370,18 +368,22 @@ class ProbeTool(Slice):
 			op=self.slider_z_op.labels[it]
 		
 			if op=="avg":
-				self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, [mean(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
+				ys=[ [mean(p) for p in zip(*ys)] ]
 
 			if op=="mM":
-				self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, [min(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
-				self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, [max(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])
+				ys=[
+					[min(p) for p in zip(*ys)],
+					[max(p) for p in zip(*ys)]
+				]
 
 			if op=="med":
-				self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, [median(p) for p in zip(*ys)], line_width=2, legend_label=color, line_color=color)])	
+				ys=[ [median(p) for p in zip(*ys)] ]
 
 			if op=="*":
-				for it in ys:
-					self.renderers[probe]["fig"].append([self.probe_fig,self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color)])
+				ys=[it for it in ys]
+
+			for it in ys:
+				self.renderers[probe]["fig"].append(self.probe_fig.line(xs, ys, line_width=2, legend_label=color, line_color=color))
 
 		self.refresh()	
 
@@ -465,8 +467,8 @@ class ProbeTool(Slice):
 
 		# Y axis
 		if True:
-			self.probe_fig.y_range.start=0.001 #self.color_bar.color_mapper.low
-			self.probe_fig.y_range.end  = 6 # self.color_bar.color_mapper.high
+			self.probe_fig.y_range.start = self.color_bar.color_mapper.low
+			self.probe_fig.y_range.end   = self.color_bar.color_mapper.high
 
 		# draw figure line for offset
 		if True:
