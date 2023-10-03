@@ -51,15 +51,6 @@ class Slices(Widgets):
 		options=[it.replace("-","_") for it in self.show_options]
 		self.first_row_layout.children=[getattr(self.widgets,it) for it in options]
 
-		ret=Column(
-			self.first_row_layout,
-			Row(
-				self.widgets.view_mode,
-				self.widgets.metadata, 
-				sizing_mode='stretch_both'
-			),
-			sizing_mode='stretch_both')
-
 		if IsPyodide():
 			self.idle_callbackAddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
 
@@ -78,7 +69,7 @@ class Slices(Widgets):
 		# this will fill out the layout
 		self.setViewMode(self.getViewMode())
 
-		return ret
+		return self.widgets.view_mode
 
 	# getViewMode
 	def getViewMode(self):
@@ -90,18 +81,16 @@ class Slices(Widgets):
 		logger.info(f"[{self.id}] value={value}")		
 
 		tabs=self.widgets.view_mode.tabs
-		current=None
+		inner=None
 		for I,tab in enumerate(tabs):
 			if tab.title==value:
 				self.widgets.view_mode.active=I
-				current=tab
+				inner=tab.child
 				break
 
-		if not current:
+		if not inner:
 			return
 		
-		print(current)
-
 		config=self.getConfig()
 		super().stop()
 
@@ -114,40 +103,39 @@ class Slices(Widgets):
 		for tab in self.widgets.view_mode.tabs:
 			tab.child.children=[]
 
-
 		def CreateChild():
 			ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
 			if self.slice_show_options is not None:
 				ret.setShowOptions(self.slice_show_options)	
 			return ret
-
+		
 		if value=="1":
 			self.children=[CreateChild()]
-			current.child.children=[Row(
-				self.children[0].getMainLayout(), 
-				sizing_mode="stretch_both"
-				)]
+			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
 		elif value=="2":
 			self.children=[CreateChild(),CreateChild()]
-			current.child.children=[Row(
-				self.children[0].getMainLayout(),
-				self.children[1].getMainLayout(), 
-					sizing_mode="stretch_both"
-				)]
+			central=Row(self.children[0].getMainLayout(),self.children[1].getMainLayout(), sizing_mode="stretch_both")
 
 		elif value=="4":
 			self.children=[CreateChild(),CreateChild(),CreateChild(),CreateChild()]
-			current.child.children=[Grid(
-					children=[self.children[I].getMainLayout() for I in range(4)],
-					nrows=2, 
-					ncols=2, 
-					sizing_mode="stretch_both")
-			]	
+			central=Grid(children=[self.children[I].getMainLayout() for I in range(4)],nrows=2, ncols=2, sizing_mode="stretch_both")
 			
 		else:
 			raise Exception("internal error")
 		
+		inner.children=[
+			Row(
+					Column(
+						self.first_row_layout,
+						central,
+						sizing_mode='stretch_both'
+					),
+					self.widgets.metadata, 
+					sizing_mode='stretch_both'
+			)
+		]
+
 		self.setConfig(config)
 		super().start()
 

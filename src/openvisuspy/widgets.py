@@ -161,12 +161,12 @@ class Widgets:
 		self.widgets.offset.on_change ("value",onOffsetChange)
   
 		# num_refimements (0==guess)
-		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4))
+		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4,width=60))
 		self.widgets.num_refinements.on_change("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
 		# quality (0==full quality, -1==decreased quality by half-pixels, +1==increase quality by doubling pixels etc)
-		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12))
+		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12,width=60))
 		self.widgets.quality.on_change("value",lambda attr, old, new: self.setQuality(int(new)))  
 		self.widgets.quality._check_missing_dimension=None # patch
 
