@@ -56,7 +56,7 @@ class ProbeTool(Slice):
 		self.widgets.show_probe=Button(label="Probe",width=80,sizing_mode="stretch_height")
 		self.widgets.show_probe.on_click(self.toggleVisible)
 
-		self.probe_fig = figure(
+		self.probe_fig = bokeh.plotting.figure(
 			title="Line Plot", 
 			x_axis_label="Z", 
 			y_axis_label="f", 
@@ -74,10 +74,10 @@ class ProbeTool(Slice):
 
 			# where the center of the probe (can be set by double click or using this)
 			self.slider_x_pos=Slider(value=0.0, start=0.0, end=1.0, step=1.0, title="X coordinate", sizing_mode="stretch_width" )
-			self.slider_x_pos .on_change('value_throttled', lambda attr,old, new: self.onXYChange())
+			self.slider_x_pos .on_change('value_throttled', lambda attr,old, new: self.onProbeXYChange())
 
 			self.slider_y_pos=Slider(value=0, start=0, end=1, step=1, title="Y coordinate", sizing_mode="stretch_width" )
-			self.slider_y_pos .on_change('value_throttled', lambda attr,old, new: self.onXYChange())
+			self.slider_y_pos .on_change('value_throttled', lambda attr,old, new: self.onProbeXYChange())
 
 			self.slider_num_points=Slider(value=2 , start=1, end=8, step=1, title="#points",width=60)
 			self.slider_num_points.on_change('value_throttled', lambda attr,old, new: self.refreshAll())	
@@ -90,7 +90,7 @@ class ProbeTool(Slice):
 			self.slider_z_range.on_change('value_throttled', lambda attr,old, new: self.refreshAll())
 
 			# Z resolution 
-			self.slider_z_res = Slider(value=21, start=1, end=31, step=1, title="Res", width=80)
+			self.slider_z_res = Slider(value=24, start=1, end=31, step=1, title="Res", width=80)
 			self.slider_z_res.on_change('value_throttled', lambda attr,old, new: self.refreshAll())
 
 			# Z op
@@ -126,8 +126,8 @@ class ProbeTool(Slice):
 				button.stylesheets=[InlineStyleSheet(css=css)] 
 
 
-	# onXYChange
-	def onXYChange(self):
+	# onProbeXYChange
+	def onProbeXYChange(self):
 		dir=self.getDirection()
 		slot=self.slot
 		probe=self.probes[dir][slot]
@@ -189,8 +189,8 @@ class ProbeTool(Slice):
 	# setDataset
 	def setDataset(self, url,db=None, force=False):
 		super().setDataset(url, db=db, force=force)
-		if self.db: self.slider_z_res.end=self.db.getMaxResolution() # rehentrant call
-
+		if self.db: 
+			self.slider_z_res.end=self.db.getMaxResolution()
 
 	# getMainLayout
 	def getMainLayout(self):
@@ -257,7 +257,10 @@ class ProbeTool(Slice):
 		offset=self.getOffset()
 		if self.render_offset in self.probe_fig.renderers:
 			self.probe_fig.renderers.remove(self.render_offset)
-		self.render_offset=self.probe_fig.line([offset,offset],[self.slider_z_range.start,self.slider_z_range.end],line_width=2,color="lightgray")
+		self.render_offset=self.probe_fig.line(
+			[offset,offset],
+			[self.probe_fig.y_range.start, self.probe_fig.y_range.end],
+			line_width=1,color="black")
 
 	# onButtonClick
 	def onButtonClick(self, slot):
@@ -428,6 +431,7 @@ class ProbeTool(Slice):
 		probe.y_range=[np.min(data),np.max(data)]
 		self.probe_fig.y_range.start=min([probe.y_range[0] for probe in self.probes[dir] if probe.renderers])
 		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.renderers])		
+		self.drawOffsetLine()
 
 	# enableProbe
 	def enableProbe(self, probe):
