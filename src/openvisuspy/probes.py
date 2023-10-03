@@ -26,7 +26,6 @@ class Probe:
 		self.enabled=True
 
 		# run-time
-		self.y_range=[0.0,0.0]
 		self.renderers=[]
 
 
@@ -57,7 +56,7 @@ class ProbeTool(Slice):
 		self.widgets.show_probe.on_click(self.toggleVisible)
 
 		self.probe_fig = bokeh.plotting.figure(
-			title="Line Plot", 
+			title=None, 
 			x_axis_label="Z", 
 			y_axis_label="f", 
 			toolbar_location=None, 
@@ -252,7 +251,7 @@ class ProbeTool(Slice):
 		super().setOffset(value)
 		self.drawOffsetLine()
 
-	# drawOffsetLine
+	# drawOffsetLine 
 	def drawOffsetLine(self):
 		offset=self.getOffset()
 		if self.render_offset in self.probe_fig.renderers:
@@ -290,8 +289,8 @@ class ProbeTool(Slice):
 					return dir,slot
 		return None
 
-	# addRenderers
-	def addRenderers(self, probe):
+	# addProbeRenderers
+	def addProbeRenderers(self, probe):
 		
 		dir,slot=self.findProbe(probe)
 
@@ -428,10 +427,7 @@ class ProbeTool(Slice):
 				for it in ys:
 					probe.renderers.append([self.probe_fig,self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color)])
 
-		probe.y_range=[np.min(data),np.max(data)]
-		self.probe_fig.y_range.start=min([probe.y_range[0] for probe in self.probes[dir] if probe.renderers])
-		self.probe_fig.y_range.end  =max([probe.y_range[1] for probe in self.probes[dir] if probe.renderers])		
-		self.drawOffsetLine()
+		self.refreshFigureYScale()	
 
 	# enableProbe
 	def enableProbe(self, probe):
@@ -439,9 +435,27 @@ class ProbeTool(Slice):
 		logger.info(f"enableProbe dir={dir} slot={slot} probe.pos={probe.pos}")
 		self.removeRenderers(probe)
 		probe.enabled = True
-		self.addRenderers(probe)
+		self.addProbeRenderers(probe)
 		self.updateButtons()
 
+	# refreshFigureYScale
+	def refreshFigureYScale(self):
+		is_log=isinstance(self.color_bar.color_mapper, bokeh.models.LogColorMapper)
+		vmin,vmax=[self.color_bar.color_mapper.low,self.color_bar.color_mapper.high	]
+		#self.probe_fig.y_range.start=vmin
+		#self.probe_fig.y_range.end  =vmax
+		self.probe_fig.y_range.start=0.0001
+		self.probe_fig.y_range.end=131591
+		self.probe_fig.yaxis=bokeh.models.LinearAxis(axis_label="aaa", ticker = bokeh.models.BasicTicker())
 
+		print("*******************",self.probe_fig.yaxis)
 
+		self.y_scale = bokeh.models.LogScale() # if is_log else bokeh.models.LinearScale()
+		self.drawOffsetLine()
+		logger.info(f"!!!!!!!!! refreshFigureYScale is_log={is_log} range={[vmin,vmax]}")
+
+	# gotNewData
+	def gotNewData(self, result):
+		super().gotNewData(result)
+		self.refreshFigureYScale()
 

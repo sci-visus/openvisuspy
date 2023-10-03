@@ -1,4 +1,5 @@
-import os,sys,logging,types,time,copy
+import os,sys,logging,types,time,copy,base64,json
+
 from typing import Any
 import colorcet
 from requests.auth import HTTPBasicAuth
@@ -8,12 +9,10 @@ from . utils import *
 from . backend import LoadDataset
 import bokeh
 
-from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
-import os,sys,base64,json
+from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div, LogTicker, NumeralTickFormatter, BasicTicker,ColumnDataSource
+
 from bokeh.models import TabPanel,Tabs, Button,Column, Div
 from bokeh.models.callbacks import CustomJS
-from bokeh.models import NumeralTickFormatter ,LinearColorMapper, ColorBar, BasicTicker, ColumnDataSource
-from bokeh.models import LogColorMapper, LogTicker, ColorBar
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +118,7 @@ class Widgets:
 		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()
 
 		# color_mapper type
-		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='3')
+		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='linear')
 		self.widgets.colormapper_type.on_change("value",lambda attr, old, new: self.setColorMapperType(new)) 
 
 		def PatchSlider(slider):
@@ -654,15 +653,15 @@ class Widgets:
 
 	# getColorMapperType
 	def setColorMapperType(self,value):
+
+		assert value=="linear" or value=="log"
 		logger.info(f"[{self.id}]::setColorMapperType value={value}")
 		palette=self.getPalette()
 		vmin,vmax=self.getPaletteRange()
 		self.widgets.colormapper_type.value=value
-		assert value=="linear" or value=="log"
 
 		if value=="log":
 			self.color_bar.color_mapper = LogColorMapper(palette=palette, low =max(0.01,vmin), high=max(0.01,vmax)) 
-			
 			self.color_bar.ticker=LogTicker()
 		else:
 			self.color_bar.color_mapper = LinearColorMapper(palette=palette, low =vmin, high=vmax)

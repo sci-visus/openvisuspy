@@ -9,6 +9,8 @@ from . utils   import IsPyodide, AddAsyncLoop
 
 from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
 
+
+
 logger = logging.getLogger(__name__)
 
 # ////////////////////////////////////////////////////////////////////////////////////
@@ -116,7 +118,11 @@ class Slice(Widgets):
 			return 
 		
 		await super().onIdle()
-		self.renderResultIfNeeded()
+
+		result=self.query_node.popResult(last_only=True) 
+		if result is not None: 
+			self.gotNewData(result)
+
 		self.pushJobIfNeeded()
 
 	# refresh
@@ -184,12 +190,11 @@ class Slice(Widgets):
 		self.setQueryLogicBox([p1,p2])
 		self.canvas.renderPoints([self.toPhysic(point)])
   
-	# renderResultIfNeeded
-	def renderResultIfNeeded(self):
-		result=self.query_node.popResult(last_only=True) 
-		if result is None: return
+
+	# gotNewData
+	def gotNewData(self, result):
+
 		data=result['data']
-		logic_box=result['logic_box'] 
 		try:
 			data_range=np.min(data),np.max(data)
 		except:
@@ -200,25 +205,31 @@ class Slice(Widgets):
 		
 		# refresh the range
 		if True:
-			wmin=self.widgets.palette_range_vmin
-			wmax=self.widgets.palette_range_vmax
 
+			# in dynamic mode, I need to use the data range
 			if mode=="dynamic":
-				wmin.value = str(data_range[0])
-				wmax.value = str(data_range[1])
+				self.widgets.palette_range_vmin.value = str(data_range[0])
+				self.widgets.palette_range_vmax.value = str(data_range[1])
 				
+			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
-				wmin.value = str(min(float(wmin.value), data_range[0]))
-				wmax.value = str(max(float(wmax.value), data_range[1]))
+				self.widgets.palette_range_vmin.value = str(min(float(self.widgets.palette_range_vmin.value), data_range[0]))
+				self.widgets.palette_range_vmax.value = str(max(float(self.widgets.palette_range_vmax.value), data_range[1]))
 
+			# update the color bar
 			low,high=self.getPaletteRange()
-			from bokeh.models import LogColorMapper
 			is_log=isinstance(self.color_bar.color_mapper, LogColorMapper)
-			self.color_bar.color_mapper.low =max(0.0001,low ) if is_log else low
-			self.color_bar.color_mapper.high=max(0.0001,high) if is_log else high
+			if is_log:
+				low=max(0.0001,low )
+				high=max(0.0001,high)
 
-		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
+			self.color_bar.color_mapper.low = low
+			self.color_bar.color_mapper.high= high
 
+		logic_box=result['logic_box'] 
+		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]} color-mapper-range={[self.color_bar.color_mapper.low,self.color_bar.color_mapper.high]}")
+
+		# update the image
 		(x1,y1),(x2,y2)=self.toPhysic(logic_box)
 		self.canvas.setImage(data,x1,y1,x2,y2)
 
@@ -226,6 +237,7 @@ class Slice(Widgets):
 		self.canvas.fig.xaxis.axis_label  = tX
 		self.canvas.fig.yaxis.axis_label  = tY
 
+		# update the status bar
 		tot_pixels=data.shape[0]*data.shape[1]
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
 		MaxH=self.db.getMaxResolution()
