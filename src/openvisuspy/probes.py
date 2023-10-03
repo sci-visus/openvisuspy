@@ -94,8 +94,11 @@ class ProbeTool(Slice):
 			self.slider_y_pos=Slider(value=0, start=0, end=1, step=1, title="Y coordinate", sizing_mode="stretch_width" )
 			self.slider_y_pos .on_change('value_throttled', lambda attr,old, new: self.onProbeXYChange())
 
-			self.slider_num_points=Slider(value=2 , start=1, end=8, step=1, title="#points",width=60)
-			self.slider_num_points.on_change('value_throttled', lambda attr,old, new: self.recompute())	
+			self.slider_num_points_x=Slider(value=2 , start=1, end=8, step=1, title="#x",width=60)
+			self.slider_num_points_x.on_change('value_throttled', lambda attr,old, new: self.recompute())	
+
+			self.slider_num_points_y=Slider(value=2 , start=1, end=8, step=1, title="#y",width=60)
+			self.slider_num_points_y.on_change('value_throttled', lambda attr,old, new: self.recompute())	
 
 		# probe Z space
 		if True:
@@ -119,7 +122,8 @@ class ProbeTool(Slice):
 				self.slider_z_range,
 				self.slider_z_op, 
 				self.slider_z_res, 
-				self.slider_num_points,
+				self.slider_num_points_x,
+				self.slider_num_points_y,
 				sizing_mode="stretch_width"
 			),
 			Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
@@ -320,16 +324,23 @@ class ProbeTool(Slice):
 		P2=PhysicToLogic(p2)
 		# print(P1,P2)
 
-		# align to the bitmask
-		num_points=self.slider_num_points.value
-		for I in range(3):
-			P1[I]=int(Delta[I]*(P1[I]//Delta[I]))
-			P2[I]=int(Delta[I]*(P2[I]//Delta[I])) # P2 is excluded
-			if I!=dir:
-				P2[I]+=(num_points-1)*Delta[I]
-			P2[I]+=Delta[I]
 
-		# logger.info(f"Add Probe P1={P1} P2={P2}")
+		# align to the bitmask
+		(X,Y,Z),titles=self.getLogicAxis()
+
+		def Align(idx, p): 
+			return int(Delta[idx]*(p[idx]//Delta[idx]))
+
+		P1[X]=Align(X,P1)
+		P2[X]=Align(X,P2) +(self.slider_num_points_x.value)*Delta[X]
+
+		P1[Y]=Align(Y,P1)
+		P2[Y]=Align(Y,P2) +(self.slider_num_points_y.value)*Delta[Y]	
+
+		P1[Z]=Align(Z,P1)
+		P2[Z]=Align(Z,P2)+Delta[Z]
+
+		logger.info(f"Add Probe aligned is P1={P1} P2={P2}")
 		
 		# invalid query
 		if not all([P1[I]<P2[I] for I in range(3)]):
