@@ -201,8 +201,36 @@ class Slice(Widgets):
 		except:
 			data_range=0.0,0.0
 
+		logic_box=result['logic_box'] 
+
 		# depending on the palette range mode, I need to use different color mapper low/high
 		mode=self.getPaletteRangeMode()
+
+		# show the user what is the current offset
+		maxh=self.db.getMaxResolution()
+		dir=self.getDirection()
+		vt,vs=self.logic_to_physic[dir]
+		endh=result['H']
+
+		user_physic_offset=self.getOffset()
+		real_logic_offset=logic_box[0][dir]
+		real_physic_offset=vs*real_logic_offset + vt 
+		user_logic_offset=int((user_physic_offset-vt)/vs)
+		
+		self.widgets.offset.show_value=False
+
+		if vs==1.0 and vt==0.0:
+			self.widgets.offset.title=" ".join([
+				f"Offset: {user_logic_offset} ({user_logic_offset-real_logic_offset})",
+				f"Res: {endh}/{maxh}"
+			])
+
+		else:
+			self.widgets.offset.title=" ".join([
+				f"Offset: {user_physic_offset:.3f} ({user_physic_offset-real_physic_offset:.3f})",
+				f"Logic: {user_logic_offset} ({user_logic_offset-real_logic_offset})",
+				f"Res: {endh}/{maxh}"
+			])
 		
 		# refresh the range
 		if True:
@@ -227,7 +255,7 @@ class Slice(Widgets):
 			self.color_bar.color_mapper.low = low
 			self.color_bar.color_mapper.high= high
 
-		logic_box=result['logic_box'] 
+		
 		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]} color-mapper-range={[self.color_bar.color_mapper.low,self.color_bar.color_mapper.high]}")
 
 		# update the image
@@ -241,9 +269,8 @@ class Slice(Widgets):
 		# update the status bar
 		tot_pixels=data.shape[0]*data.shape[1]
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
-		MaxH=self.db.getMaxResolution()
 		self.H=result['H']
-		self.widgets.status_bar["response"].value=f"{result['I']}/{result['N']} {str(logic_box).replace(' ','')} {data.shape[0]}x{data.shape[1]} H={result['H']}/{MaxH} {result['msec']}msec"
+		self.widgets.status_bar["response"].value=f"{result['I']}/{result['N']} {str(logic_box).replace(' ','')} {data.shape[0]}x{data.shape[1]} H={result['H']}/{maxh} {result['msec']}msec"
 		self.render_id+=1     
   
 	# pushJobIfNeeded

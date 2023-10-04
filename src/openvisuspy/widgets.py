@@ -835,7 +835,8 @@ class Widgets:
 		# apply scaling and translating
 		ret=[vs[I]*value[I] + vt[I] for I in range(pdim)]
 
-		if pdim==3: del ret[dir] # project
+		if pdim==3: 
+			del ret[dir] # project
 
 		assert(len(ret)==2)
 		return ret
