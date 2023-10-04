@@ -168,9 +168,9 @@ class Widgets:
 		self.widgets.quality.on_change("value",lambda attr, old, new: self.setQuality(int(new)))  
 		self.widgets.quality._check_missing_dimension=None # patch
 
-		# viewdep
-		self.widgets.viewdep = Select(title="View Dep",options=[('1','Enabled'),('0','Disabled')], value="True",width=100)
-		self.widgets.viewdep.on_change("value",lambda attr, old, new: self.setViewDependent(int(new)))  
+		# view_dep
+		self.widgets.view_dep = Select(title="Auto Res",options=[('1','Enabled'),('0','Disabled')], value="True",width=100)
+		self.widgets.view_dep.on_change("value",lambda attr, old, new: self.setViewDependent(int(new)))  
 
 		# link
 		self.widgets.link = CheckboxGroup(labels=["Link"], active=[])
@@ -248,7 +248,7 @@ class Widgets:
 		self.widgets.offset.disabled=value
 		self.widgets.num_refinements.disabled=value
 		self.widgets.quality.disabled=value
-		self.widgets.viewdep.disabled=value
+		self.widgets.view_dep.disabled=value
 		self.widgets.status_bar["request" ].disabled=value
 		self.widgets.status_bar["response"].disabled=value
 		self.widgets.play_button.disabled=value
@@ -697,12 +697,12 @@ class Widgets:
 
 	# getViewDepedent
 	def getViewDepedent(self):
-		return cbool(self.widgets.viewdep.value)
+		return cbool(self.widgets.view_dep.value)
 
 	# setViewDependent
 	def setViewDependent(self,value):
 		logger.info(f"[{self.id}] value={value}")
-		self.widgets.viewdep.value=str(int(value))
+		self.widgets.view_dep.value=str(int(value))
 		for it in self.children:
 			it.setViewDependent(value)     
 		self.refresh()

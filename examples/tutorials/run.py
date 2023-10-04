@@ -25,8 +25,6 @@ if __name__.startswith('bokeh'):
 		]
 	}	
 
-
-
 	# bokeh widgets
 	datasets = Select(title="Dataset", options=[it["name"] for it in config["datasets"]]) 
 	palette = Select(title='Palette', options=["Greys256", "Inferno256",  "Magma256", "Plasma256", "Viridis256", "Cividis256", "Turbo256"])
@@ -39,8 +37,8 @@ if __name__.startswith('bokeh'):
 	direction = Select(title='Direction', options=[('0','X'), ('1','Y'), ('2','Z')])
 	offset = Slider(title='Offset', start=0, end=1024, sizing_mode='stretch_width')
 	num_refinements=Slider(title='#Ref', start=0, end=4, value=2)
-	quality = Slider(title='Quality', start=-12, end=+12, value=-6)
-	viewdep = Select(title="View Dep",options=[str(True),str(False)])	
+	resolution = Slider(title='Resolution', start=0, end=99, value=21)
+	vie_wdep = Select(title="Auto Res",options=[str(True),str(False)])	
 
 	view=Slice()
 	view.setShowOptions([])
@@ -49,9 +47,9 @@ if __name__.startswith('bokeh'):
 	def SetDataset(value):
 
 		view.setDataset(value)
-		view.setQuality(quality.value)
+		view.setResolution(resolution.value)
 		view.setNumberOfRefinements(num_refinements.value)
-		view.setViewDependent(bool(viewdep.value))
+		view.setViewDependent(bool(view_dep.value))
 		view.setColorMapperType(colormapper_type.value)
 		view.setPaletteRangeMode(palette_range_mode.value)
 
@@ -106,8 +104,8 @@ if __name__.startswith('bokeh'):
 	def onNumberOfRefinementsChange(attr, old, new):
 		view.setNumberOfRefinements(new)
 
-	def onQualityChange(attr, old, new):
-		view.setQuality(new)
+	def onResolutionChange(attr, old, new):
+		view.setResolution(new)
 	
 	def onViewDependentChange(attr, old, new):
 		view.setViewDependent(bool(new))
@@ -123,8 +121,8 @@ if __name__.startswith('bokeh'):
 	direction.on_change ("value",onDirectionChange)  
 	offset.on_change ("value",onOffsetChange)
 	num_refinements.on_change("value",onNumberOfRefinementsChange)
-	quality.on_change("value",onQualityChange)  
-	viewdep.on_change("value",onViewDependentChange)  
+	resolution.on_change("value",onResolutionChange)  
+	view_dep.on_change("value",onViewDependentChange)  
 
 	SetDataset("example1")
 
@@ -141,8 +139,8 @@ if __name__.startswith('bokeh'):
 			direction,
 			offset,
 			num_refinements,
-			quality,
-			viewdep,
+			resolution,
+			view_dep,
 			sizing_mode='stretch_width',
 		),
 		view.getMainLayout(),

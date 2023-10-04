@@ -20,8 +20,8 @@ class Slices(Widgets):
 	def __init__(self, doc=None, is_panel=False, parent=None, cls=Slice):
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.cls=cls
-		self.show_options=["palette","timestep","field","viewdep","quality"]
-		self.slice_show_options=["direction","offset","viewdep"]
+		self.show_options=["palette","timestep","field","view_dep","quality"]
+		self.slice_show_options=["direction","offset","view_dep"]
 
 		# view_mode
 		self.widgets.view_mode=Tabs(tabs=[

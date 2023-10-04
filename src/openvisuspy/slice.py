@@ -20,7 +20,7 @@ class Slice(Widgets):
 	def __init__(self, doc=None, is_panel=False, parent=None):
 
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
-		self.show_options  = ["palette","timestep","field","direction","offset","viewdep","quality"]
+		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","quality"]
 		self.render_id     = 0
 		self.aborted       = Aborted()
 		self.new_job       = False
