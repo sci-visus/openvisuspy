@@ -5,7 +5,7 @@ from . backend import Aborted,LoadDataset,QueryNode
 from . canvas import Canvas
 from . widgets import Widgets
 
-from . utils   import IsPyodide, AddAsyncLoop
+from . utils   import IsPyodide, AddAsyncLoop,cdouble
 
 from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
 
@@ -33,7 +33,7 @@ class Slice(Widgets):
 		self.H=None
 
 		# create Gui
-		self.canvas = Canvas(self.id, self.color_bar, sizing_mode='stretch_both',toolbar_location=None)
+		self.canvas = Canvas(self.id)
 		self.canvas.on_resize=self.onCanvasResize
 		self.canvas.enableDoubleTap(self.onDoubleTap)
 
@@ -55,7 +55,7 @@ class Slice(Widgets):
 
 		ret = Column(
 			self.first_row_layout,
-			Row(self.canvas.fig, self.widgets.metadata, sizing_mode='stretch_both'),
+			Row(self.canvas.getMainLayout(), self.widgets.metadata, sizing_mode='stretch_both'),
 			Row(
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
@@ -188,10 +188,8 @@ class Slice(Widgets):
 		for I in range(pdim):
 			p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
 		self.setQueryLogicBox([p1,p2])
-		self.canvas.renderPoints([self.toPhysic(point)])
+		self.canvas.renderPoints([self.toPhysic(point)]) # COMMENTED OUT
   
-  
-
 	# gotNewData
 	def gotNewData(self, result):
 
@@ -246,25 +244,22 @@ class Slice(Widgets):
 				self.widgets.palette_range_vmax.value = str(max(float(self.widgets.palette_range_vmax.value), data_range[1]))
 
 			# update the color bar
-			low,high=self.getPaletteRange()
-			is_log=isinstance(self.color_bar.color_mapper, LogColorMapper)
-			if is_log:
-				low =max(self.epsilon,low )
-				high=max(self.epsilon,high)
+			low =cdouble(self.widgets.palette_range_vmin.value)
+			high=cdouble(self.widgets.palette_range_vmax.value)
 
-			self.color_bar.color_mapper.low = low
-			self.color_bar.color_mapper.high= high
+			print("BBBB !!!!",self.color_bar, self.color_bar.color_mapper)
+			self.color_bar.color_mapper.low = max(self.epsilon,low ) if self.getColorMapperType()=="log" else low
+			self.color_bar.color_mapper.high= max(self.epsilon,high) if self.getColorMapperType()=="log" else high
 
-		
 		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]} color-mapper-range={[self.color_bar.color_mapper.low,self.color_bar.color_mapper.high]}")
 
 		# update the image
 		(x1,y1),(x2,y2)=self.toPhysic(logic_box)
-		self.canvas.setImage(data,x1,y1,x2,y2)
+		self.canvas.setImage(data,x1,y1,x2,y2, self.color_bar)
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
-		self.canvas.fig.xaxis.axis_label  = tX
-		self.canvas.fig.yaxis.axis_label  = tY
+		self.canvas.setAxisLabels(tX,tY)
+
 
 		# update the status bar
 		tot_pixels=data.shape[0]*data.shape[1]

@@ -76,6 +76,8 @@ class ProbeTool(Slice):
 			x_range = [0.0,1.0], 
 			y_range = [0.0,1.0], 
 			sizing_mode="stretch_both",
+			active_scroll = "wheel_zoom",
+			toolbar_location=None,
 		) 
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
@@ -150,6 +152,8 @@ class ProbeTool(Slice):
 			x_range = [0.0,1.0], 
 			y_range = [0.0,1.0], 
 			sizing_mode="stretch_both",
+			active_scroll = "wheel_zoom",
+			toolbar_location=None,
 		) 
 		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
 		self.probe_fig_col.children=[self.probe_fig]
@@ -358,9 +362,10 @@ class ProbeTool(Slice):
 
 			x1,x2=min(xs),max(xs)
 			y1,y2=min(ys),max(ys)
+			fig=self.canvas.getFigure()
 			self.renderers[probe]["canvas"]=[
-				self.canvas.fig.scatter(xs, ys, color= color),
-				self.canvas.fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= color)
+				fig.scatter(xs, ys, color= color),
+				fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= color)
 			]
 
 		# execute the query
@@ -419,8 +424,9 @@ class ProbeTool(Slice):
 
 	# removeProbe
 	def removeProbe(self, probe):
+		fig=self.canvas.getFigure()
 		for r in self.renderers[probe]["canvas"]:
-			self.removeRenderer(self.canvas.fig,r)
+			self.removeRenderer(fig,r)
 		self.renderers[probe]["canvas"]=[]
 
 		for r in self.renderers[probe]["fig"]:

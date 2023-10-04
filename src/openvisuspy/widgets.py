@@ -51,12 +51,6 @@ PALETTES=[
 		if hasattr(colorcet,it[9:])
 	]  
 
-# //////////////////////////////////////////////////////////////////////////////////////
-def cdouble(value):
-	try:
-		return float(value)
-	except:
-		return 0.0
 
 
 
@@ -114,7 +108,7 @@ class Widgets:
 		self.widgets.palette_range_vmax.on_change("value",lambda attr, old, new: self.onPaletteRangeChange())
 
 		# color_bar
-		self.color_bar = ColorBar(ticker=BasicTicker(desired_num_ticks=10))
+		self.color_bar = ColorBar() # ticker=BasicTicker(desired_num_ticks=10)
 		self.color_bar.color_mapper=LinearColorMapper() 
 		self.color_bar.color_mapper.palette=self.palette
 		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()
@@ -663,11 +657,15 @@ class Widgets:
 		self.widgets.colormapper_type.value=value
 
 		if value=="log":
-			self.color_bar.color_mapper = LogColorMapper(palette=palette, low =max(self.epsilon,vmin), high=max(self.epsilon,vmax)) 
-			self.color_bar.ticker=LogTicker()
+			self.color_bar = ColorBar()# ticker=BasicTicker(desired_num_ticks=10)
+			self.color_bar.color_mapper=LogColorMapper(palette=palette, low =max(self.epsilon,vmin), high=max(self.epsilon,vmax)) 
+			self.color_bar.color_mapper.palette=self.palette
+			self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()	
 		else:
-			self.color_bar.color_mapper = LinearColorMapper(palette=palette, low =vmin, high=vmax)
-			self.color_bar.ticker=BasicTicker(desired_num_ticks=10)
+			self.color_bar = ColorBar() # ticker=BasicTicker(desired_num_ticks=10)
+			self.color_bar.color_mapper=LinearColorMapper(palette=palette, low =vmin, high=vmax)
+			self.color_bar.color_mapper.palette=self.palette
+			self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()	
 
 		for it in self.children:
 			it.setColorMapperType(value)  
