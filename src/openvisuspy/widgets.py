@@ -163,10 +163,10 @@ class Widgets:
 		self.widgets.num_refinements.on_change("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
-		# quality (0==full quality, -1==decreased quality by half-pixels, +1==increase quality by doubling pixels etc)
-		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12,width=60))
-		self.widgets.quality.on_change("value",lambda attr, old, new: self.setQuality(int(new)))  
-		self.widgets.quality._check_missing_dimension=None # patch
+		# resolution
+		self.widgets.resolution = PatchSlider(Slider(title='Res', value=21, start=0, end=99,width=60))
+		self.widgets.resolution.on_change("value",lambda attr, old, new: self.setResolution(int(new)))  
+		self.widgets.resolution._check_missing_dimension=None # patch
 
 		# view_dep
 		self.widgets.view_dep = Select(title="Auto Res",options=[('1','Enabled'),('0','Disabled')], value="True",width=100)
@@ -247,7 +247,7 @@ class Widgets:
 		self.widgets.direction.disabled=value
 		self.widgets.offset.disabled=value
 		self.widgets.num_refinements.disabled=value
-		self.widgets.quality.disabled=value
+		self.widgets.resolution.disabled=value
 		self.widgets.view_dep.disabled=value
 		self.widgets.status_bar["request" ].disabled=value
 		self.widgets.status_bar["response"].disabled=value
@@ -407,6 +407,17 @@ class Widgets:
 		for I,it in enumerate(self.children):
 			it.setDirection((I % 3) if pdim==3 else 2)
 
+		# view dependent
+		view_dep=bool(config.get('view-dep',True))
+		self.setViewDependent(view_dep) 
+
+		# resolution
+		maxh=self.db.getMaxResolution()
+		resolution=int(config.get("resolution",maxh-6))
+		self.widgets.resolution.start=0
+		self.widgets.resolution.end  =maxh
+		self.setResolution(resolution)
+
 		# palette 
 		palette=config.get("palette","Viridis256")
 		palette_range=config.get("palette-range",None)
@@ -424,14 +435,6 @@ class Widgets:
 		# color mapper
 		color_mapper_type=config.get("color-mapper-type","linear")
 		self.setColorMapperType(color_mapper_type)
-
-		# view dependent
-		view_dep=bool(config.get('view-dep',True))
-		self.setViewDependent(view_dep) 
-
-		# quality (>0 higher quality, <0 lower uality)
-		quality=int(config.get("quality",0))
-		self.setQuality(quality)
 
 		# num_refinements
 		num_refinements=int(config.get("num-refinements",2))
@@ -683,16 +686,21 @@ class Widgets:
 			it.setNumberOfRefinements(value)
 		self.refresh()
 
-	# getQuality
-	def getQuality(self):
-		return self.widgets.quality.value
+	# getResolution
+	def getResolution(self):
+		return self.widgets.resolution.value
+	
+	# getMaxResolution
+	def getMaxResolution(self):
+		return self.db.getMaxResolution()
 
-	# setQuality
-	def setQuality(self,value):
+	# setResolution
+	def setResolution(self,value):
 		logger.info(f"[{self.id}] value={value}")
-		self.widgets.quality.value=value
+		value=Clamp(value,0,self.getMaxResolution())
+		self.widgets.resolution.value=value
 		for it in self.children:
-			it.setQuality(value) 
+			it.setResolution(value) 
 		self.refresh()
 
 	# getViewDepedent

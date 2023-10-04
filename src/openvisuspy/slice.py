@@ -20,7 +20,7 @@ class Slice(Widgets):
 	def __init__(self, doc=None, is_panel=False, parent=None):
 
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
-		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","quality"]
+		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","resolution"]
 		self.render_id     = 0
 		self.aborted       = Aborted()
 		self.new_job       = False
@@ -292,19 +292,20 @@ class Slice(Widgets):
 			num_refinements=3 if pdim==2 else 4
 		self.aborted=Aborted()
 
-		quality=self.getQuality()
-
+		resolution=self.getResolution()
+		
 		if self.getViewDepedent():
 			canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
-			endh=None
+			endh=None # I will use max_pixels to decide what resolution
 			max_pixels=canvas_w*canvas_h
-			if quality<0:
-				max_pixels=int(max_pixels/pow(1.3,abs(quality))) # decrease the quality
-			elif quality>0:
-				max_pixels=int(max_pixels*pow(1.3,abs(quality))) # increase the quality
+			delta=resolution-self.getMaxResolution()
+			if resolution<self.getMaxResolution():
+				max_pixels=int(max_pixels/pow(1.3,abs(delta))) # decrease 
+			elif resolution>self.getMaxResolution():
+				max_pixels=int(max_pixels*pow(1.3,abs(delta))) # increase 
 		else:
 			max_pixels=None
-			endh=self.db.getMaxResolution()+quality
+			endh=resolution
 		
 		timestep=self.getTimestep()
 		field=self.getField()

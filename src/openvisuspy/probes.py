@@ -73,10 +73,9 @@ class ProbeTool(Slice):
 			title=None, 
 			x_axis_label="Z", x_axis_type ="linear",
 			y_axis_label="f", y_axis_type =self.getColorMapperType(),
-			toolbar_location=None, 
 			x_range = [0.0,1.0], 
 			y_range = [0.0,1.0], 
-			sizing_mode="stretch_both"
+			sizing_mode="stretch_both",
 		) 
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
@@ -148,10 +147,9 @@ class ProbeTool(Slice):
 			title=None, 
 			x_axis_label="Z", 
 			y_axis_label="f", y_axis_type = value,
-			toolbar_location=None, 
 			x_range = [0.0,1.0], 
 			y_range = [0.0,1.0], 
-			sizing_mode="stretch_both"
+			sizing_mode="stretch_both",
 		) 
 		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
 		self.probe_fig_col.children=[self.probe_fig]

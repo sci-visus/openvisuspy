@@ -281,7 +281,7 @@ Example of import-export, maybe a schema could be this:
       "name" : "name to show in the list box",
       "url" : "url for loaddataset", 
       "color-mapper-type": "linear",
-      "quality" : -6,
+      "resolution" : 24,
       "physic-box": [[-3.0,3.0],[-7.0,7.0],[-7.0,7.0]],
       "palette": "Viridis256",
       "palette-range" : [0.0,100.0],

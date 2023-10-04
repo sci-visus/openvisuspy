@@ -151,8 +151,8 @@ python3 -m panel serve ./nasa-bellows-ver2.py    \
    --palette "colorcet.coolwarm"     \
    --palette-range "(0,65536)"    \
    --num-views 3 \
-   --quality -3 \
-   --show-options '["palette", "view_dep", "quality", "num_refinements" ]' \
+   --resolution 24 \
+   --show-options '["palette", "view_dep", "resolution", "num_refinements" ]' \
    --slice-show-options '["direction", "offset", "view_dep"]'
 ```
 
