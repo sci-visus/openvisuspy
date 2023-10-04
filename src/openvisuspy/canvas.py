@@ -102,7 +102,7 @@ class Canvas:
 			]):
 				return
 
-		# print("***!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! RESIZE",self.last_width,self.last_fig_height,w,h)
+		# logger.info("!!! RESIZE",self.last_width,self.last_fig_height,w,h)
 		self.last_fig_width =w
 		self.last_fig_height=h
 		self.onResize()

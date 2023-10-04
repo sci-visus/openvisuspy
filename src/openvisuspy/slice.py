@@ -247,7 +247,6 @@ class Slice(Widgets):
 			low =cdouble(self.widgets.palette_range_vmin.value)
 			high=cdouble(self.widgets.palette_range_vmax.value)
 
-			print("BBBB !!!!",self.color_bar, self.color_bar.color_mapper)
 			self.color_bar.color_mapper.low = max(self.epsilon,low ) if self.getColorMapperType()=="log" else low
 			self.color_bar.color_mapper.high= max(self.epsilon,high) if self.getColorMapperType()=="log" else high
 
@@ -259,7 +258,6 @@ class Slice(Widgets):
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)
-
 
 		# update the status bar
 		tot_pixels=data.shape[0]*data.shape[1]
