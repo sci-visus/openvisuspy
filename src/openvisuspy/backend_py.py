@@ -121,9 +121,10 @@ class QueryNode:
 				logger.info(f"db.executeBoxQuery FAILED unknown-error")
 				
 			if result is None: break
+			db.nextBoxQuery(query)
+			result["running"]=db.isQueryRunning(query)
 			self.pushResult(result)
 			await SleepMsec(0)
-			db.nextBoxQuery(query)
 		self.stats.stopCollecting()
 
 	# start
@@ -445,7 +446,8 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 	while db.isQueryRunning(query):
 		result=RunAsync(db.executeBoxQuery(access, query))
 		if result is None: break
-		yield result
 		db.nextBoxQuery(query)
+		result["running"]=db.isQueryRunning(query)
+		yield result
 
 

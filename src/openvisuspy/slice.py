@@ -268,7 +268,15 @@ class Slice(Widgets):
 		tot_pixels=data.shape[0]*data.shape[1]
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
 		self.H=result['H']
-		self.widgets.status_bar["response"].value=f"{result['I']}/{result['N']} {str(logic_box).replace(' ','')} {data.shape[0]}x{data.shape[1]} H={result['H']}/{maxh} {result['msec']}msec"
+		query_status="running" if result['running'] else "FINISHED"
+		self.widgets.status_bar["response"].value=" ".join([
+			f"#{result['I']+1}",
+			f"{str(logic_box).replace(' ','')}",
+			f"{data.shape[0]}x{data.shape[1]}",
+			f"H={result['H']}/{maxh}",
+			f"{result['msec']}msec",
+			str(query_status)
+		])
 		self.render_id+=1     
   
 	# pushJobIfNeeded
@@ -310,6 +318,7 @@ class Slice(Widgets):
 		field=self.getField()
 		box_i=[[int(it) for it in jt] for jt in query_logic_box]
 		self.widgets.status_bar["request"].value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
+		self.widgets.status_bar["response"].value="Running..."
 
 		self.query_node.pushJob(
 			self.db, 

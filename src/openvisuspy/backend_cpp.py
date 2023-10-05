@@ -71,14 +71,16 @@ class Stats:
 
 	# printStatistics
 	def printStatistics(self):
-		sec=time.time()-self.t1
+		sec=max(time.time()-self.t1,1e-8)
 		stats=self.readStats()
 		logger.info(f"Stats::printStatistics enlapsed={sec} seconds" )
-		try: # division by zero
-			for k,v in stats.items():
-				logger.info(f"   {k}  r={HumanSize(v['r'])} r_sec={HumanSize(v['r']/sec)}/sec w={HumanSize(v['w'])} w_sec={HumanSize(v['w']/sec)}/sec n={v.n:,} n_sec={int(v/sec):,}/sec")
-		except:
-			pass
+		for k,v in stats.items():
+			w,r,n=v['w'],v['r'],v['n']
+			logger.info(" ".join([f"  {k:4}",
+						f"r={HumanSize(r)} r_sec={HumanSize(r/sec)}/sec",
+						f"w={HumanSize(w)} w_sec={HumanSize(w/sec)}/se ",
+						f"n={n:,} n_sec={int(n/sec):,}/sec"]))
+
 
 # /////////////////////////////////////////////////////////////////////////////////////////////////
 class QueryNode:
@@ -134,8 +136,10 @@ class QueryNode:
 	# _threadLoop
 	def _threadLoop(self):
 
-		
 		logger.info("entering _threadLoop ...")
+
+		is_aborted=ov.Aborted()
+		is_aborted.setTrue()
 
 		t1=None
 		while True:
@@ -149,7 +153,6 @@ class QueryNode:
 				logger.info("exiting _threadLoop...")
 				return 
 			
-
 			self.stats.startCollecting() 
 
 			access=kwargs['access'];del kwargs['access']
@@ -159,17 +162,28 @@ class QueryNode:
 				try:
 					result=db.executeBoxQuery(access, query)
 				except Exception as ex:
-					if not query.aborted.value:
+					if not query.aborted == is_aborted:
 						logger.info(f"db.executeBoxQuery failed {ex}")
 					break
 
-				if result is None: break
+				if result is None: 
+					break
+				
+				if query.aborted == is_aborted:
+					break 
+
+				
+				db.nextBoxQuery(query)
+				result["running"]=db.isQueryRunning(query)
+
 				if self.oqueue:
 					self.oqueue.put(result)
 					if self.wait_for_oqueue:
 						self.oqueue.join()
-				db.nextBoxQuery(query)
+				
+				time.sleep(0.01)
 
+			logger.info("Query finished")
 			self.iqueue.task_done()
 			self.stats.stopCollecting()
 
@@ -310,5 +324,6 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 	while db.isQueryRunning(query):
 		result=db.executeBoxQuery(access, query)
 		if result is None: break
-		yield result
 		db.nextBoxQuery(query)
+		result["running"]=not db.isQueryRunning(query)
+		yield result
