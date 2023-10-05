@@ -5,9 +5,11 @@ from . backend import Aborted,LoadDataset,QueryNode
 from . canvas import Canvas
 from . widgets import Widgets
 
-from . utils   import IsPyodide, AddAsyncLoop
+from . utils   import IsPyodide, AddAsyncLoop,cdouble
 
-from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
+from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div,UIElement
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,7 @@ class Slice(Widgets):
 	def __init__(self, doc=None, is_panel=False, parent=None):
 
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
-		self.show_options  = ["palette","timestep","field","direction","offset","viewdep","quality"]
+		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","resolution"]
 		self.render_id     = 0
 		self.aborted       = Aborted()
 		self.new_job       = False
@@ -31,7 +33,7 @@ class Slice(Widgets):
 		self.H=None
 
 		# create Gui
-		self.canvas = Canvas(self.id, self.color_bar, sizing_mode='stretch_both',toolbar_location=None)
+		self.canvas = Canvas(self.id)
 		self.canvas.on_resize=self.onCanvasResize
 		self.canvas.enableDoubleTap(self.onDoubleTap)
 
@@ -39,20 +41,26 @@ class Slice(Widgets):
 	def getShowOptions(self):
 		return self.show_options
 
+	# getFirstRowChildren
+	def getFirstRowChildren(self):
+		ret=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+		ret=[it.getMainLayout() if not isinstance(it,UIElement) else it for it in ret]
+		return ret		
+
 	# setShowOptions
 	def setShowOptions(self,value):
 		self.show_options=value
-		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+		self.first_row_layout.children=self.getFirstRowChildren()
 
 	# getMainLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
 	def getMainLayout(self):
 
-		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+		self.first_row_layout.children=self.getFirstRowChildren()
 
 		ret = Column(
 			self.first_row_layout,
-			Row(self.canvas.fig, self.widgets.metadata, sizing_mode='stretch_both'),
+			Row(self.canvas.getMainLayout(), self.widgets.metadata, sizing_mode='stretch_both'),
 			Row(
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
@@ -116,15 +124,18 @@ class Slice(Widgets):
 			return 
 		
 		await super().onIdle()
-		self.renderResultIfNeeded()
+
+		result=self.query_node.popResult(last_only=True) 
+		if result is not None: 
+			self.gotNewData(result)
+
 		self.pushJobIfNeeded()
 
 	# refresh
 	def refresh(self):
 		super().refresh()
 		self.aborted.setTrue()
-		self.new_job=True	
-
+		self.new_job=True
   
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
@@ -133,7 +144,7 @@ class Slice(Widgets):
 
 	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
 	def setQueryLogicBox(self,value,):
-		logger.info(f"[{self.id}]::setQueryLogicBox value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		proj=self.toPhysic(value) 
 		x1,y1=proj[0]
 		x2,y2=proj[1]
@@ -170,7 +181,7 @@ class Slice(Widgets):
   # gotoPoint
 	def gotoPoint(self,point):
 		assert(False) # not sure if point is in physic or logic corrdinates (I think physic)
-		logger.info(f"[{self.id}]::gotoPoint point={point}")
+		logger.info(f"[{self.id}] point={point}")
 		pdim=self.getPointDim()
 		# go to the slice
 		if pdim==3:
@@ -182,55 +193,82 @@ class Slice(Widgets):
 		for I in range(pdim):
 			p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
 		self.setQueryLogicBox([p1,p2])
-		self.canvas.renderPoints([self.toPhysic(point)])
+		self.canvas.renderPoints([self.toPhysic(point)]) # COMMENTED OUT
   
-	# renderResultIfNeeded
-	def renderResultIfNeeded(self):
-		result=self.query_node.popResult(last_only=True) 
-		if result is None: return
+	# gotNewData
+	def gotNewData(self, result):
+
 		data=result['data']
-		logic_box=result['logic_box'] 
 		try:
 			data_range=np.min(data),np.max(data)
 		except:
 			data_range=0.0,0.0
 
+		logic_box=result['logic_box'] 
+
 		# depending on the palette range mode, I need to use different color mapper low/high
 		mode=self.getPaletteRangeMode()
+
+		# show the user what is the current offset
+		maxh=self.db.getMaxResolution()
+		dir=self.getDirection()
+		vt,vs=self.logic_to_physic[dir]
+		endh=result['H']
+
+		user_physic_offset=self.getOffset()
+		real_logic_offset=logic_box[0][dir]
+		real_physic_offset=vs*real_logic_offset + vt 
+		user_logic_offset=int((user_physic_offset-vt)/vs)
+		
+		self.widgets.offset.show_value=False
+
+		if False and (vs==1.0 and vt==0.0):
+			self.widgets.offset.title=" ".join([
+				f"Offset: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
+				f"Res: {endh}/{maxh}"
+			])
+
+		else:
+			self.widgets.offset.title=" ".join([
+				f"Offset: {user_physic_offset:.3f}±{abs(user_physic_offset-real_physic_offset):.3f}",
+				f"Pixel: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
+				f"Res: {endh}/{maxh}"
+			])
 		
 		# refresh the range
 		if True:
-			wmin=self.widgets.palette_range_vmin
-			wmax=self.widgets.palette_range_vmax
 
+			# in dynamic mode, I need to use the data range
 			if mode=="dynamic":
-				wmin.value = str(data_range[0])
-				wmax.value = str(data_range[1])
+				self.widgets.palette_range_vmin.value = str(data_range[0])
+				self.widgets.palette_range_vmax.value = str(data_range[1])
 				
+			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
-				wmin.value = str(min(float(wmin.value), data_range[0]))
-				wmax.value = str(max(float(wmax.value), data_range[1]))
+				self.widgets.palette_range_vmin.value = str(min(float(self.widgets.palette_range_vmin.value), data_range[0]))
+				self.widgets.palette_range_vmax.value = str(max(float(self.widgets.palette_range_vmax.value), data_range[1]))
 
-			low,high=self.getPaletteRange()
-			from bokeh.models import LogColorMapper
-			is_log=isinstance(self.color_bar.color_mapper, LogColorMapper)
-			self.color_bar.color_mapper.low =max(0.0001,low ) if is_log else low
-			self.color_bar.color_mapper.high=max(0.0001,high) if is_log else high
+			# update the color bar
+			low =cdouble(self.widgets.palette_range_vmin.value)
+			high=cdouble(self.widgets.palette_range_vmax.value)
 
-		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
+			self.color_bar.color_mapper.low = max(self.epsilon,low ) if self.getColorMapperType()=="log" else low
+			self.color_bar.color_mapper.high= max(self.epsilon,high) if self.getColorMapperType()=="log" else high
 
+		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]} color-mapper-range={[self.color_bar.color_mapper.low,self.color_bar.color_mapper.high]}")
+
+		# update the image
 		(x1,y1),(x2,y2)=self.toPhysic(logic_box)
-		self.canvas.setImage(data,x1,y1,x2,y2)
+		self.canvas.setImage(data,x1,y1,x2,y2, self.color_bar)
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
-		self.canvas.fig.xaxis.axis_label  = tX
-		self.canvas.fig.yaxis.axis_label  = tY
+		self.canvas.setAxisLabels(tX,tY)
 
+		# update the status bar
 		tot_pixels=data.shape[0]*data.shape[1]
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
-		MaxH=self.db.getMaxResolution()
 		self.H=result['H']
-		self.widgets.status_bar["response"].value=f"{result['I']}/{result['N']} {str(logic_box).replace(' ','')} {data.shape[0]}x{data.shape[1]} H={result['H']}/{MaxH} {result['msec']}msec"
+		self.widgets.status_bar["response"].value=f"{result['I']}/{result['N']} {str(logic_box).replace(' ','')} {data.shape[0]}x{data.shape[1]} H={result['H']}/{maxh} {result['msec']}msec"
 		self.render_id+=1     
   
 	# pushJobIfNeeded
@@ -238,6 +276,7 @@ class Slice(Widgets):
 
 		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
 		query_logic_box=self.getQueryLogicBox()
+		offset=self.getOffset()
 		pdim=self.getPointDim()
 		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
 			return
@@ -252,19 +291,20 @@ class Slice(Widgets):
 			num_refinements=3 if pdim==2 else 4
 		self.aborted=Aborted()
 
-		quality=self.getQuality()
-
+		resolution=self.getResolution()
+		
 		if self.getViewDepedent():
 			canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
-			endh=None
+			endh=None # I will use max_pixels to decide what resolution
 			max_pixels=canvas_w*canvas_h
-			if quality<0:
-				max_pixels=int(max_pixels/pow(1.3,abs(quality))) # decrease the quality
-			elif quality>0:
-				max_pixels=int(max_pixels*pow(1.3,abs(quality))) # increase the quality
+			delta=resolution-self.getMaxResolution()
+			if resolution<self.getMaxResolution():
+				max_pixels=int(max_pixels/pow(1.3,abs(delta))) # decrease 
+			elif resolution>self.getMaxResolution():
+				max_pixels=int(max_pixels*pow(1.3,abs(delta))) # increase 
 		else:
 			max_pixels=None
-			endh=self.db.getMaxResolution()+quality
+			endh=resolution
 		
 		timestep=self.getTimestep()
 		field=self.getField()
@@ -286,3 +326,11 @@ class Slice(Widgets):
 		self.new_job=False
 
 		logger.info(f"[{self.id}] pushed new job query_logic_box={query_logic_box}")
+
+		# link views
+		if self.isLinked() and self.parent:
+			idx=self.parent.children.index(self)
+			for child in self.parent.children:
+				if child==self: continue
+				child.setQueryLogicBox(query_logic_box)
+				child.setOffset(offset)

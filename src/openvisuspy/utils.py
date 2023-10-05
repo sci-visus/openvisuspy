@@ -68,6 +68,12 @@ def RunAsync(coroutine_object):
 	nest_asyncio.apply()
 	return asyncio.run(coroutine_object)
 
+# //////////////////////////////////////////////////////////////////////////////////////
+def cdouble(value):
+	try:
+		return float(value)
+	except:
+		return 0.0
 
 
 

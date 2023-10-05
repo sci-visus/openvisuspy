@@ -9,6 +9,8 @@ from . widgets import Widgets
 from . slice   import Slice
 from . utils   import IsPyodide, AddAsyncLoop
 
+from bokeh.models import TabPanel,Tabs, Button,Column, Div
+
 logger = logging.getLogger(__name__)
 
 # //////////////////////////////////////////////////////////////////////////////////////
@@ -18,9 +20,21 @@ class Slices(Widgets):
 	def __init__(self, doc=None, is_panel=False, parent=None, cls=Slice):
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.cls=cls
-		self.show_options=["num_views","palette","timestep","field","viewdep","quality"]
-		self.slice_show_options=["direction","offset","viewdep"]
-		self.central_layout=Column(sizing_mode='stretch_both')
+		self.show_options=["palette","timestep","field","view_dep","resolution"]
+		self.slice_show_options=["direction","offset","view_dep"]
+
+		# view_mode
+		self.widgets.view_mode=Tabs(tabs=[
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="1"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="probe"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="2"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="2-linked"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="4"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="4-linked"),
+			],
+			sizing_mode="stretch_both")
+		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(self.widgets.view_mode.tabs[new].title)) 
+
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -35,19 +49,10 @@ class Slices(Widgets):
 		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
 
 	# getMainLayout 
-	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
 	def getMainLayout(self):
 
-		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
-
-		ret=Column(
-			self.first_row_layout,
-			Row(
-				self.central_layout,
-				self.widgets.metadata, 
-				sizing_mode='stretch_both'
-			),
-			sizing_mode='stretch_both')
+		options=[it.replace("-","_") for it in self.show_options]
+		self.first_row_layout.children=[getattr(self.widgets,it) for it in options]
 
 		if IsPyodide():
 			self.idle_callbackAddAsyncLoop(f"{self}::onIdle (bokeh)",self.onIdle,1000//30)
@@ -64,63 +69,93 @@ class Slices(Widgets):
 
 		self.start()
 
-		# this will fill out the central_layout
-		self.setNumberOfViews(self.getNumberOfViews())
+		# this will fill out the layout
+		self.setViewMode(self.getViewMode())
 
+		return self.widgets.view_mode
+
+	# getViewMode
+	def getViewMode(self):
+		tab=self.widgets.view_mode.tabs[self.widgets.view_mode.active]
+		return tab.title
+
+	# createChild
+	def createChild(self):
+		ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
+		if self.slice_show_options is not None:
+			ret.setShowOptions(self.slice_show_options)	
 		return ret
 
+	# setViewMode
+	def setViewMode(self, value):
+		logger.info(f"[{self.id}] value={value}")		
 
-	# setNumberOfViews
-	def setNumberOfViews(self,value):
+		tabs=self.widgets.view_mode.tabs
+		inner=None
+		for I,tab in enumerate(tabs):
+			if tab.title==value:
+				self.widgets.view_mode.active=I
+				inner=tab.child
+				break
 
+		if not inner:
+			return
+		
 		config=self.getConfig()
-
 		super().stop()
-		super().setNumberOfViews(value)
 
 		# remove old children
 		v=self.children
 		logger.info(f"[{self.id}] deleting old children {[it.id for it in v]}")
 		for it in v: del it
 
-		self.children=[]
-		for I in range(value):
-			child=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
-			if self.slice_show_options is not None:
-				child.setShowOptions(self.slice_show_options)
-			self.children.append(child)
-  
-		layouts=[it.getMainLayout() for it in self.children]
-		if value<=2:
-			self.central_layout.children=[
-				Row(*layouts, sizing_mode='stretch_both')
-			]
+		# empty all tabs
+		for tab in self.widgets.view_mode.tabs:
+			tab.child.children=[]
 
-		elif value==3:
-			self.central_layout.children=[
-				Row(
-					layouts[2], 
-					Column(
-						children=layouts[0:2],
-						sizing_mode='stretch_both'
-					),
-					sizing_mode='stretch_both')
-				]
-			
-		elif value==4:
-			self.central_layout.children=[
-				Grid(
-					children=layouts,
-					nrows=2, 
-					ncols=2, 
-					sizing_mode="stretch_both")	
-				]
+
+		if value=="1":
+			self.children=[self.createChild()]
+			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
+
+		elif value=="2" or value=="2-linked":
+			self.children=[self.createChild() for I in range(2)]
+			central=Row(children=[child.getMainLayout() for child in self.children], sizing_mode="stretch_both")
+
+		elif "probe" in value:
+			child=self.createChild()
+			child.setProbeVisible(True)
+			self.children=[child]
+			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")			
+
+		elif value=="4" or value=="4-linked":
+			self.children=[self.createChild() for I in range(4)]
+			central=Grid(children=[child.getMainLayout() for child in self.children],nrows=2, ncols=2, sizing_mode="stretch_both")
 			
 		else:
 			raise Exception("internal error")
 		
+
+		if "linked" in value: 
+			self.children[0].setLinked(True)
+
+		inner.children=[
+			Row(
+					Column(
+						self.first_row_layout,
+						central,
+						sizing_mode='stretch_both'
+					),
+					self.widgets.metadata, 
+					sizing_mode='stretch_both'
+			)
+		]
+
 		self.setConfig(config)
 		super().start()
 
 
+	# setNumberOfViews (backward compatible)
+	def setNumberOfViews(self, value):
+		self.setViewMode(str(value))
 

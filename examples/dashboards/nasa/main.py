@@ -3,12 +3,7 @@ import os,sys,logging,time
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
 
-	if "--multi" in sys.argv:
-		num_views=3
-	elif "--single" in sys.argv:
-		num_views=1
-	else:
-		num_views=1
+	view_mode="4" if "--multi" in sys.argv else "1"
 
 	if "--py" in sys.argv:
 		backend="py"
@@ -33,11 +28,11 @@ if __name__.startswith('bokeh'):
 
 	view=Slices(doc=doc, is_panel=is_panel)
 	view.setShowOptions([
-		["palette","timestep","timestep-delta","field","quality","play-button", "play-sec"],
+		["palette","timestep","timestep-delta","field","resolution","play-button", "play-sec"],
 		["direction","offset"]
 	])
 
-	view.setNumberOfViews(num_views)  
+	view.setViewmode(view_mode)  
 
 	timestep_delta=4
 
@@ -47,7 +42,7 @@ if __name__.startswith('bokeh'):
 	view.setTimestepDelta(timestep_delta)
 	view.setTimestep((2015//timestep_delta)*timestep_delta)
 	view.setField(view.getField())
-	view.setQuality(-6)
+	view.setResolution(view.getMaxResolution()-6)
 	view.setLogicToPhysic([(0.0,1.0), (0.0,1.0), (0.0,30.0)])
 
 	view.children[0].setDirection(2)

@@ -63,7 +63,7 @@ See OpenVisus `Docker/group-security`` for details about how to add users
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
 set MODVISUS_USERNAME=xxxxx
 set MODVISUS_PASSWORD=yyyyy
-python -m bokeh serve examples/dashboards/app --dev --args C:\big\visus_datasets\3scans_HKLI\3scans_HKLI.counts.idx
+python -m bokeh serve examples/dashboards/app --dev --args C:\big\visus_datasets\chess\test-group\config.json
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group-2.json"
 ```
 
@@ -281,7 +281,7 @@ Example of import-export, maybe a schema could be this:
       "name" : "name to show in the list box",
       "url" : "url for loaddataset", 
       "color-mapper-type": "linear",
-      "quality" : -6,
+      "resolution" : 24,
       "physic-box": [[-3.0,3.0],[-7.0,7.0],[-7.0,7.0]],
       "palette": "Viridis256",
       "palette-range" : [0.0,100.0],
@@ -450,10 +450,10 @@ index f098636..d071b61 100644
 +		if show_options:
 +			self.setShowOptions(show_options)
 +
-+		# num_views
-+		num_views=config.get("num-views",None)
-+		if num_views:
-+			self.setNumberOfViews(num_views)
++		# view_mode
++		view_mode=config.get("view-mode",None)
++		if view_mode:
++			self.setViewMode(view_mode)
 +
 +		# viewport
 +		viewport=config.get("viewport",None)

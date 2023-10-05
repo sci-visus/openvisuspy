@@ -1,4 +1,5 @@
-import os,sys,logging,types,time,copy
+import os,sys,logging,types,time,copy,base64,json
+
 from typing import Any
 import colorcet
 from requests.auth import HTTPBasicAuth
@@ -8,12 +9,10 @@ from . utils import *
 from . backend import LoadDataset
 import bokeh
 
-from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
-import os,sys,base64,json
-from bokeh.models import TabPanel,Tabs, Button,Column, Div
+from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div, LogTicker, NumeralTickFormatter, BasicTicker,ColumnDataSource
+
+from bokeh.models import TabPanel,Tabs, Button,Column, Div,CheckboxGroup,Spinner
 from bokeh.models.callbacks import CustomJS
-from bokeh.models import NumeralTickFormatter ,LinearColorMapper, ColorBar, BasicTicker, ColumnDataSource
-from bokeh.models import LogColorMapper, LogTicker, ColorBar
 
 logger = logging.getLogger(__name__)
 
@@ -52,19 +51,126 @@ PALETTES=[
 		if hasattr(colorcet,it[9:])
 	]  
 
-# //////////////////////////////////////////////////////////////////////////////////////
-def cdouble(value):
-	try:
-		return float(value)
-	except:
-		return 0.0
 
+
+# //////////////////////////////////////////////////////////////////////////////////////
+class EditableSlider:
+
+	# constructor
+	def __init__(self, title='', value=0, start=0, end=1024, step=1, sizing_mode='stretch_width'):
+		self.slider = Slider(title=title, value=value, start=start, end=end, step=step, sizing_mode=sizing_mode)
+		self.slider._check_missing_dimension=None 
+		self.spinner = Spinner(title="",value=value,low=start,high=end,step=step,width=80,format="0.00")
+		self.spinner.format="0.00"
+		self.slider.on_change ("value",self.onValueChange)
+		self.spinner.on_change("value",self.onValueChange)
+		self.__value=value
+		self.__start=start
+		self.__end  =end
+		self.__step =step
+		self.on_value_change=None
+
+	# getMainLayout
+	def getMainLayout(self):
+		return Row(
+			self.slider,
+			self.spinner,
+			sizing_mode=self.slider.sizing_mode)
+
+	# onValueChange
+	def onValueChange(self,attr,old,new):
+		self.value=new
+
+	@property
+	def value(self):
+		return self.__value
+
+	@value.setter
+	def value(self, new):
+		if hasattr(self,"__changing_value") and self.__changing_value:  return
+		old=self.__value
+		self.__changing_value=True	
+		if old!=new:
+			self.__value=new
+			self.slider.value =new
+			self.spinner.value=new
+			if self.on_value_change:
+				self.on_value_change("value",old, new)
+		self.__changing_value=False
+
+
+	# on_change
+	def on_change(self, evt, fn):
+		assert(evt=='value')
+		self.on_value_change=fn
+
+	@property
+	def start(self):
+		return self.__start
+
+	@start.setter
+	def start(self, value):
+		self.__start=value
+		self.slider.start=value
+		self.spinner.low=value
+
+	@property
+	def end(self):
+		return self.__end
+
+	@end.setter
+	def end(self, value):
+		self.__end=value
+		self.slider.end=value
+		self.spinner.high=value
+
+	@property
+	def step(self):
+		return self.__step
+
+	@step.setter
+	def step(self, value):
+		self.__step=value
+		self.slider.step =value
+		self.spinner.step=value if value else 0.01 # TODO
+
+	@property
+	def disabled(self):
+		return self.slider.disabled
+
+	@disabled.setter
+	def disabled(self, value):
+		self.slider.disabled=value
+		self.spinner.disabled=value
+
+	@property
+	def show_value(self):
+		return self.slider.show_value
+
+	@show_value.setter
+	def show_value(self, value):
+		self.slider.show_value=value
+
+	@property
+	def title(self):
+		return self.slider.title
+
+	@title.setter
+	def title(self, value):
+		self.slider.title=value
+
+
+	
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Widgets:
 
 	ID=0
+
+	epsilon=0.001
+
+	start_resolution=20
 
 	# constructor
 	def __init__(self,doc=None, is_panel=False, parent=None):
@@ -88,6 +194,7 @@ class Widgets:
 		self.render_id=None # by default I am not rendering
 		self.logic_to_physic=[(0.0,1.0)]*3
 		self.children=[]
+		self.linked=False
   
 		self.first_row_layout=Row(sizing_mode="stretch_width")
 
@@ -113,29 +220,21 @@ class Widgets:
 		self.widgets.palette_range_vmax.on_change("value",lambda attr, old, new: self.onPaletteRangeChange())
 
 		# color_bar
-		self.color_bar = ColorBar(ticker=BasicTicker(desired_num_ticks=10))
+		self.color_bar = ColorBar() # ticker=BasicTicker(desired_num_ticks=10)
 		self.color_bar.color_mapper=LinearColorMapper() 
 		self.color_bar.color_mapper.palette=self.palette
 		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()
 
 		# color_mapper type
-		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='3')
+		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='linear')
 		self.widgets.colormapper_type.on_change("value",lambda attr, old, new: self.setColorMapperType(new)) 
-
-		def PatchSlider(slider):
-			slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
-			return slider
   
-		# num_views
-		self.widgets.num_views=Select(title='#Views',  options=["1","2","3","4"],value='1')
-		self.widgets.num_views.on_change("value",lambda attr, old, new: self.setNumberOfViews(int(new))) 
- 
 		# timestep
-		self.widgets.timestep = PatchSlider(Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width'))
+		self.widgets.timestep = Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width')
+		self.widgets.timestep._check_missing_dimension=None
 
 		def onTimestepChange(attr, old, new):
 			if old==new: return
-			logger.info("onTimestepChange old={old} new={new}")
 			self.setTimestep(int(new))
 
 		self.widgets.timestep.on_change("value",onTimestepChange)
@@ -154,29 +253,23 @@ class Widgets:
 		self.widgets.direction.on_change ("value",lambda attr, old, new: self.setDirection(int(new)))  
   
 		# offset 
-		self.widgets.offset = PatchSlider(Slider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width'))
-
-		def onOffsetChange(attr, old, new):
-			if old==new: return
-			logging.info(f"\n\n\n\n\n[{self.id}] on_change calling setOffset({new})")
-			self.setOffset(new)
-
-		self.widgets.offset.on_change ("value",onOffsetChange)
+		self.widgets.offset = EditableSlider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width')
+		self.widgets.offset.on_change("value",self.onOffsetChange)
   
 		# num_refimements (0==guess)
-		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4))
+		self.widgets.num_refinements=Slider(title='#Ref', value=0, start=0, end=4,width=60)
 		self.widgets.num_refinements.on_change("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
-		# quality (0==full quality, -1==decreased quality by half-pixels, +1==increase quality by doubling pixels etc)
-		self.widgets.quality = PatchSlider(Slider(title='Quality', value=0, start=-12, end=+12))
-		self.widgets.quality.on_change("value",lambda attr, old, new: self.setQuality(int(new)))  
-		self.widgets.quality._check_missing_dimension=None # patch
+		# resolution
+		self.widgets.resolution = Slider(title='Res', value=21, start=self.start_resolution, end=99,width=80)
+		self.widgets.resolution.on_change("value",lambda attr, old, new: self.setResolution(int(new)))  
+		self.widgets.resolution._check_missing_dimension=None # patch
 
-		# viewdep
-		self.widgets.viewdep = Select(title="View Dep",options=[('1','Enabled'),('0','Disabled')], value="True",width=100)
-		self.widgets.viewdep.on_change("value",lambda attr, old, new: self.setViewDependent(int(new)))  
-  
+		# view_dep
+		self.widgets.view_dep = Select(title="Auto Res",options=[('1','Enabled'),('0','Disabled')], value="True",width=100)
+		self.widgets.view_dep.on_change("value",lambda attr, old, new: self.setViewDependent(int(new)))  
+
 		# status_bar
 		self.widgets.status_bar= {}
 		self.widgets.status_bar["request" ]=TextInput(title="" ,sizing_mode='stretch_width')
@@ -197,9 +290,23 @@ class Widgets:
 
 		self.widgets.show_metadata=Button(label="Metadata",width=80,sizing_mode='stretch_height')
 		self.widgets.show_metadata.on_click(self.onShowMetadataClick)
+		
 
 		self.panel_layout=None
 		self.idle_callback=None
+
+	# onOffsetChange
+	def onOffsetChange(self, attr, old, new):
+		if old==new: return
+		self.setOffset(new)
+
+	# isLinked
+	def isLinked(self):
+		return self.linked
+
+	# setLinked
+	def setLinked(self,value):
+		self.linked=value
 
 	# onShowMetadataClick
 	def onShowMetadataClick(self):
@@ -233,15 +340,14 @@ class Widgets:
 	def setWidgetsDisabled(self,value):
 		self.widgets.datasets.disabled=value
 		self.widgets.palette.disabled=value
-		self.widgets.num_views.disabled=value
 		self.widgets.timestep.disabled=value
 		self.widgets.timestep_delta.disabled=value
 		self.widgets.field.disabled=value
 		self.widgets.direction.disabled=value
 		self.widgets.offset.disabled=value
 		self.widgets.num_refinements.disabled=value
-		self.widgets.quality.disabled=value
-		self.widgets.viewdep.disabled=value
+		self.widgets.resolution.disabled=value
+		self.widgets.view_dep.disabled=value
 		self.widgets.status_bar["request" ].disabled=value
 		self.widgets.status_bar["response"].disabled=value
 		self.widgets.play_button.disabled=value
@@ -271,7 +377,7 @@ class Widgets:
 	# setConfig
 	def setConfig(self,value):
 		if value is None: return
-		logger.info(f"[{self.id}]::setConfig")
+		logger.info(f"[{self.id}] value=...")
 		self.config=value
 		self.datasets={it["name"] : it for it in value["datasets"]}
 		ordered_names=[it["name"] for it in value["datasets"]]
@@ -286,7 +392,7 @@ class Widgets:
 
 	# setLogicToPhysic
 	def setLogicToPhysic(self,value):
-		logger.info(f"[{self.id}]::setLogicToPhysic value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.logic_to_physic=value
 		for it in self.children:
 			it.setLogicToPhysic(value)
@@ -347,7 +453,7 @@ class Widgets:
 		if not force and self.current_dataset and self.current_dataset["name"]==name:
 			return 
 
-		logger.info(f"[{self.id}]::setDataset name={name}")
+		logger.info(f"[{self.id}] name={name}")
 
 		config=self.datasets[name]
 		self.current_dataset=config
@@ -400,6 +506,17 @@ class Widgets:
 		for I,it in enumerate(self.children):
 			it.setDirection((I % 3) if pdim==3 else 2)
 
+		# view dependent
+		view_dep=bool(config.get('view-dep',True))
+		self.setViewDependent(view_dep) 
+
+		# resolution
+		maxh=self.db.getMaxResolution()
+		resolution=int(config.get("resolution",maxh-6))
+		self.widgets.resolution.start=self.start_resolution
+		self.widgets.resolution.end  =maxh
+		self.setResolution(resolution)
+
 		# palette 
 		palette=config.get("palette","Viridis256")
 		palette_range=config.get("palette-range",None)
@@ -417,14 +534,6 @@ class Widgets:
 		# color mapper
 		color_mapper_type=config.get("color-mapper-type","linear")
 		self.setColorMapperType(color_mapper_type)
-
-		# view dependent
-		view_dep=bool(config.get('view-dep',True))
-		self.setViewDependent(view_dep) 
-
-		# quality (>0 higher quality, <0 lower uality)
-		quality=int(config.get("quality",0))
-		self.setQuality(quality)
 
 		# num_refinements
 		num_refinements=int(config.get("num-refinements",2))
@@ -486,15 +595,7 @@ class Widgets:
 			self.widgets.metadata.children=[Tabs(tabs=tabs)]
 
 		self.refresh() 
-  
-	# getNumberOfViews
-	def getNumberOfViews(self):
-		return int(self.widgets.num_views.value)
 
-	# setNumberOfViews
-	def setNumberOfViews(self,value):
-		logger.info(f"[{self.id}]::setNumberOfViews value={value}")
-		self.widgets.num_views.value=str(value)
 
 	# getTimesteps
 	def getTimesteps(self):
@@ -505,7 +606,7 @@ class Widgets:
 
 	# setTimesteps
 	def setTimesteps(self,value):
-		logger.info(f"[{self.id}]::setTimesteps start={value[0]} end={value[-1]}")
+		logger.info(f"[{self.id}] start={value[0]} end={value[-1]}")
 		self.widgets.timestep.start =  value[0]
 		self.widgets.timestep.end   =  value[-1]
 		self.widgets.timestep.step  = 1
@@ -524,7 +625,7 @@ class Widgets:
 
 	# setTimestepDelta
 	def setTimestepDelta(self,value):
-		logger.info(f"[{self.id}]::setTimestepDelta value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.timestep_delta.value=self.optionFromSpeed (value)
 		self.widgets.timestep.step=value
 		A=self.widgets.timestep.start
@@ -545,9 +646,8 @@ class Widgets:
 
 	# setTimestep
 	def setTimestep(self, value):
-		logger.info(f"[{self.id}]::setTimestep value={value} A")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.timestep.value=value
-		logger.info(f"[{self.id}]::setTimestep value={value} B")
 		for it in self.children:
 			it.setTimestep(value)  
 		self.refresh()
@@ -558,7 +658,7 @@ class Widgets:
   
 	# setFields
 	def setFields(self, value):
-		logger.info(f"[{self.id}]::setFields value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.field.options =list(value)
 
 	# getField
@@ -567,7 +667,7 @@ class Widgets:
 
 	# setField
 	def setField(self,value):
-		logger.info(f"[{self.id}]::setField value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		if value is None: return
 		self.widgets.field.value=value
 		for it in self.children:
@@ -580,7 +680,7 @@ class Widgets:
 
 	# setPalette
 	def setPalette(self, value):	 
-		logger.info(f"[{self.id}]::setPalette value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.palette=value
 		self.widgets.palette.value=value
 		self.color_bar.color_mapper.palette=getattr(colorcet,value[len("colorcet."):]) if value.startswith("colorcet.") else value
@@ -605,7 +705,7 @@ class Widgets:
 	
 	# setPaletteRangeMode
 	def setPaletteRangeMode(self,mode):
-		logger.info(f"[{self.id}]::setPaletteRangeMode mode={mode} ")
+		logger.info(f"[{self.id}] mode={mode} ")
 		self.widgets.palette_range_mode.value=mode
 
 		wmin=self.widgets.palette_range_vmin
@@ -652,21 +752,25 @@ class Widgets:
 	def getColorMapperType(self):
 		return "log" if isinstance(self.color_bar.color_mapper,LogColorMapper) else "linear"
 
-	# getColorMapperType
+	# setColorMapperType
 	def setColorMapperType(self,value):
-		logger.info(f"[{self.id}]::setColorMapperType value={value}")
+
+		assert value=="linear" or value=="log"
+		logger.info(f"[{self.id}] value={value}")
 		palette=self.getPalette()
 		vmin,vmax=self.getPaletteRange()
 		self.widgets.colormapper_type.value=value
-		assert value=="linear" or value=="log"
 
 		if value=="log":
-			self.color_bar.color_mapper = LogColorMapper(palette=palette, low =max(0.01,vmin), high=max(0.01,vmax)) 
-			
-			self.color_bar.ticker=LogTicker()
+			self.color_bar = ColorBar()# ticker=BasicTicker(desired_num_ticks=10)
+			self.color_bar.color_mapper=LogColorMapper(palette=palette, low =max(self.epsilon,vmin), high=max(self.epsilon,vmax)) 
+			self.color_bar.color_mapper.palette=self.palette
+			self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()	
 		else:
-			self.color_bar.color_mapper = LinearColorMapper(palette=palette, low =vmin, high=vmax)
-			self.color_bar.ticker=BasicTicker(desired_num_ticks=10)
+			self.color_bar = ColorBar() # ticker=BasicTicker(desired_num_ticks=10)
+			self.color_bar.color_mapper=LinearColorMapper(palette=palette, low =vmin, high=vmax)
+			self.color_bar.color_mapper.palette=self.palette
+			self.color_bar.color_mapper.low, self.color_bar.color_mapper.high  = self.getPaletteRange()	
 
 		for it in self.children:
 			it.setColorMapperType(value)  
@@ -679,32 +783,39 @@ class Widgets:
 
 	# setNumberOfRefinements
 	def setNumberOfRefinements(self,value):
-		logger.info(f"[{self.id}]::setNumberOfRefinements value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.num_refinements.value=value
 		for it in self.children:
 			it.setNumberOfRefinements(value)
 		self.refresh()
 
-	# getQuality
-	def getQuality(self):
-		return self.widgets.quality.value
+	# getResolution
+	def getResolution(self):
+		return self.widgets.resolution.value
+	
+	# getMaxResolution
+	def getMaxResolution(self):
+		return self.db.getMaxResolution()
 
-	# setQuality
-	def setQuality(self,value):
-		logger.info(f"[{self.id}]::setQuality value={value}")
-		self.widgets.quality.value=value
+	# setResolution
+	def setResolution(self,value):
+		logger.info(f"[{self.id}] value={value}")
+		value=Clamp(value,0,self.getMaxResolution())
+		self.widgets.resolution.value=value
 		for it in self.children:
-			it.setQuality(value) 
+			it.setResolution(value) 
 		self.refresh()
 
 	# getViewDepedent
 	def getViewDepedent(self):
-		return cbool(self.widgets.viewdep.value)
+		return cbool(self.widgets.view_dep.value)
 
 	# setViewDependent
 	def setViewDependent(self,value):
-		logger.info(f"[{self.id}]::setViewDependent value={value}")
-		self.widgets.viewdep.value=str(int(value))
+		logger.info(f"[{self.id}] value={value}")
+		self.widgets.view_dep.value=str(int(value))
+		self.widgets.resolution.title="Max Res" if value else "Res"
+
 		for it in self.children:
 			it.setViewDependent(value)     
 		self.refresh()
@@ -715,7 +826,7 @@ class Widgets:
 
 	# setDirections
 	def setDirections(self,value):
-		logger.info(f"[{self.id}]::setDirections value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.direction.options=value
 		for it in self.children:
 			it.setDirections(value)
@@ -726,7 +837,7 @@ class Widgets:
 
 	# setDirection
 	def setDirection(self,value):
-		logger.info(f"[{self.id}]::setDirection value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		pdim=self.getPointDim()
 		if pdim==2: value=2
 		dims=[int(it) for it in self.db.getLogicSize()]
@@ -770,7 +881,7 @@ class Widgets:
 	# setOffsetStartEnd
 	def setOffsetStartEndStep(self, value):
 		A,B,step=value
-		logger.info(f"[{self.id}]::setOffsetStartEndStep value={value}")
+		logger.info(f"[{self.id}] value={value}")
 		self.widgets.offset.start, self.widgets.offset.end,self.widgets.offset.step=A,B,step
 		for it in self.children:
 			it.setOffsetStartEndStep(value)
@@ -781,11 +892,10 @@ class Widgets:
 
 	# setOffset (3d only) (in physic domain)
 	def setOffset(self,value):
-		logger.info(f"[{self.id}]::setOffset new-value={value} old-value={self.getOffset()} A")
+		logger.info(f"[{self.id}] new-value={value} old-value={self.getOffset()}")
 
 		self.widgets.offset.value=value
 		assert(self.widgets.offset.value==value)
-		logger.info(f"[{self.id}]::setOffset value={value} B")
 		for it in self.children:
 			logging.info(f"[{self.id}] recursively calling setOffset({value}) for children={it.id}")
 			it.setOffset(value) 
@@ -801,7 +911,7 @@ class Widgets:
 		if pdim==2:
 			assert dir==2
 			value=0
-			logging.info(f"[{self.id}]::guessOffset pdim==2calling setOffset({value})")
+			logging.info(f"[{self.id}] pdim==2 calling setOffset({value})")
 			self.setOffsetStartEndStep([0,0,1]) # both extrema included
 			self.setOffset(value)
 		else:
@@ -811,15 +921,12 @@ class Widgets:
 			if all([it==0 for it in vt]) and all([it==1.0 for it in vs]):
 				dims=[int(it) for it in self.db.getLogicSize()]
 				value=dims[dir]//2
-				logging.info(f"[{self.id}]::guessOffset CASE pdim==3 calling integer setOffset({value})")
 				self.setOffsetStartEndStep([0,int(dims[dir])-1,1])
 				self.setOffset(value)
 			else:
 				A,B=self.getPhysicBox()[dir]
-				value=(A+B)/2.0				
-				logging.info(f"[{self.id}]::guessOffset pdim==3 calling float setOffset({value})")
-
-				self.setOffsetStartEndStep([A,B,1e-6])
+				value=(A+B)/2.0
+				self.setOffsetStartEndStep([A,B,0])
 				self.setOffset(value)
 
 
@@ -841,7 +948,8 @@ class Widgets:
 		# apply scaling and translating
 		ret=[vs[I]*value[I] + vt[I] for I in range(pdim)]
 
-		if pdim==3: del ret[dir] # project
+		if pdim==3: 
+			del ret[dir] # project
 
 		assert(len(ret)==2)
 		return ret
