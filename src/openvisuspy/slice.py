@@ -7,7 +7,7 @@ from . widgets import Widgets
 
 from . utils   import IsPyodide, AddAsyncLoop,cdouble
 
-from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div
+from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div,UIElement
 
 
 
@@ -41,17 +41,22 @@ class Slice(Widgets):
 	def getShowOptions(self):
 		return self.show_options
 
+	# getFirstRowChildren
+	def getFirstRowChildren(self):
+		ret=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+		ret=[it.getMainLayout() if not isinstance(it,UIElement) else it for it in ret]
+		return ret		
+
 	# setShowOptions
 	def setShowOptions(self,value):
 		self.show_options=value
-		self.first_row_layout.children=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+		self.first_row_layout.children=self.getFirstRowChildren()
 
 	# getMainLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
 	def getMainLayout(self):
 
-		options=[it.replace("-","_") for it in self.show_options]
-		self.first_row_layout.children=[getattr(self.widgets,it) for it in options] 
+		self.first_row_layout.children=self.getFirstRowChildren()
 
 		ret = Column(
 			self.first_row_layout,

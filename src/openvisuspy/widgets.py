@@ -11,7 +11,7 @@ import bokeh
 
 from bokeh.models import Select,LinearColorMapper,LogColorMapper,ColorBar,Button,Slider,TextInput,Row,Column,Div, LogTicker, NumeralTickFormatter, BasicTicker,ColumnDataSource
 
-from bokeh.models import TabPanel,Tabs, Button,Column, Div,CheckboxGroup
+from bokeh.models import TabPanel,Tabs, Button,Column, Div,CheckboxGroup,Spinner
 from bokeh.models.callbacks import CustomJS
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,81 @@ PALETTES=[
 		if hasattr(colorcet,it[9:])
 	]  
 
+# //////////////////////////////////////////////////////////////////////////////////////
+def PatchSlider(slider):
+	slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
+	return slider
+
+class Object:
+	pass
+
+# //////////////////////////////////////////////////////////////////////////////////////
+class EditableSlider:
+
+	# constructor
+	def __init__(self, title='', value=0, start=0, end=1024, step=1, sizing_mode='stretch_width'):
+		self.slider = Slider(title=title, value=value, start=start, end=end, step=step, sizing_mode=sizing_mode)
+		self.slider._check_missing_dimension=None 
+		self.spinner = Spinner(title="",value=value,low=start,high=end,step=step,width=80)
+		self.slider.on_change ("value",self.onValueChange)
+		self.spinner.on_change("value",self.onValueChange)
+		self.on_value_change=None
+
+	# getMainLayout
+	def getMainLayout(self):
+		return Row(self.slider,self.spinner,sizing_mode=self.slider.sizing_mode)
+
+	# onValueChange
+	def onValueChange(self,attr,old,new):
+		self.value=new
+
+	# on_change
+	def on_change(self, evt, fn):
+		assert(evt=='value')
+		self.on_value_change=fn
+
+	@property
+	def start(self):
+		return self.slider.start
+
+	@start.setter
+	def start(self, value):
+		self.slider.start=value
+		self.spinner.low=value
+
+	@property
+	def end(self):
+		return self.slider.end
+
+	@end.setter
+	def end(self, value):
+		self.slider.end=value
+		self.spinner.high=value
+
+	@property
+	def step(self):
+		return self.slider.step
+
+	@step.setter
+	def step(self, value):
+		self.slider.step=value
+		self.spinner.step=value
+
+	@property
+	def value(self):
+		return self.slider.value
+
+	@value.setter
+	def value(self, new):
+		old=self.value
+		if old==new: return
+		if hasattr(self,"__changing_value") and self.__changing_value: return
+		self.__changing_value=True		
+		self.slider.value =new
+		self.spinner.value=new
+		if self.on_value_change:
+			self.on_value_change("value",old,new)
+		self.__changing_value=False
 
 
 
@@ -119,10 +194,6 @@ class Widgets:
 		# color_mapper type
 		self.widgets.colormapper_type=Select(title='colormap',  options=["linear","log"],value='linear')
 		self.widgets.colormapper_type.on_change("value",lambda attr, old, new: self.setColorMapperType(new)) 
-
-		def PatchSlider(slider):
-			slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
-			return slider
   
 		# timestep
 		self.widgets.timestep = PatchSlider(Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width'))
@@ -147,13 +218,8 @@ class Widgets:
 		self.widgets.direction.on_change ("value",lambda attr, old, new: self.setDirection(int(new)))  
   
 		# offset 
-		self.widgets.offset = PatchSlider(Slider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width'))
-
-		def onOffsetChange(attr, old, new):
-			if old==new: return
-			self.setOffset(new)
-
-		self.widgets.offset.on_change ("value",onOffsetChange)
+		self.widgets.offset = PatchSlider(EditableSlider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width'))
+		self.widgets.offset.on_change ("value",self.onOffsetChange)
   
 		# num_refimements (0==guess)
 		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4,width=60))
@@ -193,6 +259,11 @@ class Widgets:
 
 		self.panel_layout=None
 		self.idle_callback=None
+
+	# onOffsetChange
+	def onOffsetChange(self, attr, old, new):
+		if old==new: return
+		self.setOffset(new)
 
 	# isLinked
 	def isLinked(self):
