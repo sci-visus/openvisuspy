@@ -51,13 +51,7 @@ PALETTES=[
 		if hasattr(colorcet,it[9:])
 	]  
 
-# //////////////////////////////////////////////////////////////////////////////////////
-def PatchSlider(slider):
-	slider._check_missing_dimension=None # patch EQUAL_SLIDER_START_END)
-	return slider
 
-class Object:
-	pass
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class EditableSlider:
@@ -69,15 +63,40 @@ class EditableSlider:
 		self.spinner = Spinner(title="",value=value,low=start,high=end,step=step,width=80)
 		self.slider.on_change ("value",self.onValueChange)
 		self.spinner.on_change("value",self.onValueChange)
+		self.__value=value
+		self.__start=start
+		self.__end  =end
+		self.__step =step
 		self.on_value_change=None
 
 	# getMainLayout
 	def getMainLayout(self):
-		return Row(self.slider,self.spinner,sizing_mode=self.slider.sizing_mode)
+		return Row(
+			self.slider,
+			self.spinner,
+			sizing_mode=self.slider.sizing_mode)
 
 	# onValueChange
 	def onValueChange(self,attr,old,new):
 		self.value=new
+
+	@property
+	def value(self):
+		return self.__value
+
+	@value.setter
+	def value(self, new):
+		if hasattr(self,"__changing_value") and self.__changing_value:  return
+		old=self.__value
+		self.__changing_value=True	
+		if old!=new:
+			self.__value=new
+			self.slider.value =new
+			self.spinner.value=new
+			if self.on_value_change:
+				self.on_value_change("value",old, new)
+		self.__changing_value=False
+
 
 	# on_change
 	def on_change(self, evt, fn):
@@ -86,47 +105,61 @@ class EditableSlider:
 
 	@property
 	def start(self):
-		return self.slider.start
+		return self.__start
 
 	@start.setter
 	def start(self, value):
+		self.__start=value
 		self.slider.start=value
 		self.spinner.low=value
 
 	@property
 	def end(self):
-		return self.slider.end
+		return self.__end
 
 	@end.setter
 	def end(self, value):
+		self.__end=value
 		self.slider.end=value
 		self.spinner.high=value
 
 	@property
 	def step(self):
-		return self.slider.step
+		return self.__step
 
 	@step.setter
 	def step(self, value):
-		self.slider.step=value
-		self.spinner.step=value
+		self.__step=value
+		self.slider.step =value
+		self.spinner.step=value if value else 0.01 # TODO
 
 	@property
-	def value(self):
-		return self.slider.value
+	def disabled(self):
+		return self.slider.disabled
 
-	@value.setter
-	def value(self, new):
-		old=self.value
-		if old==new: return
-		if hasattr(self,"__changing_value") and self.__changing_value: return
-		self.__changing_value=True		
-		self.slider.value =new
-		self.spinner.value=new
-		if self.on_value_change:
-			self.on_value_change("value",old,new)
-		self.__changing_value=False
+	@disabled.setter
+	def disabled(self, value):
+		self.slider.disabled=value
+		self.spinner.disabled=value
 
+	@property
+	def show_value(self):
+		return self.slider.show_value
+
+	@show_value.setter
+	def show_value(self, value):
+		self.slider.show_value=value
+
+	@property
+	def title(self):
+		return self.slider.title
+
+	@title.setter
+	def title(self, value):
+		self.slider.title=value
+
+
+	
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
@@ -196,7 +229,8 @@ class Widgets:
 		self.widgets.colormapper_type.on_change("value",lambda attr, old, new: self.setColorMapperType(new)) 
   
 		# timestep
-		self.widgets.timestep = PatchSlider(Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width'))
+		self.widgets.timestep = Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width')
+		self.widgets.timestep._check_missing_dimension=None
 
 		def onTimestepChange(attr, old, new):
 			if old==new: return
@@ -218,16 +252,16 @@ class Widgets:
 		self.widgets.direction.on_change ("value",lambda attr, old, new: self.setDirection(int(new)))  
   
 		# offset 
-		self.widgets.offset = PatchSlider(EditableSlider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width'))
-		self.widgets.offset.on_change ("value",self.onOffsetChange)
+		self.widgets.offset = EditableSlider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width')
+		self.widgets.offset.on_change("value",self.onOffsetChange)
   
 		# num_refimements (0==guess)
-		self.widgets.num_refinements=PatchSlider(Slider(title='#Ref', value=0, start=0, end=4,width=60))
+		self.widgets.num_refinements=Slider(title='#Ref', value=0, start=0, end=4,width=60)
 		self.widgets.num_refinements.on_change("value",lambda attr, old, new: self.setNumberOfRefinements(int(new)))
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
 		# resolution
-		self.widgets.resolution = PatchSlider(Slider(title='Res', value=21, start=self.start_resolution, end=99,width=60))
+		self.widgets.resolution = Slider(title='Res', value=21, start=self.start_resolution, end=99,width=60)
 		self.widgets.resolution.on_change("value",lambda attr, old, new: self.setResolution(int(new)))  
 		self.widgets.resolution._check_missing_dimension=None # patch
 
@@ -889,7 +923,7 @@ class Widgets:
 			else:
 				A,B=self.getPhysicBox()[dir]
 				value=(A+B)/2.0
-				self.setOffsetStartEndStep([A,B,1e-6])
+				self.setOffsetStartEndStep([A,B,0])
 				self.setOffset(value)
 
 
