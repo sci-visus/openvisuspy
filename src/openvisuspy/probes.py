@@ -109,7 +109,7 @@ class ProbeTool(Slice):
 			self.slider_z_range.on_change('value_throttled', lambda attr,old, new: self.recompute())
 
 			# Z resolution 
-			self.slider_z_res = Slider(value=24, start=1, end=31, step=1, title="Res", width=80)
+			self.slider_z_res = Slider(value=24, start=self.start_resolution, end=99, step=1, title="Res", width=80)
 			self.slider_z_res.on_change('value_throttled', lambda attr,old, new: self.recompute())
 
 			# Z op

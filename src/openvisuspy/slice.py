@@ -271,6 +271,7 @@ class Slice(Widgets):
 
 		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
 		query_logic_box=self.getQueryLogicBox()
+		offset=self.getOffset()
 		pdim=self.getPointDim()
 		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
 			return
@@ -322,7 +323,9 @@ class Slice(Widgets):
 		logger.info(f"[{self.id}] pushed new job query_logic_box={query_logic_box}")
 
 		# link views
-		if self.isLinkEnabled() and self.parent:
+		if self.isLinked() and self.parent:
 			idx=self.parent.children.index(self)
-			for child in self.parent.children[idx+1:]:
+			for child in self.parent.children:
+				if child==self: continue
 				child.setQueryLogicBox(query_logic_box)
+				child.setOffset(offset)

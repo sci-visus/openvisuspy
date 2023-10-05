@@ -61,6 +61,8 @@ class Widgets:
 
 	epsilon=0.001
 
+	start_resolution=20
+
 	# constructor
 	def __init__(self,doc=None, is_panel=False, parent=None):
 
@@ -83,6 +85,7 @@ class Widgets:
 		self.render_id=None # by default I am not rendering
 		self.logic_to_physic=[(0.0,1.0)]*3
 		self.children=[]
+		self.linked=False
   
 		self.first_row_layout=Row(sizing_mode="stretch_width")
 
@@ -158,7 +161,7 @@ class Widgets:
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
 		# resolution
-		self.widgets.resolution = PatchSlider(Slider(title='Res', value=21, start=0, end=99,width=60))
+		self.widgets.resolution = PatchSlider(Slider(title='Res', value=21, start=self.start_resolution, end=99,width=60))
 		self.widgets.resolution.on_change("value",lambda attr, old, new: self.setResolution(int(new)))  
 		self.widgets.resolution._check_missing_dimension=None # patch
 
@@ -166,10 +169,6 @@ class Widgets:
 		self.widgets.view_dep = Select(title="Auto Res",options=[('1','Enabled'),('0','Disabled')], value="True",width=100)
 		self.widgets.view_dep.on_change("value",lambda attr, old, new: self.setViewDependent(int(new)))  
 
-		# link
-		self.widgets.link = CheckboxGroup(labels=["Link"], active=[])
-		self.widgets.link.on_change("active",lambda attr, old, new: self.setLinkEnabled(0 in new))
-  
 		# status_bar
 		self.widgets.status_bar= {}
 		self.widgets.status_bar["request" ]=TextInput(title="" ,sizing_mode='stretch_width')
@@ -195,13 +194,13 @@ class Widgets:
 		self.panel_layout=None
 		self.idle_callback=None
 
-	# isLinkEnabled
-	def isLinkEnabled(self):
-		return 0 in self.widgets.link.active
+	# isLinked
+	def isLinked(self):
+		return self.linked
 
-	# setLinkEnabled
-	def setLinkEnabled(self,value):
-		self.widgets.link.active=[0] if value else []
+	# setLinked
+	def setLinked(self,value):
+		self.linked=value
 
 	# onShowMetadataClick
 	def onShowMetadataClick(self):
@@ -408,7 +407,7 @@ class Widgets:
 		# resolution
 		maxh=self.db.getMaxResolution()
 		resolution=int(config.get("resolution",maxh-6))
-		self.widgets.resolution.start=0
+		self.widgets.resolution.start=self.start_resolution
 		self.widgets.resolution.end  =maxh
 		self.setResolution(resolution)
 

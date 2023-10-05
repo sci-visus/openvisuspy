@@ -26,9 +26,11 @@ class Slices(Widgets):
 		# view_mode
 		self.widgets.view_mode=Tabs(tabs=[
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="1"),
-			TabPanel(child=Column(sizing_mode="stretch_both"),title="2"),
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="probe"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="2"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="2-linked"),
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="4"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="4-linked"),
 			],
 			sizing_mode="stretch_both")
 		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(self.widgets.view_mode.tabs[new].title)) 
@@ -78,10 +80,10 @@ class Slices(Widgets):
 		return tab.title
 
 	# createChild
-	def createChild(self, extra_options=[]):
+	def createChild(self):
 		ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
 		if self.slice_show_options is not None:
-			ret.setShowOptions(self.slice_show_options + extra_options)	
+			ret.setShowOptions(self.slice_show_options)	
 		return ret
 
 	# setViewMode
@@ -116,9 +118,9 @@ class Slices(Widgets):
 			self.children=[self.createChild()]
 			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
-		elif value=="2":
-			self.children=[self.createChild(extra_options=["link"]),self.createChild()]
-			central=Row(self.children[0].getMainLayout(),self.children[1].getMainLayout(), sizing_mode="stretch_both")
+		elif value=="2" or value=="2-linked":
+			self.children=[self.createChild() for I in range(2)]
+			central=Row(children=[child.getMainLayout() for child in self.children], sizing_mode="stretch_both")
 
 		elif "probe" in value:
 			child=self.createChild()
@@ -126,13 +128,17 @@ class Slices(Widgets):
 			self.children=[child]
 			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")			
 
-		elif value=="4":
-			self.children=[self.createChild(),self.createChild(),self.createChild(),self.createChild()]
-			central=Grid(children=[self.children[I].getMainLayout() for I in range(4)],nrows=2, ncols=2, sizing_mode="stretch_both")
+		elif value=="4" or value=="4-linked":
+			self.children=[self.createChild() for I in range(4)]
+			central=Grid(children=[child.getMainLayout() for child in self.children],nrows=2, ncols=2, sizing_mode="stretch_both")
 			
 		else:
 			raise Exception("internal error")
 		
+
+		if "linked" in value: 
+			self.children[0].setLinked(True)
+
 		inner.children=[
 			Row(
 					Column(
