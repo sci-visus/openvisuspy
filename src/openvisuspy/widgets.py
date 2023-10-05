@@ -60,7 +60,8 @@ class EditableSlider:
 	def __init__(self, title='', value=0, start=0, end=1024, step=1, sizing_mode='stretch_width'):
 		self.slider = Slider(title=title, value=value, start=start, end=end, step=step, sizing_mode=sizing_mode)
 		self.slider._check_missing_dimension=None 
-		self.spinner = Spinner(title="",value=value,low=start,high=end,step=step,width=80)
+		self.spinner = Spinner(title="",value=value,low=start,high=end,step=step,width=80,format="0.00")
+		self.spinner.format="0.00"
 		self.slider.on_change ("value",self.onValueChange)
 		self.spinner.on_change("value",self.onValueChange)
 		self.__value=value
