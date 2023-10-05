@@ -222,16 +222,16 @@ class Slice(Widgets):
 		
 		self.widgets.offset.show_value=False
 
-		if vs==1.0 and vt==0.0:
+		if False and (vs==1.0 and vt==0.0):
 			self.widgets.offset.title=" ".join([
-				f"Offset: {user_logic_offset} ({user_logic_offset-real_logic_offset})",
+				f"Offset: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
 				f"Res: {endh}/{maxh}"
 			])
 
 		else:
 			self.widgets.offset.title=" ".join([
-				f"Offset: {user_physic_offset:.3f} ({user_physic_offset-real_physic_offset:.3f})",
-				f"Logic: {user_logic_offset} ({user_logic_offset-real_logic_offset})",
+				f"Offset: {user_physic_offset:.3f}±{abs(user_physic_offset-real_physic_offset):.3f}",
+				f"Pixel: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
 				f"Res: {endh}/{maxh}"
 			])
 		

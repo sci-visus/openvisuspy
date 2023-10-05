@@ -262,7 +262,7 @@ class Widgets:
 		self.widgets.num_refinements._check_missing_dimension=None # patch
   
 		# resolution
-		self.widgets.resolution = Slider(title='Res', value=21, start=self.start_resolution, end=99,width=60)
+		self.widgets.resolution = Slider(title='Res', value=21, start=self.start_resolution, end=99,width=80)
 		self.widgets.resolution.on_change("value",lambda attr, old, new: self.setResolution(int(new)))  
 		self.widgets.resolution._check_missing_dimension=None # patch
 
@@ -814,6 +814,8 @@ class Widgets:
 	def setViewDependent(self,value):
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.view_dep.value=str(int(value))
+		self.widgets.resolution.title="Max Res" if value else "Res"
+
 		for it in self.children:
 			it.setViewDependent(value)     
 		self.refresh()
