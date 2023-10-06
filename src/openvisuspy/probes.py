@@ -239,6 +239,11 @@ class ProbeTool(Slice):
 
 	# setOffset
 	def setOffset(self, value):
+
+		# do not send float offset if it's all integer
+		if all([int(it)==it for it in self.getOffsetStartEnd()]):
+			value=int(value)
+
 		super().setOffset(value)
 		self.refreshProbe()
 
