@@ -331,7 +331,6 @@ class ProbeTool(Slice):
 		P2=PhysicToLogic(p2)
 		# print(P1,P2)
 
-
 		# align to the bitmask
 		(X,Y,Z),titles=self.getLogicAxis()
 
@@ -358,19 +357,22 @@ class ProbeTool(Slice):
 		# for debugging draw points
 		if True:
 			xs,ys=[[],[]]
-			for Z in range(P1[2],P2[2],Delta[2]) if dir!=2 else (P1[2],):
-				for Y in range(P1[1],P2[1],Delta[1]) if dir!=1 else (P1[1],):
-					for X in range(P1[0],P2[0],Delta[0]) if dir!=0 else (P1[0],):
-						x,y,z=LogicToPhysic([X,Y,Z])
+			for _Z in range(P1[2],P2[2],Delta[2]) if dir!=2 else (P1[2],):
+				for _Y in range(P1[1],P2[1],Delta[1]) if dir!=1 else (P1[1],):
+					for _X in range(P1[0],P2[0],Delta[0]) if dir!=0 else (P1[0],):
+						x,y,z=LogicToPhysic([_X,_Y,_Z])
 						xs.append(x)
 						ys.append(y)
 
-			x1,x2=min(xs),max(xs)
-			y1,y2=min(ys),max(ys)
+			x1,x2=min(xs),max(xs);cx=(x1+x2)/2.0
+			y1,y2=min(ys),max(ys);cy=(y1+y2)/2.0
+			
 			fig=self.canvas.getFigure()
 			self.renderers[probe]["canvas"]=[
 				fig.scatter(xs, ys, color= color),
-				fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= color)
+				fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color= color),
+				fig.line(self.getPhysicBox()[X],[cy,cy], line_width=1, color= color),
+				fig.line([cx,cx],self.getPhysicBox()[Y], line_width=1, color= color),
 			]
 
 		# execute the query
