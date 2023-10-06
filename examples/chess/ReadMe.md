@@ -72,8 +72,11 @@ python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.class
 Open **two terminals** on the NSDF entrypoint and type:
 
 ```bash
-NSDF_CONVERT_GROUP=test-group-2
+NSDF_CONVERT_GROUP=test-group
 source examples/chess/setup.sh
+
+# if you need to update OpenVisus
+# python -m pip install --upgrade OpenVisusNoGui
 ```
 
 Group setup:
