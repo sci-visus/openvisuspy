@@ -77,6 +77,7 @@ source examples/chess/setup.sh
 
 # if you need to update OpenVisus
 # python -m pip install --upgrade OpenVisusNoGui
+# git pull
 ```
 
 Group setup:
