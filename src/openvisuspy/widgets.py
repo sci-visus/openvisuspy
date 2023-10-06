@@ -806,8 +806,8 @@ class Widgets:
 			it.setResolution(value) 
 		self.refresh()
 
-	# getViewDepedent
-	def getViewDepedent(self):
+	# isViewDependent
+	def isViewDependent(self):
 		return cbool(self.widgets.view_dep.value)
 
 	# setViewDependent

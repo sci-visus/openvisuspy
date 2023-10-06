@@ -301,9 +301,10 @@ class Slice(Widgets):
 
 		resolution=self.getResolution()
 		
-		if self.getViewDepedent():
+		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
+		if self.isViewDependent():
+			endh=None 
 			canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
-			endh=None # I will use max_pixels to decide what resolution
 			max_pixels=canvas_w*canvas_h
 			delta=resolution-self.getMaxResolution()
 			if resolution<self.getMaxResolution():
@@ -311,6 +312,7 @@ class Slice(Widgets):
 			elif resolution>self.getMaxResolution():
 				max_pixels=int(max_pixels*pow(1.3,abs(delta))) # increase 
 		else:
+			# I am not using the information about the pixel on screen
 			max_pixels=None
 			endh=resolution
 		

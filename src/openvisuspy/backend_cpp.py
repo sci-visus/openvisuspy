@@ -325,5 +325,5 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 		result=db.executeBoxQuery(access, query)
 		if result is None: break
 		db.nextBoxQuery(query)
-		result["running"]=not db.isQueryRunning(query)
+		result["running"]=db.isQueryRunning(query)
 		yield result

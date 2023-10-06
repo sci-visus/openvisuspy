@@ -101,7 +101,7 @@ class BaseDataset:
 					return None
 			logic_box=(p1,p2)
 		
-		# is view dependent? if so guess max resolution 
+		# is view dependent? if so guess max resolution and endh is IGNORED and overwritten 
 		if max_pixels:
 			original_box=logic_box
 			for __endh in range(maxh,0,-1):
@@ -112,6 +112,9 @@ class BaseDataset:
 					logger.info(f"Guess resolution endh={endh} original_box={original_box} aligned_box={aligned_box} delta={delta} num_pixels={repr(num_pixels)} tot_pixels={tot_pixels:,} max_pixels={max_pixels:,} end={endh}")
 					logic_box=aligned_box
 					break
+		else:
+			original_box=logic_box
+			aligned_box, delta, num_pixels=self.getAlignedBox(original_box,endh, slice_dir=slice_dir)
 
 		# this is the query I need
 		end_resolutions=list(reversed([endh-pdim*I for I in range(num_refinements) if endh-pdim*I>=0]))
