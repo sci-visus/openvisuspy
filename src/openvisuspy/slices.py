@@ -1,5 +1,5 @@
 
-import os,sys,io,types,threading,time,logging
+import os,sys,io,types,threading,time,logging,copy
 import numpy as np
 
 from bokeh.models import Select,Column,Row
@@ -25,7 +25,7 @@ class Slices(Widgets):
 
 		# view_mode
 		self.widgets.view_mode=Tabs(tabs=[
-			TabPanel(child=Column(sizing_mode="stretch_both"),title="1"),
+			TabPanel(child=Column(sizing_mode="stretch_both"),title="explore data"),
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="probe"),
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="2"),
 			TabPanel(child=Column(sizing_mode="stretch_both"),title="2-linked"),
@@ -80,10 +80,10 @@ class Slices(Widgets):
 		return tab.title
 
 	# createChild
-	def createChild(self):
+	def createChild(self, options):
 		ret=self.cls(doc=self.doc, is_panel=self.is_panel, parent=self) 
-		if self.slice_show_options is not None:
-			ret.setShowOptions(self.slice_show_options)	
+		if options is not None:
+			ret.setShowOptions(options)	
 		return ret
 
 	# setViewMode
@@ -113,28 +113,35 @@ class Slices(Widgets):
 		for tab in self.widgets.view_mode.tabs:
 			tab.child.children=[]
 
+		def RemoveOptions(v, values):
+			ret=copy.copy(v)
+			for it in values:
+				if it in v: ret.remove(it)
+			return ret
 
-		if value=="1":
-			self.children=[self.createChild()]
+		options=self.slice_show_options
+
+		if value=="1" or value=="explore data":
+			self.children=[self.createChild(RemoveOptions(options,["datasets", "colormapper_type","colormapper-type"]) )]
 			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
-		elif value=="2" or value=="2-linked":
-			self.children=[self.createChild() for I in range(2)]
-			central=Row(children=[child.getMainLayout() for child in self.children], sizing_mode="stretch_both")
-
 		elif "probe" in value:
-			child=self.createChild()
+			child=self.createChild(RemoveOptions(options,["datasets", "colormapper_type","colormapper-type"]) )
 			child.setProbeVisible(True)
 			self.children=[child]
 			central=Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")			
 
+
+		elif value=="2" or value=="2-linked":
+			self.children=[self.createChild(options) for I in range(2)]
+			central=Row(children=[child.getMainLayout() for child in self.children], sizing_mode="stretch_both")
+
 		elif value=="4" or value=="4-linked":
-			self.children=[self.createChild() for I in range(4)]
+			self.children=[self.createChild(options) for I in range(4)]
 			central=Grid(children=[child.getMainLayout() for child in self.children],nrows=2, ncols=2, sizing_mode="stretch_both")
 			
 		else:
 			raise Exception("internal error")
-		
 
 		if "linked" in value: 
 			self.children[0].setLinked(True)
