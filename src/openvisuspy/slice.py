@@ -273,7 +273,7 @@ class Slice(Widgets):
 			f"#{result['I']+1}",
 			f"{str(logic_box).replace(' ','')}",
 			f"{data.shape[0]}x{data.shape[1]}",
-			f"H={result['H']}/{maxh}",
+			f"Res={result['H']}/{maxh}",
 			f"{result['msec']}msec",
 			str(query_status)
 		])
