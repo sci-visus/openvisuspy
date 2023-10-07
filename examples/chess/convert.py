@@ -404,21 +404,20 @@ def LoadMetadataFromFile(filename):
 
 
 # ///////////////////////////////////////////////////////////////////
-def LoadMetadataFromChess(q):
+def LoadMetadataFromChess(query=None,uri=None):
 	"""
 	python -m pip install chessdata-pyclient
-
 	# modified /mnt/data1/nsdf/miniforge3/envs/my-env/lib/python3.9/site-packages/chessdata/__init__.py added at line 49 `verify=False`
 	# otherwise I need a certificate `export REQUESTS_CA_BUNDLE=`
 	"""
 	import chessdata 
-	records = chessdata.query(q)
-	logger.info(f"Read metadata from CHESS query={q} #records={len(records)}")
+	records = chessdata.query(query,url=uri) 
+	logger.info(f"Read CHESS metadata from uri={uri} CHESS query={query}] #records={len(records)}")
 
 	return {
 		'type':'json-object',
 		'filename': '/dev/null', 
-		'query'   : q,
+		'query'   : query,
 		'records' : records,
 	}
 
@@ -426,7 +425,6 @@ def LoadMetadataFromChess(q):
 def Touch(filename):
 	from pathlib import Path
 	Path(filename).touch(exist_ok=True)
-
 
 # ///////////////////////////////////////////////////////////////////
 if __name__ == "__main__":
@@ -439,8 +437,17 @@ if __name__ == "__main__":
 	converted_url_template=os.environ["NSDF_CONVERTED_URL_TEMPLATE"]
 	group_config_filename=os.environ["NSDF_CONVERT_GROUP_CONFIG"]
 	modvisus_root_filename=os.environ["MODVISUS_CONFIG"]
+	chessdata_uri=os.environ["CHESSDATA_URI"]
 
 	SetupLogger(log_filename)
+
+	if sys.argv[1]=="test-chess-metadata":
+		import chessdata 
+		query="""{"BTR": "1111-a"}"""
+		records = chessdata.query(query, url=chessdata_uri)
+		logger.info(f"Read metadata from CHESS #records={len(records)}")
+		print(records)
+		sys.exit(0)		
 	
 	if sys.argv[1]=="init-db":
 		db=Datasets(sqlite3_filename)
@@ -471,7 +478,14 @@ if __name__ == "__main__":
 
 		db=Datasets(sqlite3_filename)
 		db.generateModVisusConfig(modvisus_group_filename)
+
+		# create the modvisus group file
 		Touch(modvisus_root_filename)
+
+		# create the json file if not exist
+		if not os.path.isfile(group_config_filename):
+			with open(group_config_filename,"w") as fp:
+				json.dump({"datasets": []}, fp, indent=2)
 
 		logger.info(f"RunConvertLoop start")
 		exitNow=False
@@ -533,9 +547,9 @@ if __name__ == "__main__":
 				elif type=="chess-metadata":
 					query=it['query']
 					try:
-						metadata.append(LoadMetadataFromChess(query))
+						metadata.append(LoadMetadataFromChess(query, uri=chessdata_uri))
 					except Exception as ex:
-						logger.info(f"LoadMetadataFromChess query={q} failed {ex}. Skipping it")
+						logger.info(f"LoadMetadataFromChess query={query} uri={chessdata_uri} failed {ex}. Skipping it")
 				else:
 					raise Exception("todo")
 

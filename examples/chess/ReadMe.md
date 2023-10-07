@@ -72,7 +72,7 @@ python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.class
 Open **two terminals** on the NSDF entrypoint and type:
 
 ```bash
-NSDF_CONVERT_GROUP=test-group
+NSDF_CONVERT_GROUP=test-group-99
 source examples/chess/setup.sh
 
 # if you need to update OpenVisus
@@ -115,7 +115,7 @@ In terminal 2, convert an **image-stack**:
 # for CHESS metadata
 kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
 
-DATASET_NAME=example-tiff-image-stack
+DATASET_NAME=test-now-3
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message "{
    'group': '${NSDF_CONVERT_GROUP}',
    'name':'${DATASET_NAME}',
@@ -124,7 +124,7 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --m
    'compression':'zip',
    'arco':'1mb',
    'metadata': [
-      {'type': 'chess-metadata', 'query': {'technique': 'tomography'} }, 
+      {'type': 'chess-metadata', 'query': '{\"BTR\": \"1111-a\"}' }, 
    ]}"
 ```
 
