@@ -3,6 +3,8 @@
 import os,sys, json, argparse
 import pika
 
+import ssl
+
 # ////////////////////////////////////////////////////////////////
 if __name__=="__main__":
 	"""
@@ -24,15 +26,15 @@ if __name__=="__main__":
 	channel.queue_declare(queue=args.queue)
 
 	if args.action=="pub":
-		msg=json.dumps(eval(args.message))
-		channel.basic_publish(exchange='', routing_key=args.queue ,body=msg)
+		if os.path.isfile(args.message):
+			args.message=open(args.message).read()
+		channel.basic_publish(exchange='', routing_key=args.queue ,body=args.message)
 		print(f"Published message to queue={args.queue} body=\n{args.message}")
 
 	elif args.action=="sub":
 		def on_message(channel, method_frame, header_frame, body):
 			body=body.decode("utf-8").strip()
 			print(f"Received message from queue={args.queue} body=\n{body} ")
-			msg=json.loads(body)
 		channel.basic_consume(args.queue, on_message, auto_ack=True)
 		channel.start_consuming()
 

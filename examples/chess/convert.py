@@ -1,5 +1,8 @@
 import os ,sys, time, logging,shutil,glob,json, string, random, argparse, shutil, base64,copy,subprocess
 from datetime import datetime
+
+import urllib3
+urllib3.disable_warnings()
 import pika
 import sqlite3 
 import numpy as np
@@ -17,19 +20,33 @@ logger = logging.getLogger("nsdf-convert")
 # for debugging
 # ov.SetupLogger(logging.getLogger("OpenVisus"), output_stdout=True) 
 
+log_filename=os.environ["NSDF_CONVERT_LOG_FILENAME"]
+convert_queue_name=os.environ["NSDF_CONVERT_QUEUE"]
+pubsub_url=os.environ["NSDF_CONVERT_PUBSUB_URL"]	
+sqlite3_filename=os.environ["NSDF_CONVERT_SQLITE3_FILENAME"]
+modvisus_group_filename=os.environ["NSDF_CONVERT_MODVISUS_CONFIG"]
+converted_url_template=os.environ["NSDF_CONVERTED_URL_TEMPLATE"]
+group_config_filename=os.environ["NSDF_CONVERT_GROUP_CONFIG"]
+modvisus_root_filename=os.environ["MODVISUS_CONFIG"]
+chessdata_uri=os.environ["CHESSDATA_URI"]
+
 # ///////////////////////////////////////////////////////////////////////
 class Datasets:
 
+	# constructor
 	def __init__(self, db_filename):
 		self.conn = sqlite3.connect(db_filename)
 		self.conn.row_factory = sqlite3.Row
 		#self.dropTable()
 		self.createTable()
+		self.generateFiles()
 
+	# dropTable
 	def dropTable(self):
 		self.conn.execute("""DROP TABLE IF EXISTS datasets""")
-		self.conn.commit()
+		self.conn.commit()		
 
+	# createTable
 	def createTable(self):
 		self.conn.execute("""
 		CREATE TABLE IF NOT EXISTS datasets (
@@ -47,6 +64,7 @@ class Datasets:
 		)
 		""")
 		self.conn.commit()
+		self.generateFiles()		
 	
 	# pushPendingConvert
 	def pushPendingConvert(self, group, name, src, dst, compression="zip", arco="modvisus", metadata=[]):
@@ -74,6 +92,7 @@ class Datasets:
 		row["conversion_end"]=str(datetime.now())
 		data = self.conn.execute("UPDATE datasets SET conversion_end==? where id=?",(row["conversion_end"],row["id"], ))
 		self.conn.commit()
+		self.generateFiles()
 
 	# getAll
 	def getAll(self):
@@ -85,9 +104,18 @@ class Datasets:
 		for row in self.conn.execute("SELECT * FROM datasets WHERE conversion_end is not NULL ORDER BY id ASC"):
 			yield {k:row[k] for k in row.keys()}
 
-	# generateModVisusConfig
-	def generateModVisusConfig(self, filename):
-		logger.info(f"generateModVisusConfig begin filename={filename}")
+	# generateFiles
+	def generateFiles(self):
+		logger.info(f"generateFiles begin...")
+
+		# create the json file if not exist
+		if not os.path.isfile(group_config_filename):
+			with open(group_config_filename,"w") as fp:
+				json.dump({"datasets": []}, fp, indent=2)
+			logger.info(f"Create group JSON file={group_config_filename}")
+		else:
+			Touch(group_config_filename)
+			logger.info(f"Touched group JSON file={group_config_filename}")
 
 		v=[]
 		converted=self.getConverted()
@@ -99,11 +127,11 @@ class Datasets:
 		body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
 
 		# save the file
-		with open(filename,"w") as f:
+		with open(modvisus_group_filename,"w") as f:
 			f.write(body)
-		logger.info(f"Saved file {filename}")
-		logger.info(f"generateModVisusConfig end #datasets={N} filename={filename}")
-		return body
+		logger.info(f"Saved file {modvisus_group_filename}")
+		logger.info(f"generateFiles end #datasets={N} modvisus_group_filename={modvisus_group_filename}")
+		Touch(modvisus_root_filename) # force modvisus reload
 
 # # ///////////////////////////////////////////////////////////////////
 def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
@@ -427,17 +455,96 @@ def Touch(filename):
 	Path(filename).touch(exist_ok=True)
 
 # ///////////////////////////////////////////////////////////////////
-if __name__ == "__main__":
+def RunSingleConvert(db,specs):
+
+	logger.info(f"RunSingleConvert spec={json.dumps(specs,indent=2)}")
+
+	src,dst=specs["src"],specs["dst"]
+
+	# extract group_name (name should be in the form `group/whatever`)
+	group_name, dataset_name=specs['group'],specs['name']
+	logger.info(f"group={group_name} name={dataset_name}")
+
+	# read metatada (can be a binary file too?)
+	metadata=[]
+	for it in specs["metadata"]:
+		type=it['type']
+		if type=="file":
+			filename=it['path']
+			try:
+				metadata.append(LoadMetadataFromFile(filename))
+			except Exception as ex:
+				logger.info(f"LoadMetadataFromFile filename={filename} failed {ex}. Skipping it")
+		elif type=="chess-metadata":
+			query=json.dumps(it['query'])
+			try:
+				metadata.append(LoadMetadataFromChess(query, uri=chessdata_uri))
+			except Exception as ex:
+				logger.info(f"LoadMetadataFromChess query={query} uri={chessdata_uri} failed {ex}. Skipping it")
+		else:
+			raise Exception("todo")
+
+	if True:
+			# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
+		# e.g assuyming /mnt/data1/nsdf/tmp/near-field-scrgiorgio-20230912-01/visus.idx I need to clean up the parent directory
+		# SO MAKE SURE you are using unique directories!			
+		logger.info(f" DANGEROUS but needed: removing any file from {os.path.dirname(dst)}")
+		shutil.rmtree(os.path.dirname(dst), ignore_errors=True)
+
+	src_ext=os.path.splitext(src)[1]
+
+	# image stack 
+	if src_ext==".tif" and "*" in src:
+		ConvertImageStack(src, dst, compression=specs["compression"], arco=specs["arco"])
+
+	# nexus file
+	elif src_ext ==".nxs":
+		# TODO: not supporting multiple fields inside a nexus file
+		# TODO: with some nexus file I am unable to create shrinked streamable (probably related to NXlinkfield)
+		streamable=None # os.path.splitext(dst)[0]+".nxs"
+		ConvertNexus(src, dst, compression=specs["compression"], arco=specs["arco"], streamable=None).run()
+		# LocalFileToMetadata(metadata,streamable_nexus)
+
+	elif src_ext == ".npy":
+		ConvertNumPy(src, dst, compression=specs["compression"], arco=specs["arco"])
 	
-	log_filename=os.environ["NSDF_CONVERT_LOG_FILENAME"]
-	convert_queue_name=os.environ["NSDF_CONVERT_QUEUE"]
-	pubsub_url=os.environ["NSDF_CONVERT_PUBSUB_URL"]	
-	sqlite3_filename=os.environ["NSDF_CONVERT_SQLITE3_FILENAME"]
-	modvisus_group_filename=os.environ["NSDF_CONVERT_MODVISUS_CONFIG"]
-	converted_url_template=os.environ["NSDF_CONVERTED_URL_TEMPLATE"]
-	group_config_filename=os.environ["NSDF_CONVERT_GROUP_CONFIG"]
-	modvisus_root_filename=os.environ["MODVISUS_CONFIG"]
-	chessdata_uri=os.environ["CHESSDATA_URI"]
+	else:
+		raise Exception("to handle... ")
+
+	specs["conversion_end"]=str(datetime.now())
+
+	# read group config (if not exists create a new one)
+	group_json_config={"datasets": []}
+	if os.path.isfile(group_config_filename) and os.path.getsize(group_config_filename):
+		with open(group_config_filename,"r") as f:
+			try:
+				group_json_config=json.load(f)
+				logger.info(f"Loaded JSON file {group_config_filename}")
+			except Exception as ex:
+				logger.info(f"Loading of JSON file {group_config_filename} failed {ex} ")
+
+	# save group config file 
+	group_json_config["datasets"].append({
+		"name" : f"{group_name}/{dataset_name}", # for displaying
+		"url" : converted_url_template.format(group=group_name, name=dataset_name),
+		"color-mapper-type":"log",
+		"metadata" : metadata + [{
+			'type':'json-object', 
+			'filename': 'generated-nsdf-convert.json',  
+			'object' : {k:str(v) for k,v in specs.items() if k!="metadata"}
+		}]
+	})		
+
+	with open(group_config_filename,"w") as fp:
+		json.dump(group_json_config, fp, indent=2)
+		logger.info(f"Saved group config to filename={group_config_filename}")
+
+	# this sets the conversion_done with is needed for visus config generation
+	db.setConvertDone(specs)
+
+
+# ///////////////////////////////////////////////////////////////////
+if __name__ == "__main__":
 
 	SetupLogger(log_filename)
 
@@ -458,38 +565,21 @@ if __name__ == "__main__":
 		logger.info(f"init-db done filename={sqlite3_filename}")	
 		sys.exit(0)
 
-
-	if sys.argv[1]=="generate-modvisus-config":
-		db=Datasets(sqlite3_filename)
-		db.generateModVisusConfig(modvisus_group_filename)
-		Touch(modvisus_root_filename)
+	if sys.argv[1]=="run-single-convert":
+		with open(sys.argv[2],"rt") as f:
+			specs = json.load(f)
+		RunSingleConvert(db,specs)
 		sys.exit(0)
 
 	if sys.argv[1]=="run-convert-loop":
-
-		def GetPubSubChannel(queue_name):
-			params = pika.URLParameters(pubsub_url)
-			connection = pika.BlockingConnection(params)
-			ret = connection.channel()
-			ret.queue_declare(queue=queue_name)
-			return connection, ret
-
-		connection_in, channel_in  = GetPubSubChannel(convert_queue_name)
+		logger.info(f"RunConvertLoop start")
+		params = pika.URLParameters(pubsub_url)
+		connection_in = pika.BlockingConnection(params)
+		channel_in = connection_in.channel()
+		channel_in.queue_declare(queue=convert_queue_name)
 
 		db=Datasets(sqlite3_filename)
-		db.generateModVisusConfig(modvisus_group_filename)
-
-		# create the modvisus group file
-		Touch(modvisus_root_filename)
-
-		# create the json file if not exist
-		if not os.path.isfile(group_config_filename):
-			with open(group_config_filename,"w") as fp:
-				json.dump({"datasets": []}, fp, indent=2)
-
-		logger.info(f"RunConvertLoop start")
-		exitNow=False
-		while not exitNow:
+		while True:
 
 			# add all the messages to the database
 			# https://pika.readthedocs.io/en/stable/examples/blocking_consumer_generator.html
@@ -497,118 +587,29 @@ if __name__ == "__main__":
 
 				if method_frame is None:  break  # timeout
 				body=body.decode("utf-8").strip()
-				msg=json.loads(body)
-				logger.info(f"PubSub received message from queue={convert_queue_name} body=\n{json.dumps(msg,indent=2)} ")
+				specs=json.loads(body)
+				logger.info(f"PubSub received message from queue={convert_queue_name} body=\n{json.dumps(specs,indent=2)} ")
 				logger.info(f"Adding item top local db")
-				db.pushPendingConvert(**msg)
+				db.pushPendingConvert(**specs)
 
 				# important to do only here, I don't want to loose any message
 				channel_in.basic_ack(delivery_tag=method_frame.delivery_tag) 
 
-			# When you escape out of the loop, be sure to call consumer.cancel() to return any unprocessed messages.
-			channel_in.cancel()
-
-			# take one dataset from the database
-			row=db.popPendingConvert()
+			channel_in.cancel() # from PICKA: When you escape out of the loop, be sure to call consumer.cancel() to return any unprocessed messages.
+			specs=db.popPendingConvert()
 
 			# no database to convert? just wait
-			if not row:
+			if not specs:
 				time.sleep(0.1)
 				continue
 
-			logger.info(f"Starting conversion spec={json.dumps(row,indent=2)}")
-
-			src,dst=row["src"],row["dst"]
-
-			# extract group_name (name should be in the form `group/whatever`)
-			group_name, dataset_name=row['group'],row['name']
-			logger.info(f"group={group_name} name={dataset_name}")
-
-			# read group config (if not exists create a new one)
-			group_config={"datasets": []}
-			if os.path.isfile(group_config_filename) and os.path.getsize(group_config_filename):
-				with open(group_config_filename,"r") as f:
-					try:
-						group_config=json.load(f)
-						logger.info(f"Loaded JSON file {group_config_filename}")
-					except Exception as ex:
-						logger.info(f"Loading of JSON file {group_config_filename} failed {ex} ")
-
-			# read metatada (can be a binary file too?)
-			metadata=[]
-			for it in json.loads(row["metadata"]):
-				type=it['type']
-				if type=="file":
-					filename=it['path']
-					try:
-						metadata.append(LoadMetadataFromFile(filename))
-					except Exception as ex:
-						logger.info(f"LoadMetadataFromFile filename={filename} failed {ex}. Skipping it")
-				elif type=="chess-metadata":
-					query=it['query']
-					try:
-						metadata.append(LoadMetadataFromChess(query, uri=chessdata_uri))
-					except Exception as ex:
-						logger.info(f"LoadMetadataFromChess query={query} uri={chessdata_uri} failed {ex}. Skipping it")
-				else:
-					raise Exception("todo")
-
-			if True:
-					# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
-				# e.g assuyming /mnt/data1/nsdf/tmp/near-field-scrgiorgio-20230912-01/visus.idx I need to clean up the parent directory
-				# SO MAKE SURE you are using unique directories!			
-				logger.info(f" DANGEROUS but needed: removing any file from {os.path.dirname(dst)}")
-				shutil.rmtree(os.path.dirname(dst), ignore_errors=True)
-
-			src_ext=os.path.splitext(src)[1]
-
-			# image stack 
-			if src_ext==".tif" and "*" in src:
-				ConvertImageStack(src, dst, compression=row["compression"], arco=row["arco"])
-
-			# nexus file
-			elif src_ext ==".nxs":
-				# TODO: not supporting multiple fields inside a nexus file
-				# TODO: with some nexus file I am unable to create shrinked streamable (probably related to NXlinkfield)
-				streamable=None # os.path.splitext(dst)[0]+".nxs"
-				ConvertNexus(src, dst, compression=row["compression"], arco=row["arco"], streamable=None).run()
-				# LocalFileToMetadata(metadata,streamable_nexus)
-
-			elif src_ext == ".npy":
-				ConvertNumPy(src, dst, compression=row["compression"], arco=row["arco"])
-			
-			else:
-				raise Exception("to handle... ")
-
-			row["conversion_end"]=str(datetime.now())
-
-			# save group config file (TODO commit to github)
-			group_config["datasets"].append({
-				"name" : f"{group_name}/{dataset_name}", # for displaying
-				"url" : converted_url_template.format(group=group_name, name=dataset_name),
-				"color-mapper-type":"log",
-				"metadata" : metadata + [{
-					'type':'json-object', 
-					'filename': 'generated-nsdf-convert.json',  
-					'object' : {k:str(v) for k,v in row.items() if k!="metadata"}
-				}]
-			})		
-
-			with open(group_config_filename,"w") as fp:
-				json.dump(group_config, fp, indent=2)
-				logger.info(f"Saved group config to filename={group_config_filename}")
-
-			# this sets the conversion_done with is needed for visus config generation
-			db.setConvertDone(row)
-
-			db.generateModVisusConfig(modvisus_group_filename)
-			Touch(modvisus_root_filename) # force modvisus reload
-
+			RunSingleConvert(db,specs)
 			logger.info(f"*** Re-entering loop ***")
 
 		logger.info(f"RunConvertLoop end")
 		channel_in.close();connection_in.close()
 		sys.exit(0)
 
+	raise Exception(f"unknown action={sys.argv[1]}")
 
 
