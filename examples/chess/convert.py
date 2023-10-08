@@ -605,10 +605,10 @@ if __name__ == "__main__":
 
 	if sys.argv[1]=="test-chess-metadata":
 		import chessdata 
-		query="""{"BTR": "1111-a"}"""
+		query="""{"_id": "65032a84d2f7654ee374db59"}"""
 		records = chessdata.query(query, url=chessdata_uri)
 		logger.info(f"Read metadata from CHESS #records={len(records)}")
-		print(records)
+		#print(records)
 		sys.exit(0)		
 	
 	if sys.argv[1]=="init-db":
@@ -638,7 +638,7 @@ if __name__ == "__main__":
 		elif "amqps://" in sys.argv[2]:
 			url,queue=sys.argv[2:]
 			puller=PullEventsFromRabbitMq(db,sys.argv[2],queue)
-			
+
 		else:
 			raise Exception(f"unknown loop for {sys.argv[2]}")
 
