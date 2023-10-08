@@ -72,7 +72,7 @@ python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.class
 Open **two terminals** on the NSDF entrypoint and type:
 
 ```bash
-NSDF_CONVERT_GROUP=test-group-77
+export NSDF_CONVERT_GROUP=test-group-33
 source examples/chess/setup.sh
 
 # if you need to update OpenVisus
@@ -83,26 +83,23 @@ source examples/chess/setup.sh
 Group setup:
 
 ```bash
-rm -Rf ${NSDF_CONVERT_DATA}
-rm -f ${NSDF_CONVERT_GROUP_CONFIG}
-mkdir -p ${NSDF_CONVERT_DATA}
-touch ${NSDF_CONVERT_MODVISUS_CONFIG}
-python ./examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_QUEUE}
-python examples/chess/convert.py init-db
 
-more ${NSDF_CONVERT_MODVISUS_CONFIG}
-more ${NSDF_CONVERT_GROUP_CONFIG}
-more ${MODVISUS_CONFIG}
+# remove the OLD group convert directory
+rm -Rf ${NSDF_CONVERT_DIR}
 
-# ********** MANUAL OPERATION ***************
-# Add this to ${MODVISUS_CONFIG} (developer note: do not remove the group, otherwise it will not work)
-# <group name="${NSDF_CONVERT_MODVISUS_CONFIG}"><include url="/mnt/data1/nsdf-convert-workflow/${NSDF_CONVERT_MODVISUS_CONFIG}/visus.config" /></group> 
+# local
+python examples/chess/convert.py convert-loop init "./*.json" 
 
-# sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} ".schema"
-# sqlite3 ${NSDF_CONVERT_SQLITE3_FILENAME} "select * from datasets"
+# PubSub
+python examples/chess/convert.py convert-loop init pubsub
 ```
 
+if you want to debut the db:
 
+```bash
+sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db ".schema"
+sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "select * from datasets"
+```
 
 Init Kerberos ticket for CHESS metadata system:
 
@@ -119,7 +116,7 @@ cat <<EOF > ${DATASET_NAME}.json
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
    "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
    "metadata": [
@@ -132,32 +129,19 @@ cat <<EOF > ${DATASET_NAME}.json
    ]
 }
 EOF
-
-{:}
-
 python ./examples/chess/convert.py run-single-convert ${DATASET_NAME}.json
-
-In terminal 1, run the converter loop
-
-```bash
-
-# events from RabbitMq pubsub
-python examples/chess/convert.py run-convert-loop "${NSDF_CONVERT_PUBSUB_URL} ${NSDF_CONVERT_QUEUE}"
-
-# shared directory with json files
-python examples/chess/convert.py run-convert-loop "./*.json"
 ```
 
-Convert an **image-stack**:
+Convert an **image-stack** using loop:
 
 ```bash
 DATASET_NAME=test-now-3
-cat <<EOF > job.json
+cat <<EOF > ./${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
    "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
    "metadata": [
@@ -169,20 +153,26 @@ cat <<EOF > job.json
       }
    ]}
 EOF
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message ""
+
+# loop using local storage
+python examples/chess/convert.py convert-loop run "./*.json"
+
+# loop using PubSub
+python examples/chess/convert.py convert-loop run pubsub
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_PUBSUB_QUEUE} --message ./${DATASET_NAME}.json
+
 ```
 
 Add **NEXUS**:
 
 ```bash
 DATASET_NAME=example-nexus
-
 cat <<EOF > job.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
    "src":"/mnt/data1/nsdf/3scans_HKLI.nxs",
-   "dst":"${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
    "metadata": [
@@ -192,7 +182,7 @@ cat <<EOF > job.json
 }
 EOF
 
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message job.json
+python examples/chess/convert.py run-single-convert job.json
 ```
 
 Add **NEXUS reduced** example:
@@ -204,7 +194,7 @@ cat <<EOF > job.json
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
    "src":"/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced/reduced_data.nxs",
-   "dst":"${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
    "metadata": [
@@ -213,7 +203,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
    ]}
 EOF
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message job.json
+python examples/chess/convert.py run-single-convert job.json
 ```
 
 Add **NEXUS reconstructed** example:
@@ -225,7 +215,7 @@ cat <<EOF > job.json
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
    "src":"/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced/reconstructed_data.nxs",
-   "dst":"${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
    "metadata": [
@@ -234,7 +224,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
    ]}
 EOF
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message job.json
+python examples/chess/convert.py run-single-convert job.json
 ```
 
 Add **numpy** data:
@@ -246,7 +236,7 @@ cat <<EOF > job.json
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
    "src":"/mnt/data1/nsdf/recon_combined_1_2_3_fullres.npy",
-   "dst":"${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
    "metadata": [
@@ -254,7 +244,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
    ]}
 EOF
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message job.json
+python examples/chess/convert.py run-single-convert job.json
 ```
 
 Add a **near field**:
@@ -266,7 +256,7 @@ cat <<EOF > job.json
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
    "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
    "metadata": [
@@ -274,7 +264,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
    ]}
 EOF
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message job.json
+python examples/chess/convert.py run-single-convert job.json
 ```
 
 Add a **tomo** (is it TOMO?)
@@ -293,7 +283,7 @@ cat <<EOF > job.json
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
    "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/${Seq}/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DATA}/${DATASET_NAME}/visus.idx",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
    "metadata": [
@@ -302,7 +292,7 @@ cat <<EOF > job.json
    ]
 }
 EOF
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_QUEUE} --message job.json
+python examples/chess/convert.py run-single-convert job.json
 ```
 
 Check modvisus (you shoud see the new dataset):

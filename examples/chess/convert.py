@@ -7,6 +7,8 @@ import pika
 import sqlite3 
 import numpy as np
 from skimage import io
+import xmltodict 
+import pprint 
 
 # python3 -m pip install nexusformat
 from nexusformat.nexus import * 
@@ -20,11 +22,14 @@ logger = logging.getLogger("nsdf-convert")
 # for debugging
 # ov.SetupLogger(logging.getLogger("OpenVisus"), output_stdout=True) 
 
-log_filename=os.environ["NSDF_CONVERT_LOG_FILENAME"]
-sqlite3_filename=os.environ["NSDF_CONVERT_SQLITE3_FILENAME"]
-modvisus_group_filename=os.environ["NSDF_CONVERT_MODVISUS_CONFIG"]
-converted_url_template=os.environ["NSDF_CONVERTED_URL_TEMPLATE"]
+group_name=os.environ["NSDF_CONVERT_GROUP"]
+
+log_filename=os.environ["NSDF_CONVERT_DIR"] + "/output.log"
+sqlite3_filename=os.environ["NSDF_CONVERT_DIR"] + "/sqllite3.db"
+modvisus_group_filename=os.environ["NSDF_CONVERT_DIR"] + "/visus.config"
 group_config_filename=os.environ["NSDF_CONVERT_GROUP_CONFIG"]
+
+converted_url_template=os.environ["NSDF_CONVERTED_URL_TEMPLATE"]
 modvisus_root_filename=os.environ["MODVISUS_CONFIG"]
 chessdata_uri=os.environ["CHESSDATA_URI"]
 
@@ -35,17 +40,6 @@ class Datasets:
 	def __init__(self, db_filename):
 		self.conn = sqlite3.connect(db_filename)
 		self.conn.row_factory = sqlite3.Row
-		#self.dropTable()
-		self.createTable()
-		self.generateFiles()
-
-	# dropTable
-	def dropTable(self):
-		self.conn.execute("""DROP TABLE IF EXISTS datasets""")
-		self.conn.commit()		
-
-	# createTable
-	def createTable(self):
 		self.conn.execute("""
 		CREATE TABLE IF NOT EXISTS datasets (
 			id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -62,8 +56,13 @@ class Datasets:
 		)
 		""")
 		self.conn.commit()
-		self.generateFiles()		
-	
+		self.generateFiles()
+
+	# close
+	def close(self):
+		self.conn.close()
+		self.conn=None
+
 	# pushPendingConvert
 	def pushPendingConvert(self, group, name, src, dst, compression="zip", arco="modvisus", metadata=[]):
 		# TODO: if multiple converters?
@@ -103,32 +102,65 @@ class Datasets:
 
 	# generateFiles
 	def generateFiles(self):
-		logger.info(f"generateFiles begin...")
 
-		# create the json file if not exist
-		if not os.path.isfile(group_config_filename):
-			with open(group_config_filename,"w") as fp:
-				json.dump({"datasets": []}, fp, indent=2)
-			logger.info(f"Create group JSON file={group_config_filename}")
-		else:
-			Touch(group_config_filename)
-			logger.info(f"Touched group JSON file={group_config_filename}")
+		# log
+		Touch(log_filename)
 
-		v=[]
-		converted=self.getConverted()
+		# group_config_filename
+		if True:
+			if not os.path.isfile(group_config_filename):
+				with open(group_config_filename,"w") as fp:
+					json.dump({"datasets": []}, fp, indent=2)
+				logger.info(f"Create group JSON file={group_config_filename}")
+			else:
+				Touch(group_config_filename)
+				logger.info(f"Touched group JSON file={group_config_filename}")
 
-		N=0
-		for row in converted:
-			v.append(f"""<dataset name='{row["group"]}/{row["name"]}' url='{row["dst"]}' group='{row["group"]}' convert_id='{row["id"]}' />""")
-			N+=1
-		body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
+			v=[]
+			converted=self.getConverted()
 
-		# save the file
-		with open(modvisus_group_filename,"w") as f:
-			f.write(body)
-		logger.info(f"Saved file {modvisus_group_filename}")
-		logger.info(f"generateFiles end #datasets={N} modvisus_group_filename={modvisus_group_filename}")
-		Touch(modvisus_root_filename) # force modvisus reload
+		# modvisus_group_filename
+		if True:
+			N=0
+			for row in converted:
+				v.append(f"""<dataset name='{row["group"]}/{row["name"]}' url='{row["dst"]}' group='{row["group"]}' convert_id='{row["id"]}' />""")
+				N+=1
+			body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
+
+			# save the modvisus.config specific for the group
+			with open(modvisus_group_filename,"w") as f:
+				f.write(body)
+			logger.info(f"Saved file {modvisus_group_filename}")
+
+		# main visus.config
+		if True:
+			timestamp=str(datetime.now().date()) + '_' + str(datetime.now().time()).replace(':', '.')
+			shutil.copy(modvisus_root_filename,modvisus_root_filename+f".{timestamp}")
+
+			# Open the file and read the contents 
+			with open(modvisus_root_filename, 'rt') as file: 
+				body = file.read() 
+			d = xmltodict.parse(body, process_namespaces=True) 
+
+
+			datasets=d["visus"]["datasets"]
+			if not "group" in datasets:
+				datasets["group"]=[]
+
+			if isinstance(datasets["group"],dict):
+				datasets["group"]=[datasets["group"]]
+
+			datasets["group"]=[it for it in datasets["group"] if it["@name"]!=group_name]
+
+			datasets["group"].append({
+				'@name': group_name,
+				'include': {'@url': modvisus_group_filename}
+			})
+
+			body=xmltodict.unparse(d, pretty=True)
+			with open(modvisus_root_filename,"wt") as f:
+				f.write(body)
+		
 
 # # ///////////////////////////////////////////////////////////////////
 def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
@@ -551,9 +583,17 @@ class PullEventsFromLocalDirectory(PullEvents):
 		super().__init__(db)
 		self.pattern=pattern
 
-	# doPullEvents
-	def doPullEvents(self):
-		for filename in list(glob.glob(pattern)):
+	# flush
+	def flush(self):
+		N=0
+		for filename in list(glob.glob(self.pattern)):
+			os.remove(filename)
+			N+=1
+		print(f"Flushed {N} messages")
+
+	# pull
+	def pull(self):
+		for filename in list(glob.glob(self.pattern)):
 				try:
 					with open(filename,"rt") as f:
 						specs=json.load(f)
@@ -576,8 +616,20 @@ class PullEventsFromRabbitMq(PullEvents):
 		self.channel_in = self.connection_in.channel()
 		self.channel_in.queue_declare(queue=queue)
 
-	# doPullEvents
-	def doPullEvents(self):
+	# flush
+	def flush(self):
+		N=0
+		while True:
+			method_frame, header_frame, body =self.channel_in.basic_get(self.queue, auto_ack=False)
+			if method_frame is None: break # finished
+			body=body.decode("utf-8").strip()
+			print(f"Received body={body} ")
+			self.channel_in.basic_ack(delivery_tag=method_frame.delivery_tag)
+			N+=1
+		print(f"Flushed {N} messages")
+
+	# pull
+	def pull(self):
 
 			# add all the messages to the database
 			# https://pika.readthedocs.io/en/stable/examples/blocking_consumer_generator.html
@@ -601,9 +653,12 @@ class PullEventsFromRabbitMq(PullEvents):
 # ///////////////////////////////////////////////////////////////////
 if __name__ == "__main__":
 
+
 	SetupLogger(log_filename)
 
-	if sys.argv[1]=="test-chess-metadata":
+	action=sys.argv[1]
+
+	if action=="test-chess-metadata":
 		import chessdata 
 		query="""{"_id": "65032a84d2f7654ee374db59"}"""
 		records = chessdata.query(query, url=chessdata_uri)
@@ -611,39 +666,52 @@ if __name__ == "__main__":
 		#print(records)
 		sys.exit(0)		
 	
-	if sys.argv[1]=="init-db":
-		db=Datasets(sqlite3_filename)
-		db.dropTable()
-		db.createTable()
-		for row in db.getAll():
-			logger.info(row)
-		logger.info(f"init-db done filename={sqlite3_filename}")	
-		sys.exit(0)
-
-	if sys.argv[1]=="run-single-convert":
+	if action=="run-single-convert":
 		with open(sys.argv[2],"rt") as f:
 			specs = json.load(f)
 		RunSingleConvert(specs)
 		sys.exit(0)
 
-	if sys.argv[1]=="run-convert-loop":
-		logger.info(f"RunConvertLoop start")
-
+	if action=="convert-loop":
+		subaction,type=sys.argv[2],sys.argv[3]
+		logger.info(f"action={action} subaction={subaction} type={type}")
 		db=Datasets(sqlite3_filename)
 
-		if "*" in sys.argv[2]:
-			pattern=sys.argv[2]
+		# is a pattern to json files
+		if "*.json" in type:
+			pattern=type
 			puller=PullEventsFromLocalDirectory(db,pattern)
 
-		elif "amqps://" in sys.argv[2]:
-			url,queue=sys.argv[2:]
-			puller=PullEventsFromRabbitMq(db,sys.argv[2],queue)
+		# rabbitmq
+		elif type=="pubsub":
+			url=os.environ["NSDF_CONVERT_PUBSUB_URL"]
+			queue=os.environ["NSDF_CONVERT_PUBSUB_QUEUE"]
+			puller=PullEventsFromRabbitMq(db,url,queue)
 
 		else:
-			raise Exception(f"unknown loop for {sys.argv[2]}")
+			assert(False)
+
+		if subaction=="init":
+			puller.flush()
+			db.close()
+
+			generated=[sqlite3_filename,modvisus_group_filename,log_filename,group_config_filename]
+
+			for filename in generated:
+				if os.path.isfile(filename):
+					os.remove(filename)
+					logger.info(f"removed file {filename}")
+
+			db=Datasets(sqlite3_filename)
+
+			for filename in generated:
+				assert os.path.isfile(filename)
+
+			logger.info(f"action={action} done. Generated {generated} modvisus_root_filename={modvisus_root_filename}")
+			sys.exit(0)
 
 		while True:
-			puller.doPullEvents()
+			puller.pull()
 			specs=db.popPendingConvert()
 
 			# no database to convert? just wait
@@ -659,6 +727,6 @@ if __name__ == "__main__":
 		logger.info(f"RunConvertLoop end")
 		sys.exit(0)
 
-	raise Exception(f"unknown action={sys.argv[1]}")
+	raise Exception(f"unknown action={action}")
 
 
