@@ -21,8 +21,6 @@ logger = logging.getLogger("nsdf-convert")
 # ov.SetupLogger(logging.getLogger("OpenVisus"), output_stdout=True) 
 
 log_filename=os.environ["NSDF_CONVERT_LOG_FILENAME"]
-convert_queue_name=os.environ["NSDF_CONVERT_QUEUE"]
-pubsub_url=os.environ["NSDF_CONVERT_PUBSUB_URL"]	
 sqlite3_filename=os.environ["NSDF_CONVERT_SQLITE3_FILENAME"]
 modvisus_group_filename=os.environ["NSDF_CONVERT_MODVISUS_CONFIG"]
 converted_url_template=os.environ["NSDF_CONVERTED_URL_TEMPLATE"]
@@ -76,12 +74,11 @@ class Datasets:
 
 	# popPendingConvert
 	def popPendingConvert(self):
-		# TODO: if multiple converters?
 		data = self.conn.execute("SELECT * FROM datasets WHERE conversion_end is NULL order by id ASC LIMIT 1")
 		row=data.fetchone()
-		if row is None: 
-			return None
+		if row is None: return None
 		row={k:row[k] for k in row.keys()}
+		row["metadata"]=json.loads(row["metadata"])
 		row["conversion_start"]=str(datetime.now())
 		data = self.conn.execute("UPDATE datasets SET conversion_start==? where id=?",(row["conversion_start"],row["id"], ))
 		self.conn.commit()
@@ -455,7 +452,7 @@ def Touch(filename):
 	Path(filename).touch(exist_ok=True)
 
 # ///////////////////////////////////////////////////////////////////
-def RunSingleConvert(db,specs):
+def RunSingleConvert(specs):
 
 	logger.info(f"RunSingleConvert spec={json.dumps(specs,indent=2)}")
 
@@ -539,8 +536,66 @@ def RunSingleConvert(db,specs):
 		json.dump(group_json_config, fp, indent=2)
 		logger.info(f"Saved group config to filename={group_config_filename}")
 
-	# this sets the conversion_done with is needed for visus config generation
-	db.setConvertDone(specs)
+
+# ///////////////////////////////////////////////////////////////////
+class PullEvents:
+	
+	# constructor
+	def __init__(self,db):
+		self.db=db
+
+class PullEventsFromLocalDirectory(PullEvents):
+
+	# constructor	
+	def __init__(self,db, pattern):
+		super().__init__(db)
+		self.pattern=pattern
+
+	# doPullEvents
+	def doPullEvents(self):
+		for filename in list(glob.glob(pattern)):
+				try:
+					with open(filename,"rt") as f:
+						specs=json.load(f)
+						logger.info(f"json.loads('{filename}') ok")
+				except Exception as ex:
+					logger.info(f"json.loads('{filename}') failed {ex}")
+					continue
+
+				print(specs)
+				self.db.pushPendingConvert(**specs)
+				shutil.move(filename,filename + ".~pushed")
+
+class PullEventsFromRabbitMq(PullEvents):
+
+	# constructor
+	def __init__(self,db,url, queue):
+		super().__init__(db)
+		self.queue=queue
+		self.connection_in = pika.BlockingConnection(pika.URLParameters(url))
+		self.channel_in = self.connection_in.channel()
+		self.channel_in.queue_declare(queue=queue)
+
+	# doPullEvents
+	def doPullEvents(self):
+
+			# add all the messages to the database
+			# https://pika.readthedocs.io/en/stable/examples/blocking_consumer_generator.html
+			for method_frame, properties, body in self.channel_in.consume(self.queue, auto_ack=False,inactivity_timeout=0.1):
+
+				if method_frame is None:  break  # timeout
+				body=body.decode("utf-8").strip()
+				specs=json.loads(body)
+				logger.info(f"PubSub received message from queue={self.queue} body=\n{json.dumps(specs,indent=2)} ")
+				logger.info(f"Adding item top local db")
+				db.pushPendingConvert(**specs)
+
+				# important to do only here, I don't want to loose any message
+				self.channel_in.basic_ack(delivery_tag=method_frame.delivery_tag) 
+
+			 # from PICKA: When you escape out of the loop, be sure to call consumer.cancel() to return any unprocessed messages.			
+			self.channel_in.cancel()
+
 
 
 # ///////////////////////////////////////////////////////////////////
@@ -568,46 +623,40 @@ if __name__ == "__main__":
 	if sys.argv[1]=="run-single-convert":
 		with open(sys.argv[2],"rt") as f:
 			specs = json.load(f)
-		RunSingleConvert(db,specs)
+		RunSingleConvert(specs)
 		sys.exit(0)
 
 	if sys.argv[1]=="run-convert-loop":
 		logger.info(f"RunConvertLoop start")
-		params = pika.URLParameters(pubsub_url)
-		connection_in = pika.BlockingConnection(params)
-		channel_in = connection_in.channel()
-		channel_in.queue_declare(queue=convert_queue_name)
 
 		db=Datasets(sqlite3_filename)
+
+		if "*" in sys.argv[2]:
+			pattern=sys.argv[2]
+			puller=PullEventsFromLocalDirectory(db,pattern)
+
+		elif "amqps://" in sys.argv[2]:
+			url,queue=sys.argv[2:]
+			puller=PullEventsFromRabbitMq(db,sys.argv[2],queue)
+			
+		else:
+			raise Exception(f"unknown loop for {sys.argv[2]}")
+
 		while True:
-
-			# add all the messages to the database
-			# https://pika.readthedocs.io/en/stable/examples/blocking_consumer_generator.html
-			for method_frame, properties, body in channel_in.consume(convert_queue_name, auto_ack=False,inactivity_timeout=0.1):
-
-				if method_frame is None:  break  # timeout
-				body=body.decode("utf-8").strip()
-				specs=json.loads(body)
-				logger.info(f"PubSub received message from queue={convert_queue_name} body=\n{json.dumps(specs,indent=2)} ")
-				logger.info(f"Adding item top local db")
-				db.pushPendingConvert(**specs)
-
-				# important to do only here, I don't want to loose any message
-				channel_in.basic_ack(delivery_tag=method_frame.delivery_tag) 
-
-			channel_in.cancel() # from PICKA: When you escape out of the loop, be sure to call consumer.cancel() to return any unprocessed messages.
+			puller.doPullEvents()
 			specs=db.popPendingConvert()
 
 			# no database to convert? just wait
 			if not specs:
-				time.sleep(0.1)
+				time.sleep(1.0)
 				continue
 
-			RunSingleConvert(db,specs)
+			RunSingleConvert(specs)
+			db.setConvertDone(specs)
+			
 			logger.info(f"*** Re-entering loop ***")
 
 		logger.info(f"RunConvertLoop end")
-		channel_in.close();connection_in.close()
 		sys.exit(0)
 
 	raise Exception(f"unknown action={sys.argv[1]}")

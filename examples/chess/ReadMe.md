@@ -140,7 +140,12 @@ python ./examples/chess/convert.py run-single-convert ${DATASET_NAME}.json
 In terminal 1, run the converter loop
 
 ```bash
-python examples/chess/convert.py run-convert-loop
+
+# events from RabbitMq pubsub
+python examples/chess/convert.py run-convert-loop "${NSDF_CONVERT_PUBSUB_URL} ${NSDF_CONVERT_QUEUE}"
+
+# shared directory with json files
+python examples/chess/convert.py run-convert-loop "./*.json"
 ```
 
 Convert an **image-stack**:
