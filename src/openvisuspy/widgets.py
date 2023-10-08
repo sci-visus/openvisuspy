@@ -433,6 +433,8 @@ class Widgets:
 
 			# json file 
 			if ext==".json":
+
+				# remote file (maybe I need to setup credentials)
 				if url.startswith("http"):
 					username=os.environ.get("MODVISUS_USERNAME","")
 					password=os.environ.get("MODVISUS_PASSWORD","")
@@ -442,6 +444,8 @@ class Widgets:
 						auth=None
 					response = requests.get(url,auth = auth)
 					config=response.json()
+
+				# JSON local file
 				else:
 					config=json.load(open(url,"r"))
 				return self.setConfig(config)
@@ -461,6 +465,12 @@ class Widgets:
 
 		if db is None:
 			url=config["url"]
+
+			# special case, I want to force the dataset to be local (case when I have a local dashboard and remove dashboard)
+			if "urls" in config and "local" in config["urls"] and "--force-local" in sys.argv:
+				url=config["urls"]["local"]
+				logger.info(f"Overriding url to be local url={url}")
+
 			self.db=LoadDataset(url=url)
 		else:
 			self.db=db

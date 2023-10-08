@@ -57,15 +57,6 @@ tail -f  ${APACHE_LOG_DIR}/*.log
 
 See OpenVisus `Docker/group-security`` for details about how to add users
 
-# Debug dashboard on windows
-
-```
-set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
-set MODVISUS_USERNAME=xxxxx
-set MODVISUS_PASSWORD=yyyyy
-python -m bokeh serve examples/dashboards/app --dev --args C:\big\visus_datasets\chess\test-group\config.json
-python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group-2.json"
-```
 
 # Run NSDF Convert Workflow
 
@@ -75,67 +66,44 @@ Open **two terminals** on the NSDF entrypoint and type:
 export NSDF_CONVERT_GROUP=test-group-33
 source examples/chess/setup.sh
 
+# Init Kerberos ticket for CHESS metadata system:
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+
 # if you need to update OpenVisus
 # python -m pip install --upgrade OpenVisusNoGui
 # git pull
 ```
 
-Group setup:
+Conversion loop
 
 ```bash
 
-# remove the OLD group convert directory
+# loop using local storage
 rm -Rf ${NSDF_CONVERT_DIR}
-
-# local
 python examples/chess/convert.py convert-loop init "./*.json" 
+python examples/chess/convert.py convert-loop run  "./*.json"
+# ... create json files ...
 
-# PubSub
-python examples/chess/convert.py convert-loop init pubsub
-```
+# loop using PubSub
+rm -Rf ${NSDF_CONVERT_DIR}
+python examples/chess/convert.py convert-loop init "${NSDF_CONVERT_PUBSUB_URL}" "${NSDF_CONVERT_PUBSUB_QUEUE}"
+python examples/chess/convert.py convert-loop run  "${NSDF_CONVERT_PUBSUB_URL}" "${NSDF_CONVERT_PUBSUB_QUEUE}"
+python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_PUBSUB_QUEUE} --message ./${DATASET_NAME}.json # send message to pubsub
 
-if you want to debut the db:
+# access the convert db
+# sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db ".schema"
+# sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "select * from datasets"
 
-```bash
-sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db ".schema"
-sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "select * from datasets"
-```
-
-Init Kerberos ticket for CHESS metadata system:
-
-```
-kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
-```
-
-To run a **single convert**:
+# run ethe dashboard in debug mode
+python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --force-local
+python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
 ```
-DATASET_NAME=test-now-33
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {
-         "type": "chess-metadata", 
-         "query": {
-            "_id": "65032a84d2f7654ee374db59"
-         } 
-      }
-   ]
-}
-EOF
-python ./examples/chess/convert.py run-single-convert ${DATASET_NAME}.json
+
+Convert **image stack**:
+
 ```
-
-Convert an **image-stack** using loop:
-
-```bash
-DATASET_NAME=test-now-3
+DATASET_NAME=example-image-stack
 cat <<EOF > ./${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
@@ -153,17 +121,10 @@ cat <<EOF > ./${DATASET_NAME}.json
       }
    ]}
 EOF
-
-# loop using local storage
-python examples/chess/convert.py convert-loop run "./*.json"
-
-# loop using PubSub
-python examples/chess/convert.py convert-loop run pubsub
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_PUBSUB_QUEUE} --message ./${DATASET_NAME}.json
-
+python examples/chess/convert.py run-single-convert job.json
 ```
 
-Add **NEXUS**:
+Convert **NEXUS**:
 
 ```bash
 DATASET_NAME=example-nexus
@@ -181,11 +142,10 @@ cat <<EOF > job.json
    ]
 }
 EOF
-
 python examples/chess/convert.py run-single-convert job.json
 ```
 
-Add **NEXUS reduced** example:
+Convert **NEXUS reduced** example:
 
 ```bash
 DATASET_NAME=rolf-example-reduced
@@ -206,7 +166,7 @@ EOF
 python examples/chess/convert.py run-single-convert job.json
 ```
 
-Add **NEXUS reconstructed** example:
+Convert **NEXUS reconstructed** example:
 
 ```bash
 DATASET_NAME=rolf-example-reconstructed
@@ -227,7 +187,7 @@ EOF
 python examples/chess/convert.py run-single-convert job.json
 ```
 
-Add **numpy** data:
+Convert **numpy** data:
 
 ```
 DATASET_NAME=example-numpy
@@ -247,7 +207,7 @@ EOF
 python examples/chess/convert.py run-single-convert job.json
 ```
 
-Add a **near field**:
+Convert a **near field**:
 
 ```bash
 DATASET_NAME=example-near-field
@@ -267,7 +227,7 @@ EOF
 python examples/chess/convert.py run-single-convert job.json
 ```
 
-Add a **tomo** (is it TOMO?)
+Convert a **tomo** (is it TOMO?)
 
 ```bash:
 seq=18 # 
@@ -311,8 +271,23 @@ curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.c
 python -m bokeh serve examples/dashboards/app --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
 ```
 
+# Dashboards
 
-# Setup a new Dashboard Server
+
+## Windows
+
+```
+set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
+set MODVISUS_USERNAME=xxxxx
+set MODVISUS_PASSWORD=yyyyy
+set VISUS_CPP_VERBOSE="1"
+set VISUS_NETSERVICE_VERBOSE="1"
+python -m bokeh serve examples/dashboards/app --dev --args C:\big\visus_datasets\chess\test-group\config.json
+python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group.json"
+```
+
+
+## Linux
 
 ```bash
 
@@ -349,22 +324,21 @@ screen -S nsdf-convert-workflow-dashboard
 export MODVISUS_USERNAME=xxxxx
 export MODVISUS_PASSWORD=yyyyy
 export VISUS_CACHE=/tmp/nsdf-convert-workflow/visus-cache
-export VISUS_CPP_VERBOSE="1"
-export VISUS_NETSERVICE_VERBOSE="1"
-export BOKEH_ALLOW_WS_ORIGIN="*"
-export BOKEH_LOG_LEVEL="info"
-export PYTHONPATH=./src
-export ADDRESS=$(curl -s checkip.amazonaws.com)
-export BOKEH_PORT=10334
 
 source .venv/bin/activate
-export NSDF_CONVERT_GROUP=test-group
 
 # check you can reach the CHESS json file
-curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/test-group.json
 
 # add `--dev` for debugging
-python3 -m bokeh serve "examples/dashboards/app" --allow-websocket-origin="*" --address "${ADDRESS}" --port ${BOKEH_PORT} --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+export PYTHONPATH=./src
+export BOKEH_ALLOW_WS_ORIGIN="*"
+export BOKEH_LOG_LEVEL="info"
+python3 -m bokeh serve "examples/dashboards/app" \
+   --allow-websocket-origin="*" \
+   --address "$(curl -s checkip.amazonaws.com)" \
+   --port 10334 \
+   --args https://nsdf01.classe.cornell.edu/test-group.json
 ```
 
 

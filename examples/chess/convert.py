@@ -553,9 +553,11 @@ def RunSingleConvert(specs):
 				logger.info(f"Loading of JSON file {group_config_filename} failed {ex} ")
 
 	# save group config file 
+	url=converted_url_template.format(group=group_name, name=dataset_name)
 	group_json_config["datasets"].append({
 		"name" : f"{group_name}/{dataset_name}", # for displaying
-		"url" : converted_url_template.format(group=group_name, name=dataset_name),
+		"url" : url,
+		"urls": [ "remote": url, "local": dst],
 		"color-mapper-type":"log",
 		"metadata" : metadata + [{
 			'type':'json-object', 
@@ -683,9 +685,8 @@ if __name__ == "__main__":
 			puller=PullEventsFromLocalDirectory(db,pattern)
 
 		# rabbitmq
-		elif type=="pubsub":
-			url=os.environ["NSDF_CONVERT_PUBSUB_URL"]
-			queue=os.environ["NSDF_CONVERT_PUBSUB_QUEUE"]
+		elif type.startswith("amqps://"):
+			url,queue=type,sys.argv[4]
 			puller=PullEventsFromRabbitMq(db,url,queue)
 
 		else:
