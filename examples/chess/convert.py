@@ -557,7 +557,10 @@ def RunSingleConvert(specs):
 	group_json_config["datasets"].append({
 		"name" : f"{group_name}/{dataset_name}", # for displaying
 		"url" : url,
-		"urls": [ "remote": url, "local": dst],
+		"urls": [
+			{"id":"remote","url":url},
+			{"id": "local","url": dst,}
+		],
 		"color-mapper-type":"log",
 		"metadata" : metadata + [{
 			'type':'json-object', 

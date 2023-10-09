@@ -95,7 +95,8 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_PUBSUB_QUE
 # sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "select * from datasets"
 
 # run ethe dashboard in debug mode
-python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --force-local
+python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
+
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
 ```

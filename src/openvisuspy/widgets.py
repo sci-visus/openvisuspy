@@ -467,9 +467,13 @@ class Widgets:
 			url=config["url"]
 
 			# special case, I want to force the dataset to be local (case when I have a local dashboard and remove dashboard)
-			if "urls" in config and "local" in config["urls"] and "--force-local" in sys.argv:
-				url=config["urls"]["local"]
-				logger.info(f"Overriding url to be local url={url}")
+			if "urls" in config and "--prefer" in sys.argv:
+				prefer=sys.argv[sys.argv.index("--prefer")+1]
+				for it in config["urls"]:
+					if it["id"]==prefer:
+						url=it["url"]
+						logger.info(f"Overriding url from {it}")
+						break
 
 			self.db=LoadDataset(url=url)
 		else:
