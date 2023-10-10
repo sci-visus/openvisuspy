@@ -1,6 +1,6 @@
 
 import numpy as np
-import os,sys,logging,asyncio,time
+import os,sys,logging,asyncio,time,json,xmltodict
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,37 @@ def GetBackend():
 	assert(ret=="cpp" or ret=="py")
 	return ret
 
+# ///////////////////////////////////////////////////////////////////
+def Touch(filename):
+	from pathlib import Path
+	Path(filename).touch(exist_ok=True)
 
+# ///////////////////////////////////////////////////////////////////
+def LoadJSON(filename):
+		with open(filename,"rt") as f:
+			return json.load(f)	
+
+# ///////////////////////////////////////////////////////////////////
+def SaveJSON(filename,d):
+	with open(filename,"wt") as fp:
+		json.dump(d, fp, indent=2)	
+
+# ///////////////////////////////////////////////////////////////////
+def LoadXML(filename):
+	with open(filename, 'rt') as file: 
+		body = file.read() 
+	return xmltodict.parse(body, process_namespaces=True) 	
+
+# ///////////////////////////////////////////////////////////////////
+def SaveFile(filename,body):
+	with open(filename,"wt") as f:
+		f.write(body)
+
+
+# ///////////////////////////////////////////////////////////////////
+def SaveXML(filename,d):
+	body=xmltodict.unparse(d, pretty=True)
+	SaveFile(filename,body)
 
 # ///////////////////////////////////////////////
 async def SleepMsec(msec):
@@ -166,19 +196,14 @@ def SetupLogger(
 
 	logger.setLevel(logging_level)
 
-	if stream == False:
-		pass
-
-	else:
-		if stream is None:
-			if IsJupyter():
-				handler=JupyterLoggingHandler()
-			else:
-				handler=logging.StreamHandler(stream=sys.stderr)
-
+	if stream != False:
+		if stream is None or stream == True:
+			handler=JupyterLoggingHandler() if IsJupyter() else logging.StreamHandler(stream=sys.stderr)
+		else:
+			handler=logging.StreamHandler(stream=stream)
 		handler.setLevel(logging_level)
 		handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
-		logger.addHandler(handler)
+		logger.addHandler(handler)	
 	
 	# file
 	if log_filename:

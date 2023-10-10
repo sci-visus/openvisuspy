@@ -1,6 +1,7 @@
-import os,sys,logging,types
+import os,sys,logging,types,logging
 import bokeh
 from bokeh.models import Row,Select,TextInput,BasicTicker,Slider, ColorBar, LinearColorMapper, Column
+
 
 from openvisuspy import SetupLogger,IsPanelServe,GetBackend,Slice, Slices,cbool
 
@@ -11,7 +12,7 @@ if __name__.startswith('bokeh'):
 	python -m bokeh serve examples\tutorials\run.py --dev 
 	"""
 
-	logger=SetupLogger()
+	logger=SetupLogger(stream=True)
 	logger.info(f"GetBackend()={GetBackend()}")
 
 	doc=bokeh.io.curdoc()
