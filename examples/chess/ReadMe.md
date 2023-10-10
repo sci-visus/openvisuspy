@@ -24,6 +24,8 @@ python3 -m OpenVisus dirname
 # ******************************************
 # *** IMPORTANT **** make a copy of ${MODVISUS_CONFIG} before doing this, it will overwrite the file
 # ******************************************
+# CHESS visus config file (just an include)
+__MODVISUS_CONFIG__=/nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config
 cp ${MODVISUS_CONFIG} ${MODVISUS_CONFIG}.$(date +"%Y_%m_%d_%I_%M_%p").backup
 python3 -m pip install --upgrade OpenVisusNoGui
 
@@ -54,7 +56,7 @@ If you want to know more about mod_visus
 Inspect apache logs
 
 ```bash
-tail -f  ${APACHE_LOG_DIR}/*.log
+tail -f  /var/log/httpd/*.log
 ```
 
 See OpenVisus `Docker/group-security`` for details about how to add users
@@ -62,61 +64,48 @@ See OpenVisus `Docker/group-security`` for details about how to add users
 
 # Run NSDF Convert Workflow
 
-Open **two terminals** on the NSDF entrypoint and type:
+Open **two terminals** on the NSDF entrypoint:
+
 
 ```bash
-export NSDF_CONVERT_GROUP=test-group-33
-source examples/chess/setup.sh
 
-# Init Kerberos ticket for CHESS metadata system:
+# OPTIONAL: activate conda if needed
+conda activate my-env
+conda info --envs
+
+# OPTIONAL: use local openvisuspy code
+export PYTHONPATH=${PWD}/src
+
+# OPTIONAL: if you need to test modvisus. export `MODVISUS_USERNAME` and `MODVISUS_PASSWORD``
+source "/nfs/chess/nsdf01/openvisus/.mod_visus.identity.sh"
+
+# OPTIONAL: if you need PubSub. export `NSDF_CONVERT_PUBSUB_URL``
+source "/nfs/chess/nsdf01/openvisus/.pubsub.sh"
+
+# (OPTIONAL) if you need to retrieve CHESS metadata
 kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+export NSDF_CONVERT_CHESSDATA_URI="https://chessdata.classe.cornell.edu:8244"
 
-# if you need to update OpenVisus
-# python -m pip install --upgrade OpenVisusNoGui
-# git pull
-```
-
-Conversion loop
-
-```bash
-
-# unique directory where to convert the data
+# this is the mandatory environment variables
+export NSDF_CONVERT_GROUP=test-group-11
+export MODVISUS_CONFIG=/nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config
 export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_CONVERT_GROUP}
-rm -Rf   ${NSDF_CONVERT_DIR}
-mkdir -p ${NSDF_CONVERT_DIR}
+export NSDF_CONVERT_REMOTE_URL_TEMPLATE="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=${NSDF_CONVERT_GROUP}/{name}&cached=arco"
 
-# examples using local json files
-python examples/chess/main.py init-db ${NSDF_CONVERT_GROUP}
-ln -s ${NSDF_CONVERT_DIR}/dashboards.json ${APACHE_WWW}/${NSDF_CONVERT_GROUP}.json
-python examples/chess/main.py run-puller "/oath/to/your/*.json"
-#  create json files in local directory, the puller will get it
+# init db: to call at the beginning of any group acquisition
+function InitDb() {
+   rm -Rf   ${NSDF_CONVERT_DIR}
+   mkdir -p ${NSDF_CONVERT_DIR}
+   python examples/chess/main.py init-db ${NSDF_CONVERT_GROUP}
+   sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "select * from datasets"
+   rm -f /var/www/html/${NSDF_CONVERT_GROUP}.json
+   ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_CONVERT_GROUP}.json
+   curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+}
 
-# loop using PubSub
-NSDF_CONVERT_PUBSUB_QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
-python examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_PUBSUB_QUEUE}
-python examples/chess/main.py init-db ${NSDF_CONVERT_GROUP}
-ln -s ${NSDF_CONVERT_DIR}/dashboards.json ${APACHE_WWW}/${NSDF_CONVERT_GROUP}.json
-python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" "${NSDF_CONVERT_PUBSUB_QUEUE}"
-python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_PUBSUB_QUEUE} --message ./${DATASET_NAME}.json # send message to pubsub
-
-# access the convert db
-# sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db ".schema"
-# sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "select * from datasets"
-
-# run ethe dashboard in debug mode
-export BOKEH_ALLOW_WS_ORIGIN="*"
-export BOKEH_LOG_LEVEL="error"
-
-python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
-python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
-
-```
-
-Convert **image stack**:
-
-```
-DATASET_NAME=example-image-stack
-cat <<EOF > ./${DATASET_NAME}.json
+# Example: local puller, run until killed
+DATASET_NAME=simple-test-local
+cat <<EOF > example.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -133,14 +122,89 @@ cat <<EOF > ./${DATASET_NAME}.json
       }
    ]}
 EOF
-python examples/chess/main.py convert job.json
+python examples/chess/main.py run-puller "./*.json"
+
+# Example: pubsub puller, run until killed
+QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
+python examples/chess/pubsub.py --action flush --queue ${QUEUE}
+python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" "${QUEUE}"
+DATASET_NAME=simple-test
+cat <<EOF > example.json
+{
+   "group": "${NSDF_CONVERT_GROUP}",
+   "name":"${DATASET_NAME}",
+   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
+   "compression":"zip",
+   "arco":"1mb",
+   "metadata": [
+      {
+         "type": "chess-metadata", 
+         "query": {
+            "_id": "65032a84d2f7654ee374db59"
+         } 
+      }
+   ]}
+EOF
+python ./examples/chess/pubsub.py --action pub --queue ${QUEUE} --message ./example.json # send message to pubsub
+
+# Example: Glenn's tracker, run once and must be a cron job 
+DATASET_NAME=simple-test-local
+cat <<EOF > example.json
+{
+   "group": "${NSDF_CONVERT_GROUP}",
+   "name":"${DATASET_NAME}",
+   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
+   "compression":"zip",
+   "arco":"1mb",
+   "metadata": [
+      {
+         "type": "chess-metadata", 
+         "query": {
+            "_id": "65032a84d2f7654ee374db59"
+         } 
+      }
+   ]}
+EOF
+python examples/chess/main.py run-tracker "./*.json"
+
+# run dasboards
+export BOKEH_ALLOW_WS_ORIGIN="*"
+export BOKEH_LOG_LEVEL="error"
+python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
+python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+```
+
+Convert **image stack**:
+
+```
+DATASET_NAME=example-image-stack
+cat <<EOF > ./example.json
+{
+   "group": "${NSDF_CONVERT_GROUP}",
+   "name":"${DATASET_NAME}",
+   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
+   "compression":"zip",
+   "arco":"1mb",
+   "metadata": [
+      {
+         "type": "chess-metadata", 
+         "query": {
+            "_id": "65032a84d2f7654ee374db59"
+         } 
+      }
+   ]}
+EOF
+python examples/chess/main.py convert ./example.json
 ```
 
 Convert **NEXUS**:
 
 ```bash
 DATASET_NAME=example-nexus
-cat <<EOF > job.json
+cat <<EOF > example.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -154,14 +218,14 @@ cat <<EOF > job.json
    ]
 }
 EOF
-python examples/chess/main.py convert job.json
+python examples/chess/main.py convert example.json
 ```
 
 Convert **NEXUS reduced** example:
 
 ```bash
 DATASET_NAME=rolf-example-reduced
-cat <<EOF > job.json
+cat <<EOF > example.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -175,14 +239,14 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
    ]}
 EOF
-python examples/chess/main.py convert job.json
+python examples/chess/main.py convert example.json
 ```
 
 Convert **NEXUS reconstructed** example:
 
 ```bash
 DATASET_NAME=rolf-example-reconstructed
-cat <<EOF > job.json
+cat <<EOF > example.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -196,14 +260,14 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
    ]}
 EOF
-python examples/chess/main.py convert job.json
+python examples/chess/main.py convert example.json
 ```
 
 Convert **numpy** data:
 
 ```
 DATASET_NAME=example-numpy
-cat <<EOF > job.json
+cat <<EOF > example.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -216,14 +280,14 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
    ]}
 EOF
-python examples/chess/main.py convert job.json
+python examples/chess/main.py convert example.json
 ```
 
 Convert a **near field**:
 
 ```bash
 DATASET_NAME=example-near-field
-cat <<EOF > job.json
+cat <<EOF > example.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -236,7 +300,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
    ]}
 EOF
-python examples/chess/main.py convert job.json
+python examples/chess/main.py convert example.json
 ```
 
 Convert a **tomo** (is it TOMO?)
@@ -250,7 +314,7 @@ seq=18 #
 # 20: brightfield          W 2048 H 2048 D   26 dtype uint16
 Seq=18
 DATASET_NAME="example-ti-2-exsitu/${Seq}"
-cat <<EOF > job.json
+cat <<EOF > example.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -264,7 +328,7 @@ cat <<EOF > job.json
    ]
 }
 EOF
-python examples/chess/main.py convert job.json
+python examples/chess/main.py convert example.json
 ```
 
 Check modvisus (you shoud see the new dataset):

@@ -196,19 +196,14 @@ def SetupLogger(
 
 	logger.setLevel(logging_level)
 
-	if stream == False:
-		pass
-
-	else:
-		if stream is None:
-			if IsJupyter():
-				handler=JupyterLoggingHandler()
-			else:
-				handler=logging.StreamHandler(stream=sys.stderr)
-
+	if stream != False:
+		if stream is None or stream == True:
+			handler=JupyterLoggingHandler() if IsJupyter() else logging.StreamHandler(stream=sys.stderr)
+		else:
+			handler=logging.StreamHandler(stream=stream)
 		handler.setLevel(logging_level)
 		handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
-		logger.addHandler(handler)
+		logger.addHandler(handler)	
 	
 	# file
 	if log_filename:

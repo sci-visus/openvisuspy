@@ -42,42 +42,42 @@ class ConvertDb:
 		])
 		self.conn.commit()
 
+	# toDict
+	def toDict(self, row):
+		if row is None: return None
+		ret={k:row[k] for k in row.keys()}
+		ret["metadata"]=json.loads(ret["metadata"])
+		return ret
+
 	# popPendingConvert
 	def popPendingConvert(self):
 		data = self.conn.execute("SELECT * FROM datasets WHERE conversion_start is NULL AND conversion_end is NULL order by id ASC LIMIT 1")
-		row=data.fetchone()
-		if row is None: return None
-		row={k:row[k] for k in row.keys()}
-		row["metadata"]=json.loads(row["metadata"])
-		row["conversion_start"]=str(datetime.now())
-		data = self.conn.execute("UPDATE datasets SET conversion_start==? where id=?",(row["conversion_start"],row["id"], ))
+		ret=self.toDict(data.fetchone())
+		if ret is None: return None
+		ret["conversion_start"]=str(datetime.now())
+		data = self.conn.execute("UPDATE datasets SET conversion_start==? where id=?",(ret["conversion_start"],ret["id"], ))
 		self.conn.commit()
-		return row
+		return ret
 
 	# setConvertDone
-	def setConvertDone(self, row):
-		row["conversion_end"]=str(datetime.now())
-		data = self.conn.execute("UPDATE datasets SET conversion_end==? where id=?",(row["conversion_end"],row["id"], ))
+	def setConvertDone(self, specs):
+		specs["conversion_end"]=str(datetime.now())
+		data = self.conn.execute("UPDATE datasets SET conversion_end==? where id=?",(specs["conversion_end"],specs["id"], ))
 		self.conn.commit()
 
-	# getAllRecords
-	def getAllRecords(self):
-		for row in self.conn.execute("SELECT * FROM datasets ORDER BY id ASC"):
-			yield {k:row[k] for k in row.keys()}
+	# getRecords
+	def getRecords(self, where):
+		for it in self.conn.execute(f"SELECT * FROM datasets {where} ORDER BY id ASC"):
+			yield self.toDict(it)
 
 	# getRecordById
 	def getRecordById(self,id):
-		row=self.conn.execute("SELECT * FROM datasets WHERE id=?",[id])[0]
-		return {k:row[k] for k in row.keys()}
-
-	# getMaybeFailed 
-	def getMaybeFailed(self):
-		for row in self.conn.execute("SELECT * FROM datasets WHERE conversion_start is not NULL and conversion_end is NULL ORDER BY id ASC"):
-			yield {k:row[k] for k in row.keys()}
+		data=self.conn.execute("SELECT * FROM datasets WHERE id=?",[id])
+		return self.toDict(data.fetchone()) 
 
 	# getConverted
 	def getConverted(self):
-		for row in self.conn.execute("SELECT * FROM datasets WHERE conversion_end is not NULL ORDER BY id ASC"):
-			yield {k:row[k] for k in row.keys()}
+		for it in self.conn.execute("SELECT * FROM datasets WHERE conversion_end is not NULL ORDER BY id ASC"):
+			yield self.toDict(it)
 
 		

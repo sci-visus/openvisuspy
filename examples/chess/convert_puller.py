@@ -6,41 +6,31 @@ from openvisuspy import LoadJSON
 logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-class PullEventsBaseClass:
-	
-	# constructor
-	def __init__(self,db):
-		self.db=db
-
-# ///////////////////////////////////////////////////////////////////
-class PullEventsFromLocalDirectory(PullEventsBaseClass):
+class LocalPuller:
 
 	# constructor	
-	def __init__(self,db, pattern):
-		super().__init__(db)
-		self.pattern=pattern
+	def __init__(self,glob_pattern):
+		self.glob_pattern=glob_pattern
 
 	# pull
 	def pull(self):
-		for filename in list(glob.glob(self.pattern)):
+		for filename in list(glob.glob(self.glob_pattern)):
 				try:
 					specs=LoadJSON(filename)
 					logger.info(f"json.loads('{filename}') ok")
+					yield specs
+					shutil.move(filename,filename + ".pushed")
 				except Exception as ex:
 					logger.info(f"json.loads('{filename}') failed {ex}")
-					continue
+					shutil.move(filename,filename + ".error")
 
-				print(specs)
-				self.db.pushPendingConvert(**specs)
-				shutil.move(filename,filename + ".~pushed")
 
 # ///////////////////////////////////////////////////////////////////
-class PullEventsFromRabbitMq(PullEventsBaseClass):
+class RabbitMqPuller:
 
 	# constructor
-	def __init__(self,db, url, queue):
+	def __init__(self,url, queue):
 		import pika
-		super().__init__(db)
 		self.queue=queue
 		self.connection_in = pika.BlockingConnection(pika.URLParameters(url))
 		self.channel_in = self.connection_in.channel()
@@ -58,8 +48,7 @@ class PullEventsFromRabbitMq(PullEventsBaseClass):
 				body=body.decode("utf-8").strip()
 				specs=json.loads(body)
 				logger.info(f"PubSub received message from queue={self.queue} body=\n{json.dumps(specs,indent=2)} ")
-				logger.info(f"Adding item top local db")
-				db.pushPendingConvert(**specs)
+				yield specs
 
 				# important to do only here, I don't want to loose any message
 				self.channel_in.basic_ack(delivery_tag=method_frame.delivery_tag) 

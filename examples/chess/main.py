@@ -10,14 +10,9 @@ urllib3.disable_warnings()
 
 logger = logging.getLogger("nsdf-convert")
 
+# ////////////////////////////////////////////////
+def Main(argv):
 
-# ///////////////////////////////////////////////////////////////////
-if __name__ == "__main__":
-
-	# import OpenVisus as ov
-	# ov.SetupLogger(logging.getLogger("OpenVisus"), output_stdout=True) 
-
-	# convert directory is "self-contained"
 	sqlite3_filename          = os.environ["NSDF_CONVERT_DIR"] + "/sqllite3.db"
 	modvisus_group_filename   = os.environ["NSDF_CONVERT_DIR"] + "/visus.config"
 	log_filename              = os.environ["NSDF_CONVERT_DIR"] + "/output.log"
@@ -29,32 +24,42 @@ if __name__ == "__main__":
 	# I need to know the `root` modvisus to add `include` to group
 	modvisus_config_filename  = os.environ["MODVISUS_CONFIG"]
 	
-	SetupLogger(logger, log_filename)
+	SetupLogger(logger, stream=True, log_filename=log_filename)
+	# SetupLogger(logging.getLogger("OpenVisus"), stream=True) 
 
-	action=sys.argv[1]
+	action=argv[1]
+	logger.info(f"action={action}")
 
 	# _____________________________________________________________________
 	if action=="init-db":
-			group_name=sys.argv[2]
-			os.remove(sqlite3_filename         ) if os.path.isfile(sqlite3_filename         ) else None
-			os.remove(modvisus_group_filename  ) if os.path.isfile(modvisus_group_filename  ) else None
-			os.remove(log_filename             ) if os.path.isfile(log_filename             ) else None
-			os.remove(dashboard_config_filename) if os.path.isfile(dashboard_config_filename) else None
+			group_name=argv[2]
+
+			filenames=[sqlite3_filename,modvisus_group_filename,log_filename,dashboard_config_filename]
+			for filename in filenames:
+				if os.path.isfile(filename):
+					os.remove(filename)
+
 			db=ConvertDb(sqlite3_filename)
+			Touch(log_filename)
 			GenerateModVisusConfig(db, modvisus_config_filename, group_name, modvisus_group_filename)
 			GenerateDashboardConfig(dashboard_config_filename,specs=None)
+
+			for filename in filenames:
+				logger.info(f"Generated {filename}")
+				assert(os.path.isfile(filename))
+
 			logger.info(f"action={action} done.")
-			sys.exit(0)
+			return
 
 	# _____________________________________________________________________
 	if action=="convert":
 
-		if os.path.isfile(sys.argv[2]):
+		if os.path.isfile(argv[2]):
 			db=None
-			specs=LoadJSON(sys.argv[2])
+			specs=LoadJSON(argv[2])
 
-		elif sys.argv[2].isdigit():
-			id=int(sys.argv[2])
+		elif argv[2].isdigit():
+			id=int(argv[2])
 			db=ConvertDb(sqlite3_filename)
 			specs=db.getRecordById(id)
 			
@@ -65,49 +70,80 @@ if __name__ == "__main__":
 		specs["remote_url"]=remote_url_template.format(group=specs["group"], name=specs["name"])
 
 		if db is not None:
-			db.setConvertDone(specs)
 			GenerateModVisusConfig(db, modvisus_config_filename, specs["group"], modvisus_group_filename)
-			GenerateDashboardConfig(dashboard_config_filename, specs)			
+			GenerateDashboardConfig(dashboard_config_filename, specs)
+			db.setConvertDone(specs)
 
-		sys.exit(0)
+		return
 
 	# _____________________________________________________________________
 	if action=="run-puller":
-		logger.info(f"action={action}")
-
-		db=ConvertDb(sqlite3_filename)
 
 		# is a pattern to json files
-		if "*.json" in sys.argv[2]:
-			pattern=type
-			from convert_puller import PullEventsFromLocalDirectory
-			puller=PullEventsFromLocalDirectory(db,pattern)
+		if "*.json" in argv[2]:
+			glob_pattern=argv[2]
+			from convert_puller import LocalPuller
+			puller=LocalPuller(glob_pattern)
 
 		# rabbitmq
-		elif sys.argv[2].startswith("amqps://"):
-			url,queue=sys.argv[2:]
-			from convert_puller import PullEventsFromRabbitMq
-			puller=PullEventsFromRabbitMq(db,url,queue)
+		elif argv[2].startswith("amqps://"):
+			url,queue=argv[2:]
+			from convert_puller import RabbitMqPuller
+			puller=RabbitMqPuller(url,queue)
 
 		else:
 			raise Exception(f"Cannot create puller for {type}")
+		
+		db=ConvertDb(sqlite3_filename)
 
 		while True:
-			puller.pull()
+			for specs in puller.pull():
+				db.pushPendingConvert(**specs)
 			specs=db.popPendingConvert()
 			if not specs:
 				time.sleep(1.0)
 				continue
 			specs=ConvertData(specs)
 			specs["remote_url"]=remote_url_template.format(group=specs["group"], name=specs["name"])
-			db.setConvertDone(specs)
-			GenerateModVisusConfig(modvisus_config_filename, specs["group"], modvisus_group_filename)
+			GenerateModVisusConfig(db, modvisus_config_filename, specs["group"], modvisus_group_filename)
 			GenerateDashboardConfig(dashboard_config_filename, specs)
+			db.setConvertDone(specs)
 			logger.info(f"*** Re-entering loop ***")
 
-		logger.info(f"RunConvertLoop end")
-		sys.exit(0)
+		logger.info(f"{action} end")
+		return
+
+	# _____________________________________________________________________
+	if action=="run-tracker":
+
+		glob_pattern=argv[2]
+		db=ConvertDb(sqlite3_filename)
+		from convert_puller import LocalPuller
+		puller=LocalPuller(glob_pattern)
+
+		for specs in puller.pull():
+			db.pushPendingConvert(**specs) 
+
+		# TODO: lock thingy?
+		for row in db.getRecords(where="WHERE conversion_start is not NULL and conversion_end is NULL"):
+			logger.info(f"Convertion {row['id']} may have failed")
+
+		specs=db.popPendingConvert()
+		if not specs:
+			return 
+		
+		# TODO: lock thingy
+		id=specs["id"]
+		cmd=f"{sys.executable} {__file__} convert {id} &"
+		logger.info(f"Running {cmd}")
+		os.system(cmd)
+		return
 
 	raise Exception(f"unknown action={action}")
+
+# ///////////////////////////////////////////////////////////////////
+if __name__ == "__main__":
+	Main(sys.argv)
+	sys.exit(0)
 
 
