@@ -80,14 +80,17 @@ Conversion loop
 
 # loop using local storage
 rm -Rf ${NSDF_CONVERT_DIR}
-python examples/chess/convert.py convert-loop init "./*.json" 
-python examples/chess/convert.py convert-loop run  "./*.json"
+python examples/chess/main.py init-db ${NSDF_CONVERT_GROUP}
+ln -s ${NSDF_CONVERT_DIR}/dashboards.json ${APACHE_WWW}/${NSDF_CONVERT_GROUP}.json
+python examples/chess/main.py run-puller "./*.json"
 # ... create json files ...
 
 # loop using PubSub
 rm -Rf ${NSDF_CONVERT_DIR}
-python examples/chess/convert.py convert-loop init "${NSDF_CONVERT_PUBSUB_URL}" "${NSDF_CONVERT_PUBSUB_QUEUE}"
-python examples/chess/convert.py convert-loop run  "${NSDF_CONVERT_PUBSUB_URL}" "${NSDF_CONVERT_PUBSUB_QUEUE}"
+python examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_PUBSUB_QUEUE}
+python examples/chess/main.py init-db ${NSDF_CONVERT_GROUP}
+ln -s ${NSDF_CONVERT_DIR}/dashboards.json ${APACHE_WWW}/${NSDF_CONVERT_GROUP}.json
+python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" "${NSDF_CONVERT_PUBSUB_QUEUE}"
 python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_PUBSUB_QUEUE} --message ./${DATASET_NAME}.json # send message to pubsub
 
 # access the convert db
@@ -122,7 +125,7 @@ cat <<EOF > ./${DATASET_NAME}.json
       }
    ]}
 EOF
-python examples/chess/convert.py run-single-convert job.json
+python examples/chess/main.py convert job.json
 ```
 
 Convert **NEXUS**:
@@ -143,7 +146,7 @@ cat <<EOF > job.json
    ]
 }
 EOF
-python examples/chess/convert.py run-single-convert job.json
+python examples/chess/main.py convert job.json
 ```
 
 Convert **NEXUS reduced** example:
@@ -164,7 +167,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
    ]}
 EOF
-python examples/chess/convert.py run-single-convert job.json
+python examples/chess/main.py convert job.json
 ```
 
 Convert **NEXUS reconstructed** example:
@@ -185,7 +188,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
    ]}
 EOF
-python examples/chess/convert.py run-single-convert job.json
+python examples/chess/main.py convert job.json
 ```
 
 Convert **numpy** data:
@@ -205,7 +208,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
    ]}
 EOF
-python examples/chess/convert.py run-single-convert job.json
+python examples/chess/main.py convert job.json
 ```
 
 Convert a **near field**:
@@ -225,7 +228,7 @@ cat <<EOF > job.json
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
    ]}
 EOF
-python examples/chess/convert.py run-single-convert job.json
+python examples/chess/main.py convert job.json
 ```
 
 Convert a **tomo** (is it TOMO?)
@@ -253,7 +256,7 @@ cat <<EOF > job.json
    ]
 }
 EOF
-python examples/chess/convert.py run-single-convert job.json
+python examples/chess/main.py convert job.json
 ```
 
 Check modvisus (you shoud see the new dataset):
@@ -269,7 +272,7 @@ curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.c
 ```
 
 ```
-python -m bokeh serve examples/dashboards/app --dev --args ${NSDF_CONVERT_GROUP_CONFIG}
+python -m bokeh serve examples/dashboards/app --dev --args ${NSDF_CONVERT_DASHBOARDS_CONFIG}
 ```
 
 # Dashboards

@@ -1,6 +1,6 @@
 
 import numpy as np
-import os,sys,logging,asyncio,time
+import os,sys,logging,asyncio,time,json,xmltodict
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,37 @@ def GetBackend():
 	assert(ret=="cpp" or ret=="py")
 	return ret
 
+# ///////////////////////////////////////////////////////////////////
+def Touch(filename):
+	from pathlib import Path
+	Path(filename).touch(exist_ok=True)
 
+# ///////////////////////////////////////////////////////////////////
+def LoadJSON(filename):
+		with open(filename,"rt") as f:
+			return json.load(f)	
+
+# ///////////////////////////////////////////////////////////////////
+def SaveJSON(filename,d):
+	with open(filename,"wt") as fp:
+		json.dump(d, fp, indent=2)	
+
+# ///////////////////////////////////////////////////////////////////
+def LoadXML(filename):
+	with open(filename, 'rt') as file: 
+		body = file.read() 
+	return xmltodict.parse(body, process_namespaces=True) 	
+
+# ///////////////////////////////////////////////////////////////////
+def SaveFile(filename,body):
+	with open(filename,"wt") as f:
+		f.write(body)
+
+
+# ///////////////////////////////////////////////////////////////////
+def SaveXML(filename,d):
+	body=xmltodict.unparse(d, pretty=True)
+	SaveFile(filename,body)
 
 # ///////////////////////////////////////////////
 async def SleepMsec(msec):
