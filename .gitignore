@@ -6,6 +6,6 @@
 **/*.egg-info/
 dist/
 .venv/
-
+build
 
 
