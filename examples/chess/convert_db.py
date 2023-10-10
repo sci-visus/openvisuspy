@@ -42,6 +42,11 @@ class ConvertDb:
 		])
 		self.conn.commit()
 
+
+	def setLockFile(self, id, lockfile):
+		self.conn.execute("UPDATE datasets set lockfile=? where id=?", (lockfile, id))
+		self.conn.commit()
+
 	# toDict
 	def toDict(self, row):
 		if row is None: return None
