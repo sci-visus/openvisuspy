@@ -3,11 +3,13 @@
 NOTE:
 - Connect to the NSDF entrypoint
 - `OPEN FOLDER` `/mnt/data1/nsdf/openvisuspy`
-- run `source examples/chess/setup.sh` in your terminal
 
 # Update NSDF-CHESS OpenVisus Server
 
 ```bash
+
+# this is to get env variables
+source examples/chess/setup.sh
 
 # I do not want the conda one
 conda deactivate || true
@@ -78,15 +80,19 @@ Conversion loop
 
 ```bash
 
-# loop using local storage
-rm -Rf ${NSDF_CONVERT_DIR}
+# unique directory where to convert the data
+export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_CONVERT_GROUP}
+rm -Rf   ${NSDF_CONVERT_DIR}
+mkdir -p ${NSDF_CONVERT_DIR}
+
+# examples using local json files
 python examples/chess/main.py init-db ${NSDF_CONVERT_GROUP}
 ln -s ${NSDF_CONVERT_DIR}/dashboards.json ${APACHE_WWW}/${NSDF_CONVERT_GROUP}.json
-python examples/chess/main.py run-puller "./*.json"
-# ... create json files ...
+python examples/chess/main.py run-puller "/oath/to/your/*.json"
+#  create json files in local directory, the puller will get it
 
 # loop using PubSub
-rm -Rf ${NSDF_CONVERT_DIR}
+NSDF_CONVERT_PUBSUB_QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
 python examples/chess/pubsub.py --action flush --queue ${NSDF_CONVERT_PUBSUB_QUEUE}
 python examples/chess/main.py init-db ${NSDF_CONVERT_GROUP}
 ln -s ${NSDF_CONVERT_DIR}/dashboards.json ${APACHE_WWW}/${NSDF_CONVERT_GROUP}.json
@@ -98,8 +104,10 @@ python ./examples/chess/pubsub.py --action pub --queue ${NSDF_CONVERT_PUBSUB_QUE
 # sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "select * from datasets"
 
 # run ethe dashboard in debug mode
-python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
+export BOKEH_ALLOW_WS_ORIGIN="*"
+export BOKEH_LOG_LEVEL="error"
 
+python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
 ```
