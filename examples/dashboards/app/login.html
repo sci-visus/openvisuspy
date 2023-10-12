@@ -14,7 +14,7 @@
 
         .login {
             width: 400px;
-            margin: 16px auto;
+            margin: 50px auto;
             font-size: 16px;
         }
 
@@ -33,6 +33,17 @@
             font-weight: normal;
             text-align: center;
             text-transform: uppercase;
+            color: #fff;
+        }
+
+        .login-footer {
+            background: #b31b1b;
+
+            padding: 20px;
+            font-size: 1.4em;
+            font-weight: normal;
+            text-align: center;
+            {#text-transform: uppercase;#}
             color: #fff;
         }
 
@@ -93,12 +104,15 @@
 
     <h2 class="login-header">CHESS data visualization dashboard</h2>
 
-    <form class="login-container" method="POST">
+    <form class="login-container" method="POST" style="margin-bottom:0px">
         <p><input placeholder="Username" id="username" name="username"></p>
         <p><input type="password" placeholder="Password" id="password" name="password"></p>
         <p><input type="submit" value="Log in"></p>
     </form>
 
+    <div class="login-footer" style="font-size:0.70rem">Powered by the
+        <a href="http://nationalsciencedatafabric.org" target="_blank" style="color: black">National Science Data Fabric.</a>
+    </div>
 </div>
 </body>
 </html>
