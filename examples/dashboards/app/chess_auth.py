@@ -20,6 +20,15 @@ def get_user(request_handler):
         return None
 
 
+logout_url = "/logout"
+
+
+class LogoutHandler(RequestHandler):
+    def get(self):
+        self.clear_cookie("user")
+        self.redirect(login_url)
+
+
 login_url = "/login"
 
 
