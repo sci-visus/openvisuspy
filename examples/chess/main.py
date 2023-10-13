@@ -56,44 +56,45 @@ def Main(argv):
         logger.info(f"action={action} done.")
         return
 
-    # _____________________________________________________________________
-    if action == "convert":
-
+    if action == "convert-from-tracker":
         # Get a lockfile. The lockfile is used to monitor whether this conversion
         # is running or not.
         pid = os.getpid()
         lockfile = f"/tmp/{pid}.pid"
         did_acquire, handle = flock.acquire(lockfile)
 
-        if os.path.isfile(argv[2]):
-            record_id = None
-            db = None
-            specs = LoadJSON(argv[2])
-
-        elif argv[2].isdigit():
+        if argv[2].isdigit():
             record_id = int(argv[2])
             db = ConvertDb(sqlite3_filename)
             specs = db.getRecordById(record_id)
-
         else:
-            raise Exception("not supported")
+            raise Exception("database record id is not numeric")
 
-        if db is not None:
-            db.setLockFile(record_id, lockfile)
-
+        db.setLockFile(record_id, lockfile)
         specs = ConvertData(specs)
         specs["remote_url"] = remote_url_template.format(group=specs["group"], name=specs["name"])
 
-        if db is not None:
-            GenerateModVisusConfig(db, modvisus_config_filename, specs["group"], modvisus_group_filename)
-            GenerateDashboardConfig(dashboard_config_filename, specs)
-            db.setConvertDone(specs)
+        GenerateModVisusConfig(db, modvisus_config_filename, specs["group"], modvisus_group_filename)
+        GenerateDashboardConfig(dashboard_config_filename, specs)
+        db.setConvertDone(specs)
 
         if did_acquire:
             # if we acquired the lockfile and the conversion was successful then
             # close the handle and remove the file. This will release the lock.
             handle.close()
             os.remove(lockfile)
+
+        return
+
+    # _____________________________________________________________________
+    if action == "convert":
+        if os.path.isfile(argv[2]):
+            specs = LoadJSON(argv[2])
+        else:
+            raise Exception("not supported")
+
+        specs = ConvertData(specs)
+        specs["remote_url"] = remote_url_template.format(group=specs["group"], name=specs["name"])
 
         return
 
@@ -156,19 +157,18 @@ def Main(argv):
                     # Let's log the failure and remove the lockfile.
                     handle.close()
                     os.remove(row['lockfile'])
-                    # TODO: We need to do something with the record so that it doesn't continue to log
-                    # this entry. Ask Giorgio how he'd like to handle failures.
+                    # We don't want to see this entry again, so mark it as failed and then log
+                    # the failure.
+                    db.markFailed(row['id'])
                     logger.info(f"Convertion {row['id']} failed")
 
-        specs = db.popPendingConvert()
-        if not specs:
-            return
+        for pending in db.getPendingConverts():
+            record_id = pending['id']
+            cmd = f"{sys.executable} {__file__} convert-from-tracker {record_id} &"
+            logger.info(f"Running {cmd}")
+            db.markStarted(record_id)
+            os.system(cmd)
 
-        # TODO: lock thingy
-        id = specs["id"]
-        cmd = f"{sys.executable} {__file__} convert {id} &"
-        logger.info(f"Running {cmd}")
-        os.system(cmd)
         return
 
     raise Exception(f"unknown action={action}")
