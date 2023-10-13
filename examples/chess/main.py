@@ -146,7 +146,7 @@ def Main(argv):
         for specs in puller.pull():
             db.pushPendingConvert(**specs)
 
-        for row in db.getRecords(where="WHERE conversion_start is not NULL and conversion_end is NULL"):
+        for row in db.getFailedConverts():
             # Let's check if a conversion has failed. We do this by trying to acquire the lock
             # on the lockfile entry. If we get the lock that means the convert process that held
             # that lock no longer exists and failed prematurely (because conversion_end is null).
@@ -160,12 +160,12 @@ def Main(argv):
                     # We don't want to see this entry again, so mark it as failed and then log
                     # the failure.
                     db.markFailed(row['id'])
-                    logger.info(f"Convertion {row['id']} failed")
+                    logger.info(f"Conversion {row['id']} failed")
 
         for pending in db.getPendingConverts():
             record_id = pending['id']
             cmd = f"{sys.executable} {__file__} convert-from-tracker {record_id} &"
-            logger.info(f"Running {cmd}")
+            logger.info(f"Starting conversion: {cmd}")
             db.markStarted(record_id)
             os.system(cmd)
 

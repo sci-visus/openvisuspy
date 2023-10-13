@@ -71,8 +71,13 @@ class ConvertDb:
 
     def getPendingConverts(self):
         for pending in self.conn.execute(
-                f"select * from datasets where conversoin_start is null and conversion_end is null and conversion_failed is null"):
+                f"select * from datasets where conversion_start is null and conversion_end is null and conversion_failed is null"):
             yield self.toDict(pending)
+
+    def getFailedConverts(self):
+        for failed in self.conn.execute(
+                f"select * from datasets WHERE conversion_start is not NULL and conversion_end is NULL and conversion_failed is null"):
+            yield self.toDict(failed)
 
     # Mark conversion as failed by setting the conversion_failed timestamp
     def markFailed(self, id):
