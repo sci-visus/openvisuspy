@@ -34,7 +34,7 @@ if __name__.startswith('bokeh'):
              "palette_range_vmax", "show-probe"]
         ])
 
-    # view.setDataset(sys.argv[1])
+    view.setDataset(sys.argv[1])
 
     if is_panel:
         main_layout = view.getMainLayout()
