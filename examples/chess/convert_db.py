@@ -23,6 +23,7 @@ class ConvertDb:
             compression TEXT,
             arco TEXT,
             metadata TEXT,
+            lockfile TEXT,
             insert_time timestamp NOT NULL, 
             conversion_start timestamp,
             conversion_end timestamp,
