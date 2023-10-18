@@ -105,6 +105,7 @@ function InitDb() {
 # (DANGEROUS! since it remove the convert dir) 
 # call once and only if you are sure
 InitDb
+```
 
 Edit files in VSCode
 
@@ -125,12 +126,30 @@ Check group configs:
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 ```
 
+Rum local dashboard:
+
+```bash
+python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
+```
+
+Run local puller (on all JSON files created in local directory):
+
+```bash
+python examples/chess/main.py run-puller "./*.json"
+```
+
+Check logs:
+
+```bash
+tail -f $NSDF_CONVERT_DIR/*.log
+```
+
 
 ## Convert **TIFF image stack**
 
 ```
 DATASET_NAME=example-image-stack
-cat <<EOF > ./example.json
+cat <<EOF > ./${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -148,18 +167,14 @@ cat <<EOF > ./example.json
    ]}
 EOF
 
-# inline conversion
-python examples/chess/main.py convert ./example.json
-
-# conversion with the tracker (useful to generate all config files)
-python examples/chess/main.py run-puller "./*.json"
+python examples/chess/main.py convert ./${DATASET_NAME}.json
 ```
 
 ## Convert **NEXUS**
 
 ```bash
 DATASET_NAME=example-nexus
-cat <<EOF > example.json
+cat <<EOF > ${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -174,18 +189,14 @@ cat <<EOF > example.json
 }
 EOF
 
-# inline conversion
-python examples/chess/main.py convert example.json
-
-# conversion with the tracker (useful to generate all config files)
-python examples/chess/main.py run-puller "./*.json"
+python examples/chess/main.py convert ${DATASET_NAME}.json
 ```
 
 ## Convert **NEXUS reduced** 
 
 ```bash
-DATASET_NAME=rolf-example-reduced
-cat <<EOF > example.json
+DATASET_NAME=example-rolf-reduced
+cat <<EOF > ${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -200,19 +211,14 @@ cat <<EOF > example.json
    ]}
 EOF
 
-# inline conversion
-python examples/chess/main.py convert example.json
-
-
-# conversion with the tracker (useful to generate all config files)
-python examples/chess/main.py run-puller "./*.json"
+python examples/chess/main.py convert ${DATASET_NAME}.json
 ```
 
 ## Convert **NEXUS reconstructed** 
 
 ```bash
-DATASET_NAME=rolf-example-reconstructed
-cat <<EOF > example.json
+DATASET_NAME=example-rolf-reconstructed
+cat <<EOF > ${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -227,18 +233,14 @@ cat <<EOF > example.json
    ]}
 EOF
 
-# inline conversion
-python examples/chess/main.py convert example.json
-
-# conversion with the tracker (useful to generate all config files)
-python examples/chess/main.py run-puller "./*.json"
+python examples/chess/main.py convert ${DATASET_NAME}.json
 ```
 
 ## Convert **numpy** 
 
 ```bash
 DATASET_NAME=example-numpy
-cat <<EOF > example.json
+cat <<EOF > ${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -252,18 +254,14 @@ cat <<EOF > example.json
    ]}
 EOF
 
-# inline conversion
-python examples/chess/main.py convert example.json
-
-# conversion with the tracker (useful to generate all config files)
-python examples/chess/main.py run-puller "./*.json"
+python examples/chess/main.py convert ${DATASET_NAME}.json
 ```
 
 ## Convert a **near field**
 
 ```bash
 DATASET_NAME=example-near-field
-cat <<EOF > example.json
+cat <<EOF > ${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -277,29 +275,25 @@ cat <<EOF > example.json
    ]}
 EOF
 
-# inline conversion
-python examples/chess/main.py convert example.json
-
-# conversion with the tracker (useful to generate all config files)
-python examples/chess/main.py run-puller "./*.json"
+python examples/chess/main.py convert ${DATASET_NAME}.json
 ```
 
 ## Convert a **tomo**
 
 ```bash:
-seq=18 # 
+
 # 15: darkfield            W 2048 H 2048 D   26 dtype uint16
 # 16: brightfield          W 2048 H 2048 D   26 dtype uint16
 # 18: tomo rotation series W 2048 H 2048 D 1449 dtype uint16
 # 19: darkfield            W 2048 H 2048 D   26 dtype uint16
 # 20: brightfield          W 2048 H 2048 D   26 dtype uint16
-Seq=18
-DATASET_NAME="example-ti-2-exsitu/${Seq}"
-cat <<EOF > example.json
+SEQ=18 # 
+DATASET_NAME="example-ti-2-exsitu-${SEQ}"
+cat <<EOF > ${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/${Seq}/nf/nf_*.tif",
+   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/${SEQ}/nf/nf_*.tif",
    "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
    "compression":"zip",
    "arco":"1mb",
@@ -310,11 +304,7 @@ cat <<EOF > example.json
 }
 EOF
 
-# inline conversion
-python examples/chess/main.py convert example.json
-
-# conversion with the tracker (useful to generate all config files)
-python examples/chess/main.py run-puller "./*.json"
+python examples/chess/main.py convert ${DATASET_NAME}.json
 ```
 
 ## PubSub puller
@@ -325,8 +315,8 @@ It runs until killed:
 QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
 python examples/chess/pubsub.py --action flush --queue ${QUEUE}
 python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" "${QUEUE}"
-DATASET_NAME=simple-test
-cat <<EOF > example.json
+DATASET_NAME=pubsub-simple-test
+cat <<EOF > ${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -344,7 +334,7 @@ cat <<EOF > example.json
    ]}
 EOF
 
-python ./examples/chess/pubsub.py --action pub --queue ${QUEUE} --message ./example.json # send message to pubsub
+python ./examples/chess/pubsub.py --action pub --queue ${QUEUE} --message ./${DATASET_NAME}.json # send message to pubsub
 ```
 
 # CHESS run-tracker
@@ -353,7 +343,7 @@ It runs once and must be a cron job:
 
 ```
 DATASET_NAME=simple-test-local
-cat <<EOF > example.json
+cat <<EOF > ${DATASET_NAME}.json
 {
    "group": "${NSDF_CONVERT_GROUP}",
    "name":"${DATASET_NAME}",
@@ -447,7 +437,7 @@ python3 -m bokeh serve "examples/dashboards/app" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port 10334 \
-   --args https://nsdf01.classe.cornell.edu/test-group.json
+   --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 ```
 
 

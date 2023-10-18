@@ -384,7 +384,8 @@ class Widgets:
 		self.widgets.datasets.options = ordered_names
 		for it in self.children:
 			it.setConfig(value)
-		self.setDataset(ordered_names[0])
+		if ordered_names:
+			self.setDataset(ordered_names[0])
 
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
@@ -564,7 +565,7 @@ class Widgets:
 			for T, item in enumerate(metadata):
 
 				type = item["type"]
-				filename = item["filename"]
+				filename = item.get("filename",f"metadata_{T:02d}.bin")
 
 				if type == "b64encode":
 					# binary encoded in string
