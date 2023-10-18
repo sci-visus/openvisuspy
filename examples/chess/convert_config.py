@@ -2,22 +2,26 @@
 import os,sys,shutil
 from datetime import datetime
 from openvisuspy import SaveFile,LoadXML,SaveXML, LoadJSON,SaveJSON
+import logging
 
+logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-def GenerateModVisusConfig(db, filename, group_name, group_filename):
+def GenerateModVisusConfig(db, modvisus_config_filename, group_name, modvisus_group_filename):
+
+	logger.info(f"Generating modvisus config modvisus_config_filename={modvisus_config_filename} group_name={group_name} modvisus_group_filename={modvisus_group_filename}")
 
 	# save the include
 	v=[f"""<dataset name='{row["group"]}/{row["name"]}' url='{row["dst"]}' group='{row["group"]}' convert_id='{row["id"]}' />""" for row in db.getConverted()]
 	body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
-	SaveFile(group_filename,body)
+	SaveFile(modvisus_group_filename,body)
 
 	# make a backup copy of root visus.config
 	timestamp=str(datetime.now().date()) + '_' + str(datetime.now().time()).replace(':', '.')
-	shutil.copy(filename,filename+f".{timestamp}")
+	shutil.copy(modvisus_config_filename,modvisus_config_filename+f".{timestamp}")
 
 	# Open the file and read the contents 
-	d=LoadXML(filename)
+	d=LoadXML(modvisus_config_filename)
 
 	datasets=d["visus"]["datasets"]
 	if not "group" in datasets:
@@ -30,14 +34,16 @@ def GenerateModVisusConfig(db, filename, group_name, group_filename):
 
 	datasets["group"].append({
 		'@name': group_name,
-		'include': {'@url': group_filename}
+		'include': {'@url': modvisus_group_filename}
 	})
 
-	SaveXML(filename, d)
+	SaveXML(modvisus_config_filename, d)
 
 
 # ///////////////////////////////////////////////////////////////////
 def GenerateDashboardConfig(filename, specs=None):
+	
+	logger.info(f"Generating dashboard config {filename}")
 
 	if os.path.isfile(filename):
 		config=LoadJSON(filename)

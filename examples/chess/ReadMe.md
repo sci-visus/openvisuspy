@@ -66,7 +66,6 @@ See OpenVisus `Docker/group-security`` for details about how to add users
 
 Open **two terminals** on the NSDF entrypoint:
 
-
 ```bash
 
 # OPTIONAL: activate conda if needed
@@ -103,80 +102,31 @@ function InitDb() {
    curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 }
 
-# Example: local puller, run until killed
-DATASET_NAME=simple-test-local
-cat <<EOF > example.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {
-         "type": "chess-metadata", 
-         "query": {
-            "_id": "65032a84d2f7654ee374db59"
-         } 
-      }
-   ]}
-EOF
-python examples/chess/main.py run-puller "./*.json"
+# (DANGEROUS! since it remove the convert dir) 
+# call once and only if you are sure
+InitDb
 
-# Example: pubsub puller, run until killed
-QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
-python examples/chess/pubsub.py --action flush --queue ${QUEUE}
-python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" "${QUEUE}"
-DATASET_NAME=simple-test
-cat <<EOF > example.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {
-         "type": "chess-metadata", 
-         "query": {
-            "_id": "65032a84d2f7654ee374db59"
-         } 
-      }
-   ]}
-EOF
-python ./examples/chess/pubsub.py --action pub --queue ${QUEUE} --message ./example.json # send message to pubsub
+Edit files in VSCode
 
-# Example: Glenn's tracker, run once and must be a cron job 
-DATASET_NAME=simple-test-local
-cat <<EOF > example.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {
-         "type": "chess-metadata", 
-         "query": {
-            "_id": "65032a84d2f7654ee374db59"
-         } 
-      }
-   ]}
-EOF
-python examples/chess/main.py run-tracker "./*.json"
-
-# run dasboards
-export BOKEH_ALLOW_WS_ORIGIN="*"
-export BOKEH_LOG_LEVEL="error"
-python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
-python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+```bash
+code ${NSDF_CONVERT_DIR}/dashboards.json ${NSDF_CONVERT_DIR}/visus.config 
 ```
 
-Convert **image stack**:
+
+Check modvisus (you shoud see the new dataset):
+
+```bash
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
+```
+
+Check group configs:
+
+```bash
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+```
+
+
+## Convert **TIFF image stack**
 
 ```
 DATASET_NAME=example-image-stack
@@ -197,10 +147,15 @@ cat <<EOF > ./example.json
       }
    ]}
 EOF
+
+# inline conversion
 python examples/chess/main.py convert ./example.json
+
+# conversion with the tracker (useful to generate all config files)
+python examples/chess/main.py run-puller "./*.json"
 ```
 
-Convert **NEXUS**:
+## Convert **NEXUS**
 
 ```bash
 DATASET_NAME=example-nexus
@@ -218,10 +173,15 @@ cat <<EOF > example.json
    ]
 }
 EOF
+
+# inline conversion
 python examples/chess/main.py convert example.json
+
+# conversion with the tracker (useful to generate all config files)
+python examples/chess/main.py run-puller "./*.json"
 ```
 
-Convert **NEXUS reduced** example:
+## Convert **NEXUS reduced** 
 
 ```bash
 DATASET_NAME=rolf-example-reduced
@@ -239,10 +199,16 @@ cat <<EOF > example.json
       {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
    ]}
 EOF
+
+# inline conversion
 python examples/chess/main.py convert example.json
+
+
+# conversion with the tracker (useful to generate all config files)
+python examples/chess/main.py run-puller "./*.json"
 ```
 
-Convert **NEXUS reconstructed** example:
+## Convert **NEXUS reconstructed** 
 
 ```bash
 DATASET_NAME=rolf-example-reconstructed
@@ -260,12 +226,17 @@ cat <<EOF > example.json
       {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
    ]}
 EOF
+
+# inline conversion
 python examples/chess/main.py convert example.json
+
+# conversion with the tracker (useful to generate all config files)
+python examples/chess/main.py run-puller "./*.json"
 ```
 
-Convert **numpy** data:
+## Convert **numpy** 
 
-```
+```bash
 DATASET_NAME=example-numpy
 cat <<EOF > example.json
 {
@@ -280,10 +251,15 @@ cat <<EOF > example.json
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
    ]}
 EOF
+
+# inline conversion
 python examples/chess/main.py convert example.json
+
+# conversion with the tracker (useful to generate all config files)
+python examples/chess/main.py run-puller "./*.json"
 ```
 
-Convert a **near field**:
+## Convert a **near field**
 
 ```bash
 DATASET_NAME=example-near-field
@@ -300,10 +276,15 @@ cat <<EOF > example.json
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
    ]}
 EOF
+
+# inline conversion
 python examples/chess/main.py convert example.json
+
+# conversion with the tracker (useful to generate all config files)
+python examples/chess/main.py run-puller "./*.json"
 ```
 
-Convert a **tomo** (is it TOMO?)
+## Convert a **tomo**
 
 ```bash:
 seq=18 # 
@@ -328,24 +309,71 @@ cat <<EOF > example.json
    ]
 }
 EOF
+
+# inline conversion
 python examples/chess/main.py convert example.json
+
+# conversion with the tracker (useful to generate all config files)
+python examples/chess/main.py run-puller "./*.json"
 ```
 
-Check modvisus (you shoud see the new dataset):
+## PubSub puller
 
-```bash
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
-```
-
-Check group configs:
+It runs until killed:
 
 ```
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
+python examples/chess/pubsub.py --action flush --queue ${QUEUE}
+python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" "${QUEUE}"
+DATASET_NAME=simple-test
+cat <<EOF > example.json
+{
+   "group": "${NSDF_CONVERT_GROUP}",
+   "name":"${DATASET_NAME}",
+   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
+   "compression":"zip",
+   "arco":"1mb",
+   "metadata": [
+      {
+         "type": "chess-metadata", 
+         "query": {
+            "_id": "65032a84d2f7654ee374db59"
+         } 
+      }
+   ]}
+EOF
+
+python ./examples/chess/pubsub.py --action pub --queue ${QUEUE} --message ./example.json # send message to pubsub
 ```
 
+# CHESS run-tracker
+
+It runs once and must be a cron job:
+
 ```
-python -m bokeh serve examples/dashboards/app --dev --args ${NSDF_CONVERT_DASHBOARDS_CONFIG}
+DATASET_NAME=simple-test-local
+cat <<EOF > example.json
+{
+   "group": "${NSDF_CONVERT_GROUP}",
+   "name":"${DATASET_NAME}",
+   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
+   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
+   "compression":"zip",
+   "arco":"1mb",
+   "metadata": [
+      {
+         "type": "chess-metadata", 
+         "query": {
+            "_id": "65032a84d2f7654ee374db59"
+         } 
+      }
+   ]}
+EOF
+python examples/chess/main.py run-tracker "./*.json"
 ```
+
+
 
 # Dashboards
 
@@ -410,6 +438,11 @@ curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/
 export PYTHONPATH=./src
 export BOKEH_ALLOW_WS_ORIGIN="*"
 export BOKEH_LOG_LEVEL="info"
+
+python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
+python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+
+
 python3 -m bokeh serve "examples/dashboards/app" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
@@ -496,9 +529,6 @@ If you do not see it, do:
 ```
 conda install ipykernel
 python -m ipykernel install --user --name my-env --display-name "my-env" and
-
-# so that the terminal is configured properly
-source examples/chess/setup.sh
 
 # then just `Reload` in Visual Code, it should detect the `my-env` conda environment now
 ```

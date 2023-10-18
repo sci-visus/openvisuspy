@@ -56,35 +56,6 @@ def Main(argv):
 		logger.info(f"action={action} done.")
 		return
 
-	if action == "convert-from-tracker":
-		# Get a lockfile. The lockfile is used to monitor whether this conversion
-		# is running or not.
-		pid = os.getpid()
-		lockfile = f"/tmp/{pid}.pid"
-		did_acquire, handle = flock.acquire(lockfile)
-
-		if argv[2].isdigit():
-			record_id = int(argv[2])
-			db = ConvertDb(sqlite3_filename)
-			specs = db.getRecordById(record_id)
-		else:
-			raise Exception("database record id is not numeric")
-
-		db.setLockFile(record_id, lockfile)
-		specs = ConvertData(specs)
-		specs["remote_url"] = remote_url_template.format(group=specs["group"], name=specs["name"])
-
-		GenerateModVisusConfig(db, modvisus_config_filename, specs["group"], modvisus_group_filename)
-		GenerateDashboardConfig(dashboard_config_filename, specs)
-		db.setConvertDone(specs)
-
-		if did_acquire:
-			# if we acquired the lockfile and the conversion was successful then
-			# close the handle and remove the file. This will release the lock.
-			handle.close()
-			os.remove(lockfile)
-
-		return
 
 	# _____________________________________________________________________
 	if action == "convert":
@@ -99,6 +70,7 @@ def Main(argv):
 		return
 
 	# _____________________________________________________________________
+	# supports either local puller or pubsub puller
 	if action == "run-puller":
 
 		# is a pattern to json files
@@ -135,7 +107,41 @@ def Main(argv):
 		logger.info(f"{action} end")
 		return
 
+
+	# __________________________________________________________
+	# specific for CHESS cronjob
+	if action == "convert-from-tracker":
+		# Get a lockfile. The lockfile is used to monitor whether this conversion
+		# is running or not.
+		pid = os.getpid()
+		lockfile = f"/tmp/{pid}.pid"
+		did_acquire, handle = flock.acquire(lockfile)
+
+		if argv[2].isdigit():
+			record_id = int(argv[2])
+			db = ConvertDb(sqlite3_filename)
+			specs = db.getRecordById(record_id)
+		else:
+			raise Exception("database record id is not numeric")
+
+		db.setLockFile(record_id, lockfile)
+		specs = ConvertData(specs)
+		specs["remote_url"] = remote_url_template.format(group=specs["group"], name=specs["name"])
+
+		GenerateModVisusConfig(db, modvisus_config_filename, specs["group"], modvisus_group_filename)
+		GenerateDashboardConfig(dashboard_config_filename, specs)
+		db.setConvertDone(specs)
+
+		if did_acquire:
+			# if we acquired the lockfile and the conversion was successful then
+			# close the handle and remove the file. This will release the lock.
+			handle.close()
+			os.remove(lockfile)
+
+		return
+
 	# _____________________________________________________________________
+	# specific for CHESS cronjob
 	if action == "run-tracker":
 
 		glob_pattern = argv[2]

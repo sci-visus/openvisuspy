@@ -5,6 +5,8 @@ import OpenVisus as ov
 # python3 -m pip install nexusformat
 from nexusformat.nexus import NXfield, NXlinkfield,NXdata,nxsave,nxload
 from nexusformat.nexus.tree import NX_CONFIG 
+
+import numpy as np
 NX_CONFIG['memory']=32000 # alllow data to be 32GB
 
 logger = logging.getLogger("nsdf-convert")
