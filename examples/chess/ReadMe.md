@@ -279,7 +279,7 @@ export MODVISUS_PASSWORD=yyyyy
 export NSDF_CONVERT_GROUP=test-group-bitmask
 
 export VISUS_CACHE=/tmp/nsdf-convert-workflow/visus-cache
-# rm -Rf ${VISUS_CACHE}
+
 
 source .venv/bin/activate
 
@@ -294,7 +294,11 @@ export BOKEH_LOG_LEVEL="info"
 python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
-BOKEH_PORT=${10334}
+# git pull
+# rm -Rf ${VISUS_CACHE}
+# curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=test-group-bitmask/example-image-stack&cached=arco"
+
+export BOKEH_PORT=10334
 python3 -m bokeh serve "examples/dashboards/app" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
