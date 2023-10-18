@@ -202,10 +202,9 @@ class Widgets:
 
 		# palette range
 		self.metadata_palette_range = [0.0, 255.0]
-		self.widgets.palette_range_mode = Select(title="range", options=["metadata", "user", "dynamic", "dynamic-acc"],
-												 value="metadata", width=80)
-		self.widgets.palette_range_vmin = TextInput(title="vmin", width=80)
-		self.widgets.palette_range_vmax = TextInput(title="vmax", width=80)
+		self.widgets.palette_range_mode = Select(title="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="metadata", width=80)
+		self.widgets.palette_range_vmin = TextInput(title="Min", width=80)
+		self.widgets.palette_range_vmax = TextInput(title="Max", width=80)
 
 		self.widgets.palette_range_mode.on_change("value", lambda attr, old, new: self.setPaletteRangeMode(new))
 		self.widgets.palette_range_vmin.on_change("value", lambda attr, old, new: self.onPaletteRangeChange())
@@ -218,7 +217,7 @@ class Widgets:
 		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high = self.getPaletteRange()
 
 		# color_mapper type
-		self.widgets.colormapper_type = Select(title='colormap', options=["linear", "log"], value='linear')
+		self.widgets.colormapper_type = Select(title="Colormap", options=["linear", "log"], value='linear')
 		self.widgets.colormapper_type.on_change("value", lambda attr, old, new: self.setColorMapperType(new))
 
 		# timestep
@@ -465,6 +464,8 @@ class Widgets:
 		config = self.datasets[name]
 		self.current_dataset = config
 		self.widgets.datasets.value = name
+
+		self.doc.title = f"ViSUS {name}"
 
 		if db is None:
 			url = config["url"]
