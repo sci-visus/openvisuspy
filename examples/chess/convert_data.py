@@ -29,10 +29,13 @@ def ConvertData(specs):
 
 	src_ext=os.path.splitext(src)[1]
 
+	arco=specs.get("arco","8mb")
+	compression=specs.get("compression","zip")
+
 	# image stack 
 	if src_ext==".tif" and "*" in src:
 		from convert_image_stack import ConvertImageStack
-		ConvertImageStack(src, dst, compression=specs["compression"], arco=specs["arco"])
+		ConvertImageStack(src, dst, compression=compression, arco=arco)
 
 	# nexus file
 	elif src_ext ==".nxs":
@@ -40,12 +43,12 @@ def ConvertData(specs):
 		# TODO: with some nexus file I am unable to create shrinked streamable (probably related to NXlinkfield)
 		streamable=None # os.path.splitext(dst)[0]+".nxs"
 		from convert_nexus import ConvertNexus
-		ConvertNexus(src, dst, compression=specs["compression"], arco=specs["arco"], streamable=None).run()
+		ConvertNexus(src, dst, compression=compression, arco=arco, streamable=None).run()
 		# LocalFileToMetadata(metadata,streamable_nexus)
 
 	elif src_ext == ".npy":
 		from convert_numpy import ConvertNumPy
-		ConvertNumPy(src, dst, compression=specs["compression"], arco=specs["arco"])
+		ConvertNumPy(src, dst, compression=compression, arco=arco)
 	
 	else:
 		raise Exception("to handle... ")

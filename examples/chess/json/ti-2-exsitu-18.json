@@ -1,0 +1,10 @@
+{
+   "group": "test-group-bitmask",
+   "name":"example-ti-2-exsitu-18",
+   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/18/nf/nf_*.tif",
+   "dst":"/mnt/data1/nsdf-convert-workflow/test-group-bitmask/data/example-ti-2-exsitu-18/visus.idx",
+   "metadata": [
+      {"type":"file","path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.json"},
+      {"type":"file","path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.par"}
+   ]
+}

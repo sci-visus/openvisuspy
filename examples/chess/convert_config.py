@@ -7,12 +7,12 @@ import logging
 logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-def GenerateModVisusConfig(db, modvisus_config_filename, group_name, modvisus_group_filename):
+def GenerateModVisusConfig(converted, modvisus_config_filename, group_name, modvisus_group_filename):
 
 	logger.info(f"Generating modvisus config modvisus_config_filename={modvisus_config_filename} group_name={group_name} modvisus_group_filename={modvisus_group_filename}")
 
 	# save the include
-	v=[f"""<dataset name='{row["group"]}/{row["name"]}' url='{row["dst"]}' group='{row["group"]}' convert_id='{row["id"]}' />""" for row in db.getConverted()]
+	v=[f"""<dataset name='{row["group"]}/{row["name"]}' url='{row["dst"]}' group='{row["group"]}' convert_id='{row["id"]}' />""" for row in converted]
 	body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
 	SaveFile(modvisus_group_filename,body)
 

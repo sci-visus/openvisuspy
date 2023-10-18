@@ -38,7 +38,7 @@ class ConvertDb:
 				self.conn = None
 
 		# pushPendingConvert
-		def pushPendingConvert(self, group, name, src, dst, compression="zip", arco="modvisus", metadata=[]):
+		def pushPendingConvert(self, group, name, src, dst, compression="zip", arco="8mb", metadata=[]):
 				# TODO: if multiple converters?
 				self.conn.executemany(
 						"INSERT INTO datasets ('group', name, src, dst, compression, arco, metadata, insert_time) values(?,?,?,?,?,?,?,?)",
@@ -106,7 +106,3 @@ class ConvertDb:
 				data = self.conn.execute("SELECT * FROM datasets WHERE id=?", [id])
 				return self.toDict(data.fetchone())
 
-		# getConverted
-		def getConverted(self):
-				for it in self.conn.execute("SELECT * FROM datasets WHERE conversion_end is not NULL ORDER BY id ASC"):
-						yield self.toDict(it)

@@ -46,7 +46,8 @@ def Main(argv):
 
 		db = ConvertDb(sqlite3_filename)
 		Touch(log_filename)
-		GenerateModVisusConfig(db, modvisus_config_filename, group_name, modvisus_group_filename)
+		converted=[]
+		GenerateModVisusConfig(converted, modvisus_config_filename, group_name, modvisus_group_filename)
 		GenerateDashboardConfig(dashboard_config_filename, specs=None)
 
 		for filename in filenames:
@@ -73,8 +74,8 @@ def Main(argv):
 	# supports either local puller or pubsub puller
 	if action == "run-puller":
 
-		# is a pattern to json files
-		if "*.json" in argv[2]:
+		# is a pattern to json files, even a signel json file
+		if os.path.splitext(argv[2])[1]==".json":
 			glob_pattern = argv[2]
 			from convert_puller import LocalPuller
 			puller = LocalPuller(glob_pattern)
@@ -99,7 +100,8 @@ def Main(argv):
 				continue
 			specs = ConvertData(specs)
 			specs["remote_url"] = remote_url_template.format(group=specs["group"], name=specs["name"])
-			GenerateModVisusConfig(db, modvisus_config_filename, specs["group"], modvisus_group_filename)
+			converted=db.getRecords(f"WHERE conversion_end is not NULL OR id={specs['id']}")
+			GenerateModVisusConfig(converted, modvisus_config_filename, specs["group"], modvisus_group_filename)
 			GenerateDashboardConfig(dashboard_config_filename, specs)
 			db.setConvertDone(specs)
 			logger.info(f"*** Re-entering loop ***")
@@ -127,8 +129,8 @@ def Main(argv):
 		db.setLockFile(record_id, lockfile)
 		specs = ConvertData(specs)
 		specs["remote_url"] = remote_url_template.format(group=specs["group"], name=specs["name"])
-
-		GenerateModVisusConfig(db, modvisus_config_filename, specs["group"], modvisus_group_filename)
+		converted=db.getRecords(f"WHERE conversion_end is not NULL OR id={specs['id']}")
+		GenerateModVisusConfig(converted, modvisus_config_filename, specs["group"], modvisus_group_filename)
 		GenerateDashboardConfig(dashboard_config_filename, specs)
 		db.setConvertDone(specs)
 

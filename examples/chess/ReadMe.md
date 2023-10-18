@@ -86,7 +86,7 @@ kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
 export NSDF_CONVERT_CHESSDATA_URI="https://chessdata.classe.cornell.edu:8244"
 
 # this is the mandatory environment variables
-export NSDF_CONVERT_GROUP=test-group-11
+export NSDF_CONVERT_GROUP=test-group-bitmask
 export MODVISUS_CONFIG=/nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config
 export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_CONVERT_GROUP}
 export NSDF_CONVERT_REMOTE_URL_TEMPLATE="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=${NSDF_CONVERT_GROUP}/{name}&cached=arco"
@@ -135,7 +135,7 @@ python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF
 Run local puller (on all JSON files created in local directory):
 
 ```bash
-python examples/chess/main.py run-puller "./*.json"
+python examples/chess/main.py run-puller "examples/chess/json/*.json"
 ```
 
 Check logs:
@@ -147,164 +147,44 @@ tail -f $NSDF_CONVERT_DIR/*.log
 
 ## Convert **TIFF image stack**
 
-```
-DATASET_NAME=example-image-stack
-cat <<EOF > ./${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {
-         "type": "chess-metadata", 
-         "query": {
-            "_id": "65032a84d2f7654ee374db59"
-         } 
-      }
-   ]}
-EOF
-
-python examples/chess/main.py convert ./${DATASET_NAME}.json
+```bash
+python examples/chess/main.py convert examples/chess/json/image-stack.json
 ```
 
 ## Convert **NEXUS**
 
 ```bash
-DATASET_NAME=example-nexus
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/mnt/data1/nsdf/3scans_HKLI.nxs",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json"},
-      {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
-   ]
-}
-EOF
-
-python examples/chess/main.py convert ${DATASET_NAME}.json
+python examples/chess/main.py convert examples/chess/json/nexus.json
 ```
 
 ## Convert **NEXUS reduced** 
 
 ```bash
-DATASET_NAME=example-rolf-reduced
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced/reduced_data.nxs",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/retiga.yaml"},
-      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/map.yaml" },
-      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
-   ]}
-EOF
-
-python examples/chess/main.py convert ${DATASET_NAME}.json
+python examples/chess/main.py convert examples/chess/json/rolf-reduced.json
 ```
 
 ## Convert **NEXUS reconstructed** 
 
 ```bash
-DATASET_NAME=example-rolf-reconstructed
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced/reconstructed_data.nxs",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/retiga.yaml"},
-      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/map.yaml" },
-      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
-   ]}
-EOF
-
-python examples/chess/main.py convert ${DATASET_NAME}.json
+python examples/chess/main.py convert rolf-reconstructed.json
 ```
 
 ## Convert **numpy** 
 
 ```bash
-DATASET_NAME=example-numpy
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/mnt/data1/nsdf/recon_combined_1_2_3_fullres.npy",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json"},
-      {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
-   ]}
-EOF
-
-python examples/chess/main.py convert ${DATASET_NAME}.json
+python examples/chess/main.py convert examples/chess/json/numpy.json
 ```
 
 ## Convert a **near field**
 
 ```bash
-DATASET_NAME=example-near-field
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json"},
-      {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }
-   ]}
-EOF
-
-python examples/chess/main.py convert ${DATASET_NAME}.json
+python examples/chess/main.py convert examples/chess/json/near-field.json
 ```
 
 ## Convert a **tomo**
 
 ```bash:
-
-# 15: darkfield            W 2048 H 2048 D   26 dtype uint16
-# 16: brightfield          W 2048 H 2048 D   26 dtype uint16
-# 18: tomo rotation series W 2048 H 2048 D 1449 dtype uint16
-# 19: darkfield            W 2048 H 2048 D   26 dtype uint16
-# 20: brightfield          W 2048 H 2048 D   26 dtype uint16
-SEQ=18 # 
-DATASET_NAME="example-ti-2-exsitu-${SEQ}"
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/${SEQ}/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {"type":"file","path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.json"},
-      {"type":"file","path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.par"}
-   ]
-}
-EOF
-
-python examples/chess/main.py convert ${DATASET_NAME}.json
+python examples/chess/main.py convert examples/chess/json/ti-2-exsitu-18.json
 ```
 
 ## PubSub puller
@@ -322,8 +202,6 @@ cat <<EOF > ${DATASET_NAME}.json
    "name":"${DATASET_NAME}",
    "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
    "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
    "metadata": [
       {
          "type": "chess-metadata", 
@@ -341,28 +219,9 @@ python ./examples/chess/pubsub.py --action pub --queue ${QUEUE} --message ./${DA
 
 It runs once and must be a cron job:
 
+```bash
+python examples/chess/main.py run-tracker "exmples/chess/json/*.json"
 ```
-DATASET_NAME=simple-test-local
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "compression":"zip",
-   "arco":"1mb",
-   "metadata": [
-      {
-         "type": "chess-metadata", 
-         "query": {
-            "_id": "65032a84d2f7654ee374db59"
-         } 
-      }
-   ]}
-EOF
-python examples/chess/main.py run-tracker "./*.json"
-```
-
 
 
 # Dashboards
@@ -417,12 +276,15 @@ screen -S nsdf-convert-workflow-dashboard
 # change as needed
 export MODVISUS_USERNAME=xxxxx
 export MODVISUS_PASSWORD=yyyyy
+export NSDF_CONVERT_GROUP=test-group-bitmask
+
 export VISUS_CACHE=/tmp/nsdf-convert-workflow/visus-cache
+# rm -Rf ${VISUS_CACHE}
 
 source .venv/bin/activate
 
 # check you can reach the CHESS json file
-curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/test-group.json
+curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 
 # add `--dev` for debugging
 export PYTHONPATH=./src
@@ -432,11 +294,11 @@ export BOKEH_LOG_LEVEL="info"
 python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
-
+BOKEH_PORT=${10334}
 python3 -m bokeh serve "examples/dashboards/app" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
-   --port 10334 \
+   --port ${BOKEH_PORT} \
    --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 ```
 
