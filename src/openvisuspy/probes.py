@@ -465,7 +465,7 @@ class ProbeTool(Slice):
 					self.button_css[slot] = css
 					button.stylesheets = [InlineStyleSheet(css=css)]
 
-				# X axis
+			# X axis
 		if True:
 			z1, z2 = self.slider_z_range.value
 			self.probe_fig.xaxis.axis_label = self.slider_z_range.title

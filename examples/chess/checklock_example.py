@@ -12,7 +12,7 @@ if __name__ == "__main__":
 	except OSError as e:
 		print(f"Unable to lock file {e.errno}")
 		if e.errno == errno.EWOULDBLOCK:
-				print("Error is EWOULDBLOCK")
+			print("Error is EWOULDBLOCK")
 
 	if got_lock:
 		print("checklock: Lock acquired")

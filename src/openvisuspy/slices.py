@@ -24,12 +24,12 @@ class Slices(Widgets):
 
 		# view_mode
 		self.widgets.view_mode = Tabs(tabs=[
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="explore data"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="probe"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="Explore Data"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="Probe"),
 			TabPanel(child=Column(sizing_mode="stretch_both"), title="2"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="2-linked"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="2-Linked"),
 			TabPanel(child=Column(sizing_mode="stretch_both"), title="4"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="4-linked"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="4-Linked"),
 		],
 			sizing_mode="stretch_both")
 		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(
@@ -120,12 +120,14 @@ class Slices(Widgets):
 
 		options = self.slice_show_options
 
+
+		value=value.lower()
 		if value == "1" or value == "explore data":
 			self.children = [
 				self.createChild(RemoveOptions(options, ["datasets", "colormapper_type", "colormapper-type"]))]
 			central = Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
-		elif "probe" in value:
+		elif "Probe" in value:
 			child = self.createChild(RemoveOptions(options, ["datasets", "colormapper_type", "colormapper-type"]))
 			child.setProbeVisible(True)
 			self.children = [child]
