@@ -280,7 +280,6 @@ export NSDF_CONVERT_GROUP=test-group-bitmask
 
 export VISUS_CACHE=/tmp/nsdf-convert-workflow/visus-cache
 
-
 source .venv/bin/activate
 
 # check you can reach the CHESS json file
@@ -304,6 +303,69 @@ python3 -m bokeh serve "examples/dashboards/app" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port ${BOKEH_PORT} \
    --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+```
+
+## Copy all blocks (must be binary compatible):
+
+
+```
+# test if permissions works
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=test-group-bitmask/example-near-field"
+```
+
+### Copy the blocks using OpenVisus API (deprecated)
+
+```
+export DATASET_NAME=test-group-bitmask/example-near-field
+export VISUS_DISABLE_WRITE_LOCK=1
+SRC="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=${DATASET_NAME}&~auth_username=${MODVISUS_USERNAME}&~auth_password=${MODVISUS_PASSWORD}"
+DST="${VISUS_CACHE}/DiskAccess/nsdf01.classe.cornell.edu/443/zip/mod_visus/test-group-bitmask/example-near-field/visus.idx"
+python3 -m OpenVisus copy-blocks --num-threads 4 --num-read-per-request 16 --verbose --src "${SRC}" --dst "${DST}
+unset VISUS_DISABLE_WRITE_LOCK
+```
+
+### Copy the blocks using rclone (better)
+
+NOTE:
+- Will work only if the dataset has been created with ARCO
+
+```bash
+# or you can use directly `rclone` for ssh copy
+sudo apt  install rclone 
+
+# check if the identity is working
+ssh -i ~/.nsdf/vault/id_nsdf gscorzelli@chess1.nationalsciencedatafabric.org
+```
+
+Create a new `~/.config/rclone/rclone.conf` :
+
+```ini
+[chess1]
+type = sftp
+host = chess1.nationalsciencedatafabric.org
+user = gscorzelli
+key_file = ~/.nsdf/vault/id_nsdf
+```
+
+Create a script to get a list of all datasets:
+
+```bash
+cat <<EOF > rclone-all.py
+import os,sys,json
+VISUS_CACHE=os.environ['VISUS_CACHE']
+data = json.load(sys.stdin)
+print("#!/bin/bash")
+for dataset in data['datasets']:
+	dataset_name=dataset["name"]
+	src_urls=dataset["urls"]
+	src_remote_url,src_local_url=[it['url'] for it in src_urls]
+	src_local_url=os.path.dirname(src_local_url)
+	# note IDX file must be created
+	print(f"rclone sync chess1:{src_local_url} {VISUS_CACHE}/DiskAccess/nsdf01.classe.cornell.edu/443/zip/mod_visus/{dataset_name} -v --size-only --exclude='*.idx'")
+EOF
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json" | python3 rclone-all.py > rclone-all.sh
+chmod a+x rclone-all.sh 
+./rclone-all.sh
 ```
 
 
