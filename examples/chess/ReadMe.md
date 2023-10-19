@@ -346,6 +346,42 @@ chmod a+x rclone-all.sh
 ```
 
 
+# NGINX
+
+You can run `nginx` in Docker:
+- NOTEL sharing the network so it's easier to debug
+- see the *.conf file
+- `httpd` configuration file is in `/etc/httpd/conf.d/ssl.conf `
+
+```bash
+
+#if you change any path, change proxy.conf too
+
+CER_FILE=/etc/pki/tls/certs/nsdf01_classe_cornell_edu_cert.cer
+KEY_FILE=/etc/pki/tls/private/nsdf01.classe.cornell.edu.key
+sudo docker run --name mynginx1 --rm --network host \
+   -v ${PWD}/examples/chess/nginx/proxy.conf:/etc/nginx/nginx.conf \
+   -v ${CER_FILE}:${CER_FILE} \
+   -v ${KEY_FILE}:${KEY_FILE} \
+   nginx 
+```
+
+Test if you can reach either httpd and nginx from another shell:
+
+```bash
+
+# to be changed (NGNIX should be listening on 443 and httpd on )
+HTTPD_URL=https://nsdf01.classe.cornell.edu:443
+NGINX_URL=https://nsdf01.classe.cornell.edu:8443
+
+# httpd 
+curl  -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} ${HTTPD_URL}/
+curl  -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} ${NGINX_URL}
+curl  -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} ${NGINX_URL}/mod_visus?action=list
+curl  -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} ${NGINX_URL}/${NSDF_CONVERT_GROUP}.json
+```
+
+
 # CHESS Metadata
 
 
