@@ -8,11 +8,7 @@ NOTE:
 
 ```bash
 
-# this is to get env variables
-source examples/chess/setup.sh
-
-# I do not want the conda one
-conda deactivate || true
+# make sure you have the official python3 (i.e. not the miniforge one)
 
 # I guess we installed a python3 in this directory (accordingly to the `dirname`)
 export PATH=/nfs/chess/nsdf01/openvisus/bin/:${PATH}
@@ -192,15 +188,31 @@ python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.class
 
 # ASSUMING ubuntu 22 here
 sudo apt update
-sudo  apt install -y python3.10-venv 
+sudo  apt install -y python3.10-venv rclone
 
 # MANUALLY copy id_nsdf* to ~/.ssh and rename to /.ssh/id_rsa*
-chmod 700 ~/.ssh/id_rsa*
+
+mkdir -p ~/.nsdf/vault/
+cp ~/.ssh/id_rsa ~/.nsdf/vault/id_nsdf
+chmod 700 ~/.ssh/* ~/.nsdf/vault/*
 
 cat <<EOF >~/.screenrc
 defscrollback 100000
 termcapinfo xterm* ti@:te@EOF
 EOF
+
+# prepare for rclone
+mkdir -p ~/.config/rclone/
+cat << EOF > ~/.config/rclone/rclone.conf
+[chess1]
+type = sftp
+host = chess1.nationalsciencedatafabric.org
+user = gscorzelli
+key_file = ~/.nsdf/vault/id_nsdf
+EOF
+chmod 700 ~/.config/rclone/rclone.conf
+
+rclone lsd chess1:
 
 mkdir -p github.com/sci-visus
 cd github.com/sci-visus
@@ -208,11 +220,19 @@ cd github.com/sci-visus
 git clone git@github.com:sci-visus/openvisuspy.git
 cd openvisuspy
 
+# if you are using cpython
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
 python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2
 python3 -m pip install --upgrade OpenVisusNoGui
+
+# if you are using conda/miniforge
+conda create --name my-env  python=3.10  mamba
+conda activate my-env 
+mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 python-ldap 
+python -m pip install OpenVisusNoGui
+python -m pip install easyad
 
 # create a screen session in case you want to keep it for debugging
 screen -S nsdf-convert-workflow-dashboard
@@ -230,7 +250,7 @@ export BOKEH_PORT=10334
 source .venv/bin/activate
 EOF
 
-source ./setup.py
+source ./setup.sh
 
 # check you can reach the CHESS json file
 curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu//${NSDF_CONVERT_GROUP}.json
@@ -241,11 +261,10 @@ python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
 # if you need Active Domain security
+# [VERIFIED]: if you SHIFT+reload the dashboard in the browser it will get the new list of datasetsd
 export AD_SERVER="ldap.classe.cornell.edu"
 export AD_DOMAIN="CLASSE.CORNELL.EDU"
-python -m pip install easyad
-python -m bokeh serve examples/dashboards/app --auth-module=./examples/dashboards/app/chess_auth.py --cookie-secret=abc123 --dev 
-
+python -m bokeh serve examples/dashboards/app --auth-module=./examples/dashboards/app/chess_auth.py --cookie-secret=abc123 --dev  --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
 
 # this is for public access
 python3 -m bokeh serve "examples/dashboards/app" \
@@ -255,45 +274,37 @@ python3 -m bokeh serve "examples/dashboards/app" \
    --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 ```
 
-
 ## Debug Bokeh problems
+
 
 Check if this is returning <script with the right address
 
 ```bash
 curl -vvv "http://chpc3.nationalsciencedatafabric.org:10334/run"
-```
 
-if you get this, it is WRONG:
+# if you get this, it is WRONG:
+#   <script type="text/javascript" src="http://0.0.0.0:10334/static/js/bokeh-widgets" ... />
 
-```html
-<script type="text/javascript" src="http://0.0.0.0:10334/static/js/bokeh-widgets" ... />
-``````
+# if you get this, then GOOD:
+#   <script type="text/javascript" src="static/js/bokeh.min.js?v=" ... />
 
-ifs you get this, then GOOD:
-
-```html
-<script type="text/javascript" src="static/js/bokeh.min.js?v=" ... />
-```
-
-if s you get this, then GOOD:
-
-```html
-<script type="text/javascript" src="http://<servername>/...static/js/bokeh.min.js?v=  " ... />
+# if you get this, then GOOD:
+#   <script type="text/javascript" src="http://<servername>/...static/js/bokeh.min.js?v=  " ... />
 ```
 
 
-## Copy all blocks (must be binary compatible):
+## Copy all blocks (must be binary compatible)
+
+Rest if permissions works
 
 
-```
-# test if permissions works
+```bash
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=test-group-bitmask/example-near-field"
 ```
 
 ### Copy the blocks using OpenVisus API (deprecated)
 
-```
+```bash
 export DATASET_NAME=test-group-bitmask/example-near-field
 export VISUS_DISABLE_WRITE_LOCK=1
 SRC="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=${DATASET_NAME}&~auth_username=${MODVISUS_USERNAME}&~auth_password=${MODVISUS_PASSWORD}"
@@ -308,21 +319,8 @@ NOTE:
 - Will work only if the dataset has been created with ARCO
 
 ```bash
-# or you can use directly `rclone` for ssh copy
-sudo apt  install rclone 
-
 # check if the identity is working
 ssh -i ~/.nsdf/vault/id_nsdf gscorzelli@chess1.nationalsciencedatafabric.org
-```
-
-Create a new `~/.config/rclone/rclone.conf` :
-
-```ini
-[chess1]
-type = sftp
-host = chess1.nationalsciencedatafabric.org
-user = gscorzelli
-key_file = ~/.nsdf/vault/id_nsdf
 ```
 
 Create a script to get a list of all datasets:
@@ -342,6 +340,7 @@ for dataset in data['datasets']:
 	print(f"rclone sync chess1:{src_local_url} {VISUS_CACHE}/DiskAccess/nsdf01.classe.cornell.edu/443/zip/mod_visus/{dataset_name} -v --size-only --exclude='*.idx'")
 EOF
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json" | python3 rclone-all.py > rclone-all.sh
+
 chmod a+x rclone-all.sh 
 ./rclone-all.sh
 ```
