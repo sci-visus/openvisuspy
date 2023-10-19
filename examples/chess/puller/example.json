@@ -1,0 +1,14 @@
+{
+   "group": "${NSDF_CONVERT_GROUP}",
+   "name":"pubsub-simple-test",
+   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
+   "dst":"${NSDF_CONVERT_DIR}/data/pubsub-simple-tests/visus.idx",
+   "metadata": [
+      {
+         "type": "chess-metadata", 
+         "query": {
+            "_id": "65032a84d2f7654ee374db59"
+         } 
+      }
+   ]
+}

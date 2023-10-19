@@ -70,7 +70,7 @@ Open **two terminals** on the NSDF entrypoint:
 
 # OPTIONAL: activate conda if needed
 conda activate my-env
-conda info --envs
+# conda info --envs
 
 # OPTIONAL: use local openvisuspy code
 export PYTHONPATH=${PWD}/src
@@ -107,83 +107,47 @@ function InitDb() {
 InitDb
 ```
 
-Edit files in VSCode
+Some bash commands:
 
 ```bash
+
+# Edit files in VSCode
 code ${NSDF_CONVERT_DIR}/dashboards.json ${NSDF_CONVERT_DIR}/visus.config 
-```
 
-
-Check modvisus (you shoud see the new dataset):
-
-```bash
+# Check modvisus (you shoud see the new dataset):
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
-```
 
-Check group configs:
-
-```bash
+# Check group configs:
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
-```
 
-Rum local dashboard:
-
-```bash
+# Rum local dashboard:
 python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
-```
 
-Run local puller (on all JSON files created in local directory):
-
-```bash
+# Run local puller (on all JSON files created in local directory):
 python examples/chess/main.py run-puller "examples/chess/json/*.json"
-```
 
-Check logs:
-
-```bash
+# Check logs:
 tail -f $NSDF_CONVERT_DIR/*.log
-```
 
-
-## Convert **TIFF image stack**
-
-```bash
+# Convert **TIFF image stack**
 python examples/chess/main.py convert examples/chess/json/image-stack.json
-```
 
-## Convert **NEXUS**
-
-```bash
+# Convert **NEXUS**
 python examples/chess/main.py convert examples/chess/json/nexus.json
-```
 
-## Convert **NEXUS reduced** 
-
-```bash
+# Convert **NEXUS reduced** 
 python examples/chess/main.py convert examples/chess/json/rolf-reduced.json
-```
 
-## Convert **NEXUS reconstructed** 
-
-```bash
+# Convert **NEXUS reconstructed** 
 python examples/chess/main.py convert rolf-reconstructed.json
-```
 
-## Convert **numpy** 
-
-```bash
+# Convert **numpy** 
 python examples/chess/main.py convert examples/chess/json/numpy.json
-```
 
-## Convert a **near field**
-
-```bash
+# Convert a **near field**
 python examples/chess/main.py convert examples/chess/json/near-field.json
-```
 
-## Convert a **tomo**
-
-```bash:
+# Convert a **tomo**
 python examples/chess/main.py convert examples/chess/json/ti-2-exsitu-18.json
 ```
 
@@ -193,26 +157,9 @@ It runs until killed:
 
 ```
 QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
-python examples/chess/pubsub.py --action flush --queue ${QUEUE}
-python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" "${QUEUE}"
-DATASET_NAME=pubsub-simple-test
-cat <<EOF > ${DATASET_NAME}.json
-{
-   "group": "${NSDF_CONVERT_GROUP}",
-   "name":"${DATASET_NAME}",
-   "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/${DATASET_NAME}/visus.idx",
-   "metadata": [
-      {
-         "type": "chess-metadata", 
-         "query": {
-            "_id": "65032a84d2f7654ee374db59"
-         } 
-      }
-   ]}
-EOF
-
-python ./examples/chess/pubsub.py --action pub --queue ${QUEUE} --message ./${DATASET_NAME}.json # send message to pubsub
+python examples/chess/main.py flush                                   --queue "${QUEUE}"
+python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}" 
+python examples/chess/main.py pub                                     --queue "${QUEUE}" --message ./examples/chess/puller/example.json 
 ```
 
 # CHESS run-tracker
@@ -238,7 +185,6 @@ set VISUS_NETSERVICE_VERBOSE="1"
 python -m bokeh serve examples/dashboards/app --dev --args C:\big\visus_datasets\chess\test-group\config.json
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group.json"
 ```
-
 
 ## Linux
 
@@ -268,42 +214,74 @@ python3 -m pip install --upgrade pip
 python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2
 python3 -m pip install --upgrade OpenVisusNoGui
 
+# create a screen session in case you want to keep it for debugging
 screen -S nsdf-convert-workflow-dashboard
-# screen -ls
-# screen -r  2092897.nsdf-convert-workflow-dashboard  
-# echo $STY 
 
-# change as needed
+#  change as needed
+cat <<EOF > ./setup.sh
 export MODVISUS_USERNAME=xxxxx
 export MODVISUS_PASSWORD=yyyyy
-export NSDF_CONVERT_GROUP=test-group-bitmask
-
 export VISUS_CACHE=/tmp/nsdf-convert-workflow/visus-cache
-
-source .venv/bin/activate
-
-# check you can reach the CHESS json file
-curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
-
-# add `--dev` for debugging
+export NSDF_CONVERT_GROUP=test-group-bitmask
 export PYTHONPATH=./src
 export BOKEH_ALLOW_WS_ORIGIN="*"
 export BOKEH_LOG_LEVEL="info"
+export BOKEH_PORT=10334
+source .venv/bin/activate
+EOF
 
+source ./setup.py
+
+# check you can reach the CHESS json file
+curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu//${NSDF_CONVERT_GROUP}.json
+curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=${NSDF_CONVERT_GROUP}/example-image-stack&cached=arco"
+
+# this is for local debugging access
 python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
-# git pull
-# rm -Rf ${VISUS_CACHE}
-# curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=test-group-bitmask/example-image-stack&cached=arco"
+# if you need Active Domain security
+export AD_SERVER="ldap.classe.cornell.edu"
+export AD_DOMAIN="CLASSE.CORNELL.EDU"
+python -m pip install easyad
+python -m bokeh serve examples/dashboards/app --auth-module=./examples/dashboards/app/chess_auth.py --cookie-secret=abc123 --dev 
 
-export BOKEH_PORT=10334
+
+# this is for public access
 python3 -m bokeh serve "examples/dashboards/app" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port ${BOKEH_PORT} \
    --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 ```
+
+
+## Debug Bokeh problems
+
+Check if this is returning <script with the right address
+
+```bash
+curl -vvv "http://chpc3.nationalsciencedatafabric.org:10334/run"
+```
+
+if you get this, it is WRONG:
+
+```html
+<script type="text/javascript" src="http://0.0.0.0:10334/static/js/bokeh-widgets" ... />
+``````
+
+ifs you get this, then GOOD:
+
+```html
+<script type="text/javascript" src="static/js/bokeh.min.js?v=" ... />
+```
+
+if s you get this, then GOOD:
+
+```html
+<script type="text/javascript" src="http://<servername>/...static/js/bokeh.min.js?v=  " ... />
+```
+
 
 ## Copy all blocks (must be binary compatible):
 
@@ -419,24 +397,6 @@ print(records)
 insert("record.json", "test")
 ```
 
-## Debug Bokeh problems
-
-Check if this is returning <script with the right address
-
-```
-curl -vvv "http://chpc3.nationalsciencedatafabric.org:10334/run"
-
-
-# WRONG
-<script type="text/javascript" src="http://0.0.0.0:10334/static/js/bokeh-widgets      WRONG
-
-# GOOD
-<script type="text/javascript" src="static/js/bokeh.min.js?v=
-
-# GOOD
-<script type="text/javascript" src="http://<servername>/...static/js/bokeh.min.js?v=  
-```
-
 
 # Debug Jupyter Notebooks/Visual Studio Code problems
 
@@ -448,37 +408,8 @@ If you do not see it, do:
 conda install ipykernel
 python -m ipykernel install --user --name my-env --display-name "my-env" and
 
+conda activate my-env
+
 # then just `Reload` in Visual Code, it should detect the `my-env` conda environment now
 ```
 
-
-# Simple PubSub
-
-Links:
-- https://customer.cloudamqp.com/instance
-- https://www.cloudamqp.com/docs/index.html
-- https://www.cloudamqp.com/docs/python.html
-
-Little Lemur - For deplyment is Free
-
-PUBLISHER - On Terminal 1:
-
-```bash
-cat <<EOF > message.json
-{"key1":"value1","key2":"value2"}
-EOF
-
-python ./examples/chess/pubsub.py --action pub --queue test-queue --message message.json
-```
-
-SUBSCRIBER - On Terminal 2:
-
-```bash
-python ./examples/chess/pubsub.py --action sub --queue test-queue
-```
-
-to flush a queue
-
-```bash
-python ./examples/chess/pubsub.py --action flush --queue test-queue
-```

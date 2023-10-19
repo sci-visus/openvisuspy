@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import time
+import argparse
 
 import urllib3
 from openvisuspy import Touch, LoadJSON, SetupLogger
@@ -18,6 +19,64 @@ logger = logging.getLogger("nsdf-convert")
 
 # ////////////////////////////////////////////////
 def Main(argv):
+
+	action = argv[1]
+
+	# ____________________________________________________________________
+	# pubsub specific (see https://customer.cloudamqp.com/instance)
+	if action=="pub" or action=="sub" or action=="flush":
+
+
+		
+
+		"""
+		echo '{"key1":"value1","key2":"value2"}' > message.json
+		python ./examples/chess/main.py pub   --queue test-queue --message message.json
+		python ./examples/chess/main.py sub   --queue test-queue
+		python ./examples/chess/main.py flush --queue test-queue
+		"""
+
+		NSDF_CONVERT_PUBSUB_URL=os.environ["NSDF_CONVERT_PUBSUB_URL"]
+		parser = argparse.ArgumentParser(description="pubsub tutorial")
+		parser.add_argument("--action", type=str, help="action name", required=True)	
+		parser.add_argument("--queue", type=str, help="Queue name", required=True)	
+		parser.add_argument("--message", type=str, help="Message to send", default="", required=False)	
+		args = parser.parse_args()
+
+		import pika
+		params = pika.URLParameters(NSDF_CONVERT_PUBSUB_URL)
+		connection = pika.BlockingConnection(params)
+		channel = connection.channel()
+		channel.queue_declare(queue=args.queue)
+
+		if args.action=="pub":
+			if os.path.isfile(args.message):
+				args.message=open(args.message).read()
+			channel.basic_publish(exchange='', routing_key=args.queue ,body=args.message)
+			print(f"Published message to queue={args.queue} body=\n{args.message}")
+
+		elif args.action=="sub":
+			def on_message(channel, method_frame, header_frame, body):
+				body=body.decode("utf-8").strip()
+				print(f"Received message from queue={args.queue} body=\n{body} ")
+			channel.basic_consume(args.queue, on_message, auto_ack=True)
+			channel.start_consuming()
+
+		elif args.action=="flush":
+			N=0
+			while True:
+				method_frame, header_frame, body =channel.basic_get(args.queue, auto_ack=False)
+				if method_frame is None: break # finished
+				body=body.decode("utf-8").strip()
+				print(f"Received body={body} ")
+				channel.basic_ack(delivery_tag=method_frame.delivery_tag)
+				N+=1
+			print(f"Flushed {N} messages")
+
+		connection.close()
+		return
+
+
 	sqlite3_filename = os.environ["NSDF_CONVERT_DIR"] + "/sqllite3.db"
 	modvisus_group_filename = os.environ["NSDF_CONVERT_DIR"] + "/visus.config"
 	log_filename = os.environ["NSDF_CONVERT_DIR"] + "/output.log"
@@ -32,7 +91,7 @@ def Main(argv):
 	SetupLogger(logger, stream=True, log_filename=log_filename)
 	# SetupLogger(logging.getLogger("OpenVisus"), stream=True)
 
-	action = argv[1]
+	
 	logger.info(f"action={action}")
 
 	# _____________________________________________________________________
@@ -82,7 +141,9 @@ def Main(argv):
 
 		# rabbitmq
 		elif argv[2].startswith("amqps://"):
-			url, queue = argv[2:]
+			url = argv[2]
+			assert(argv[3]=="--queue")
+			queue=argv[4]
 			from convert_puller import RabbitMqPuller
 			puller = RabbitMqPuller(url, queue)
 
