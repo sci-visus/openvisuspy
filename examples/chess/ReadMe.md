@@ -255,7 +255,10 @@ export PYTHONPATH=./src
 export BOKEH_ALLOW_WS_ORIGIN="*"
 export BOKEH_LOG_LEVEL="debug"
 export BOKEH_PORT=10334
-export BOKEH_RESOURCES=cdn  # important to avoid bokeh response "localhost.."
+
+# important to avoid bokeh response "localhost.."
+# https://github.com/bokeh/bokeh/issues/13170
+export BOKEH_RESOURCES=cdn  
 
 source .venv/bin/activate
 EOF
