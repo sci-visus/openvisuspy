@@ -286,7 +286,7 @@ class Widgets:
 		self.widgets.show_metadata.on_click(self.onShowMetadataClick)
 
 		self.widgets.logout = Button(label="Logout", width=80, sizing_mode="stretch_height")
-		self.widgets.logout.js_on_event("button_click", CustomJS(code="window.location='/logout'"))
+		self.widgets.logout.js_on_event("button_click", CustomJS(code="window.location='/app/logout'"))
 
 		self.panel_layout = None
 		self.idle_callback = None

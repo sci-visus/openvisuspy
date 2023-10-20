@@ -36,7 +36,7 @@ class LoginHandler(RequestHandler):
 	"""
 
 	def get(self):
-		self.render("chess_login.html", next=self.get_argument("next", "/"))
+		self.render("chess_login.html", next=self.get_argument("next", "/app"))
 
 	def post(self):
 		self.ad = easyad.EasyAD({
@@ -48,7 +48,7 @@ class LoginHandler(RequestHandler):
 		is_authorised = self.ad.authenticate_user(username, password, json_safe=True)
 		if is_authorised and username:
 			self.set_secure_cookie("user", json_encode(username))
-			self.redirect(self.get_argument("next", "/"))
+			self.redirect(self.get_argument("next", "/app"))
 		else:
 			self.redirect(login_url + "?error=" + url_escape("Login incorrect."))
 			self.clear_cookie("user")
