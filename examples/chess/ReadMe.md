@@ -241,30 +241,34 @@ screen -S nsdf-convert-workflow-dashboard
 cat <<EOF > ./setup.sh
 export MODVISUS_USERNAME=xxxxx
 export MODVISUS_PASSWORD=yyyyy
+
+# to sign cookies
+export BOKEH_COOKIE_SECRET=zzzz
+
+# if you need Active Directory auth
+export AD_SERVER="ldap.classe.cornell.edu"
+export AD_DOMAIN="CLASSE.CORNELL.EDU"
+
 export VISUS_CACHE=/tmp/nsdf-convert-workflow/visus-cache
 export NSDF_CONVERT_GROUP=test-group-bitmask
 export PYTHONPATH=./src
 export BOKEH_ALLOW_WS_ORIGIN="*"
-export BOKEH_LOG_LEVEL="info"
+export BOKEH_LOG_LEVEL="debug"
 export BOKEH_PORT=10334
+export BOKEH_RESOURCES=cdn  # important to avoid bokeh response "localhost.."
+
 source .venv/bin/activate
 EOF
 
 source ./setup.sh
 
 # check you can reach the CHESS json file
-curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu//${NSDF_CONVERT_GROUP}.json
+curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
 curl -u $MODVISUS_USERNAME:$MODVISUS_PASSWORD "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=${NSDF_CONVERT_GROUP}/example-image-stack&cached=arco"
 
 # this is for local debugging access
 python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
-
-# if you need Active Domain security
-# [VERIFIED]: if you SHIFT+reload the dashboard in the browser it will get the new list of datasetsd
-export AD_SERVER="ldap.classe.cornell.edu"
-export AD_DOMAIN="CLASSE.CORNELL.EDU"
-python -m bokeh serve examples/dashboards/app --auth-module=./examples/dashboards/app/chess_auth.py --cookie-secret=abc123 --dev  --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
 
 # this is for public access
 python3 -m bokeh serve "examples/dashboards/app" \
@@ -272,6 +276,100 @@ python3 -m bokeh serve "examples/dashboards/app" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port ${BOKEH_PORT} \
    --args https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json
+```
+
+
+## CHESS specific dashboard, NGINX, httpd
+
+**IMPORTANT (READ CAREFULLY step by step)**
+- **Do `source setup.sh` to setup your env**
+- MAKE SURE VSCODE IS NOT FOWARDING PORTS OTHERWISE IS DIFFICULT TO DEBUG
+- you need to run the bokeh dashboard to have links working
+- now HTTPD is listening on port 8443
+- NGINX disabled http to avoid collisions with httpd
+- NGINX and httpd are using the same ssl certificates
+- without `export BOKEH_RESOURCES=cdn` it will not work and you will get bokeh problems with localhost (https://github.com/bokeh/bokeh/issues/13170)
+
+```
+NGINX:443 
+
+   # https://nsdf01.classe.cornell.edu/hello
+   /hello        (BOKEH TEST DASHBOARD) PORT 5006
+
+   # https://nsdf01.classe.cornell.edu/app
+   /app          (BOKEH NSDF DASHBOARD) PORT 5007
+   /app/login
+   /app/logout
+
+   <anything else will go to nsdf01.classe.cornell.edu:8443> (HTTPD)
+```
+
+hpttd configuration:
+
+```bash
+
+# change ports as needed
+code /etc/httpd/conf.d/ssl.conf
+
+# restart
+sudo /usr/bin/systemctl restart httpd
+
+# NOTE: the following will work only inside the CHESS network since port 8443 is not exposed outside
+
+# check if mod_visus is working
+curl -vvv -L --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/mod_visus?action=list"
+
+# check is json files are accessible
+curl -vvv -L --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/${NSDF_CONVERT_GROUP}.json"
+
+```
+
+nginx configuration:
+
+```bash
+
+# edit configuration file
+code /etc/nginx/nginx.conf
+
+# restart nginx
+sudo /usr/bin/systemctl restart nginx
+
+# if you want ot check the logs
+tail -f "/var/log/nginx/access.log" /var/log/nginx/error.log
+
+# check modvisus connecting directly to httpd
+curl -vvv -L --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}"  https://nsdf01.classe.cornell.edu:8443/mod_visus?action=list
+curl -vvv -L --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/test-group-bitmask.json"
+
+# access mod_visus via nginx
+curl -vvv -L --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}"  "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
+curl -vvv -L --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/test-group-bitmask.json"
+
+# run a simple hello
+python -m bokeh serve examples/chess/hello.py --port 5006 --use-xheaders --dev --allow-websocket-origin='nsdf01.classe.cornell.edu'
+
+# OPEN URL in a browser outside CHESS
+# https://nsdf01.classe.cornell.edu/hello
+
+# connect to the dashboard directly (and check `<script type="text/javascript" src="https://cdn.bokeh.org/...`)
+curl -vvv -L http://localhost:5006/hello
+
+# check from outside chess or OPEN THE URL in a brower
+curl -vvv -L https://nsdf01.classe.cornell.edu/hello
+
+# run dashboard
+python -m bokeh serve examples/dashboards/app \
+   --port 5007 \
+   --use-xheaders \
+   --allow-websocket-origin='nsdf01.classe.cornell.edu' \
+   --dev  \
+   --auth-module=./examples/chess/chess_auth.py \
+   --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" \
+   --prefer local
+
+# OPEN URL in a browser outside CHESS
+# https://nsdf01.classe.cornell.edu/app
+
 ```
 
 ## Debug Bokeh problems
@@ -351,7 +449,7 @@ chmod a+x rclone-all.sh
 You can run `nginx` in Docker:
 - NOTEL sharing the network so it's easier to debug
 - see the *.conf file
-- `httpd` configuration file is in `/etc/httpd/conf.d/ssl.conf `
+- `httpd` configuration file is in `/etc/httpd/conf.d/ssl.conf`
 
 ```bash
 
