@@ -233,11 +233,12 @@ def Main(argv):
 
 		for pending in db.getPendingConverts():
 			record_id = pending['id']
-			cmd = f"{sys.executable} {__file__} convert-from-tracker {record_id} &"
+			cmd = f"{sys.executable} {__file__} convert-from-tracker {record_id} &" # it's in the background (!)
 			logger.info(f"Starting conversion: {cmd}")
 			db.markStarted(record_id)
 			os.system(cmd)
-
+		
+		logger.info(f"Run tracker all done")
 		return
 
 	raise Exception(f"unknown action={action}")
