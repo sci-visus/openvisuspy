@@ -119,6 +119,28 @@ tail -f ${NSDF_CONVERT_DIR}/output.log
 ```
 
 
+```
+mkdir -p ~/.config/systemd/user
+cat <<EOF >~/.config/systemd/user/chess-dashboard.service
+[Unit]
+Description=Chess Dashboard
+DefaultDependencies=no
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/mnt/data1/nsdf/openvisuspy/examples/chess/run-dashboards.sh
+TimeoutStartSec=0
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl --user enable chess-dashboard.service
+```
+
+
 # Dashboards
 
 
