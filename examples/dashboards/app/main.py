@@ -1,4 +1,4 @@
-import sys
+import os, sys
 
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
@@ -6,7 +6,7 @@ if __name__.startswith('bokeh'):
 	from openvisuspy import SetupLogger, IsPanelServe, GetBackend, Slices
 	from openvisuspy.probes import ProbeTool
 
-	logger = SetupLogger()
+	logger=SetupLogger(stream=True, log_filename=os.path.join(os.environ.get("NSDF_CONVERT_DIR","/mnt/data1/nsdf-convert-workflow"),"dashboards.log"))
 	logger.info(f"GetBackend()={GetBackend()}")
 
 	is_panel = IsPanelServe()

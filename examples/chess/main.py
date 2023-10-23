@@ -26,9 +26,6 @@ def Main(argv):
 	# pubsub specific (see https://customer.cloudamqp.com/instance)
 	if action=="pub" or action=="sub" or action=="flush":
 
-
-		
-
 		"""
 		echo '{"key1":"value1","key2":"value2"}' > message.json
 		python ./examples/chess/main.py pub   --queue test-queue --message message.json
@@ -79,7 +76,7 @@ def Main(argv):
 
 	sqlite3_filename = os.environ["NSDF_CONVERT_DIR"] + "/sqllite3.db"
 	modvisus_group_filename = os.environ["NSDF_CONVERT_DIR"] + "/visus.config"
-	log_filename = os.environ["NSDF_CONVERT_DIR"] + "/output.log"
+	log_filename = os.environ["NSDF_CONVERT_DIR"] + "/convert.log"
 	dashboard_config_filename = os.environ["NSDF_CONVERT_DIR"] + "/dashboards.json"
 
 	# I need to know how to publish the dataset to external nodes
@@ -95,7 +92,7 @@ def Main(argv):
 	logger.info(f"action={action}")
 
 	# _____________________________________________________________________
-	if action == "init-db":
+	if action == "init-group":
 		group_name = argv[2]
 
 		filenames = [sqlite3_filename, modvisus_group_filename, log_filename, dashboard_config_filename]

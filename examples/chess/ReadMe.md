@@ -4,28 +4,64 @@ Forder is `/mnt/data1/nsdf/openvisuspy`
 
 # Convert Workflow
 
+**Before starting**:
+- edit the file `setup.sh` to change the group
+
+Prepare for the group acquisition:
+
+```
+
+if [[ "${NSDF_CONVERT_DIR}" == "" ]] ; then echo "WRONG, missing NSDF_CONVERT_DIR" ; fi
+
+mkdir -p ${NSDF_CONVERT_DIR}
+
+# DANGEROUS and commented, I am assuming the convert dir is empty
+# rm -Rf   ${NSDF_CONVERT_DIR}/*
+
+# creates the sqllite3 db; add an item to the master mod_visus config; create a group mod_visus config 
+python examples/chess/main.py init-group ${NSDF_CONVERT_GROUP}
+
+# if you want to check the db
+sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "select * from datasets"
+
+# check JSON dashboard file
+code ${NSDF_CONVERT_DIR}/dashboards.json 
+
+# check master mod_visus config
+code ${MODVISUS_CONFIG}
+
+# check group mod_visus config
+${NSDF_CONVERT_DIR}/visus.config 
+
+
+# make a link to the JSON dashboard into the httpd directory so it can be server
+rm -f /var/www/html/${NSDF_CONVERT_GROUP}.json
+ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_CONVERT_GROUP}.json
+
+# check it's server
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+```
+
+Afer that you can do:
+
 
 ```bash
 
-# *** IMPORTANT: edit the setup.sh to change the group *** 
 source ./setup.sh
 
-# *** DANGEROUS! since it remove an entire directory. Call if if you know what you are doing *** 
-if [[ 0 == 1 ]] ; then DangerousInitDb ; fi
-
-# edit dashboard json file
+# check JSON dashboard jfile
 code ${NSDF_CONVERT_DIR}/dashboards.json 
 
-# edit group visus.config
+# check group visus.config
 code ${NSDF_CONVERT_DIR}/visus.config 
 
-# Check all logs (related to workflow, tracker, convert etc)
+# Check all logs
 tail -f ${NSDF_CONVERT_DIR}/*.log
 
-# Check modvisus (you shoud see the new dataset):
+# Connect to modvisus  (this goes NGINX->http)
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
 
-# Check group configs:
+# Check group configs (this goes NGINX->http)
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
 # Rum local dashboard:
@@ -60,20 +96,88 @@ QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
 python examples/chess/main.py flush                                   --queue "${QUEUE}"
 python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}" 
 python examples/chess/main.py pub                                     --queue "${QUEUE}" --message ./examples/chess/puller/example.json 
+```
 
-# run tracker
-#   crontab -l
-#   crontab -e
-#   * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/run-tracker.sh
+## CHESS Tracker
+
+TODO:
+- is it running????
+- what happens when a conversion fails? discuss with Glenn
+
+
+
+The tracker is `./examples/chess/run-tracker.sh`
+
+```
+#!/bin/bash
+cd /mnt/data1/nsdf/openvisuspy
+source ./setup.sh
+# git pull
+python ./examples/chess/main.py run-tracker "${NSDF_CONVERT_JSON_GLOB_PATTERN}" 
+```
+
+it's run by `crontab -e` (`crontab -l` to list)
+
+
+Check logs
+
+```
+tail -f ${NSDF_CONVERT_DIR}/convert.log
+```
+
+Manually run:
+
+```
+# remove `1 * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/run-tracker.sh`
+crontab -e
 ./examples/chess/run-tracker.sh
+# add   `1 * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/run-tracker.sh`
+crontab -e
+```
 
-# systemd
-more /etc/systemd/system/chess-dashboard.service
-sudo systemctl restart chess-dashboard
+
+## Systemd
+
+Links:
+- https://nsdf01.classe.cornell.edu/app
+- see NGINX section (i.e. it's serving /app to localhost bokeh app on port 5007; anything else just proxy to httpd)
+
+This step should generate/update
+- `code ${NSDF_CONVERT_DIR}/visus.config` 
+- `code /nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config`
+- `code ${NSDF_CONVERT_DIR}/dashboards.json`
+
+Script `examples/chess/run-dashboards.sh`:
+
+```
+#!/usr/bin/env bash
+cd /mnt/data1/nsdf/openvisuspy
+source ./setup.sh
+python -m bokeh serve examples/dashboards/app \
+   --port 5007 \
+   --use-xheaders \
+   --allow-websocket-origin='nsdf01.classe.cornell.edu' \
+   --dev  \
+   --auth-module=./examples/chess/chess_auth.py \
+   --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" \
+   --prefer local
+# 
+```
+
+Check logs
+
+```
+tail -f /mnt/data1/nsdf-convert-workflow/test-group-bitmask/dashboards.log 
+```
+
+Manually run for debugging:
+
+```
+sudo systemctl stop chess-dashboard
+# OPTIONAL `git pull`
 ./examples/chess/run-dashboards.sh
-
-
-
+# https://nsdf01.classe.cornell.edu/app
+sudo systemctl start chess-dashboard
 ```
 
 # External Dashboards
@@ -135,13 +239,13 @@ cd openvisuspy
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat
+python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat flock
 python3 -m pip install --upgrade OpenVisusNoGui
 
 # if you are using conda/miniforge
 conda create --name my-env  python=3.10  mamba
 conda activate my-env 
-mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 python-ldap  nexusformat
+mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 python-ldap  nexusformat flock
 python -m pip install OpenVisusNoGui
 python -m pip install easyad
 
@@ -263,7 +367,7 @@ curl -vvv -L --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.
 
 ```
 
-## Debug mod_visus
+## Debug or update mod_visus
 
 - To enable multi-group security see [https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security](https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security
 - See OpenVisus `Docker/group-security`` for details about how to add users
