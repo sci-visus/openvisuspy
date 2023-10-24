@@ -1,13 +1,13 @@
 <mxfile host="65bd71144e">
     <diagram name="Page-1" id="SIXH36FkcsSj_ZYhWwiF">
-        <mxGraphModel dx="1090" dy="431" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+        <mxGraphModel dx="995" dy="431" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="uYZg_CSHcDgq6QZWfcZW-5" value="converting using&amp;nbsp;os.system&lt;br&gt;in the background but prevent&amp;nbsp;&lt;br&gt;multiple execution using lock" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontStyle=2" parent="1" source="uYZg_CSHcDgq6QZWfcZW-1" target="uYZg_CSHcDgq6QZWfcZW-4" edge="1">
+                <mxCell id="uYZg_CSHcDgq6QZWfcZW-5" value="pick one dataset to convert" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontStyle=2" parent="1" source="uYZg_CSHcDgq6QZWfcZW-1" target="uYZg_CSHcDgq6QZWfcZW-4" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="uYZg_CSHcDgq6QZWfcZW-1" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;run-tracker.sh&lt;/font&gt;&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;fontStyle=0;fontSize=12;" parent="1" vertex="1">
+                <mxCell id="uYZg_CSHcDgq6QZWfcZW-1" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;tracker-run.sh&lt;/font&gt;&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;fontStyle=0;fontSize=12;" parent="1" vertex="1">
                     <mxGeometry x="380" y="390" width="140" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="uYZg_CSHcDgq6QZWfcZW-3" value="calling every minute" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uYZg_CSHcDgq6QZWfcZW-2" target="uYZg_CSHcDgq6QZWfcZW-1" edge="1">
@@ -22,7 +22,7 @@
                 <mxCell id="uYZg_CSHcDgq6QZWfcZW-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uYZg_CSHcDgq6QZWfcZW-4" target="uYZg_CSHcDgq6QZWfcZW-27" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="uYZg_CSHcDgq6QZWfcZW-4" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;python main.py&lt;br style=&quot;font-size: 12px;&quot;&gt;convert-from-tracker&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;fontStyle=0;fontSize=12;" parent="1" vertex="1">
+                <mxCell id="uYZg_CSHcDgq6QZWfcZW-4" value="convert a specific record_id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;fontStyle=0;fontSize=12;" parent="1" vertex="1">
                     <mxGeometry x="380" y="535" width="150" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="uYZg_CSHcDgq6QZWfcZW-6" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="1" vertex="1">

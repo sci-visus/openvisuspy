@@ -1,8 +1,8 @@
 {
-   "group": "${NSDF_CONVERT_GROUP}",
+   "group": "test-group-bitmask",
    "name":"pubsub-simple-test",
    "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/21/nf/nf_*.tif",
-   "dst":"${NSDF_CONVERT_DIR}/data/pubsub-simple-tests/visus.idx",
+   "dst":"/mnt/data1/nsdf-convert-workflow/test-group-bitmask/data/pubsub-simple-tests/visus.idx",
    "metadata": [
       {
          "type": "chess-metadata", 

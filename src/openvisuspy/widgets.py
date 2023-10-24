@@ -468,7 +468,7 @@ class Widgets:
 		if db is None:
 			url = config["url"]
 
-			# special case, I want to force the dataset to be local (case when I have a local dashboard and remove dashboard)
+			# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
 			if "urls" in config and "--prefer" in sys.argv:
 				prefer = sys.argv[sys.argv.index("--prefer") + 1]
 				for it in config["urls"]:

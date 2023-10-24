@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 
-# do it inside a screen so you can debug `screen -S run-dashboards`
-
 cd /mnt/data1/nsdf/openvisuspy
 
-source ./setup.sh
+source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
-# we need to remove the dev
-python -m bokeh serve examples/dashboards/app \
-   --port 5007 \
-   --use-xheaders \
-   --allow-websocket-origin='nsdf01.classe.cornell.edu' \
-   --dev  \
-   --auth-module=./examples/chess/auth.py \
-   --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" \
-   --prefer local
+function RunDashboards() {
+   OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${3} python -m bokeh serve examples/dashboards/app \
+      --port ${1} \
+      --use-xheaders \
+      --allow-websocket-origin='nsdf01.classe.cornell.edu' \
+      --dev \
+      --auth-module=./examples/chess/auth.py \
+      --args "${2}" \
+      --prefer local
+}
 
-# https://nsdf01.classe.cornell.edu/dashboards/test-group-bitmask/app
+RunDashboards 5007 /var/www/html/test-group-bitmask.json /mnt/data1/nsdf-convert-workflow/test-group-bitmask/dashboards.log
+
+
+

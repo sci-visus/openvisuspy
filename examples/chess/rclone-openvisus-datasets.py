@@ -2,7 +2,7 @@ import os,sys,json
 
 VISUS_CACHE=os.environ['VISUS_CACHE']
 
-# should get a dashboard JSON file from stdin
+# should get a dashboards JSON file from stdin
 # note it just print out the commands to execute
 data = json.load(sys.stdin)
 print("#!/bin/bash")

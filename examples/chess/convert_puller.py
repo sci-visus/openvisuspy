@@ -19,10 +19,10 @@ class LocalPuller:
 					specs=LoadJSON(filename)
 					logger.info(f"json.loads('{filename}') ok")
 					yield specs
-					shutil.move(filename,filename + ".pushed")
+					shutil.move(filename,filename + ".pulled.ok")
 				except Exception as ex:
 					logger.info(f"json.loads('{filename}') failed {ex}")
-					shutil.move(filename,filename + ".error")
+					shutil.move(filename,filename + ".puller.error")
 
 
 # ///////////////////////////////////////////////////////////////////

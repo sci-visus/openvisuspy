@@ -43,7 +43,7 @@ def GenerateModVisusConfig(converted, modvisus_config_filename, group_name, modv
 # ///////////////////////////////////////////////////////////////////
 def GenerateDashboardConfig(filename, specs=None):
 	
-	logger.info(f"Generating dashboard config {filename}")
+	logger.info(f"Generating dashboards config {filename}")
 
 	if os.path.isfile(filename):
 		config=LoadJSON(filename)

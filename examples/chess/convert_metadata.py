@@ -28,11 +28,6 @@ def LoadMetadataFromFile(filename):
 
 # ///////////////////////////////////////////////////////////////////
 def LoadMetadataFromChess(query=None):
-	"""
-	python -m pip install chessdata-pyclient
-	# modified /mnt/data1/nsdf/miniforge3/envs/my-env/lib/python3.9/site-packages/chessdata/__init__.py added at line 49 `verify=False`
-	# otherwise I need a certificate `export REQUESTS_CA_BUNDLE=`
-	"""
 
 	uri=chessdata_uri=os.environ.get("NSDF_CONVERT_CHESSDATA_URI",None)
 	import chessdata 
