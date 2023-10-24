@@ -7,5 +7,5 @@ source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
 
 # pass all arguments
-python ./examples/chess/main.py tracker-convert $@
+python ./examples/chess/tracker.py $@
 

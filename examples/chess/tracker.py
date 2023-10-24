@@ -2,13 +2,20 @@ import os
 import sys
 import logging
 import json
+import time
+import argparse
+import shutil
+import json
+import filelock
 
-from openvisuspy import SaveJSON,LoadJSON,Touch
+import urllib3
+urllib3.disable_warnings()
+
+from openvisuspy import SaveJSON,LoadJSON, SetupLogger,Touch
 
 from convert_config import GenerateDashboardConfig, GenerateModVisusConfig
 from convert_data import ConvertData
 from convert_db import ConvertDb
-import filelock
 
 logger = logging.getLogger("nsdf-convert")
 
@@ -133,3 +140,28 @@ class Tracker:
 			GenerateDashboardConfig(config["dashboards"], specs)
 
 			logger.info(f"convert_dir={self.convert_dir} DONE")
+
+
+# ////////////////////////////////////////////////
+def Main(args):
+
+	action=args.pop(1)
+	
+	convert_dir=args[1]
+	SetupLogger(logger, stream=True, log_filename=os.path.join(convert_dir,"convert.log"))
+
+	tracker=Tracker(convert_dir)
+
+	if action == "init":
+		return tracker.init(pull=args[2])
+
+	if action=="convert":
+		return tracker.convert(record_id=args[2] if len(args)>=3 else None)
+				
+	raise Exception(f"unknown action={action}")
+
+
+# ///////////////////////////////////////////////////////////////////
+if __name__ == "__main__":
+	Main(sys.argv)
+	sys.exit(0)

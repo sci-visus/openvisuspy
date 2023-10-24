@@ -67,7 +67,7 @@ mkdir -p ${NSDF_CONVERT_DIR}
 # DANGEROUS and commented, I am assuming the convert dir is empty
 # CHANGE PULLER PATTERN AS NEEDED
 rm -Rf ${NSDF_CONVERT_DIR}/*
-python examples/chess/main.py tracker-init ${NSDF_CONVERT_DIR} "${NSDF_CONVERT_DIR}/jobs/*.json"
+./examples/chess/tracker.sh init ${NSDF_CONVERT_DIR} "${NSDF_CONVERT_DIR}/jobs/*.json"
 
 # check if the group has been added to the master mod_visus config
 code ${MODVISUS_CONFIG}
@@ -75,7 +75,7 @@ code ${MODVISUS_CONFIG}
 # run a simple conversion, just for debugging
 # CHANGE PULLER PATTERN AS NEEDED
 cp ./examples/chess/json/image-stack.json ${NSDF_CONVERT_DIR}/jobs/
-./examples/chess/tracker.sh ${NSDF_CONVERT_DIR} 
+./examples/chess/tracker.sh convert ${NSDF_CONVERT_DIR} 
 
 # check json files have been renamed
 ls -alF ${NSDF_CONVERT_DIR}/jobs/
@@ -139,18 +139,15 @@ Switch between manual and auto run:
 ```bash 
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
-# remove cronjob line 
-crontab -e
+# list cron jobs
 crontab -l
 
-# you can run conversion
-cp ./examples/chess/json/image-stack.json ${NSDF_CONVERT_DIR}/jobs/
-
-# add   cronjob line , this runs every min
-# CHANGE AS NEEDED the `convert_dir` argument
+# add/remove cronjob line 
 # * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/tracker.sh /mnt/data1/nsdf-convert-workflow/test-group-bitmask
 crontab -e
-crontab -l
+
+# eventually add a conversion to the local puller directory
+cp ./examples/chess/json/image-stack.json ${NSDF_CONVERT_DIR}/jobs/
 ```
 
 Check logs
@@ -193,8 +190,8 @@ source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 # run PubSub puller (It runs until killed)
 source "/nfs/chess/nsdf01/openvisus/.pubsub.sh"
 QUEUE=nsdf-convert-queue-test
-python examples/chess/main.py flush      --url "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}"
-python examples/chess/main.py pub        --url "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}" --message ./examples/chess/puller/example.json 
+python examples/chess/pubsub.py --action flush      --url "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}"
+python examples/chess/pubsub.py --action pub        --url "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}" --message ./examples/chess/puller/example.json 
 ```
 
 
@@ -283,9 +280,9 @@ curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.c
 
 # Copy the blocks using rclone (better), Will work only if the dataset has been created with ARCO
 ssh -i ~/.nsdf/vault/id_nsdf gscorzelli@chess1.nationalsciencedatafabric.org
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/test-group-bitmask.json" | python3 ./examples/chess/rclone-openvisus-datasets.py > ./rclone-openvisus-datasets.sh
-chmod a+x ./rclone-openvisus-datasets.sh
-././rclone-openvisus-datasets.sh
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/test-group-bitmask.json" | python3 ./examples/chess/rclone.py > ./rclone.sh
+chmod a+x ./rclone.sh
+././rclone.sh
 
 # Copy the blocks using OpenVisus API (deprecated)
 export DATASET_NAME=test-group-bitmask/example-near-field
