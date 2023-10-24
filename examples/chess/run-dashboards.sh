@@ -12,8 +12,8 @@ python -m bokeh serve examples/dashboards/app \
    --use-xheaders \
    --allow-websocket-origin='nsdf01.classe.cornell.edu' \
    --dev  \
-   --auth-module=./examples/chess/chess_auth.py \
+   --auth-module=./examples/chess/auth.py \
    --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" \
    --prefer local
 
-# https://nsdf01.classe.cornell.edu/app
+# https://nsdf01.classe.cornell.edu/dashboards/test-group-bitmask/app

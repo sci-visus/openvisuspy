@@ -9,10 +9,12 @@ Forder is `/mnt/data1/nsdf/openvisuspy`
 
 Prepare for the group acquisition:
 
-```
+```bash
+if [[ "${NSDF_CONVERT_DIR}" == "" ]] ; then 
+   echo "WRONG, missing NSDF_CONVERT_DIR" ; 
+fi
 
-if [[ "${NSDF_CONVERT_DIR}" == "" ]] ; then echo "WRONG, missing NSDF_CONVERT_DIR" ; fi
-
+# create the directory which will contain all the files
 mkdir -p ${NSDF_CONVERT_DIR}
 
 # DANGEROUS and commented, I am assuming the convert dir is empty
@@ -31,15 +33,27 @@ code ${NSDF_CONVERT_DIR}/dashboards.json
 code ${MODVISUS_CONFIG}
 
 # check group mod_visus config
-${NSDF_CONVERT_DIR}/visus.config 
-
+code ${NSDF_CONVERT_DIR}/visus.config 
 
 # make a link to the JSON dashboard into the httpd directory so it can be server
 rm -f /var/www/html/${NSDF_CONVERT_GROUP}.json
 ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_CONVERT_GROUP}.json
 
-# check it's server
+# check proxy pass to NGINX for the group
+code /etc/nginx/nginx.conf
+# restart nginx
+sudo /usr/bin/systemctl restart nginx
+echo "https://nsdf01.classe.cornell.edu/dashboards/${NSDF_CONVERT_GROUP}/app"
+
+# restart httpd (not needed)
+# sudo /usr/bin/systemctl restart httpd
+
+# check httpd is working
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
+
+# check NGINX app
+
 ```
 
 Afer that you can do:
@@ -49,11 +63,6 @@ Afer that you can do:
 
 source ./setup.sh
 
-# check JSON dashboard jfile
-code ${NSDF_CONVERT_DIR}/dashboards.json 
-
-# check group visus.config
-code ${NSDF_CONVERT_DIR}/visus.config 
 
 # Check all logs
 tail -f ${NSDF_CONVERT_DIR}/*.log
@@ -64,8 +73,60 @@ curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.c
 # Check group configs (this goes NGINX->http)
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_CONVERT_GROUP}.json"
 
-# Rum local dashboard:
-python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" --prefer local
+```
+
+
+## CHESS Tracker
+
+TODO:
+- what happens when a conversion fails? discuss with Glenn
+
+See file `./examples/chess/run-tracker.sh`
+
+Check logs
+
+```
+tail -f ${NSDF_CONVERT_DIR}/convert.log
+```
+
+Manually run:
+- cron job line: `* * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/run-tracker.sh`
+
+```
+crontab -e
+# remove cronjob line 
+
+# run manually
+./examples/chess/run-tracker.sh
+
+crontab -e
+# add   cronjob line 
+
+```
+
+
+## CHESS Dashboards 
+
+See file `examples/chess/run-dashboards.sh`
+
+Check logs:
+
+```bash
+tail -f /mnt/data1/nsdf-convert-workflow/test-group-bitmask/dashboards.log 
+```
+
+Manually run for debugging:
+
+```bash
+sudo systemctl stop chess-dashboard
+./examples/chess/run-dashboards.sh
+sudo systemctl start chess-dashboard
+```
+
+
+## Other convert commands
+
+```bash
 
 # Run local puller (on all JSON files created in local directory):
 python examples/chess/main.py run-puller "examples/chess/json/*.json"
@@ -96,88 +157,6 @@ QUEUE=nsdf-convert-queue-${NSDF_CONVERT_GROUP}
 python examples/chess/main.py flush                                   --queue "${QUEUE}"
 python examples/chess/main.py run-puller "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}" 
 python examples/chess/main.py pub                                     --queue "${QUEUE}" --message ./examples/chess/puller/example.json 
-```
-
-## CHESS Tracker
-
-TODO:
-- is it running????
-- what happens when a conversion fails? discuss with Glenn
-
-
-
-The tracker is `./examples/chess/run-tracker.sh`
-
-```
-#!/bin/bash
-cd /mnt/data1/nsdf/openvisuspy
-source ./setup.sh
-# git pull
-python ./examples/chess/main.py run-tracker "${NSDF_CONVERT_JSON_GLOB_PATTERN}" 
-```
-
-it's run by `crontab -e` (`crontab -l` to list)
-
-
-Check logs
-
-```
-tail -f ${NSDF_CONVERT_DIR}/convert.log
-```
-
-Manually run:
-
-```
-# remove `1 * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/run-tracker.sh`
-crontab -e
-./examples/chess/run-tracker.sh
-# add   `1 * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/run-tracker.sh`
-crontab -e
-```
-
-
-## Systemd
-
-Links:
-- https://nsdf01.classe.cornell.edu/app
-- see NGINX section (i.e. it's serving /app to localhost bokeh app on port 5007; anything else just proxy to httpd)
-
-This step should generate/update
-- `code ${NSDF_CONVERT_DIR}/visus.config` 
-- `code /nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config`
-- `code ${NSDF_CONVERT_DIR}/dashboards.json`
-
-Script `examples/chess/run-dashboards.sh`:
-
-```
-#!/usr/bin/env bash
-cd /mnt/data1/nsdf/openvisuspy
-source ./setup.sh
-python -m bokeh serve examples/dashboards/app \
-   --port 5007 \
-   --use-xheaders \
-   --allow-websocket-origin='nsdf01.classe.cornell.edu' \
-   --dev  \
-   --auth-module=./examples/chess/chess_auth.py \
-   --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" \
-   --prefer local
-# 
-```
-
-Check logs
-
-```
-tail -f /mnt/data1/nsdf-convert-workflow/test-group-bitmask/dashboards.log 
-```
-
-Manually run for debugging:
-
-```
-sudo systemctl stop chess-dashboard
-# OPTIONAL `git pull`
-./examples/chess/run-dashboards.sh
-# https://nsdf01.classe.cornell.edu/app
-sudo systemctl start chess-dashboard
 ```
 
 # External Dashboards
@@ -437,11 +416,12 @@ python -m bokeh serve examples/dashboards/app \
    --use-xheaders \
    --allow-websocket-origin='nsdf01.classe.cornell.edu' \
    --dev  \
-   --auth-module=./examples/chess/chess_auth.py \
+   --auth-module=./examples/chess/auth.py \
    --args "/var/www/html/${NSDF_CONVERT_GROUP}.json" \
    --prefer local
 
-# OPEN IN A BROWSER https://nsdf01.classe.cornell.edu/app
+# OPEN IN A BROWSER 
+echo "Open in a browser https://nsdf01.classe.cornell.edu/app"
 ```
 
 ## CHESS Metadata system
