@@ -1,8 +1,6 @@
 {
-   "group": "test-group-bitmask",
-   "name":"example-numpy",
+   "name":"numpy",
    "src":"/mnt/data1/nsdf/recon_combined_1_2_3_fullres.npy",
-   "dst":"/mnt/data1/nsdf-convert-workflow/test-group-bitmask/data/example-numpy/visus.idx",
    "metadata": [
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.json"},
       {"type": "file", "path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_nf_scan_layers-retiga-ti-2-exsitu.par" }

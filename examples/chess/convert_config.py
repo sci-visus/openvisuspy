@@ -12,7 +12,11 @@ def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_
 	logger.info(f"Generating modvisus config modvisus_config_filename={modvisus_config_filename} group_name={group_name} modvisus_group_filename={modvisus_group_filename}")
 
 	# save the include
-	v=[f"""<dataset name='{row["group"]}/{row["name"]}' url='{row["dst"]}' group='{row["group"]}' convert_id='{row["id"]}' />""" for row in converted]
+	v=[]
+	for row in converted:
+		record_id, name, dst=row["id"],row["name"],row["dst"]
+		v.append(f"""<dataset name='{group_name}/{name}' url='{dst}' group='{group_name}' convert_id='{record_id}' />""" )
+
 	body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
 	SaveFile(modvisus_group_filename,body)
 
@@ -24,15 +28,15 @@ def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_
 	d=LoadXML(modvisus_config_filename)
 
 	datasets=d["visus"]["datasets"]
-	if not "group" in datasets:
-		datasets["group"]=[]
+	
+	if not "group" in datasets: datasets["group"]=[]
+	groups=datasets["group"]
 
-	if isinstance(datasets["group"],dict):
-		datasets["group"]=[datasets["group"]]
+	if isinstance(groups,dict):
+		groups=[groups]
 
-	datasets["group"]=[it for it in datasets["group"] if it["@name"]!=group_name]
-
-	datasets["group"].append({
+	groups=[it for it in groups if it["@name"]!=group_name]
+	groups.append({
 		'@name': group_name,
 		'include': {'@url': modvisus_group_filename}
 	})
@@ -41,7 +45,7 @@ def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_
 
 
 # ///////////////////////////////////////////////////////////////////
-def GenerateDashboardConfig(filename, specs=None):
+def GenerateDashboardConfig(filename, group_name, add_specs=None):
 	
 	logger.info(f"Generating dashboards config {filename}")
 
@@ -51,12 +55,11 @@ def GenerateDashboardConfig(filename, specs=None):
 		config={"datasets": []}
 
 	# add an item to the config
-	if specs is not None:
-		group_name     = specs["group"]
-		dataset_name   = specs["name"]
-		local_url      = specs["dst"]
-		metadata       = specs["metadata"]
-		remote_url     = specs["remote_url"]
+	if add_specs is not None:
+		dataset_name   = add_specs["name"]
+		local_url      = add_specs["dst"]
+		metadata       = add_specs["metadata"]
+		remote_url     = add_specs["remote_url"]
 
 		config["datasets"].append({
 			"name" : f"{group_name}/{dataset_name}",
@@ -69,7 +72,7 @@ def GenerateDashboardConfig(filename, specs=None):
 			"metadata" : metadata + [{
 				'type':'json-object', 
 				'filename': 'generated-nsdf-convert.json',  
-				'object' : {k:str(v) for k,v in specs.items() if k!="metadata"}
+				'object' : {k:str(v) for k,v in add_specs.items() if k!="metadata"}
 			}]
 		})
 

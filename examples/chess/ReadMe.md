@@ -2,58 +2,37 @@
 
 Forder is `/mnt/data1/nsdf/openvisuspy`
 
-# Convert Workflow
+# Convert Workflow Group setup
 
-
-## Group setup
+Note: here I am assuming that some env variables are already configured in the conda env. 
+See `Setup conda env` section below about how configure an environment
 
 ```bash
 
 # change as needed
 export NSDF_GROUP=test-group-bitmask
-
-# where data is going to be converted
 export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_GROUP}
-
-# activate conva environment
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
-# remove old screen sessions
-for it in $(screen -ls | grep nsdf-convert-workflow-${NSDF_GROUP} | awk '{print $1}'); do screen -S ${it} -X kill; done
-
-# create a screen session
-screen -S nsdf-convert-workflow-${NSDF_GROUP}-tracker
-
-# check inside screen
-echo $STY 
-
-# list screen 
-# screen -list
-
-# force reattach
-# screen -d -r nsdf-convert-workflow-${NSDF_GROUP}-tracker
-
-# activate conva environment
+for it in $(screen -ls | grep nsdf-convert-workflow-tracker-${NSDF_GROUP} | awk '{print $1}'); do 
+   screen -S ${it} -X kill
+done
+screen -S nsdf-convert-workflow-tracker-${NSDF_GROUP}
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
-# create the directory which will contain all the files
-mkdir -p ${NSDF_CONVERT_DIR}
-
-# DANGEROUS and commented, I am assuming the convert dir is empty
-# CHANGE PULLER PATTERN AS NEEDED
+# (!!!) DANGEROUS, do only when you know group directory is NOT IMPORTANT 
 rm -Rf ${NSDF_CONVERT_DIR}/*
 python  ./examples/chess/tracker.py init ${NSDF_CONVERT_DIR} "${NSDF_CONVERT_DIR}/jobs/*.json"
 
-# check generated convert `.config` file
+# make a link to the JSON dashboards into the httpd directory so it can be server
+rm -f /var/www/html/${NSDF_GROUP}.json
+ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_GROUP}.json
+
+# check generated convert `.config` file 
 code ${NSDF_CONVERT_DIR}/.config
 
 # check if the group has been added to the master mod_visus config
 code ${MODVISUS_CONFIG}
-
-# run some conversions, just for debugging
-kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
-cp ./examples/chess/json/nexus.json ${NSDF_CONVERT_DIR}/jobs/
-python ./examples/chess/tracker.py convert ${NSDF_CONVERT_DIR} --loop
 
 # Check logs
 tail -f ${NSDF_CONVERT_DIR}/convert.log
@@ -66,78 +45,98 @@ sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "SELECT * FROM datasets;"
 
 # check JSON dashboard and group mod_visus config
 code ${NSDF_CONVERT_DIR}/visus.config
-code ${NSDF_CONVERT_DIR}/dashboards.json
 
-# ___________________________________________________
+# inplace conversion
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+python  ./examples/chess/tracker.py convert ${NSDF_CONVERT_DIR} "./examples/chess/json/numpy.json"
 
-#  HTTPD ssl configuration
+# run some conversions with the tracker loop
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+python ./examples/chess/tracker.py convert ${NSDF_CONVERT_DIR} --loop
+cp ./examples/chess/json/*.json "${NSDF_CONVERT_DIR}/jobs/"
+```
+
+
+HTTPD:
+- you do not need to change any HTTPD configuration, since the `init` pass added the group to the modvisus config
+- but you need to **add a symbolic link** to the JSON dashboards file
+
+```bash
+
+#  configuration
 code /etc/httpd/conf.d/ssl.conf
 
-# restart httpd
+# restart 
 sudo /usr/bin/systemctl restart httpd
-
-# make a link to the JSON dashboards into the httpd directory so it can be server
-rm -f /var/www/html/${NSDF_GROUP}.json
-ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_GROUP}.json
 
 # check httpd
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/${NSDF_GROUP}.json"
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/mod_visus?action=list"
+```
 
-# ___________________________________________________
+Run Dashboards:
 
+```bash
+
+export NSDF_GROUP=test-group-bitmask
+export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_GROUP}
+
+# remove old screen session
+for it in $(screen -ls | grep nsdf-convert-workflow-dashboards-${NSDF_GROUP} | awk '{print $1}'); do 
+   screen -S ${it} -X kill
+done
+
+# create a new screen session
+screen -S nsdf-convert-workflow-dashboards-${NSDF_GROUP}
+source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
+
+# run dashboard (change port as needed; each group will have its own port)
+export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${NSDF_CONVERT_DIR}/dashboards.log
+export BOKEH_PORT=5007
+python -m bokeh serve examples/dashboards/app \
+   --port ${BOKEH_PORT} \
+   --use-xheaders \
+   --allow-websocket-origin='nsdf01.classe.cornell.edu' \
+   --dev \
+   --auth-module=./examples/chess/auth.py \
+   --args "${NSDF_CONVERT_DIR}/dashboards.json" \
+   --prefer local
+
+# edit/see dashboards config
+code ${NSDF_CONVERT_DIR}/dashboards.json
+
+# Check logs:
+tail -f ${NSDF_CONVERT_DIR}/dashboards.log 
+```
+
+NGINX:
+- you need to add the group add to the NGINX configuration
+- you need to *open* the group dashboards
+
+```bash
 # edit configuration file
 code /etc/nginx/nginx.conf
 
 # restart NGINX
 sudo /usr/bin/systemctl restart nginx
 
-# check NGINX logs
-tail -f "/var/log/nginx/access.log" /var/log/nginx/error.log
+# check NGINX logs (permission denied)
+# tail -f "/var/log/nginx/access.log" /var/log/nginx/error.log
 
 # [NGINX -> HTTPD] check JSON dashboards files and mod_visus are working
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_GROUP}.json"
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
 
 # [NGINX -> bokeh] dashboards
-# *** this will fail if the dashboards is not running ***
 #    WRONG:  <script type="text/javascript" src="http://0.0.0.0"     ...
 #    WRONG:  <script type="text/javascript" src="http:/localhost"    ...
 #    GOOD:   <script type="text/javascript" src="http://<servername> ...
 curl -vvv -L "https://nsdf01.classe.cornell.edu/dashboards/${NSDF_GROUP}/app"
 
-
-# ____________________________________________________
-
-# change as needed
-export NSDF_GROUP=test-group-bitmask
-
-# where data is going to be converted
-export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_GROUP}
-
-screen -S nsdf-convert-workflow-${NSDF_GROUP}-dashboards
-
-source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
-
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${NSDF_CONVERT_DIR}/dashboards.log 
-
-python -m bokeh serve examples/dashboards/app \
-   --port 5007 \
-   --use-xheaders \
-   --allow-websocket-origin='nsdf01.classe.cornell.edu' \
-   --dev \
-   --auth-module=./examples/chess/auth.py \
-   --args "/var/www/html/test-group-bitmask.json" \
-   --prefer local
-
-# https://nsdf01.classe.cornell.edu/dashboards/test-group-bitmask/app
-
-# Check logs:
-tail -f ${NSDF_CONVERT_DIR}/dashboards.log 
-
+# https://nsdf01.classe.cornell.edu/dashboards/${NSDF_GROUP}/ap
 ```
 
-# Run Tracker Using crontab (broken right now!)
+# (BROKEN) Run Tracker Using crontab 
 
 
 ```bash 
@@ -151,13 +150,12 @@ crontab -e
 ```
 
 
-# Run Dashboards Using systemd (broken right now!)
+# (BROKEN) Run Dashboards Using systemd 
 
 NOTE: 
 - systemd is configured by CHESS, and cannot be changed directly. 
 - how to have one dashboard per group?
 - see FILE `/etc/systemd/system/chess-dashboard.service`
-
 
 Switch between manual and auto run:
 

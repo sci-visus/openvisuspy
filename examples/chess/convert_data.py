@@ -7,18 +7,12 @@ from openvisuspy import LoadJSON
 logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-def ConvertData(specs):
+def ConvertData(src, dst, arco="8mb", compression="zip", metadata=[]):
 
-	logger.info(f"spec={json.dumps(specs,indent=2)}")
-
-	src,dst=specs["src"],specs["dst"]
-
-	# extract group_name (name should be in the form `group/whatever`)
-	group_name, dataset_name=specs['group'],specs['name']
-	logger.info(f"group={group_name} name={dataset_name}")
+	logger.info(f"src={src} dst={dst} metadata={metadata}")
 
 	from convert_metadata import LoadMetadata
-	metadata=LoadMetadata(specs["metadata"])
+	metadata=LoadMetadata(metadata)
 
 	if True:
 			# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
@@ -29,9 +23,6 @@ def ConvertData(specs):
 		shutil.rmtree(data_dir, ignore_errors=True)
 
 	src_ext=os.path.splitext(src)[1]
-
-	arco=specs.get("arco","8mb")
-	compression=specs.get("compression","zip")
 
 	# image stack 
 	if src_ext==".tif" and "*" in src:
@@ -54,8 +45,7 @@ def ConvertData(specs):
 	else:
 		raise Exception("to handle... ")
 	
-	specs["conversion_end"]=str(datetime.now())
-	return specs
+
 
 	
 

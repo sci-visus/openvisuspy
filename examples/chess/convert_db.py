@@ -1,4 +1,5 @@
 import json
+import os
 import logging
 import sqlite3
 from datetime import datetime
@@ -15,7 +16,6 @@ class ConvertDb:
 		self.conn.execute("""
 		CREATE TABLE IF NOT EXISTS datasets (
 				id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-				'group' TEXT NOT NULL, 
 				name TEXT NOT NULL,
 				src TEXT NOT NULL,
 				dst TEXT NOT NULL,
@@ -26,7 +26,7 @@ class ConvertDb:
 				conversion_end   timestamp,
 				error_msg        TEXT
 		)
-		""")	
+		""")
 		self.conn.commit()
 
 	# close
@@ -49,17 +49,16 @@ class ConvertDb:
 		return self.toDict(data.fetchone())
 
 	# pushPending
-	def pushPending(self, group, name, src, dst, compression="zip", arco="8mb", metadata=[]):
-			# TODO: if multiple converters?
-			self.conn.executemany("INSERT INTO datasets ('group', name, src, dst, compression, arco, metadata) values(?,?,?,?,?,?,?)",
-					[(group, name, src, dst, compression, arco, json.dumps(metadata))])
-			self.conn.commit()
+	def pushPending(self, name, src, dst, compression="zip", arco="8mb", metadata=[]):
+		self.conn.executemany("INSERT INTO datasets (name, src, dst, compression, arco, metadata) values(?,?,?,?,?,?)",
+				[(name, src, dst, compression, arco, json.dumps(metadata))])
+		self.conn.commit()
 
 	# popPending
 	def popPending(self):
 		data=self.conn.execute(f"SELECT * FROM datasets WHERE conversion_start IS NULL ORDER BY id ASC LIMIT 1")
 		ret=self.toDict(data.fetchone())
-		if ret is None: return None 
+		if ret is None: return None
 		ret["conversion_start"] = str(datetime.now())
 		self.conn.execute("UPDATE datasets SET conversion_start=? WHERE id=?", [ret["conversion_start"], ret["id"]])
 		self.conn.commit()

@@ -7,6 +7,7 @@ import argparse
 import shutil
 import json
 import filelock
+from datetime import datetime
 
 import urllib3
 urllib3.disable_warnings()
@@ -25,23 +26,25 @@ class Tracker:
 	# constructor
 	def __init__(self,convert_dir):
 		self.convert_dir=convert_dir
+		self.config=None
 
-	# saveConfig
-	def saveConfig(self,d):
-		SaveJSON(os.path.join(self.convert_dir,".config"),d)
-
-	# openConfig
-	def openConfig(self):
-		return LoadJSON(os.path.join(self.convert_dir,".config"))
+	# getConfig
+	def getConfig(self,force=False):
+		if self.config is not None and not force: return self.config
+		self.config=LoadJSON(os.path.join(self.convert_dir,".config"))
+		return self.config
 
 	# init
 	def init(self, pull):
 		logger.info(f"IniTracker convert_dir={self.convert_dir} pull={pull}...")
 
+		# create convert directory
+		os.makedirs(self.convert_dir, exist_ok=True)
+
 		# assuming the last part of the path is the group name
 		group_name = os.path.basename(self.convert_dir) 
 
-		self.saveConfig({
+		SaveJSON(os.path.join(self.convert_dir,".config"),{
 			'db': os.path.join(self.convert_dir,"sqllite3.db"),
 			'group' : group_name,
 			'modvisus': os.environ["MODVISUS_CONFIG"],
@@ -52,7 +55,7 @@ class Tracker:
 			'dashboards-log' : os.path.join(self.convert_dir,"dashboards.log"),
 			'pull': pull,
 		})
-		config=self.openConfig()
+		config=self.getConfig(force=True)
 
 		Touch(config['convert-log'])
 		Touch(config['dashboards-log'])
@@ -60,38 +63,74 @@ class Tracker:
 
 		db = ConvertDb(config['db'])
 		GenerateModVisusConfig(config['modvisus'], group_name, config['modvisus-group'],[])
-		GenerateDashboardConfig(config['dashboards'], specs=None)
+		GenerateDashboardConfig(config['dashboards'], group_name)
 
 		logger.info(f"convert_dir={self.convert_dir}")
 		logger.info(f"\n" + json.dumps(config,indent=2))
 
+	# convertBySpecs
+	def convertBySpecs(self, specs):
+
+		dataset_name=specs["name"]
+
+		if not "dst" in specs:
+			specs["dst"]=os.path.join(self.convert_dir,"datasets",dataset_name +".idx")
+
+		if not "arco" in specs:
+			specs["arco"]="8mb"
+
+		if not "compression" in specs:
+			specs["compression"]="zip"
+
+		if not "metadata" in specs:
+			specs["metadata"]=[]
+
+		config=self.getConfig()
+		group_name=config["group"]
+		ConvertData(
+			src=specs["src"], 
+			dst=specs["dst"], 
+			arco=specs["arco"],
+			compression=specs["compression"],
+			metadata=specs["metadata"]
+		)
+		specs["conversion_end"]=str(datetime.now())
+		specs["remote_url"] = config["remote-url-template"].format(group=group_name, name=dataset_name)
+
+		# NOTE: no generation of any files, pure conversion
+
 	# convertByRecordId
 	def convertByRecordId(self,record_id):
 		logger.info(f"convert_dir={self.convert_dir} record_id={record_id} ...")
-		config=self.openConfig()
+		config=self.getConfig()
+		group_name=config["group"]
 		db = ConvertDb(config["db"])
 		specs = db.getRecordById(record_id)
-		assert(specs["group"]==config["group"])
-		specs = ConvertData(specs)
-		specs["remote_url"] = config["remote-url-template"].format(group=specs["group"], name=specs["name"])
+		self.convertBySpecs(specs)
 		db.markDone(specs)
 		converted=[it for it in db.getConverted()]
-		GenerateModVisusConfig(config["modvisus"], specs["group"], config["modvisus-group"], converted)
-		GenerateDashboardConfig(config["dashboards"], specs)
+		GenerateModVisusConfig(config["modvisus"]   , group_name, config["modvisus-group"], converted)
+		GenerateDashboardConfig(config["dashboards"], group_name, add_specs=specs)
 		logger.info(f"convert_dir={self.convert_dir} record_id={record_id} DONE")
 
 	# convertNextPending
 	def convertNextPending(self):
 
 		logger.info(f"convert_dir={self.convert_dir} ...")
-		config=self.openConfig()
+		config=self.getConfig()
 		db = ConvertDb(config["db"])
 
 		# check for new json files to insert into the db
 		from convert_puller import LocalPuller
 		puller = LocalPuller(config["pull"])
 		for specs in puller.pull():
-			db.pushPending(**specs)
+			dataset_name=specs["name"]
+			src=specs["src"]
+			dst=os.path.join(self.convert_dir,"datasets",dataset_name +".idx")
+			compression=specs.get("compression","zip")
+			arco=specs.get("arco","8mb")
+			metadata=specs.get("metadata",[])
+			db.pushPending(name=dataset_name, src=src, dst=dst, compression=compression,arco=arco,metadata=metadata)
 
 		# run a new conversion if there are no old ones
 		# Let's check if a conversion has failed. We do this by trying to acquire the lock
@@ -99,7 +138,7 @@ class Tracker:
 		# that lock no longer exists and failed prematurely (because conversion_end is null).
 		for row in db.getRunning():
 			record_id=row['id']
-			lock_filename=row['dst'] + ".filelock"
+			lock_filename=row["dst"] + ".filelock"
 			try:
 				lock=filelock.FileLock(lock_filename, timeout=1)
 				with lock.acquire(timeout=1):
@@ -135,7 +174,6 @@ class Tracker:
 		logger.info(f"convert_dir={self.convert_dir} num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()} DONE ")
 
 
-
 # ////////////////////////////////////////////////
 def Main(args):
 
@@ -155,6 +193,10 @@ def Main(args):
 		if len(args)==2 and args[1].isdigit():
 			record_id=int(args.pop(1))
 			tracker.convertByRecordId(record_id)
+
+		elif len(args)==2 and os.path.isfile(args[1]) and os.path.splitext(args[1])[1]==".json":
+			specs=LoadJSON(args[1])
+			tracker.convertBySpecs(specs)
 		
 		else:
 			if "--loop" in args:
