@@ -7,12 +7,12 @@ from openvisuspy import LoadJSON
 logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-def ConvertData(src, dst, arco="8mb", compression="zip", metadata=[]):
+def ConvertData(src, dst, arco="8mb", compression="zip"):
 
-	logger.info(f"src={src} dst={dst} metadata={metadata}")
+	assert(src)
+	assert(dst)
 
-	from convert_metadata import LoadMetadata
-	metadata=LoadMetadata(metadata)
+	logger.info(f"src={src} dst={dst}")
 
 	if True:
 			# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression

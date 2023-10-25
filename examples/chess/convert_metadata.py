@@ -42,9 +42,15 @@ def LoadMetadataFromChess(query=None):
 	}
 
 # //////////////////////////////////////////////////////////
-def LoadMetadata(d):
+def LoadMetadata(value):
+
+	# can be a JSON string
+	if isinstance(value,str):
+		value=json.loads(value) if len(value) else {}
+
+	assert(isinstance(value,list))
 	ret=[]
-	for it in d:
+	for it in value:
 		type=it['type']
 		if type=="file":
 			filename=it['path']
@@ -52,6 +58,7 @@ def LoadMetadata(d):
 				ret.append(LoadMetadataFromFile(filename))
 			except Exception as ex:
 				logger.info(f"LoadMetadataFromFile filename={filename} failed {ex}. Skipping it")
+
 		elif type=="chess-metadata":
 			query=json.dumps(it['query'])
 			try:

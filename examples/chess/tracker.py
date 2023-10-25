@@ -17,6 +17,7 @@ from openvisuspy import SaveJSON,LoadJSON, SetupLogger,Touch
 from convert_config import GenerateDashboardConfig, GenerateModVisusConfig
 from convert_data import ConvertData
 from convert_db import ConvertDb
+from convert_metadata import LoadMetadata
 
 logger = logging.getLogger("nsdf-convert")
 
@@ -28,7 +29,6 @@ class Tracker:
 		self.group_name=os.environ["NSDF_GROUP"]
 		self.convert_dir=os.environ["NSDF_CONVERT_DIR"]
 		self.remote_url_template=os.environ["REMOTE_URL_TEMPLATE"]
-		self.glob_expr=os.environ["NSDF_TRACKER_GLOB"]
 		SetupLogger(logger, stream=True, log_filename=os.path.join(self.convert_dir,"convert.log"))
 
 	# init
@@ -40,7 +40,6 @@ class Tracker:
 
 		Touch(os.path.join(self.convert_dir,"convert.log"))
 		Touch(os.path.join(self.convert_dir,"dashboards.log"))
-		os.makedirs(os.path.dirname(self.glob_expr), exist_ok=True ) # assuming it's like /a/b/c/*.json
 
 		db_filename=os.path.join(self.convert_dir,"sqllite3.db")
 		visus_config=os.path.join(self.convert_dir,"visus.config")
@@ -57,30 +56,38 @@ class Tracker:
 	def convertBySpecs(self, specs):
 
 		dataset_name=specs["name"]
+		
+		specs["dst"]          = specs.get("dst", None)
+		specs["arco"]         = specs.get("arco",None)
+		specs["compression"]  = specs.get("compresssion",None)
 
-		if not "dst" in specs:
-			specs["dst"]=os.path.join(self.convert_dir,"datasets",dataset_name +".idx")
+		if not specs["dst"]:
+			specs["dst"] = os.path.join(self.convert_dir,"datasets",dataset_name,"visus.idx")
 
-		if not "arco" in specs:
+		if not specs["arco"]:
 			specs["arco"]="8mb"
 
-		if not "compression" in specs:
+		if not specs["compression"]:
 			specs["compression"]="zip"
 
 		if not "metadata" in specs:
-			specs["metadata"]=[]
+			specs["metadata"]={}
+		
+		specs["metadata"]=LoadMetadata(specs["metadata"])
 
-		ConvertData(
-			src=specs["src"], 
-			dst=specs["dst"], 
-			arco=specs["arco"],
-			compression=specs["compression"],
-			metadata=specs["metadata"]
-		)
+		db = ConvertDb(os.path.join(self.convert_dir,"sqllite3.db"))
+		ConvertData(specs["src"], specs["dst"], arco=specs["arco"], compression=specs["compression"])
 		specs["conversion_end"]=str(datetime.now())
 		specs["remote_url"] = self.remote_url_template.format(group=self.group_name, name=dataset_name)
 
-		# NOTE: no generation of any files, pure conversion
+		if db.getRecordById(specs.get("id",-1)):
+			db.markDone(specs)
+
+		visus_config        = os.path.join(self.convert_dir,"visus.config")
+		visus_group_config  = os.path.join(self.convert_dir,"visus.group.config")
+		dashboards_config   = os.path.join(self.convert_dir,"dashboards.json")
+		GenerateModVisusConfig(visus_config, self.group_name, visus_group_config, [it for it in db.getConverted()])
+		GenerateDashboardConfig(dashboards_config, self.group_name, add_specs=specs)
 
 	# convertByRecordId
 	def convertByRecordId(self,record_id):
@@ -88,10 +95,6 @@ class Tracker:
 		db = ConvertDb(os.path.join(self.convert_dir,"sqllite3.db"))
 		specs = db.getRecordById(record_id)
 		self.convertBySpecs(specs)
-		db.markDone(specs)
-		converted=[it for it in db.getConverted()]
-		GenerateModVisusConfig(os.path.join(self.convert_dir,"visus.config"), self.group_name, os.path.join(self.convert_dir,"visus.group.config"), converted)
-		GenerateDashboardConfig(os.path.join(self.convert_dir,"dashboards.json"), self.group_name, add_specs=specs)
 		logger.info(f"record_id={record_id} DONE")
 
 	# convertNext
@@ -102,14 +105,15 @@ class Tracker:
 
 		# check for new json files to insert into the db
 		from convert_puller import LocalPuller
-		puller = LocalPuller(self.glob_expr)
+		glob_expr=os.path.join(self.convert_dir,"jobs/*.json")
+		puller = LocalPuller(glob_expr)
 		for specs in puller.pull():
 			dataset_name=specs["name"]
 			src=specs["src"]
-			dst=os.path.join(self.convert_dir,"datasets",dataset_name +".idx")
-			compression=specs.get("compression","zip")
-			arco=specs.get("arco","8mb")
-			metadata=specs.get("metadata",[])
+			dst         = specs.get("dst","")
+			compression = specs.get("compression","")
+			arco        = specs.get("arco","")
+			metadata    = specs.get("metadata",[])
 			db.pushPending(name=dataset_name, src=src, dst=dst, compression=compression,arco=arco,metadata=metadata)
 
 		# run a new conversion if there are no old ones
@@ -121,7 +125,7 @@ class Tracker:
 			lock_filename=row["dst"] + ".filelock"
 			lock=filelock.FileLock(lock_filename, timeout=1)
 			try:
-				with lock.aquire(timeout=1):
+				with lock.acquire(timeout=1):
 					# We got the lock. That means conversion is no longer running and failed.
 					# We don't want to see this entry again, so mark it as failed and then log the failure.
 					error_msg=f"got the filelock {lock_filename}"

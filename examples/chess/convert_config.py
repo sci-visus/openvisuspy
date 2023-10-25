@@ -14,7 +14,7 @@ def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_
 	# save the include
 	v=[]
 	for row in converted:
-		record_id, name, dst=row["id"],row["name"],row["dst"]
+		record_id, name, dst = row.get("id",-1),row["name"],row["dst"]
 		v.append(f"""<dataset name='{group_name}/{name}' url='{dst}' group='{group_name}' convert_id='{record_id}' />""" )
 
 	body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
@@ -42,7 +42,6 @@ def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_
 		'include': {'@url': modvisus_group_filename}
 	})
 
-	print("!!!"*10,modvisus_config_filename)
 	SaveXML(modvisus_config_filename, d)
 
 

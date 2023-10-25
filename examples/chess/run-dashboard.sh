@@ -4,18 +4,13 @@ cd /mnt/data1/nsdf/openvisuspy
 
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
-export NSDF_GROUP=nsdf-group
-export NSDF_CONVERT_DIR=/mnt/data1/nsdf/convert-workflow/${NSDF_GROUP}
-export BOKEH_PORT=5007
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${NSDF_CONVERT_DIR}/dashboards.log 
+export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=/mnt/data1/nsdf/convert-workflow/nsdf-group/dashboards.log 
 
 python -m bokeh serve ./examples/dashboards/app \
-   --port ${BOKEH_PORT} \
+   --port 5007 \
    --use-xheaders \
    --allow-websocket-origin='nsdf01.classe.cornell.edu' \
    --dev \
    --auth-module=./examples/chess/auth.py \
-   --args "${NSDF_CONVERT_DIR}/dashboards.json " \
+   --args "/mnt/data1/nsdf/convert-workflow/nsdf-group/dashboards.json " \
    --prefer local
-
-

@@ -1,104 +1,77 @@
 # Introduction
 
 Directories
+- `/mnt/data1/nsdf/`            official nsdf directory on the entrypoint
+- `/mnt/data1/nsdf/miniforge3`  needed to get a recent version of Python (3.10)
+- `/mnt/data1/nsdf/OpenVisus`   binaries used by httpd
+- `/mnt/data1/nsdf/openvisuspy` directory for inline editing of code (vscode open folder)
+- `/mnt/data1/nsdf/examples`    some data needed for conversion
+- `/mnt/data1/nsdf/workflow`    all the convert-workflow generated data (symbolic linked to .workflow)
+- `/mnt/data1/nsdf/visus-cache` openvisus cache if needed
 
-```bash
-
-# official nsdf directory on the entrypoint
-/mnt/data1/nsdf/
-
-# needed to get a recent version of Python (3.10)
-/mnt/data1/nsdf/miniforge3
-
-# binaries used by httpd
-/mnt/data1/nsdf/OpenVisus
-
-# directory for inline editing of code (vscode open folder)
-/mnt/data1/nsdf/openvisuspy
-
-# some data needed for conversion
-/mnt/data1/nsdf/examples
-
-# all the convert-workflow generated data
-/mnt/data1/nsdf/workflow
-
-# openvisu cache if needed
-/mnt/data1/nsdf/visus-cache
-```
-
-
-# Convert Workflow Group setup
+# Convert Workflow Setup
 
 Note: here I am assuming that some env variables are already configured in the conda env. 
 See `Setup conda env` section below about how configure an environment
 
-Setup a screen session for the tracker:
+Setup tracker screen:
 
 ```bash
 
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
-# needed by tracker and group dependent
+# group dependent variables
 export NSDF_GROUP=nsdf-group
 export NSDF_CONVERT_DIR=/mnt/data1/nsdf/workflow/${NSDF_GROUP}
-export NSDF_TRACKER_GLOB="${NSDF_CONVERT_DIR}/jobs/*.json"
 
-for it in $(screen -ls | grep tracker-${NSDF_GROUP} | awk '{print $1}'); do 
-   screen -S ${it} -X kill
-done
+# remove old tracker screen session
+for it in $(screen -ls | grep tracker-${NSDF_GROUP} | awk '{print $1}'); do  screen -S ${it} -X kill; done
+
+# create new screen session
 screen -S tracker-${NSDF_GROUP}
-```
 
-Prepare for group conversions
 
-```bash
-
-# change group as needed
-screen -d -r  tracker-nsdf-group
+# remove any old json document from httpd
+rm -f /var/www/html/${NSDF_GROUP}.json
 
 # (!!!) DANGEROUS, do only when you know group directory is NOT IMPORTANT 
 rm -Rf ${NSDF_CONVERT_DIR}/*
 mkdir -p ${NSDF_CONVERT_DIR}
+
+# this is needed so the tracker will access the master visus.config
 ln -s /mnt/data1/nsdf/OpenVisus/visus.config ${NSDF_CONVERT_DIR}/visus.config 
 
-# init
+# init, will create some files (and master visus.config will reference visus.group.config)
 python  ./examples/chess/tracker.py init
 
-# make a link to the JSON dashboards into the httpd directory so it can be server
-rm -f /var/www/html/${NSDF_GROUP}.json
+# add the dashboard json to httpd so it can be served
 ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_GROUP}.json
 
-# check httpd (should be already working)
+# create a job directory or link to an existing one; this is where the tracker will pull local JSON files
+mkdir -p ${NSDF_CONVERT_DIR}/jobs
+# ln -s /link/to/existing/json/directory ${NSDF_CONVERT_DIR}/jobs
+
+# check httpd is serving json dashboards and dataset list
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/${NSDF_GROUP}.json"
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/mod_visus?action=list"
 
 # [NGINX -> HTTPD] check JSON dashboards files and mod_visus are working
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_GROUP}.json"
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
-```
 
-Run some conversion:
-
-
-```bash
-# inplace conversion (NOTE: it will not update `visus.group.config``)
+# run loop (or run single conversion for debugging)
 kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
-python  ./examples/chess/tracker.py "./examples/chess/json/image-stack-1.json"
+python ./examples/chess/tracker.py loop
 
-# run some conversions with the tracker loop (NOTE: it will update `visus.group.config``)
-python ./examples/chess/tracker.py  loop # | next | <N>
-cp "./examples/chess/json/image-stack-1.json" $(dirname ${NSDF_TRACKER_GLOB})/
+# python  ./examples/chess/tracker.py "./examples/chess/json/image-stack-1.json"
 ```
 
-Set Dashboards screen session:
+Set dashboards screen:
 
 ```bash
 
 export NSDF_GROUP=nsdf-group
 export NSDF_CONVERT_DIR=/mnt/data1/nsdf/workflow/${NSDF_GROUP}
-
-# note: this must be the same of nginx
-export BOKEH_PORT=5007
 
 # remove old screen session
 for it in $(screen -ls | grep dashboards-${NSDF_GROUP} | awk '{print $1}'); do 
@@ -111,24 +84,19 @@ screen -S dashboards-${NSDF_GROUP}
 # so that I not need to setup again
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
-# run dashboard (change port as needed; each group will have its own port)
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${NSDF_CONVERT_DIR}/dashboards.log
-```
+# note: this must be the same of nginx
+export BOKEH_PORT=5007
 
-Next time:
-
-```
-
-# edit configuration file, and **add the group app for the choosen port**
+# edit configuration file, and **add the group app for the BOKEH_PORT**
 code /etc/nginx/nginx.conf
 
 # restart NGINX to get the new bokeh app exposed
 sudo /usr/bin/systemctl restart nginx
 
-# change as needed
-screen -r -d dashboards-nsdf-group
+# run dashboard (change port as needed; each group will have its own port)
+export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${NSDF_CONVERT_DIR}/dashboards.log
 
-# run bokeh
+# run dashboards
 python -m bokeh serve examples/dashboards/app \
    --port ${BOKEH_PORT} \
    --use-xheaders \
@@ -140,6 +108,17 @@ python -m bokeh serve examples/dashboards/app \
 
 # https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
 ```
+
+Someone, will run conversions later:
+
+```bash
+cp "./examples/chess/json/image-stack-1.json" /mnt/data1/nsdf/workflow/nsdf-group/jobs/
+```
+
+
+
+
+
 
 
 # (BROKEN) Run Tracker Using crontab 
@@ -243,7 +222,7 @@ python examples/chess/pubsub.py --action flush      --url "${NSDF_CONVERT_PUBSUB
 python examples/chess/pubsub.py --action pub        --url "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}" --message ./examples/chess/puller/example.json 
 ```
 
-# Windows Dashboards
+# Windows External Dashboards
 
 ```
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
@@ -255,7 +234,7 @@ python -m bokeh serve examples/dashboards/app --dev --args "C:\big\visus_dataset
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group.json"
 ```
 
-# Linux Dashboards
+# Linux External Dashboards
 
 Example about how to setup an external dashboards (getting data from chess and caching it):
 
@@ -357,7 +336,7 @@ python3 -m OpenVisus copy-blocks --num-threads 4 --num-read-per-request 16 --ver
 unset VISUS_DISABLE_WRITE_LOCK
 ```
 
-# CHESS mod_visus
+# CHESS uppdate mod_visus
 
 - To enable multi-group security see [https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security](https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security
 - See OpenVisus `Docker/group-security`` for details about how to add users
@@ -394,7 +373,7 @@ tail -f  /var/log/httpd/*.log
 ```
 
 
-# Setup Kerberos for CHESS Metadata system
+# CHESS Setup Kerberos for Metadata
 
 Setup *persistent* kerneros tickets:
 

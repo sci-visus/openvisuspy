@@ -39,8 +39,6 @@ class ConvertDb:
 	def toDict(self, row):
 		if row is None: return None
 		ret = {k: row[k] for k in row.keys()}
-		if "metadata" in ret:
-			ret["metadata"] = json.loads(ret["metadata"])
 		return ret
 
 	# getRecordById
