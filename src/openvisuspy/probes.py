@@ -184,8 +184,8 @@ class ProbeTool(Slice):
 		self.addProbe(probe)
 
 	# setDataset
-	def setDataset(self, url, db=None, force=False):
-		super().setDataset(url, db=db, force=force)
+	def setDataset(self, name, db=None, force=False):
+		super().setDataset(name, db=db, force=force)
 		if self.db:
 			self.slider_z_res.end = self.db.getMaxResolution()
 

@@ -181,7 +181,6 @@ class Widgets:
 		self.config = None
 		self.db = None
 		self.access = None
-		self.current_dataset = None
 		self.render_id = None  # by default I am not rendering
 		self.logic_to_physic = [(0.0, 1.0)] * 3
 		self.children = []
@@ -193,7 +192,7 @@ class Widgets:
 
 		# datasets
 		self.widgets.datasets = Select(title="Dataset", options=[], width=60)
-		self.widgets.datasets.on_change("value", lambda attr, old, new: self.setDataset(new))
+		self.widgets.datasets.on_change("value", lambda attr, old, new: self.setDataset(new, force=True))
 
 		# palette
 		self.palette = 'Viridis256'
@@ -372,16 +371,42 @@ class Widgets:
 		return self.config
 
 	# setConfig
-	def setConfig(self, value):
-		if value is None: return
-		logger.info(f"[{self.id}] value=...")
+	def setConfig(self, value, skip_set_dataset=False):
+		if value is None: 
+			return
+		logger.info(f"[{self.id}] setConfig value={str(value)[0:30]}...")
+
+		#is an JSON url
+		if not isinstance(value,dict):
+			
+			assert(isinstance(value,str) ) 
+			url=value
+
+			# remote file (maybe I need to setup credentials)
+			if url.startswith("http"):
+				username = os.environ.get("MODVISUS_USERNAME", "")
+				password = os.environ.get("MODVISUS_PASSWORD", "")
+				if username and password:
+					auth = HTTPBasicAuth(username, password) if username else None
+				else:
+					auth = None
+				response = requests.get(url, auth=auth)
+				value = response.json()
+			# JSON local file
+			else:
+				value = json.load(open(url, "r"))
+
+		assert(isinstance(value,dict))
 		self.config = value
 		self.datasets = {it["name"]: it for it in value["datasets"]}
 		ordered_names = [it["name"] for it in value["datasets"]]
 		self.widgets.datasets.options = ordered_names
+
+		# recursive
 		for it in self.children:
-			it.setConfig(value)
-		if ordered_names:
+			it.setConfig(value, skip_set_dataset=skip_set_dataset)
+
+		if ordered_names and not skip_set_dataset:
 			self.setDataset(ordered_names[0])
 
 	# getLogicToPhysic
@@ -423,52 +448,32 @@ class Widgets:
 		T = [LinearMapping(0, dims[I], *value[I]) for I in range(len(dims))]
 		self.setLogicToPhysic(T)
 
+	# getDataset
+	def getDataset(self):
+		return self.widgets.datasets.value
+
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
 
-		# it's an url
-		if not self.config:
-			url = name
-			ext = os.path.splitext(url)[1]
+		logger.info(f"[{self.id}] setDataset name={name} force={force} current_dataset={self.getDataset()} ")
 
-			# json file
-			if ext == ".json":
-
-				# remote file (maybe I need to setup credentials)
-				if url.startswith("http"):
-					username = os.environ.get("MODVISUS_USERNAME", "")
-					password = os.environ.get("MODVISUS_PASSWORD", "")
-					if username and password:
-						auth = HTTPBasicAuth(username, password) if username else None
-					else:
-						auth = None
-					response = requests.get(url, auth=auth)
-					config = response.json()
-
-				# JSON local file
-				else:
-					config = json.load(open(url, "r"))
-				return self.setConfig(config)
-			else:
-				# it's a url for a single dataset: create a minimal config
-				return self.setConfig({"datasets": [{"name": url, "url": url}]})
-
-		# rehentrant call
-		if not force and self.current_dataset and self.current_dataset["name"] == name:
+		# useless call
+		if not force and self.getDataset() == name:
 			return
 
-		logger.info(f"[{self.id}] name={name}")
+		# automatically create a config
+		if not self.config or not name in self.datasets:
+			self.setConfig({"datasets": [{"name": name, "url": name}]}, skip_set_dataset=True)
 
 		config = self.datasets[name]
-		self.current_dataset = config
 		self.widgets.datasets.value = name
-
 		self.doc.title = f"ViSUS {name}"
 
 		if db is None:
 			url = config["url"]
 
 			# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
+			logger.info(f"config={config}")
 			if "urls" in config and "--prefer" in sys.argv:
 				prefer = sys.argv[sys.argv.index("--prefer") + 1]
 				for it in config["urls"]:
@@ -477,6 +482,7 @@ class Widgets:
 						logger.info(f"Overriding url from {it}")
 						break
 
+			logger.info(f"Loading dataset url={url}")
 			self.db = LoadDataset(url=url)
 		else:
 			self.db = db

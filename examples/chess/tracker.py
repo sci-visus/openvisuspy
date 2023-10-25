@@ -59,104 +59,112 @@ class Tracker:
 		os.makedirs(os.path.dirname(pull), exist_ok=True ) # assuming it's like /a/b/c/*.json
 
 		db = ConvertDb(config['db'])
-		GenerateModVisusConfig([], config['modvisus'], group_name, config['modvisus-group'])
+		GenerateModVisusConfig(config['modvisus'], group_name, config['modvisus-group'],[])
 		GenerateDashboardConfig(config['dashboards'], specs=None)
 
 		logger.info(f"convert_dir={self.convert_dir}")
 		logger.info(f"\n" + json.dumps(config,indent=2))
 
-	# getNumRunning
-	def getNumRunning(self, db):
-		# Let's check if a conversion has failed. We do this by trying to acquire the lock
-		# on the lockfile entry. If we get the lock that means the convert process that held
-		# that lock no longer exists and failed prematurely (because conversion_end is null).
-		ret=0
-		for row in db.getRunning():
-			record_id=row['id']
-			lock_filename=row['dst'] + ".filelock"
-			lock_acquired=False
-			try:
-				with filelock.FileLock(lock_filename, timeout=1).acquire(timeout=1):
-					# We got the lock. That means conversion is no longer running and failed.
-					lock_acquired=True
-			except filelock.Timeout:
-				pass
-				
-			if lock_acquired:
-				# We don't want to see this entry again, so mark it as failed and then log the failure.
-				error_msg="probably convert crashed"
-				db.markDone(row, error_msg=error_msg)
-				logger.info(f"Conversion record_id={record_id} lock_filename={lock_filename} failed error_msg={error_msg}")
-			else:
-				# means that the conversion is still running
-				ret+=1
-				logger.info(f"Conversion record_id={record_id} lock_filename={lock_filename} seems to be still running")
-
-		return ret
-
-	# convert
-	def convert(self, record_id=None):
-
+	# convertByRecordId
+	def convertByRecordId(self,record_id):
 		logger.info(f"convert_dir={self.convert_dir} record_id={record_id} ...")
 		config=self.openConfig()
 		db = ConvertDb(config["db"])
+		specs = db.getRecordById(record_id)
+		assert(specs["group"]==config["group"])
+		specs = ConvertData(specs)
+		specs["remote_url"] = config["remote-url-template"].format(group=specs["group"], name=specs["name"])
+		db.markDone(specs)
+		converted=[it for it in db.getConverted()]
+		GenerateModVisusConfig(config["modvisus"], specs["group"], config["modvisus-group"], converted)
+		GenerateDashboardConfig(config["dashboards"], specs)
+		logger.info(f"convert_dir={self.convert_dir} record_id={record_id} DONE")
 
-		if record_id is None:
-			from convert_puller import LocalPuller
-			puller = LocalPuller(config["pull"])
-			for specs in puller.pull():
-				db.pushPending(**specs)
+	# convertNextPending
+	def convertNextPending(self):
 
-			# run a new conversion if there are no old ones
-			num_running=self.getNumRunning(db)
-			if num_running:
-				logger.info(f"convert_dir={self.convert_dir} exit since there are still {num_running} pending conversions")
+		logger.info(f"convert_dir={self.convert_dir} ...")
+		config=self.openConfig()
+		db = ConvertDb(config["db"])
 
-			row=db.popPending()
-			if row is None:
-				logger.info(f"convert_dir={self.convert_dir} exit since there are no pending conversions")
+		# check for new json files to insert into the db
+		from convert_puller import LocalPuller
+		puller = LocalPuller(config["pull"])
+		for specs in puller.pull():
+			db.pushPending(**specs)
 
-			record_id = row['id']
-			logger.info(f"Starting conversion: convert_dir={self.convert_dir} record_id={record_id}")
-			self.convert(record_id)
+		# run a new conversion if there are no old ones
+		# Let's check if a conversion has failed. We do this by trying to acquire the lock
+		# on the lockfile entry. If we get the lock that means the convert process that held
+		# that lock no longer exists and failed prematurely (because conversion_end is null).
+		for row in db.getRunning():
+			record_id=row['id']
+			lock_filename=row['dst'] + ".filelock"
+			try:
+				lock=filelock.FileLock(lock_filename, timeout=1)
+				with lock.acquire(timeout=1):
+					# We got the lock. That means conversion is no longer running and failed.
+					# We don't want to see this entry again, so mark it as failed and then log the failure.
+					error_msg=f"got the filelock {lock_filename}"
+					db.markDone(row, error_msg=error_msg)
+					logger.info(f"Conversion record_id={record_id} probably failed error_msg={error_msg}")
+			except filelock.Timeout:
+				logger.info(f"Conversion record_id={record_id} seems to be still running")
+				return
 
-			logger.info(f"convert_dir={self.convert_dir} record_id={record_id} DONE")
+		# avoid parallel conversion
+		if db.getNumRunning():
+			logger.info(f"num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()}")
+			return
 
-		else:
+		specs=db.popPending()
+		if specs is None:
+			logger.info(f"there are no pending conversions")
+			return
 
-			specs = db.getRecordById(record_id)
-			assert(specs["group"]==config["group"])
+		# this is the next pending conversion
+		record_id = specs['id']
+		logger.info(f"Found new conversion to run record_id={record_id}")
 
-			# The lockfile is used to monitor whether this conversion is running or not.
-			lock_filename = specs["dst"] + ".filelock"
-			with filelock.FileLock(lock_filename):
-				specs = ConvertData(specs)
+		# The lockfile is used to monitor whether this conversion is running or not.
+		lock_filename = specs["dst"] + ".filelock"
+		lock=filelock.FileLock(lock_filename)
+		with lock.acquire():
+			self.convertByRecordId(record_id)
 
-			specs["remote_url"] = config["remote-url-template"].format(group=specs["group"], name=specs["name"])
-			db.markDone(specs)
+		logger.info(f"convert_dir={self.convert_dir} num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()} DONE ")
 
-			converted=[it for it in db.getConverted()]
-			GenerateModVisusConfig(converted, config["modvisus"], specs["group"], config["modvisus-group"])
-			GenerateDashboardConfig(config["dashboards"], specs)
-
-			logger.info(f"convert_dir={self.convert_dir} DONE")
 
 
 # ////////////////////////////////////////////////
 def Main(args):
 
 	action=args.pop(1)
-	
-	convert_dir=args[1]
+	convert_dir=args.pop(1)
+
 	SetupLogger(logger, stream=True, log_filename=os.path.join(convert_dir,"convert.log"))
 
 	tracker=Tracker(convert_dir)
 
 	if action == "init":
-		return tracker.init(pull=args[2])
+		pull_expr=args.pop(1)
+		return tracker.init(pull=pull_expr)
 
 	if action=="convert":
-		return tracker.convert(record_id=args[2] if len(args)>=3 else None)
+
+		if len(args)==2 and args[1].isdigit():
+			record_id=int(args.pop(1))
+			tracker.convertByRecordId(record_id)
+		
+		else:
+			if "--loop" in args:
+				while True:
+					tracker.convertNextPending()
+					time.sleep(10)
+			else:
+				tracker.convertNextPending()
+
+		return
 				
 	raise Exception(f"unknown action={action}")
 

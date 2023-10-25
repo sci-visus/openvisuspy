@@ -79,8 +79,24 @@ class ConvertDb:
 			for it in self.conn.execute(f"SELECT * from datasets WHERE conversion_start IS NOT NULL AND conversion_end IS NULL"):
 					yield self.toDict(it)
 
-	# getConverted (returns only the ones without errors)
+	# getNumRunning
+	def getNumRunning(self):
+		return len([it for it in self.getRunning()])
+
+	# getConverted (returns only the ones without errors!)
 	def getConverted(self):
 			for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NULL ORDER BY id ASC"):
 					yield self.toDict(it)
 
+	# getNumConverted
+	def getNumConverted(self):
+		return len([it for it in self.getConverted()])
+
+	# getFailed
+	def getFailed(self):
+			for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NOT NULL ORDER BY id ASC"):
+					yield self.toDict(it)
+
+	# getNumFailed
+	def getNumFailed(self):
+		return len([it for it in self.getFailed()])

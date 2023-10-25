@@ -148,7 +148,6 @@ class Slices(Widgets):
 			raise Exception(f"problem here with setViewMode({value})")
 			return 
 
-
 		inner_col.children = [
 			Row(
 				Column(

@@ -4,62 +4,37 @@ Forder is `/mnt/data1/nsdf/openvisuspy`
 
 # Convert Workflow
 
-## Setup conda env
-
-```bash
-conda create --name nsdf-env  python=3.10  mamba
-conda activate nsdf-env 
-mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock
-python -m pip install OpenVisusNoGui
-python -m pip install easyad
-python -m pip install chessdata-pyclient
-
-# setup your environment, choose what needs to be kepy/modified
-conda env config vars set MODVISUS_USERNAME="xxxxx"
-conda env config vars set MODVISUS_PASSWORD="yyyyy"
-
-# this is for bokeh dashboards if you need security (like Active Directory)
-conda env config vars set BOKEH_COOKIE_SECRET="zzzzz"
-
-# modify the openvisuspy code inline
-conda env config vars set PYTHONPATH="${PWD}/src"
-
-# for external dashboards, I need to know how to produce the JSON file with 'remote'
-conda env config vars set REMOTE_URL_TEMPLATE="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset={group}/{name}&cached=arco"
-
-# I need to update the master mod_visus config so new datasets are automatically added
-conda env config vars set MODVISUS_CONFIG="/nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config"
-
-# for active directory dashboards login
-conda env config vars set AD_SERVER="ldap.classe.cornell.edu"
-conda env config vars set AD_DOMAIN="CLASSE.CORNELL.EDU"
-
-# needed only for remote dashboards
-conda env config vars set VISUS_CACHE="/tmp/nsdf-convert-workflow/visus-cache"
-
-# avoid problems with localhost (bokeh bug!)
-conda env config vars set BOKEH_RESOURCES="cdn"
-
-# check all variables
-conda env config vars list 
-
-# TEST CHESS metadata (see `Setup` section below)
-kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
-/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='pi:verberg'                           | jq
-/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"technique": "tomography"}'          | jq
-/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"_id" : "65032a84d2f7654ee374db59"}' | jq
-/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"Description" : "Test for Kate"}'    | jq
-```
 
 ## Group setup
 
 ```bash
 
-source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
-
 # change as needed
 export NSDF_GROUP=test-group-bitmask
+
+# where data is going to be converted
 export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_GROUP}
+
+# activate conva environment
+source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
+
+# remove old screen sessions
+for it in $(screen -ls | grep nsdf-convert-workflow-${NSDF_GROUP} | awk '{print $1}'); do screen -S ${it} -X kill; done
+
+# create a screen session
+screen -S nsdf-convert-workflow-${NSDF_GROUP}-tracker
+
+# check inside screen
+echo $STY 
+
+# list screen 
+# screen -list
+
+# force reattach
+# screen -d -r nsdf-convert-workflow-${NSDF_GROUP}-tracker
+
+# activate conva environment
+source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
 # create the directory which will contain all the files
 mkdir -p ${NSDF_CONVERT_DIR}
@@ -67,18 +42,24 @@ mkdir -p ${NSDF_CONVERT_DIR}
 # DANGEROUS and commented, I am assuming the convert dir is empty
 # CHANGE PULLER PATTERN AS NEEDED
 rm -Rf ${NSDF_CONVERT_DIR}/*
-./examples/chess/tracker.sh init ${NSDF_CONVERT_DIR} "${NSDF_CONVERT_DIR}/jobs/*.json"
+python  ./examples/chess/tracker.py init ${NSDF_CONVERT_DIR} "${NSDF_CONVERT_DIR}/jobs/*.json"
+
+# check generated convert `.config` file
+code ${NSDF_CONVERT_DIR}/.config
 
 # check if the group has been added to the master mod_visus config
 code ${MODVISUS_CONFIG}
 
-# run a simple conversion, just for debugging
-# CHANGE PULLER PATTERN AS NEEDED
-cp ./examples/chess/json/image-stack.json ${NSDF_CONVERT_DIR}/jobs/
-./examples/chess/tracker.sh convert ${NSDF_CONVERT_DIR} 
+# run some conversions, just for debugging
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+cp ./examples/chess/json/nexus.json ${NSDF_CONVERT_DIR}/jobs/
+python ./examples/chess/tracker.py convert ${NSDF_CONVERT_DIR} --loop
 
-# check json files have been renamed
-ls -alF ${NSDF_CONVERT_DIR}/jobs/
+# Check logs
+tail -f ${NSDF_CONVERT_DIR}/convert.log
+
+# check json files have been renamed from `*.json` to `*.json.pulled`
+ls ${NSDF_CONVERT_DIR}/jobs/
 
 # check on the database what happened
 sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "SELECT * FROM datasets;"
@@ -125,42 +106,56 @@ curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.c
 #    GOOD:   <script type="text/javascript" src="http://<servername> ...
 curl -vvv -L "https://nsdf01.classe.cornell.edu/dashboards/${NSDF_GROUP}/app"
 
-# Check convert logs
-tail -f ${NSDF_CONVERT_DIR}/convert.log
 
-# Check dashboards logs
-tail -f ${NSDF_CONVERT_DIR}/dashboards.log
+# ____________________________________________________
+
+# change as needed
+export NSDF_GROUP=test-group-bitmask
+
+# where data is going to be converted
+export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_GROUP}
+
+screen -S nsdf-convert-workflow-${NSDF_GROUP}-dashboards
+
+source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
+
+export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${NSDF_CONVERT_DIR}/dashboards.log 
+
+python -m bokeh serve examples/dashboards/app \
+   --port 5007 \
+   --use-xheaders \
+   --allow-websocket-origin='nsdf01.classe.cornell.edu' \
+   --dev \
+   --auth-module=./examples/chess/auth.py \
+   --args "/var/www/html/test-group-bitmask.json" \
+   --prefer local
+
+# https://nsdf01.classe.cornell.edu/dashboards/test-group-bitmask/app
+
+# Check logs:
+tail -f ${NSDF_CONVERT_DIR}/dashboards.log 
+
 ```
 
-# Run Tracker
+# Run Tracker Using crontab (broken right now!)
 
-Switch between manual and auto run:
 
 ```bash 
-source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
 # list cron jobs
 crontab -l
 
-# add/remove cronjob line 
-# * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/tracker.sh /mnt/data1/nsdf-convert-workflow/test-group-bitmask
+# add / remove cronjob line 
+# * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/tracker.sh convert /mnt/data1/nsdf-convert-workflow/test-group-bitmask
 crontab -e
-
-# eventually add a conversion to the local puller directory
-cp ./examples/chess/json/image-stack.json ${NSDF_CONVERT_DIR}/jobs/
 ```
 
-Check logs
 
-```
-tail -f ${NSDF_CONVERT_DIR}/convert.log
-```
-
-# Run Dashboards
-
+# Run Dashboards Using systemd (broken right now!)
 
 NOTE: 
 - systemd is configured by CHESS, and cannot be changed directly. 
+- how to have one dashboard per group?
 - see FILE `/etc/systemd/system/chess-dashboard.service`
 
 
@@ -168,19 +163,72 @@ Switch between manual and auto run:
 
 ```bash
 sudo systemctl stop chess-dashboard
+
+# manual run for debugging
 ./examples/chess/run-dashboards.sh
+
 sudo systemctl start chess-dashboard
-```
 
-Check logs:
-
-```bash
+# Check logs:
 tail -f ${NSDF_CONVERT_DIR}/dashboards.log 
 ```
 
 
+## CHESS/NSDF Setup Conda env
 
-# PubSub puller
+```bash
+
+# avoid problems with screen command
+cat <<EOF >~/.screenrc
+defscrollback 100000
+termcapinfo xterm* ti@:te@EOF
+EOF
+
+conda create --name nsdf-env  python=3.10  mamba
+conda activate nsdf-env 
+mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock
+python -m pip install OpenVisusNoGui
+python -m pip install easyad
+python -m pip install chessdata-pyclient
+
+# setup your environment, choose what needs to be kepy/modified
+conda env config vars set MODVISUS_USERNAME="xxxxx"
+conda env config vars set MODVISUS_PASSWORD="yyyyy"
+
+# this is for bokeh dashboards if you need security (like Active Directory)
+conda env config vars set BOKEH_COOKIE_SECRET="zzzzz"
+
+# modify the openvisuspy code inline
+conda env config vars set PYTHONPATH="${PWD}/src"
+
+# for external dashboards, I need to know how to produce the JSON file with 'remote'
+conda env config vars set REMOTE_URL_TEMPLATE="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset={group}/{name}&cached=arco"
+
+# I need to update the master mod_visus config so new datasets are automatically added
+conda env config vars set MODVISUS_CONFIG="/nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config"
+
+# for active directory dashboards login
+conda env config vars set AD_SERVER="ldap.classe.cornell.edu"
+conda env config vars set AD_DOMAIN="CLASSE.CORNELL.EDU"
+
+# needed only for remote dashboards
+conda env config vars set VISUS_CACHE="/tmp/nsdf-convert-workflow/visus-cache"
+
+# avoid problems with localhost (bokeh bug!)
+conda env config vars set BOKEH_RESOURCES="cdn"
+
+# check all variables
+conda env config vars list 
+
+# TEST CHESS metadata (see `Setup` section below)
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='pi:verberg'                           | jq
+/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"technique": "tomography"}'          | jq
+/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"_id" : "65032a84d2f7654ee374db59"}' | jq
+/nfs/chess/sw/chessdata/chess_client -krbFile ~/krb5_ccache -uri https://chessdata.classe.cornell.edu:8244 -query='{"Description" : "Test for Kate"}'    | jq
+```
+
+# (OLD) PubSub puller
 
 ```bash
 
@@ -194,8 +242,7 @@ python examples/chess/pubsub.py --action flush      --url "${NSDF_CONVERT_PUBSUB
 python examples/chess/pubsub.py --action pub        --url "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}" --message ./examples/chess/puller/example.json 
 ```
 
-
-# Windows External Dashboards
+# Windows Dashboards
 
 ```
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
@@ -207,7 +254,7 @@ python -m bokeh serve examples/dashboards/app --dev --args "C:\big\visus_dataset
 python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group.json"
 ```
 
-# Linux External Dashboards
+# Linux Dashboards
 
 Example about how to setup an external dashboards (getting data from chess and caching it):
 
@@ -255,6 +302,22 @@ source .venv/bin/activate
 python3 -m pip install --upgrade pip
 python3 -m pip install   numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2
 python3 -m pip install --upgrade OpenVisusNoGui
+
+# TODO HERE
+# setup all the environment variables
+cat <<EOF > ./setup.sh
+export MODVISUS_USERNAME="xxxxx"
+export MODVISUS_PASSWORD="yyyyy"
+export PYTHONPATH="./src"
+export VISUS_CACHE="/tmp/nsdf-convert-workflow/visus-cache"
+export BOKEH_RESOURCES="cdn"
+export BOKEH_ALLOW_WS_ORIGIN="*"
+export BOKEH_LOG_LEVEL="debug"
+export OPENVISUSPY_DASHBOARDS_LOG_FILENAME"/tmp/openvisuspy/logs.dashboards.log"
+source .venv/bin/activate
+EOF
+
+source ./setup.sh
 
 curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/test-group-bitmask.json"
 curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=test-group-bitmask/example-image-stack&cached=arco"

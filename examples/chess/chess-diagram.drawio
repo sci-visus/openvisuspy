@@ -7,7 +7,7 @@
                 <mxCell id="uYZg_CSHcDgq6QZWfcZW-5" value="pick one dataset to convert" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontStyle=2" parent="1" source="uYZg_CSHcDgq6QZWfcZW-1" target="uYZg_CSHcDgq6QZWfcZW-4" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="uYZg_CSHcDgq6QZWfcZW-1" value="tracker.sh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;fontStyle=0;fontSize=12;" parent="1" vertex="1">
+                <mxCell id="uYZg_CSHcDgq6QZWfcZW-1" value="tracker.sh convert" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;fontStyle=0;fontSize=12;" parent="1" vertex="1">
                     <mxGeometry x="380" y="390" width="140" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="uYZg_CSHcDgq6QZWfcZW-3" value="calling every minute" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uYZg_CSHcDgq6QZWfcZW-2" target="uYZg_CSHcDgq6QZWfcZW-1" edge="1">
@@ -22,7 +22,7 @@
                 <mxCell id="uYZg_CSHcDgq6QZWfcZW-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uYZg_CSHcDgq6QZWfcZW-4" target="uYZg_CSHcDgq6QZWfcZW-27" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="uYZg_CSHcDgq6QZWfcZW-4" value="convert a specific record_id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;fontStyle=0;fontSize=12;" parent="1" vertex="1">
+                <mxCell id="uYZg_CSHcDgq6QZWfcZW-4" value="tracker.sh convert &amp;lt;record_id&amp;gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;fontStyle=0;fontSize=12;" parent="1" vertex="1">
                     <mxGeometry x="380" y="535" width="150" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="uYZg_CSHcDgq6QZWfcZW-6" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="1" vertex="1">

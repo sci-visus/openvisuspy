@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-def GenerateModVisusConfig(converted, modvisus_config_filename, group_name, modvisus_group_filename):
+def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_filename, converted):
 
 	logger.info(f"Generating modvisus config modvisus_config_filename={modvisus_config_filename} group_name={group_name} modvisus_group_filename={modvisus_group_filename}")
 

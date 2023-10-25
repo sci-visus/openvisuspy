@@ -23,9 +23,10 @@ def ConvertData(specs):
 	if True:
 			# NOTE: this is dangerous but I have to do it: I need to remove all openvisus files in case I crashed in a middle of compression
 		# e.g assuyming /mnt/data1/nsdf/tmp/near-field-scrgiorgio-20230912-01/visus.idx I need to clean up the parent directory
-		# SO MAKE SURE you are using unique directories!			
-		logger.info(f" DANGEROUS but needed: removing any file from {os.path.dirname(dst)}")
-		shutil.rmtree(os.path.dirname(dst), ignore_errors=True)
+		# SO MAKE SURE you are using unique directories!		
+		data_dir=os.path.splitext(dst)[0]	
+		logger.info(f" DANGEROUS but needed: removing any old data file from {data_dir}")
+		shutil.rmtree(data_dir, ignore_errors=True)
 
 	src_ext=os.path.splitext(src)[1]
 

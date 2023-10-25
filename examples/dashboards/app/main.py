@@ -6,7 +6,7 @@ if __name__.startswith('bokeh'):
 	from openvisuspy import SetupLogger, IsPanelServe, GetBackend, Slices
 	from openvisuspy.probes import ProbeTool
 
-	logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log")
+	logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"))
 	logger.info(f"GetBackend()={GetBackend()}")
 
 	is_panel = IsPanelServe()
@@ -33,7 +33,7 @@ if __name__.startswith('bokeh'):
 			 "palette_range_vmax", "show-probe"]
 		])
 
-	view.setDataset(sys.argv[1])
+	view.setConfig(sys.argv[1])
 
 	if is_panel:
 		main_layout = view.getMainLayout()
