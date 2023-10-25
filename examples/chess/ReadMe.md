@@ -1,98 +1,134 @@
 # Introduction
 
-Forder is `/mnt/data1/nsdf/openvisuspy`
+Directories
+
+```bash
+
+# official nsdf directory on the entrypoint
+/mnt/data1/nsdf/
+
+# needed to get a recent version of Python (3.10)
+/mnt/data1/nsdf/miniforge3
+
+# binaries used by httpd
+/mnt/data1/nsdf/OpenVisus
+
+# directory for inline editing of code (vscode open folder)
+/mnt/data1/nsdf/openvisuspy
+
+# some data needed for conversion
+/mnt/data1/nsdf/examples
+
+# all the convert-workflow generated data
+/mnt/data1/nsdf/workflow
+
+# openvisu cache if needed
+/mnt/data1/nsdf/visus-cache
+```
+
 
 # Convert Workflow Group setup
 
 Note: here I am assuming that some env variables are already configured in the conda env. 
 See `Setup conda env` section below about how configure an environment
 
+Setup a screen session for the tracker:
+
 ```bash
 
-# change as needed
-export NSDF_GROUP=test-group-bitmask
-export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_GROUP}
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
-for it in $(screen -ls | grep nsdf-convert-workflow-tracker-${NSDF_GROUP} | awk '{print $1}'); do 
+# needed by tracker and group dependent
+export NSDF_GROUP=nsdf-group
+export NSDF_CONVERT_DIR=/mnt/data1/nsdf/workflow/${NSDF_GROUP}
+export NSDF_TRACKER_GLOB="${NSDF_CONVERT_DIR}/jobs/*.json"
+
+for it in $(screen -ls | grep tracker-${NSDF_GROUP} | awk '{print $1}'); do 
    screen -S ${it} -X kill
 done
-screen -S nsdf-convert-workflow-tracker-${NSDF_GROUP}
-source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
+screen -S tracker-${NSDF_GROUP}
+```
+
+Prepare for group conversions
+
+```bash
+
+# change group as needed
+screen -d -r  tracker-nsdf-group
 
 # (!!!) DANGEROUS, do only when you know group directory is NOT IMPORTANT 
 rm -Rf ${NSDF_CONVERT_DIR}/*
-python  ./examples/chess/tracker.py init ${NSDF_CONVERT_DIR} "${NSDF_CONVERT_DIR}/jobs/*.json"
+mkdir -p ${NSDF_CONVERT_DIR}
+ln -s /mnt/data1/nsdf/OpenVisus/visus.config ${NSDF_CONVERT_DIR}/visus.config 
+
+# init
+python  ./examples/chess/tracker.py init
 
 # make a link to the JSON dashboards into the httpd directory so it can be server
 rm -f /var/www/html/${NSDF_GROUP}.json
 ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_GROUP}.json
 
-# check generated convert `.config` file 
-code ${NSDF_CONVERT_DIR}/.config
-
-# check if the group has been added to the master mod_visus config
-code ${MODVISUS_CONFIG}
-
-# Check logs
-tail -f ${NSDF_CONVERT_DIR}/convert.log
-
-# check json files have been renamed from `*.json` to `*.json.pulled`
-ls ${NSDF_CONVERT_DIR}/jobs/
-
-# check on the database what happened
-sqlite3 ${NSDF_CONVERT_DIR}/sqllite3.db "SELECT * FROM datasets;"
-
-# check JSON dashboard and group mod_visus config
-code ${NSDF_CONVERT_DIR}/visus.config
-
-# inplace conversion
-kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
-python  ./examples/chess/tracker.py convert ${NSDF_CONVERT_DIR} "./examples/chess/json/numpy.json"
-
-# run some conversions with the tracker loop
-kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
-python ./examples/chess/tracker.py convert ${NSDF_CONVERT_DIR} --loop
-cp ./examples/chess/json/*.json "${NSDF_CONVERT_DIR}/jobs/"
-```
-
-
-HTTPD:
-- you do not need to change any HTTPD configuration, since the `init` pass added the group to the modvisus config
-- but you need to **add a symbolic link** to the JSON dashboards file
-
-```bash
-
-#  configuration
-code /etc/httpd/conf.d/ssl.conf
-
-# restart 
-sudo /usr/bin/systemctl restart httpd
-
-# check httpd
+# check httpd (should be already working)
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/${NSDF_GROUP}.json"
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/mod_visus?action=list"
+
+# [NGINX -> HTTPD] check JSON dashboards files and mod_visus are working
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_GROUP}.json"
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
 ```
 
-Run Dashboards:
+Run some conversion:
+
+
+```bash
+# inplace conversion (NOTE: it will not update `visus.group.config``)
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
+python  ./examples/chess/tracker.py "./examples/chess/json/image-stack-1.json"
+
+# run some conversions with the tracker loop (NOTE: it will update `visus.group.config``)
+python ./examples/chess/tracker.py  loop # | next | <N>
+cp "./examples/chess/json/image-stack-1.json" $(dirname ${NSDF_TRACKER_GLOB})/
+```
+
+Set Dashboards screen session:
 
 ```bash
 
-export NSDF_GROUP=test-group-bitmask
-export NSDF_CONVERT_DIR=/mnt/data1/nsdf-convert-workflow/${NSDF_GROUP}
+export NSDF_GROUP=nsdf-group
+export NSDF_CONVERT_DIR=/mnt/data1/nsdf/workflow/${NSDF_GROUP}
+
+# note: this must be the same of nginx
+export BOKEH_PORT=5007
 
 # remove old screen session
-for it in $(screen -ls | grep nsdf-convert-workflow-dashboards-${NSDF_GROUP} | awk '{print $1}'); do 
+for it in $(screen -ls | grep dashboards-${NSDF_GROUP} | awk '{print $1}'); do 
    screen -S ${it} -X kill
 done
 
 # create a new screen session
-screen -S nsdf-convert-workflow-dashboards-${NSDF_GROUP}
+screen -S dashboards-${NSDF_GROUP}
+
+# so that I not need to setup again
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
 # run dashboard (change port as needed; each group will have its own port)
 export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${NSDF_CONVERT_DIR}/dashboards.log
-export BOKEH_PORT=5007
+```
+
+Next time:
+
+```
+
+# edit configuration file, and **add the group app for the choosen port**
+code /etc/nginx/nginx.conf
+
+# restart NGINX to get the new bokeh app exposed
+sudo /usr/bin/systemctl restart nginx
+
+# change as needed
+screen -r -d dashboards-nsdf-group
+
+# run bokeh
 python -m bokeh serve examples/dashboards/app \
    --port ${BOKEH_PORT} \
    --use-xheaders \
@@ -102,39 +138,9 @@ python -m bokeh serve examples/dashboards/app \
    --args "${NSDF_CONVERT_DIR}/dashboards.json" \
    --prefer local
 
-# edit/see dashboards config
-code ${NSDF_CONVERT_DIR}/dashboards.json
-
-# Check logs:
-tail -f ${NSDF_CONVERT_DIR}/dashboards.log 
+# https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
 ```
 
-NGINX:
-- you need to add the group add to the NGINX configuration
-- you need to *open* the group dashboards
-
-```bash
-# edit configuration file
-code /etc/nginx/nginx.conf
-
-# restart NGINX
-sudo /usr/bin/systemctl restart nginx
-
-# check NGINX logs (permission denied)
-# tail -f "/var/log/nginx/access.log" /var/log/nginx/error.log
-
-# [NGINX -> HTTPD] check JSON dashboards files and mod_visus are working
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_GROUP}.json"
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
-
-# [NGINX -> bokeh] dashboards
-#    WRONG:  <script type="text/javascript" src="http://0.0.0.0"     ...
-#    WRONG:  <script type="text/javascript" src="http:/localhost"    ...
-#    GOOD:   <script type="text/javascript" src="http://<servername> ...
-curl -vvv -L "https://nsdf01.classe.cornell.edu/dashboards/${NSDF_GROUP}/app"
-
-# https://nsdf01.classe.cornell.edu/dashboards/${NSDF_GROUP}/ap
-```
 
 # (BROKEN) Run Tracker Using crontab 
 
@@ -145,7 +151,7 @@ curl -vvv -L "https://nsdf01.classe.cornell.edu/dashboards/${NSDF_GROUP}/app"
 crontab -l
 
 # add / remove cronjob line 
-# * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/tracker.sh convert /mnt/data1/nsdf-convert-workflow/test-group-bitmask
+# * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/tracker.sh convert /mnt/data1/nsdf/workflow/nsdf-group
 crontab -e
 ```
 
@@ -202,15 +208,12 @@ conda env config vars set PYTHONPATH="${PWD}/src"
 # for external dashboards, I need to know how to produce the JSON file with 'remote'
 conda env config vars set REMOTE_URL_TEMPLATE="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset={group}/{name}&cached=arco"
 
-# I need to update the master mod_visus config so new datasets are automatically added
-conda env config vars set MODVISUS_CONFIG="/nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config"
-
 # for active directory dashboards login
 conda env config vars set AD_SERVER="ldap.classe.cornell.edu"
 conda env config vars set AD_DOMAIN="CLASSE.CORNELL.EDU"
 
 # needed only for remote dashboards
-conda env config vars set VISUS_CACHE="/tmp/nsdf-convert-workflow/visus-cache"
+conda env config vars set VISUS_CACHE="/mnt/data1/nsdf/visus-cache"
 
 # avoid problems with localhost (bokeh bug!)
 conda env config vars set BOKEH_RESOURCES="cdn"
@@ -293,7 +296,7 @@ git clone git@github.com:sci-visus/openvisuspy.git
 cd openvisuspy
 
 # create a screen session in case you want to keep it for debugging
-screen -S nsdf-convert-workflow-dashboards
+screen -S nsdf-dashboards
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -307,7 +310,7 @@ cat <<EOF > ./setup.sh
 export MODVISUS_USERNAME="xxxxx"
 export MODVISUS_PASSWORD="yyyyy"
 export PYTHONPATH="./src"
-export VISUS_CACHE="/tmp/nsdf-convert-workflow/visus-cache"
+export VISUS_CACHE="/tmp/visus-cache"
 export BOKEH_RESOURCES="cdn"
 export BOKEH_ALLOW_WS_ORIGIN="*"
 export BOKEH_LOG_LEVEL="debug"
@@ -317,19 +320,19 @@ EOF
 
 source ./setup.sh
 
-curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/test-group-bitmask.json"
-curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=test-group-bitmask/example-image-stack&cached=arco"
+curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/nsdf-group.json"
+curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=nsdf-group/example-image-stack&cached=arco"
 
 # this is for local debugging access
-python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/test-group-bitmask.json" --prefer local
-python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group-bitmask.json"
+python -m bokeh serve examples/dashboards/app --dev --args "/var/www/html/nsdf-group.json" --prefer local
+python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/nsdf-group.json"
 
 # this is for public access
 python3 -m bokeh serve "examples/dashboards/app" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port 10334 \
-   --args https://nsdf01.classe.cornell.edu/test-group-bitmask.json
+   --args https://nsdf01.classe.cornell.edu/nsdf-group.json
 ```
 
 # Copy all blocks (must be binary compatible)
@@ -337,41 +340,42 @@ python3 -m bokeh serve "examples/dashboards/app" \
 ```bash
 
 # test connection
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=test-group-bitmask/example-near-field"
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=nsdf-group/example-near-field"
 
 # Copy the blocks using rclone (better), Will work only if the dataset has been created with ARCO
 ssh -i ~/.nsdf/vault/id_nsdf gscorzelli@chess1.nationalsciencedatafabric.org
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/test-group-bitmask.json" | python3 ./examples/chess/rclone.py > ./rclone.sh
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/nsdf-group.json" | python3 ./examples/chess/rclone.py > ./rclone.sh
 chmod a+x ./rclone.sh
 ././rclone.sh
 
 # Copy the blocks using OpenVisus API (deprecated)
-export DATASET_NAME=test-group-bitmask/example-near-field
+export DATASET_NAME=nsdf-group/example-near-field
 export VISUS_DISABLE_WRITE_LOCK=1
 SRC="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=${DATASET_NAME}&~auth_username=${MODVISUS_USERNAME}&~auth_password=${MODVISUS_PASSWORD}"
-DST="${VISUS_CACHE}/DiskAccess/nsdf01.classe.cornell.edu/443/zip/mod_visus/test-group-bitmask/example-near-field/visus.idx"
+DST="${VISUS_CACHE}/DiskAccess/nsdf01.classe.cornell.edu/443/zip/mod_visus/nsdf-group/example-near-field/visus.idx"
 python3 -m OpenVisus copy-blocks --num-threads 4 --num-read-per-request 16 --verbose --src "${SRC}" --dst "${DST}"
 unset VISUS_DISABLE_WRITE_LOCK
 ```
 
-# Debug or update CHESS mod_visus
+# CHESS mod_visus
 
 - To enable multi-group security see [https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security](https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security
 - See OpenVisus `Docker/group-security`` for details about how to add users
 
-```
-# make sure you have the official python3 (i.e. not the miniforge one)
+```bash
 
-# I guess we installed a python3 in this directory (accordingly to the `dirname`)
-export PATH=/nfs/chess/nsdf01/openvisus/bin/:${PATH}
-/nfs/chess/nsdf01/openvisus/bin/python3 -m OpenVisus dirname
-which python3
-python3 -m OpenVisus dirname
+# edit httpd file
+code /etc/httpd/conf.d/openvisus.conf
 
-# make a copy of mod_visus config before doing this, it will overwrite the file
-__MODVISUS_CONFIG__=/nfs/chess/nsdf01/openvisus/lib64/python3.6/site-packages/OpenVisus/visus.config
-cp ${__MODVISUS_CONFIG__} ${__MODVISUS_CONFIG__}.$(date +"%Y_%m_%d_%I_%M_%p").backup
-python3 -m pip install --upgrade OpenVisusNoGui
+#  configuration
+code /etc/httpd/conf.d/ssl.conf
+
+# using official CHESS python
+which python3.6
+python3.6 -m pip install --upgrade OpenVisusNoGui --target /mnt/data1/nsdf
+ls -alF /mnt/data1/nsdf/OpenVisus/bin/libmod_visus.so
+
+PYTHONPATH=/mnt/data1/nsdf python3.6 -m OpenVisus dirname
 
 # Restart the server
 sudo /usr/bin/systemctl restart httpd
@@ -379,11 +383,11 @@ sudo /usr/bin/systemctl restart httpd
 # check if it works
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
 
+# If you want to know more about mod_visus 
+curl -vvvv --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=info"
+
 # If you want to know more about apache status:
 apachectl -S
-
-# If you want to know more about mod_visus 
-`curl -vvvv --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=info"
 
 # Inspect apache logs
 tail -f  /var/log/httpd/*.log

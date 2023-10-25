@@ -21,26 +21,28 @@ def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_
 	SaveFile(modvisus_group_filename,body)
 
 	# make a backup copy of root visus.config
-	timestamp=str(datetime.now().date()) + '_' + str(datetime.now().time()).replace(':', '.')
-	shutil.copy(modvisus_config_filename,modvisus_config_filename+f".{timestamp}")
+	if False:
+		timestamp=str(datetime.now().date()) + '_' + str(datetime.now().time()).replace(':', '.')
+		shutil.copy(modvisus_config_filename,modvisus_config_filename+f".{timestamp}")
 
 	# Open the file and read the contents 
 	d=LoadXML(modvisus_config_filename)
 
 	datasets=d["visus"]["datasets"]
 	
-	if not "group" in datasets: datasets["group"]=[]
-	groups=datasets["group"]
+	if not "group" in datasets: 
+		datasets["group"]=[]
+	
+	if isinstance(datasets["group"],dict):
+		datasets["group"]=[datasets["group"]]
 
-	if isinstance(groups,dict):
-		groups=[groups]
-
-	groups=[it for it in groups if it["@name"]!=group_name]
-	groups.append({
+	datasets["group"]=[it for it in datasets["group"] if it["@name"]!=group_name]
+	datasets["group"].append({
 		'@name': group_name,
 		'include': {'@url': modvisus_group_filename}
 	})
 
+	print("!!!"*10,modvisus_config_filename)
 	SaveXML(modvisus_config_filename, d)
 
 

@@ -24,49 +24,34 @@ logger = logging.getLogger("nsdf-convert")
 class Tracker:
 
 	# constructor
-	def __init__(self,convert_dir):
-		self.convert_dir=convert_dir
-		self.config=None
-
-	# getConfig
-	def getConfig(self,force=False):
-		if self.config is not None and not force: return self.config
-		self.config=LoadJSON(os.path.join(self.convert_dir,".config"))
-		return self.config
+	def __init__(self):
+		self.group_name=os.environ["NSDF_GROUP"]
+		self.convert_dir=os.environ["NSDF_CONVERT_DIR"]
+		self.remote_url_template=os.environ["REMOTE_URL_TEMPLATE"]
+		self.glob_expr=os.environ["NSDF_TRACKER_GLOB"]
+		SetupLogger(logger, stream=True, log_filename=os.path.join(self.convert_dir,"convert.log"))
 
 	# init
-	def init(self, pull):
-		logger.info(f"IniTracker convert_dir={self.convert_dir} pull={pull}...")
+	def init(self):
+		logger.info(f"init ...")
 
 		# create convert directory
 		os.makedirs(self.convert_dir, exist_ok=True)
 
-		# assuming the last part of the path is the group name
-		group_name = os.path.basename(self.convert_dir) 
+		Touch(os.path.join(self.convert_dir,"convert.log"))
+		Touch(os.path.join(self.convert_dir,"dashboards.log"))
+		os.makedirs(os.path.dirname(self.glob_expr), exist_ok=True ) # assuming it's like /a/b/c/*.json
 
-		SaveJSON(os.path.join(self.convert_dir,".config"),{
-			'db': os.path.join(self.convert_dir,"sqllite3.db"),
-			'group' : group_name,
-			'modvisus': os.environ["MODVISUS_CONFIG"],
-			'modvisus-group': os.path.join(self.convert_dir,"visus.config"),
-			'dashboards' : os.path.join(self.convert_dir,"dashboards.json"),
-			'remote-url-template':os.environ["REMOTE_URL_TEMPLATE"].replace("{group}",group_name),
-			'convert-log' : os.path.join(self.convert_dir,"convert.log"),
-			'dashboards-log' : os.path.join(self.convert_dir,"dashboards.log"),
-			'pull': pull,
-		})
-		config=self.getConfig(force=True)
+		db_filename=os.path.join(self.convert_dir,"sqllite3.db")
+		visus_config=os.path.join(self.convert_dir,"visus.config")
+		visus_group_config=os.path.join(self.convert_dir,"visus.group.config")
+		dashboards_json=os.path.join(self.convert_dir,"dashboards.json")
 
-		Touch(config['convert-log'])
-		Touch(config['dashboards-log'])
-		os.makedirs(os.path.dirname(pull), exist_ok=True ) # assuming it's like /a/b/c/*.json
+		db = ConvertDb(db_filename)
 
-		db = ConvertDb(config['db'])
-		GenerateModVisusConfig(config['modvisus'], group_name, config['modvisus-group'],[])
-		GenerateDashboardConfig(config['dashboards'], group_name)
-
-		logger.info(f"convert_dir={self.convert_dir}")
-		logger.info(f"\n" + json.dumps(config,indent=2))
+		GenerateModVisusConfig(visus_config, self.group_name, visus_group_config,converted=[])
+		GenerateDashboardConfig(dashboards_json, self.group_name)
+		logger.info(f"Tracker init done")
 
 	# convertBySpecs
 	def convertBySpecs(self, specs):
@@ -85,8 +70,6 @@ class Tracker:
 		if not "metadata" in specs:
 			specs["metadata"]=[]
 
-		config=self.getConfig()
-		group_name=config["group"]
 		ConvertData(
 			src=specs["src"], 
 			dst=specs["dst"], 
@@ -95,34 +78,31 @@ class Tracker:
 			metadata=specs["metadata"]
 		)
 		specs["conversion_end"]=str(datetime.now())
-		specs["remote_url"] = config["remote-url-template"].format(group=group_name, name=dataset_name)
+		specs["remote_url"] = self.remote_url_template.format(group=self.group_name, name=dataset_name)
 
 		# NOTE: no generation of any files, pure conversion
 
 	# convertByRecordId
 	def convertByRecordId(self,record_id):
-		logger.info(f"convert_dir={self.convert_dir} record_id={record_id} ...")
-		config=self.getConfig()
-		group_name=config["group"]
-		db = ConvertDb(config["db"])
+		logger.info(f"record_id={record_id} ...")
+		db = ConvertDb(os.path.join(self.convert_dir,"sqllite3.db"))
 		specs = db.getRecordById(record_id)
 		self.convertBySpecs(specs)
 		db.markDone(specs)
 		converted=[it for it in db.getConverted()]
-		GenerateModVisusConfig(config["modvisus"]   , group_name, config["modvisus-group"], converted)
-		GenerateDashboardConfig(config["dashboards"], group_name, add_specs=specs)
-		logger.info(f"convert_dir={self.convert_dir} record_id={record_id} DONE")
+		GenerateModVisusConfig(os.path.join(self.convert_dir,"visus.config"), self.group_name, os.path.join(self.convert_dir,"visus.group.config"), converted)
+		GenerateDashboardConfig(os.path.join(self.convert_dir,"dashboards.json"), self.group_name, add_specs=specs)
+		logger.info(f"record_id={record_id} DONE")
 
-	# convertNextPending
-	def convertNextPending(self):
+	# convertNext
+	def convertNext(self):
 
-		logger.info(f"convert_dir={self.convert_dir} ...")
-		config=self.getConfig()
-		db = ConvertDb(config["db"])
+		logger.info(f"next ...")
+		db = ConvertDb(os.path.join(self.convert_dir,"sqllite3.db"))
 
 		# check for new json files to insert into the db
 		from convert_puller import LocalPuller
-		puller = LocalPuller(config["pull"])
+		puller = LocalPuller(self.glob_expr)
 		for specs in puller.pull():
 			dataset_name=specs["name"]
 			src=specs["src"]
@@ -139,9 +119,9 @@ class Tracker:
 		for row in db.getRunning():
 			record_id=row['id']
 			lock_filename=row["dst"] + ".filelock"
+			lock=filelock.FileLock(lock_filename, timeout=1)
 			try:
-				lock=filelock.FileLock(lock_filename, timeout=1)
-				with lock.acquire(timeout=1):
+				with lock.aquire(timeout=1):
 					# We got the lock. That means conversion is no longer running and failed.
 					# We don't want to see this entry again, so mark it as failed and then log the failure.
 					error_msg=f"got the filelock {lock_filename}"
@@ -168,47 +148,36 @@ class Tracker:
 		# The lockfile is used to monitor whether this conversion is running or not.
 		lock_filename = specs["dst"] + ".filelock"
 		lock=filelock.FileLock(lock_filename)
-		with lock.acquire():
+		with lock:
 			self.convertByRecordId(record_id)
 
-		logger.info(f"convert_dir={self.convert_dir} num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()} DONE ")
+		logger.info(f"Tracker num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()} DONE ")
 
 
 # ////////////////////////////////////////////////
 def Main(args):
 
-	action=args.pop(1)
-	convert_dir=args.pop(1)
+	tracker=Tracker()
 
-	SetupLogger(logger, stream=True, log_filename=os.path.join(convert_dir,"convert.log"))
+	if args[1] == "init":
+		return tracker.init()
 
-	tracker=Tracker(convert_dir)
+	if args[1]=="loop":
+			while True:
+				tracker.convertNext()
+				time.sleep(10)
 
-	if action == "init":
-		pull_expr=args.pop(1)
-		return tracker.init(pull=pull_expr)
+	if args[1]=="next":
+		return tracker.convertNext()
 
-	if action=="convert":
+	if args[1].isdigit():
+		return tracker.convertByRecordId(record_id=int(args[1]))
 
-		if len(args)==2 and args[1].isdigit():
-			record_id=int(args.pop(1))
-			tracker.convertByRecordId(record_id)
-
-		elif len(args)==2 and os.path.isfile(args[1]) and os.path.splitext(args[1])[1]==".json":
-			specs=LoadJSON(args[1])
-			tracker.convertBySpecs(specs)
+	if os.path.isfile(args[1]):
+		specs=LoadJSON(args[1])
+		return tracker.convertBySpecs(specs)
 		
-		else:
-			if "--loop" in args:
-				while True:
-					tracker.convertNextPending()
-					time.sleep(10)
-			else:
-				tracker.convertNextPending()
-
-		return
-				
-	raise Exception(f"unknown action={action}")
+	raise Exception(f"wrong arguments {args}")
 
 
 # ///////////////////////////////////////////////////////////////////
