@@ -30,26 +30,24 @@ for it in $(screen -ls | grep tracker-${NSDF_GROUP} | awk '{print $1}'); do  scr
 # create new screen session
 screen -S tracker-${NSDF_GROUP}
 
+function InitTracker() {
 
-# remove any old json document from httpd
-rm -f /var/www/html/${NSDF_GROUP}.json
+   # (!!!) DANGEROUS, do only when you know group directory is NOT IMPORTANT 
+   rm -Rf ${NSDF_CONVERT_DIR}/*
+   mkdir -p ${NSDF_CONVERT_DIR}
 
-# (!!!) DANGEROUS, do only when you know group directory is NOT IMPORTANT 
-rm -Rf ${NSDF_CONVERT_DIR}/*
-mkdir -p ${NSDF_CONVERT_DIR}
+   # this is needed so the tracker will access the master visus.config
+   ln -s /mnt/data1/nsdf/OpenVisus/visus.config ${NSDF_CONVERT_DIR}/visus.config 
 
-# this is needed so the tracker will access the master visus.config
-ln -s /mnt/data1/nsdf/OpenVisus/visus.config ${NSDF_CONVERT_DIR}/visus.config 
+   # init, will create some files (and master visus.config will reference visus.group.config)
+   python  ./examples/chess/tracker.py init
 
-# init, will create some files (and master visus.config will reference visus.group.config)
-python  ./examples/chess/tracker.py init
+   # add the dashboard json to httpd so it can be served
+   rm -f /var/www/html/${NSDF_GROUP}.json
+   ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_GROUP}.json
+}
 
-# add the dashboard json to httpd so it can be served
-ln -s ${NSDF_CONVERT_DIR}/dashboards.json /var/www/html/${NSDF_GROUP}.json
-
-# create a job directory or link to an existing one; this is where the tracker will pull local JSON files
-mkdir -p ${NSDF_CONVERT_DIR}/jobs
-# ln -s /link/to/existing/json/directory ${NSDF_CONVERT_DIR}/jobs
+InitTracker
 
 # check httpd is serving json dashboards and dataset list
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/${NSDF_GROUP}.json"
@@ -114,11 +112,6 @@ Someone, will run conversions later:
 ```bash
 cp "./examples/chess/json/image-stack-1.json" /mnt/data1/nsdf/workflow/nsdf-group/jobs/
 ```
-
-
-
-
-
 
 
 # (BROKEN) Run Tracker Using crontab 

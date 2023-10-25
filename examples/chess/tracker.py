@@ -50,6 +50,11 @@ class Tracker:
 
 		GenerateModVisusConfig(visus_config, self.group_name, visus_group_config,converted=[])
 		GenerateDashboardConfig(dashboards_json, self.group_name)
+
+		# create job directory
+		job_dir=os.path.join(self.convert_dir,"jobs")
+		os.makedirs(job_dir,exist_ok=True)
+
 		logger.info(f"Tracker init done")
 
 	# convertBySpecs
@@ -128,7 +133,7 @@ class Tracker:
 				with lock.acquire(timeout=1):
 					# We got the lock. That means conversion is no longer running and failed.
 					# We don't want to see this entry again, so mark it as failed and then log the failure.
-					error_msg=f"got the filelock {lock_filename}"
+					error_msg=f"got the filelock[{lock_filename}]"
 					db.markDone(row, error_msg=error_msg)
 					logger.info(f"Conversion record_id={record_id} probably failed error_msg={error_msg}")
 			except filelock.Timeout:
