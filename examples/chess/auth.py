@@ -41,8 +41,8 @@ class LoginHandler(RequestHandler):
 
 	def post(self):
 		self.ad = easyad.EasyAD({
-			'AD_SERVER': os.environ.get('AD_SERVER', None),
-			'AD_DOMAIN': os.environ.get('AD_DOMAIN', None)
+			'AD_SERVER': os.environ["AD_SERVER"],
+			'AD_DOMAIN': os.environ["AD_DOMAIN"]
 		})
 		username = self.get_argument("username", "")
 		password = self.get_argument("password", "")
