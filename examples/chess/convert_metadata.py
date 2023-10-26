@@ -29,7 +29,7 @@ def LoadMetadataFromFile(filename):
 # ///////////////////////////////////////////////////////////////////
 def LoadMetadataFromChess(query=None):
 
-	uri=chessdata_uri=os.environ.get("NSDF_CONVERT_CHESSDATA_URI",None)
+	uri=chessdata_uri=os.environ["NSDF_CONVERT_CHESSDATA_URI"]
 	import chessdata 
 	records = chessdata.query(query,url=uri) 
 	logger.info(f"Read CHESS metadata from uri={uri} CHESS query={query}] #records={len(records)}")

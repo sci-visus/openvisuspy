@@ -2,6 +2,7 @@
    "name":"image-stack-1",
    "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/18/nf/nf_*.tif",
    "metadata": [
+      {"type": "chess-metadata", "query": {"_id": "65032a84d2f7654ee374db59"} },
       {"type":"file","path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.json"},
       {"type":"file","path":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/id3a-rams2_tomo_scan_layers-retiga-ti-2-exsitu.par"}
    ]

@@ -7,26 +7,12 @@ import logging
 logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_filename, converted):
+def AddGroupToModVisus(visus_config, group_name, visus_group_config):
 
-	logger.info(f"Generating modvisus config modvisus_config_filename={modvisus_config_filename} group_name={group_name} modvisus_group_filename={modvisus_group_filename}")
-
-	# save the include
-	v=[]
-	for row in converted:
-		record_id, name, dst = row.get("id",-1),row["name"],row["dst"]
-		v.append(f"""<dataset name='{group_name}/{name}' url='{dst}' group='{group_name}' convert_id='{record_id}' />""" )
-
-	body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
-	SaveFile(modvisus_group_filename,body)
-
-	# make a backup copy of root visus.config
-	if False:
-		timestamp=str(datetime.now().date()) + '_' + str(datetime.now().time()).replace(':', '.')
-		shutil.copy(modvisus_config_filename,modvisus_config_filename+f".{timestamp}")
+	logger.info(f"visus_config={visus_config} group_name={group_name} visus_group_config={visus_group_config}")
 
 	# Open the file and read the contents 
-	d=LoadXML(modvisus_config_filename)
+	d=LoadXML(visus_config)
 
 	datasets=d["visus"]["datasets"]
 	
@@ -39,10 +25,22 @@ def GenerateModVisusConfig(modvisus_config_filename, group_name, modvisus_group_
 	datasets["group"]=[it for it in datasets["group"] if it["@name"]!=group_name]
 	datasets["group"].append({
 		'@name': group_name,
-		'include': {'@url': modvisus_group_filename}
+		'include': {'@url': visus_group_config}
 	})
 
-	SaveXML(modvisus_config_filename, d)
+	SaveXML(visus_config, d)
+
+
+# ///////////////////////////////////////////////////////////////////
+def GenerateVisusGroupConfig(group_name, visus_group_config, converted):
+	logger.info(f"group_name={group_name} visus_group_config={visus_group_config}")
+	v=[]
+	v.append(f"<!-- file automatically generated {str(datetime.now())} -->")
+	for row in converted:
+		record_id, name, dst = row.get("id",-1),row["name"],row["dst"]
+		v.append(f"""<dataset name='{group_name}/{name}' url='{dst}' group='{group_name}' convert_id='{record_id}' />""" )
+	v.append("")
+	SaveFile(visus_group_config,"\n".join(v))
 
 
 # ///////////////////////////////////////////////////////////////////
@@ -50,10 +48,12 @@ def GenerateDashboardConfig(filename, group_name, add_specs=None):
 	
 	logger.info(f"Generating dashboards config {filename}")
 
+	config={}
 	if os.path.isfile(filename):
 		config=LoadJSON(filename)
-	else:
-		config={"datasets": []}
+		
+	if not "datasets" in config:
+		config["datasets"]=[]
 
 	# add an item to the config
 	if add_specs is not None:

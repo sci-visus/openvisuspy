@@ -13,22 +13,25 @@ class ConvertDb:
 	def __init__(self, db_filename):
 		self.conn = sqlite3.connect(db_filename)
 		self.conn.row_factory = sqlite3.Row
+
+	# createDb
+	def createDb(self):
 		self.conn.execute("""
-		CREATE TABLE IF NOT EXISTS datasets (
-				id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-				name TEXT NOT NULL,
-				src TEXT NOT NULL,
-				dst TEXT NOT NULL,
-				compression TEXT,
-				arco TEXT,
-				metadata TEXT,
+		CREATE TABLE datasets (
+				id               INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+				name             TEXT NOT NULL,
+				src              TEXT NOT NULL,
+				dst              TEXT NOT NULL,
+				compression      TEXT NOT NULL,
+				arco             TEXT NOT NULL,
+				metadata         TEXT,
 				conversion_start timestamp,
 				conversion_end   timestamp,
 				error_msg        TEXT
 		)
 		""")
 		self.conn.commit()
-
+		
 	# close
 	def close(self):
 		self.conn.close()
@@ -47,9 +50,9 @@ class ConvertDb:
 		return self.toDict(data.fetchone())
 
 	# pushPending
-	def pushPending(self, name, src, dst, compression="zip", arco="8mb", metadata=[]):
+	def pushPending(self, specs):
 		self.conn.executemany("INSERT INTO datasets (name, src, dst, compression, arco, metadata) values(?,?,?,?,?,?)",
-				[(name, src, dst, compression, arco, json.dumps(metadata))])
+				[(specs["name"], specs["src"], specs["dst"], specs["compression"], specs["arco"], json.dumps(specs["metadata"]))])
 		self.conn.commit()
 
 	# popPending

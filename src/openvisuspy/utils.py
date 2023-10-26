@@ -29,8 +29,9 @@ def Touch(filename):
 
 # ///////////////////////////////////////////////////////////////////
 def LoadJSON(filename):
-		with open(filename,"rt") as f:
-			return json.load(f)	
+	with open(filename,"rt") as f:
+		body=f.read()
+	return json.loads(body) if body else {}	
 
 # ///////////////////////////////////////////////////////////////////
 def SaveJSON(filename,d):

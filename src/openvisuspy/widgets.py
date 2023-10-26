@@ -386,15 +386,16 @@ class Widgets:
 			if url.startswith("http"):
 				username = os.environ.get("MODVISUS_USERNAME", "")
 				password = os.environ.get("MODVISUS_PASSWORD", "")
-				if username and password:
-					auth = HTTPBasicAuth(username, password) if username else None
-				else:
-					auth = None
+				auth = None
+				if username and password: auth = HTTPBasicAuth(username, password) if username else None
 				response = requests.get(url, auth=auth)
-				value = response.json()
-			# JSON local file
+				body = response.body.decode('utf-8') 
 			else:
-				value = json.load(open(url, "r"))
+				with open(url, "r") as f: body=f.read()
+			value = json.loads(body) if body else {}
+
+		if not "datasets" in value:
+			value["datasets"]=[]
 
 		assert(isinstance(value,dict))
 		self.config = value

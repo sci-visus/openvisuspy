@@ -2,13 +2,13 @@
 
 Directories
 - `/mnt/data1/nsdf/`            official nsdf directory on the entrypoint
+- `/mnt/data1/nsdf/datasets`    some Visus datasets 
 - `/mnt/data1/nsdf/miniforge3`  needed to get a recent version of Python (3.10)
 - `/mnt/data1/nsdf/OpenVisus`   binaries used by httpd
 - `/mnt/data1/nsdf/openvisuspy` directory for inline editing of code (vscode open folder)
 - `/mnt/data1/nsdf/examples`    some data needed for conversion
 - `/mnt/data1/nsdf/workflow`    all the convert-workflow generated data (symbolic linked to .workflow)
 - `/mnt/data1/nsdf/visus-cache` openvisus cache if needed
-
 
 # Setup Conda env
 
@@ -34,6 +34,9 @@ conda activate nsdf-env
 mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock
 python -m pip install OpenVisusNoGui
 python -m pip install easyad
+
+
+# see /mnt/data1/nsdf/miniforge3/envs/nsdf-env/lib/python3.10/site-packages/chessdata/__init__.py  line 49 if you need to disable `verify=False`
 python -m pip install chessdata-pyclient
 
 # for curl tests
@@ -49,132 +52,83 @@ conda env config vars set PYTHONPATH="${PWD}/src"
 # httpd root doc directory
 conda env config vars set WWW="/var/www/html"
 
+#  how to get data from the NSDF entrypoint
+conda env config vars set REMOTE_URL_TEMPLATE="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset={group}/{name}&cached=arco"
+
+# (NEEDED by `auth.py`) for active directory CHESS authentication 
+conda env config vars set AD_SERVER="ldap.classe.cornell.edu"
+conda env config vars set AD_DOMAIN="CLASSE.CORNELL.EDU"
+
+   # avoid problems with localhost (bokeh bug!)
+conda env config vars set BOKEH_RESOURCES="cdn"
+
+# to access chess metadata system
+conda env config vars set NSDF_CONVERT_CHESSDATA_URI="https://chessdata.classe.cornell.edu:8244"
+
+# otherwise CHESS metadata queries will not work
+conda env config vars set REQUESTS_CA_BUNDLE="/etc/pki/tls/certs/nsdf01_classe_cornell_edu.pem"
+
 # check all variables
 conda env config vars list 
 ```
 
 # Run Workflow 
 
-In the first terminal, setup tracker:
+In the first terminal, init the tracker:
+
+```bash
+
+conda activate nsdf-env
+source ./examples/chess/workflow.sh 
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache ${USER}
+
+# init
+NSDF_GROUP="nsdf-group"
+init_tracker "/mnt/data1/nsdf/workflow/${NSDF_GROUP}"
+
+# run loop (convert-dir job-glob-expr)
+python ./examples/chess/tracker.py run-loop --convert-dir "/mnt/data1/nsdf/workflow/${NSDF_GROUP}" --jobs "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/*.json"
+```
+
+In a second terminal, setup the dashboards
 
 ```bash
 
 # use the env of the previous section
-source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
+conda activate nsdf-env
+source ./examples/chess/workflow.sh 
 
-# (NEEDED by tracker.py) name of the group 
-export NSDF_GROUP=nsdf-group
+# run dashboards args: json-file bokeh-port
+NSDF_GROUP="nsdf-group"
+run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json 5007
 
-# (NEEDED by tracker.py) where to store converted data, db, logs, etc 
-export NSDF_CONVERT_DIR=/mnt/data1/nsdf/workflow/${NSDF_GROUP}
-
-#  (NEEDED by tracker.py) how to get data from the NSDF entrypoint
-export REMOTE_URL_TEMPLATE="https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset={group}/{name}&cached=arco"
-
-# (OPTIONAL) create screen session
-for it in $(screen -ls | grep tracker-${NSDF_GROUP} | awk '{print $1}'); do  screen -S ${it} -X kill; done
-screen -S tracker-${NSDF_GROUP}
-
- ////////////////////////////////////////////////////////////////////////////////
-function RemoveAllGroupDataAndInitTracker() {
-
-   # DANGEROUS !!!, it removes all old data
-   rm   -Rf ${NSDF_CONVERT_DIR}/*
-   mkdir -p ${NSDF_CONVERT_DIR}
-
-   # create a symbolic link to the master visus.config
-   ln -s /mnt/data1/nsdf/OpenVisus/visus.config ${NSDF_CONVERT_DIR}/visus.config 
-
-   # create logs, db, group visus config, dashboard config etc.
-   python  ./examples/chess/tracker.py init
-
-   # add the dashboard json to Apache httpd so it can be served (for dashboards)
-   rm -f ${WWW}/${NSDF_GROUP}.json
-   ln -s ${NSDF_CONVERT_DIR}/dashboards.json ${WWW}/${NSDF_GROUP}.json
-}
-
-RemoveAllGroupDataAndInitTracker
-
-# run single conversion for debugging
-# kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
-# python  ./examples/chess/tracker.py "./examples/chess/json/image-stack-1.json"
-# RemoveAllGroupDataAndInitTracker
-
-# enter the tracker loop
-kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
-python ./examples/chess/tracker.py loop
+# edit configuration file, and add the group app for the bokeh port
+code /etc/nginx/nginx.conf
+sudo /usr/bin/systemctl restart nginx
 ```
 
-(OPTIONAL) Check if httpd and nginx are working:
+
+Run some jobs:
+
+```bash
+cp ./examples/chess/json/* /mnt/data1/nsdf/workflow/nsdf-group/jobs/
+
+# From a browser open the following URL (change group name as needed)
+# https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
+```
+
+# [DEBUG] Check if httpd and nginx are working
 
 ```bash
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
 # check httpd is serving json dashboards and dataset list
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/${NSDF_GROUP}.json"
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/nsdf-group.json"
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu:8443/mod_visus?action=list"
 
 # [NGINX -> HTTPD] check JSON dashboards files and mod_visus are working
-curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/${NSDF_GROUP}.json"
+curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/nsdf-group.json"
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
-```
-
-In the second terminal, setup the dashboards
-
-```bash
-
-# use the env of the previous section
-source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
-
-# the unique group name
-export NSDF_GROUP=nsdf-group
-
-# (OPTIONAL) create screeen session
-for it in $(screen -ls | grep dashboards-${NSDF_GROUP} | awk '{print $1}'); do  screen -S ${it} -X kill ; done
-screen -S dashboards-${NSDF_GROUP}
-
-# what will be the dashboards config file (empty at the beginning)
-export NSDF_DASHBOARDS=/mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json
-
-# it should be `{"datasets": []}`
-more ${NSDF_DASHBOARDS}
-
-# (NEEDED by `auth.py`) for active directory CHESS authentication 
-export AD_SERVER="ldap.classe.cornell.edu"
-export AD_DOMAIN="CLASSE.CORNELL.EDU"
-
-# avoid problems with localhost (bokeh bug!)
-export BOKEH_RESOURCES="cdn"
-
-# note: this must be the same of nginx
-export BOKEH_PORT=5007
-
-# edit configuration file, and **add the group app for the BOKEH_PORT**
-code /etc/nginx/nginx.conf
-
-# restart NGINX to get the new bokeh app exposed
-sudo /usr/bin/systemctl restart nginx
-
-# run dashboards
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${NSDF_DASHBOARDS/.json/.log}
-python -m bokeh serve examples/dashboards/app \
-   --port ${BOKEH_PORT} \
-   --use-xheaders \
-   --allow-websocket-origin='nsdf01.classe.cornell.edu' \
-   --dev \
-   --auth-module=./examples/chess/auth.py \
-   --args "${NSDF_DASHBOARDS}" \
-   --prefer local
-
-# https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
-```
-
-For debugging, copy a job into the right directory so that the loop will do the conversion:
-
-```bash
-cp "./examples/chess/json/image-stack-1.json" /mnt/data1/nsdf/workflow/nsdf-group/jobs/
-
-# soon or later the new dataset should be in the dashboards
 ```
 
 
@@ -187,7 +141,7 @@ cp "./examples/chess/json/image-stack-1.json" /mnt/data1/nsdf/workflow/nsdf-grou
 crontab -l
 
 # add / remove cronjob line 
-# * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/tracker.sh convert /mnt/data1/nsdf/workflow/nsdf-group
+# * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/workflow.sh convert /mnt/data1/nsdf/workflow/nsdf-group
 crontab -e
 ```
 
@@ -209,8 +163,6 @@ sudo systemctl stop chess-dashboard
 
 sudo systemctl start chess-dashboard
 
-# Check logs:
-tail -f ${NSDF_CONVERT_DIR}/dashboards.log 
 ```
 
 
@@ -343,12 +295,14 @@ python3 -m OpenVisus copy-blocks --num-threads 4 --num-read-per-request 16 --ver
 unset VISUS_DISABLE_WRITE_LOCK
 ```
 
-# CHESS uppdate mod_visus
+# [DEBUG] CHESS uppdate and debug mod_visus
 
 - To enable multi-group security see [https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security](https://github.com/sci-visus/OpenVisus/tree/master/Docker/mod_visus/group-security
 - See OpenVisus `Docker/group-security`` for details about how to add users
 
 ```bash
+
+source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
 
 # edit httpd file
 code /etc/httpd/conf.d/openvisus.conf
@@ -359,12 +313,19 @@ code /etc/httpd/conf.d/ssl.conf
 # using official CHESS python
 which python3.6
 python3.6 -m pip install --upgrade OpenVisusNoGui --target /mnt/data1/nsdf
-ls -alF /mnt/data1/nsdf/OpenVisus/bin/libmod_visus.so
 
+# check if it works (NOTE libmodvisus will change sys.path so that it can do `import OpenVisuss`)
+PYTHONPATH=/mnt/data1/nsdf python3.6 -c "import OpenVisus as ov"
 PYTHONPATH=/mnt/data1/nsdf python3.6 -m OpenVisus dirname
+
+# add `os.environ["VISUS_CPP_VERBOSE"]="1"` to see OpenVisus log (going to be resolved from 2.2.126)
+# code /mnt/data1/nsdf/OpenVisus/__init__.py
 
 # Restart the server
 sudo /usr/bin/systemctl restart httpd
+
+# Inspect apache logs
+tail -f  /var/log/httpd/*
 
 # check if it works
 curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.cornell.edu/mod_visus?action=list"
@@ -375,10 +336,25 @@ curl -vvvv --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.cl
 # If you want to know more about apache status:
 apachectl -S
 
-# Inspect apache logs
-tail -f  /var/log/httpd/*.log
+
 ```
 
+To debug if `visus.config` is ok:
+
+```bash
+PYTHONPATH=/mnt/data1/nsdf python3.6
+
+import os,sys
+os.environ["VISUS_CPP_VERBOSE"]="1"
+import OpenVisus as ov
+config=ov.ConfigFile()
+config.load("/mnt/data1/nsdf/OpenVisus/visus.config")
+modvisus = ov.ModVisus()
+modvisus.configureDatasets(config)
+server=ov.NetServer(10000, modvisus)
+server.runInThisThread()
+
+```
 
 # CHESS Setup Kerberos for Metadata
 
