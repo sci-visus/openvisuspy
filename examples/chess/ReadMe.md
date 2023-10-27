@@ -10,6 +10,37 @@ Directories
 - `/mnt/data1/nsdf/workflow`    all the convert-workflow generated data (symbolic linked to .workflow)
 - `/mnt/data1/nsdf/visus-cache` openvisus cache if needed
 
+# DONE
+
+Disabled cronjob. ref Dan Riley
+
+- *There's an issue with gmail rejecting cron jobs delivery reports from our systems that I'm working on finding a workaround.  Until then, if you have a non-gmail address we could use as your forwarding address, that would simplify things.  If not, please don't create any more every-minute cron jobs, as they're all generating mail that's ending up bouncing to postmaster.*
+
+Overall picture
+- see chess-diagram
+- Updated (and broke) httpd OpenVisus. FIxed it with all the paths
+- now nginx acts as a proxy for (*) bokeh app (*) apache mod visus
+- two security: apache passowrds and active directory (Bokeh auth module)
+
+- Active Directory
+-   now a BOKEH secret for each app
+-   TODO: expiration? I think they will last for some days
+-   Fixed problems with bokeh --prefix (not working with AD; Open Bug). SOlved using proxy instuction
+-   login/logout was not working for NGINX redirect problems/
+
+Metatada system:
+- query should be ok now?
+- fixed requests problem related to certificatates
+
+Groups
+- We can have parallel workflow running easily
+- Zero trust, all separated
+
+
+Misc:
+- auto init procedure (see workflow.sh)
+
+
 # Setup Conda env
 
 ```bash
@@ -34,7 +65,6 @@ conda activate nsdf-env
 mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock
 python -m pip install OpenVisusNoGui
 python -m pip install easyad
-
 
 # see /mnt/data1/nsdf/miniforge3/envs/nsdf-env/lib/python3.10/site-packages/chessdata/__init__.py  line 49 if you need to disable `verify=False`
 python -m pip install chessdata-pyclient
@@ -96,25 +126,33 @@ In a second terminal, setup the dashboards
 
 # use the env of the previous section
 conda activate nsdf-env
-source ./examples/chess/workflow.sh 
+
 
 # run dashboards args: json-file bokeh-port
+source ./examples/chess/workflow.sh 
 NSDF_GROUP="nsdf-group"
-run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json 5007
+BOKEH_PORT=5007
+run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json ${BOKEH_PORT}
 
 # edit configuration file, and add the group app for the bokeh port
 code /etc/nginx/nginx.conf
 sudo /usr/bin/systemctl restart nginx
+
+# From a browser open the following URL (change group name as needed)
+# https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
+# https://nsdf01.classe.cornell.edu/dashboards/dry-run/app
 ```
+
+
 
 
 Run some jobs:
 
 ```bash
-cp ./examples/chess/json/* /mnt/data1/nsdf/workflow/nsdf-group/jobs/
+NSDF_GROUP="nsdf-group"
+cp ./examples/chess/json/* /mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/
 
-# From a browser open the following URL (change group name as needed)
-# https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
+
 ```
 
 # [DEBUG] Check if httpd and nginx are working

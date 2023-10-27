@@ -53,6 +53,8 @@ function run_dashboards() {
    # where to store the logs
    export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${dashboards_config/.json/.log}
 
+   BOKEH_COOKIE_SECRET=$(echo $RANDOM | md5sum | head -c 32)
+
    python -m bokeh serve examples/dashboards/app \
       --port ${bokeh_port} \
       --use-xheaders \
