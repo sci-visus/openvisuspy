@@ -297,7 +297,7 @@ EOF
 source ./setup.sh
 
 curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/nsdf-group.json"
-curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=nsdf-group/example-image-stack&cached=arco"
+curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=nsdf-group/nexus&cached=arco"
 
 # this is for local debugging access
 python -m bokeh serve examples/dashboards/app --dev --args "${WWW}/nsdf-group.json" --prefer local
@@ -309,6 +309,15 @@ python3 -m bokeh serve "examples/dashboards/app" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port 10334 \
    --args https://nsdf01.classe.cornell.edu/nsdf-group.json
+
+# in case you have a local json
+python3 -m bokeh serve "examples/dashboards/app" \
+   --allow-websocket-origin="*" \
+   --address "$(curl -s checkip.amazonaws.com)" \
+   --port 10334 \
+   --args ./test-group-bitmask.json \
+   --prefer local
+
 ```
 
 # Copy all blocks (must be binary compatible)
