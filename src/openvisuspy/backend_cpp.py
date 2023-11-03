@@ -198,7 +198,8 @@ class Dataset (BaseDataset):
 
 		# handle security
 		if all([
-			"mod_visus" in url,
+				url.startswith("http"),
+				"mod_visus" in url,
 			  "MODVISUS_USERNAME" in os.environ,
 				"MODVISUS_PASSWORD" in os.environ,
 				"~auth_username" not in url,

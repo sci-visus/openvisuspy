@@ -2,55 +2,65 @@
 import os,sys,shutil
 from datetime import datetime
 from openvisuspy import SaveFile,LoadXML,SaveXML, LoadJSON,SaveJSON
+import logging
 
+logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-def GenerateModVisusConfig(db, filename, group_name, group_filename):
+def AddGroupToModVisus(visus_config, group_name, visus_group_config):
 
-	# save the include
-	v=[f"""<dataset name='{row["group"]}/{row["name"]}' url='{row["dst"]}' group='{row["group"]}' convert_id='{row["id"]}' />""" for row in db.getConverted()]
-	body="\n".join([f"<!-- file automatically generated {str(datetime.now())} -->"] + v + [""])
-	SaveFile(group_filename,body)
-
-	# make a backup copy of root visus.config
-	timestamp=str(datetime.now().date()) + '_' + str(datetime.now().time()).replace(':', '.')
-	shutil.copy(filename,filename+f".{timestamp}")
+	logger.info(f"visus_config={visus_config} group_name={group_name} visus_group_config={visus_group_config}")
 
 	# Open the file and read the contents 
-	d=LoadXML(filename)
+	d=LoadXML(visus_config)
 
 	datasets=d["visus"]["datasets"]
-	if not "group" in datasets:
+	
+	if not "group" in datasets: 
 		datasets["group"]=[]
-
+	
 	if isinstance(datasets["group"],dict):
 		datasets["group"]=[datasets["group"]]
 
 	datasets["group"]=[it for it in datasets["group"] if it["@name"]!=group_name]
-
 	datasets["group"].append({
 		'@name': group_name,
-		'include': {'@url': group_filename}
+		'include': {'@url': visus_group_config}
 	})
 
-	SaveXML(filename, d)
+	SaveXML(visus_config, d)
 
 
 # ///////////////////////////////////////////////////////////////////
-def GenerateDashboardConfig(filename, specs=None):
+def GenerateVisusGroupConfig(group_name, visus_group_config, converted):
+	logger.info(f"group_name={group_name} visus_group_config={visus_group_config}")
+	v=[]
+	v.append(f"<!-- file automatically generated {str(datetime.now())} -->")
+	for row in converted:
+		record_id, name, dst = row.get("id",-1),row["name"],row["dst"]
+		v.append(f"""<dataset name='{group_name}/{name}' url='{dst}' group='{group_name}' convert_id='{record_id}' />""" )
+	v.append("")
+	SaveFile(visus_group_config,"\n".join(v))
 
+
+# ///////////////////////////////////////////////////////////////////
+def GenerateDashboardConfig(filename, group_name, add_specs=None):
+	
+	logger.info(f"Generating dashboards config {filename}")
+
+	config={}
 	if os.path.isfile(filename):
 		config=LoadJSON(filename)
-	else:
-		config={"datasets": []}
+		
+	if not "datasets" in config:
+		config["datasets"]=[]
 
 	# add an item to the config
-	if specs is not None:
-		group_name     = specs["group"]
-		dataset_name   = specs["name"]
-		local_url      = specs["dst"]
-		metadata       = specs["metadata"]
-		remote_url     = specs["remote_url"]
+	if add_specs is not None:
+		dataset_name   = add_specs["name"]
+		local_url      = add_specs["dst"]
+		metadata       = add_specs["metadata"]
+		remote_url     = add_specs["remote_url"]
 
 		config["datasets"].append({
 			"name" : f"{group_name}/{dataset_name}",
@@ -63,7 +73,7 @@ def GenerateDashboardConfig(filename, specs=None):
 			"metadata" : metadata + [{
 				'type':'json-object', 
 				'filename': 'generated-nsdf-convert.json',  
-				'object' : {k:str(v) for k,v in specs.items() if k!="metadata"}
+				'object' : {k:str(v) for k,v in add_specs.items() if k!="metadata"}
 			}]
 		})
 

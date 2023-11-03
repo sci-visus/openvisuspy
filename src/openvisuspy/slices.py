@@ -24,16 +24,15 @@ class Slices(Widgets):
 
 		# view_mode
 		self.widgets.view_mode = Tabs(tabs=[
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="Explore Data"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="Probe"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="2"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="2-Linked"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="4"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="4-Linked"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="Explore Data", name="1"), # equivalent to 1 view
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="Probe"       , name="probe"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="2"           , name="2"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="2-Linked"    , name="2-linked"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="4"           , name="4"),
+			TabPanel(child=Column(sizing_mode="stretch_both"), title="4-Linked"    , name="4-linked"),
 		],
 			sizing_mode="stretch_both")
-		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(
-			self.widgets.view_mode.tabs[new].title))
+		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(self.widgets.view_mode.tabs[new].name))
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -70,13 +69,11 @@ class Slices(Widgets):
 
 		# this will fill out the layout
 		self.setViewMode(self.getViewMode())
-
 		return self.widgets.view_mode
 
 	# getViewMode
 	def getViewMode(self):
-		tab = self.widgets.view_mode.tabs[self.widgets.view_mode.active]
-		return tab.title
+		return self.widgets.view_mode.tabs[self.widgets.view_mode.active].name
 
 	# createChild
 	def createChild(self, options):
@@ -87,17 +84,20 @@ class Slices(Widgets):
 
 	# setViewMode
 	def setViewMode(self, value):
+		value=value.lower().strip()
 		logger.info(f"[{self.id}] value={value}")
-
 		tabs = self.widgets.view_mode.tabs
-		inner = None
+
+		# look for a tab with the same name
+		inner_col = None
 		for I, tab in enumerate(tabs):
-			if tab.title == value:
+			if tab.name == value:
 				self.widgets.view_mode.active = I
-				inner = tab.child
+				inner_col = tab.child
 				break
 
-		if not inner:
+		# should not happen
+		if not inner_col:
 			return
 
 		config = self.getConfig()
@@ -120,36 +120,35 @@ class Slices(Widgets):
 
 		options = self.slice_show_options
 
-
-		value=value.lower()
-		if value == "1" or value == "explore data":
+		if value=="1":
 			self.children = [
 				self.createChild(RemoveOptions(options, ["datasets", "colormapper_type", "colormapper-type"]))]
 			central = Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
-		elif "Probe" in value:
+		elif value=="probe":
 			child = self.createChild(RemoveOptions(options, ["datasets", "colormapper_type", "colormapper-type"]))
 			child.setProbeVisible(True)
 			self.children = [child]
 			central = Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
-
 		elif value == "2" or value == "2-linked":
 			self.children = [self.createChild(options) for I in range(2)]
 			central = Row(children=[child.getMainLayout() for child in self.children], sizing_mode="stretch_both")
-
+			if "linked" in value:
+				self.children[0].setLinked(True)
+				
 		elif value == "4" or value == "4-linked":
 			self.children = [self.createChild(options) for I in range(4)]
-			central = Grid(children=[child.getMainLayout() for child in self.children], nrows=2, ncols=2,
-						   sizing_mode="stretch_both")
+			central = Grid(children=[child.getMainLayout() for child in self.children], nrows=2, ncols=2,sizing_mode="stretch_both")
+
+			if "linked" in value:
+				self.children[0].setLinked(True)
 
 		else:
-			raise Exception("internal error")
+			raise Exception(f"problem here with setViewMode({value})")
+			return 
 
-		if "linked" in value:
-			self.children[0].setLinked(True)
-
-		inner.children = [
+		inner_col.children = [
 			Row(
 				Column(
 					self.first_row_layout,

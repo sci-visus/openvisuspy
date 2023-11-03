@@ -1,0 +1,8 @@
+{
+   "name":"nexus-reconstructed",
+   "src":"/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced/reconstructed_data.nxs",
+   "metadata": [
+      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/retiga.yaml"},
+      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/map.yaml" },
+      {"type": "file", "path":"/nfs/chess/user/rv43/Tomo_Sven/shanks-3731-a/ti-2-exsitu/pipeline.yaml"}
+   ]}

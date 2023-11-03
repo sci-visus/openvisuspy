@@ -28,13 +28,8 @@ def LoadMetadataFromFile(filename):
 
 # ///////////////////////////////////////////////////////////////////
 def LoadMetadataFromChess(query=None):
-	"""
-	python -m pip install chessdata-pyclient
-	# modified /mnt/data1/nsdf/miniforge3/envs/my-env/lib/python3.9/site-packages/chessdata/__init__.py added at line 49 `verify=False`
-	# otherwise I need a certificate `export REQUESTS_CA_BUNDLE=`
-	"""
 
-	uri=chessdata_uri=os.environ.get("NSDF_CONVERT_CHESSDATA_URI",None)
+	uri=chessdata_uri=os.environ["NSDF_CONVERT_CHESSDATA_URI"]
 	import chessdata 
 	records = chessdata.query(query,url=uri) 
 	logger.info(f"Read CHESS metadata from uri={uri} CHESS query={query}] #records={len(records)}")
@@ -47,9 +42,15 @@ def LoadMetadataFromChess(query=None):
 	}
 
 # //////////////////////////////////////////////////////////
-def LoadMetadata(d):
+def LoadMetadata(value):
+
+	# can be a JSON string
+	if isinstance(value,str):
+		value=json.loads(value) if len(value) else {}
+
+	assert(isinstance(value,list))
 	ret=[]
-	for it in d:
+	for it in value:
 		type=it['type']
 		if type=="file":
 			filename=it['path']
@@ -57,6 +58,7 @@ def LoadMetadata(d):
 				ret.append(LoadMetadataFromFile(filename))
 			except Exception as ex:
 				logger.info(f"LoadMetadataFromFile filename={filename} failed {ex}. Skipping it")
+
 		elif type=="chess-metadata":
 			query=json.dumps(it['query'])
 			try:

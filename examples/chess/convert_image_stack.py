@@ -63,7 +63,7 @@ def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 
 	if compression and compression!="raw":
 		t1 = time.time()
-		logger.info(f"Compressing dataset to {compression}")
+		logger.info(f"Compressing dataset to {compression}...")
 		db.compressDataset([compression])
 		logger.info(f"Compressed dataset to {compression} in {time.time()-t1} seconds")
 

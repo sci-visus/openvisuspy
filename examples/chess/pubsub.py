@@ -1,26 +1,36 @@
+import logging
+import os
+import sys
+import time
+import argparse
+import shutil
+import json
 
-# # python3 -m pip install pika
-import os,sys, json, argparse
-import pika
+import urllib3
+urllib3.disable_warnings()
 
-import ssl
+logger = logging.getLogger("nsdf-convert")
 
-# ////////////////////////////////////////////////////////////////
-if __name__=="__main__":
+
+# ////////////////////////////////////////////////
+def Main(args):
+
 	"""
-	python ./examples/chess/pubsub.py --action pub   --queue my-queue --message '{"key1":"value1","key2":"value2"}'
-	python ./examples/chess/pubsub.py --action sub   --queue my-queue
-	python ./examples/chess/pubsub.py --action flush --queue my-queue
-	"""
+		echo '{"key1":"value1","key2":"value2"}' > message.json
+		python ./examples/chess/main.py pub   --queue test-queue --message message.json
+		python ./examples/chess/main.py sub   --queue test-queue
+		python ./examples/chess/main.py flush --queue test-queue
+		"""
 
-	NSDF_CONVERT_PUBSUB_URL=os.environ["NSDF_CONVERT_PUBSUB_URL"]
 	parser = argparse.ArgumentParser(description="pubsub tutorial")
+	parser.add_argument("--url", type=str, help="action name", required=True)	
 	parser.add_argument("--action", type=str, help="action name", required=True)	
 	parser.add_argument("--queue", type=str, help="Queue name", required=True)	
 	parser.add_argument("--message", type=str, help="Message to send", default="", required=False)	
 	args = parser.parse_args()
 
-	params = pika.URLParameters(NSDF_CONVERT_PUBSUB_URL)
+	import pika
+	params = pika.URLParameters(args.url)
 	connection = pika.BlockingConnection(params)
 	channel = connection.channel()
 	channel.queue_declare(queue=args.queue)
@@ -50,3 +60,9 @@ if __name__=="__main__":
 		print(f"Flushed {N} messages")
 
 	connection.close()
+
+
+# ///////////////////////////////////////////////////////////////////
+if __name__ == "__main__":
+	Main(sys.argv)
+	sys.exit(0)

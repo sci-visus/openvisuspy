@@ -5,6 +5,8 @@ import OpenVisus as ov
 # python3 -m pip install nexusformat
 from nexusformat.nexus import NXfield, NXlinkfield,NXdata,nxsave,nxload
 from nexusformat.nexus.tree import NX_CONFIG 
+
+import numpy as np
 NX_CONFIG['memory']=32000 # alllow data to be 32GB
 
 logger = logging.getLogger("nsdf-convert")
@@ -100,7 +102,7 @@ class ConvertNexus:
 						idx_physic_box=[str(it.nxdata[0]),str(it.nxdata[-1])] + idx_physic_box
 						idx_axis=[it.nxname] +idx_axis
 					idx_axis=" ".join(idx_axis)
-					logger.info("Found axis={idx_axis} idx_physic_box={idx_physic_box}")
+					logger.info(f"Found axis={idx_axis} idx_physic_box={idx_physic_box}")
 					idx_physic_box=" ".join(idx_physic_box)
 				else:
 					idx_axis="X Y Z"
@@ -118,7 +120,7 @@ class ConvertNexus:
 				)
 
 				t1=time.time()
-				logger.info(f"Writing IDX data...")
+				logger.info(f"Writing IDX data dtype={data.dtype} shape={data.shape}...")
 				db.write(data)
 				logger.info(f"Wrote IDX data in {time.time()-t1} seconds")
 
