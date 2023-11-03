@@ -162,11 +162,7 @@ Deploy new binaries
 - **Update the `PROJECT_VERSION` inside `pyproject.toml`**
 
 ```
-export PYPI_USERNAME="scrgiorgio"
-export PYPI_PASSWORD="..."
-rm -f dist/*  
-python3 -m build .
-python3 -m twine upload --username "${PYPI_USERNAME}"  --password "${PYPI_PASSWORD}" --skip-existing "dist/*.whl" --verbose 
+./scripts/new_version.sh
 ```
 
 
