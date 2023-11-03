@@ -9,7 +9,7 @@ from openvisuspy import SetupLogger,IsPanelServe,GetBackend,Slice, Slices,cbool
 if __name__.startswith('bokeh'):
 	
 	"""
-	python -m bokeh serve examples\tutorials\run.py --dev 
+	python -m bokeh serve examples/tutorials/run.py --dev 
 	"""
 
 	logger=SetupLogger(stream=True)
@@ -21,15 +21,18 @@ if __name__.startswith('bokeh'):
 	# change as needed
 	config={
 		"datasets": [
-			{"name":"example1","url":r"C:\big\visus_datasets\chess\example-near-field\visus.idx"},
-			{"name":"example2","url":r"C:\big\visus_datasets\chess\example-near-field\visus.idx"},
+			{
+				"name":"example1",
+				"url": "http://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=arco"
+
+			}
 		]
 	}	
 
 	# bokeh widgets
 	datasets = Select(title="Dataset", options=[it["name"] for it in config["datasets"]]) 
 	palette = Select(title='Palette', options=["Greys256", "Inferno256",  "Magma256", "Plasma256", "Viridis256", "Cividis256", "Turbo256"])
-	palette_range_mode = Select(title="Range",options=["metadata","user","dynamic","dynamic-acc"], value="metadata")
+	palette_range_mode = Select(title="Range",options=["metadata","user","dynamic","dynamic-acc"], value="dynamic")
 	palette_range_vmin = TextInput(title="Min")
 	palette_range_vmax = TextInput(title="Max")	
 	colormapper_type=Select(title='ColorMap',  options=["linear","log"], value="log")

@@ -551,7 +551,7 @@ class Widgets:
 			self.setPaletteRange([vmin, vmax])
 			self.setPaletteRangeMode("dynamic")
 		else:
-			self.setPaletteRange(*palette_range)
+			self.setPaletteRange(palette_range)
 			self.setPaletteRangeMode("user")
 
 		# color mapper
@@ -705,8 +705,7 @@ class Widgets:
 		logger.info(f"[{self.id}] value={value}")
 		self.palette = value
 		self.widgets.palette.value = value
-		self.color_bar.color_mapper.palette = getattr(colorcet, value[len("colorcet."):]) if value.startswith(
-			"colorcet.") else value
+		self.color_bar.color_mapper.palette = getattr(colorcet, value[len("colorcet."):]) if value.startswith("colorcet.") else value
 		for it in self.children:
 			it.setPalette(value)
 		self.refresh()
@@ -784,17 +783,15 @@ class Widgets:
 		vmin, vmax = self.getPaletteRange()
 		self.widgets.colormapper_type.value = value
 
+		palette_for_mapper=palette
+		if palette.startswith("colorcet."):
+			palette_for_mapper=getattr(colorcet, palette[len("colorcet."):])
+
+		self.color_bar = ColorBar()  # ticker=BasicTicker(desired_num_ticks=10)
 		if value == "log":
-			self.color_bar = ColorBar()  # ticker=BasicTicker(desired_num_ticks=10)
-			self.color_bar.color_mapper = LogColorMapper(palette=palette, low=max(self.epsilon, vmin),
-														 high=max(self.epsilon, vmax))
-			self.color_bar.color_mapper.palette = self.palette
-			self.color_bar.color_mapper.low, self.color_bar.color_mapper.high = self.getPaletteRange()
+			self.color_bar.color_mapper = LogColorMapper(palette=palette_for_mapper, low=max(self.epsilon, vmin), high=max(self.epsilon, vmax))
 		else:
-			self.color_bar = ColorBar()  # ticker=BasicTicker(desired_num_ticks=10)
-			self.color_bar.color_mapper = LinearColorMapper(palette=palette, low=vmin, high=vmax)
-			self.color_bar.color_mapper.palette = self.palette
-			self.color_bar.color_mapper.low, self.color_bar.color_mapper.high = self.getPaletteRange()
+			self.color_bar.color_mapper = LinearColorMapper(palette=palette_for_mapper, low=vmin, high=vmax)
 
 		for it in self.children:
 			it.setColorMapperType(value)
