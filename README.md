@@ -162,7 +162,7 @@ Deploy new binaries
 - **Update the `PROJECT_VERSION` inside `pyproject.toml`**
 
 ```
-./scripts/new_version.sh
+./scripts/new_tag.sh
 ```
 
 
