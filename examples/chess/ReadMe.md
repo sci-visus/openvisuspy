@@ -100,6 +100,9 @@ conda env config vars set REQUESTS_CA_BUNDLE="/etc/pki/tls/certs/nsdf01_classe_c
 
 # check all variables
 conda env config vars list 
+
+# is thi needed?
+conda install ipykernel
 ```
 
 # Run Workflow 
@@ -107,17 +110,21 @@ conda env config vars list
 In the first terminal, init the tracker:
 
 ```bash
+export NSDF_GROUP="nsdf-group"
+screen -S ${NSDF_GROUP}-tracker
+echo $STY
 
 conda activate nsdf-env
 source ./examples/chess/workflow.sh 
 kinit -k -t ~/krb5_keytab -c ~/krb5_ccache ${USER}
 
 # init
-NSDF_GROUP="nsdf-group"
 init_tracker "/mnt/data1/nsdf/workflow/${NSDF_GROUP}"
 
 # run loop (convert-dir job-glob-expr)
+while [[ "1" == "1" ]] ; do
 python ./examples/chess/tracker.py run-loop --convert-dir "/mnt/data1/nsdf/workflow/${NSDF_GROUP}" --jobs "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/*.json"
+done
 ```
 
 In a second terminal, setup the dashboards
@@ -125,14 +132,26 @@ In a second terminal, setup the dashboards
 ```bash
 
 # use the env of the previous section
+export NSDF_GROUP="nsdf-group"
+screen -S ${NSDF_GROUP}-dashboards
+
 conda activate nsdf-env
 
 
-# run dashboards args: json-file bokeh-port
 source ./examples/chess/workflow.sh 
-NSDF_GROUP="nsdf-group"
-BOKEH_PORT=5007
+
+export BOKEH_PORT=5007
+while [[ "1" == "1" ]] ; do
 run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json ${BOKEH_PORT}
+done
+```
+
+In a third terminal:
+
+```
+export NSDF_GROUP="nsdf-group"
+
+conda activate nsdf-env
 
 # edit configuration file, and add the group app for the bokeh port
 code /etc/nginx/nginx.conf
@@ -140,20 +159,61 @@ sudo /usr/bin/systemctl restart nginx
 
 # From a browser open the following URL (change group name as needed)
 # https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
-# https://nsdf01.classe.cornell.edu/dashboards/dry-run/app
+
+cp ./examples/chess/json/* /mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/
 ```
 
-
-
-
-Run some jobs:
+new jobs to test
 
 ```bash
-NSDF_GROUP="nsdf-group"
-cp ./examples/chess/json/* /mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/
 
+# NEAR FIELD
+for (( I=25 ; I<=65; I++ )) ; do
+cat <<EOF >  "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/kate-nf-${I}.json"
+{
+   "name":"kate-nf-${I}",
+   "src":"/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/${I}/nf/nf_*.tif",
+   "metadata": [
+      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_nf_scan_layers-retiga-ti25nb.par"},
+      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_nf_scan_layers-retiga-ti25nb.json"}
+   ]
+}
+EOF
+done
+
+# TOMO
+for (( I=20 ; I<=24; I++ )) ; do
+cat <<EOF >  "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/kate-tomo-${I}.json"
+{
+   "name":"kate-tomo-${I}",
+   "src":"/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/${I}/nf/nf_*.tif",
+   "metadata": [
+      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_tomo_scan_layers-retiga-ti25nb.json"},
+      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_tomo_scan_layers-retiga-ti25nb.par"}
+   ]
+}
+EOF
+done
+
+# FAR FIELD
+for h5 in $(find /nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/ -iname "*.h5"); do
+NAME=kate-$(basename $h5)
+echo $h5 $NAME
+cat <<EOF >  "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/${NAME}.json"
+{
+   "name":"${NAME}",
+   "src":"${h5}",
+   "expression": "/imageseries/images",
+   "metadata": [
+      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_ff_scan_layers-dexela-ti25nb.par"},
+      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_ff_scan_layers-dexela-ti25nb.json"}
+   ]
+}
+EOF
+done 
 
 ```
+
 
 # [DEBUG] Check if httpd and nginx are working
 

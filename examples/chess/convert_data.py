@@ -7,7 +7,7 @@ from openvisuspy import LoadJSON
 logger = logging.getLogger("nsdf-convert")
 
 # ///////////////////////////////////////////////////////////////////
-def ConvertData(src, dst, arco="8mb", compression="zip"):
+def ConvertData(src, dst, arco="8mb", compression="zip", specs=None):
 
 	assert(src)
 	assert(dst)
@@ -41,9 +41,14 @@ def ConvertData(src, dst, arco="8mb", compression="zip"):
 	elif src_ext == ".npy":
 		from convert_numpy import ConvertNumPy
 		ConvertNumPy(src, dst, compression=compression, arco=arco)
+
+	elif src_ext == ".h5":
+		from convert_hdf5 import ConvertHDF5
+		expression=specs.get("expression","/imageseries/images") # how to reach the field
+		ConvertHDF5(src, dst, compression=compression, arco=arco, expression=expression)
 	
 	else:
-		raise Exception("to handle... ")
+		raise Exception(f"to handle extension {src_ext}... ")
 	
 
 

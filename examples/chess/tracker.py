@@ -81,7 +81,7 @@ class Tracker:
 		logger.info(f"""src=specs["src"] dst={specs["dst"]} arco={specs["arco"]} compression={specs["compression"]}...""")
 
 		db = ConvertDb(self.db_filename)
-		ConvertData(specs["src"], specs["dst"], arco=specs["arco"], compression=specs["compression"])
+		ConvertData(specs["src"], specs["dst"], arco=specs["arco"], compression=specs["compression"], specs=specs)
 		specs["conversion_end"]=str(datetime.now())
 		specs["remote_url"] = self.remote_url_template.format(group=self.group_name, name=dataset_name)
 
