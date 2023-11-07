@@ -201,27 +201,33 @@ class ProbeTool(Slice):
 		super().setDirection(dir)
 
 		pbox = self.getPhysicBox()
-		logger.info(f"[{self.id}] physic-box={pbox}")
+		pdim=self.getPointDim()
+		logger.info(f"[{self.id}] physic-box={pbox} pdim={pdim}")
+	
 
 		(X, Y, Z), titles = self.getLogicAxis()
 
+		X1,X2=(pbox[X][0],pbox[X][1])
+		Y1,Y2=(pbox[Y][0],pbox[Y][1])
+		Z1,Z2=(pbox[Z][0],pbox[Z][1]) if pdim==3 else (0,1)
+
 		self.slider_x_pos.title = titles[0]
-		self.slider_x_pos.start = pbox[X][0]
-		self.slider_x_pos.end = pbox[X][1]
-		self.slider_x_pos.step = (pbox[X][1] - pbox[X][0]) / 10000
-		self.slider_x_pos.value = pbox[X][0]
+		self.slider_x_pos.start = X1
+		self.slider_x_pos.end   = X2
+		self.slider_x_pos.step  = (X2 - X1) / 10000
+		self.slider_x_pos.value  = X1
 
 		self.slider_y_pos.title = titles[1]
-		self.slider_y_pos.start = pbox[Y][0]
-		self.slider_y_pos.end = pbox[Y][1]
-		self.slider_y_pos.step = (pbox[Y][1] - pbox[Y][0]) / 10000
-		self.slider_y_pos.value = pbox[Y][0]
+		self.slider_y_pos.start = Y1
+		self.slider_y_pos.end   = Y2
+		self.slider_y_pos.step  = (Y2 - Y1) / 10000
+		self.slider_y_pos.value = Y1
 
 		self.slider_z_range.title = titles[2]
-		self.slider_z_range.start = pbox[Z][0]
-		self.slider_z_range.end = pbox[Z][1]
-		self.slider_z_range.step = (pbox[Z][1] - pbox[Z][0]) / 10000
-		self.slider_z_range.value = [pbox[Z][0], pbox[Z][1]]
+		self.slider_z_range.start = Z1 
+		self.slider_z_range.end   = Z2
+		self.slider_z_range.step  = (Z2 - Z1) / 10000
+		self.slider_z_range.value = [Z1, Z2]
 
 		self.guessOffset()
 		self.recompute()
