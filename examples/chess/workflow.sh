@@ -25,7 +25,7 @@ function init_tracker() {
    mkdir -p ${convert_dir}
 
    # create emtpy files
-   touch "${convert_dir}/convert.log"
+   touch "${convert_dir}/convert.log"        
    touch "${convert_dir}/dashboards.log"
    touch "${convert_dir}/visus.group.config"
    touch "${convert_dir}/dashboards.json"

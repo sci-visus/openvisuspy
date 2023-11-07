@@ -111,6 +111,8 @@ In the first terminal, init the tracker:
 
 ```bash
 export NSDF_GROUP="nsdf-group"
+
+# NOTE: creating a screen session is not strictly necessary, but allows to reconnect if needed
 screen -S ${NSDF_GROUP}-tracker
 echo $STY
 

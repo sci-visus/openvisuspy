@@ -169,7 +169,7 @@ def Main(args):
 
 	action=args.pop(1)
 
-	parser = argparse.ArgumentParser(description="pubsub tutorial")
+	parser = argparse.ArgumentParser(description="Tracker")
 	parser.add_argument("--convert-dir", type=str, help="action name", required=True)	
 	parser.add_argument("--jobs", type=str, help="action name", required=action in ["run-loop", "run-next"], default=None)
 	args, unknown_args = parser.parse_known_args(args)
@@ -181,14 +181,14 @@ def Main(args):
 		return 
 
 	if action=="run-loop":
-			while True:
-				tracker.convertNext(args.jobs)
-				time.sleep(10)
+		while True:
+			tracker.convertNext(args.jobs)
+			time.sleep(10)
 			return
 
 	if action=="run-next":
-			tracker.convertNext(args.jobs)
-			return 
+		tracker.convertNext(args.jobs)
+		return 
 
 	if action=="convert":
 

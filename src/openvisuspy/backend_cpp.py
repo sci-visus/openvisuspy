@@ -37,7 +37,7 @@ class Stats:
 		io =ov.File.global_stats()
 		net=ov.NetService.global_stats()
 
-		return {
+		ret= {
 			"io": {
 				"r":io.getReadBytes(),
 				"w":io.getWriteBytes(),
@@ -52,6 +52,8 @@ class Stats:
 
 		ov.File      .global_stats().resetStats()
 		ov.NetService.global_stats().resetStats()
+
+		return ret
 			
 
 	# startCollecting
