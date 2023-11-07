@@ -161,7 +161,8 @@ Deploy new binaries
 
 - **Update the `PROJECT_VERSION` inside `pyproject.toml`**
 
-```
+```bash
+# source .venv/bin/activate
 ./scripts/new_tag.sh
 ```
 
