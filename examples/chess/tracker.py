@@ -184,7 +184,7 @@ def Main(args):
 		while True:
 			tracker.convertNext(args.jobs)
 			time.sleep(10)
-			return
+		return
 
 	if action=="run-next":
 		tracker.convertNext(args.jobs)
