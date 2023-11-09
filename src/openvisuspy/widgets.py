@@ -383,15 +383,19 @@ class Widgets:
 			url=value
 
 			# remote file (maybe I need to setup credentials)
-			if url.startswith("http"):
+			if value.startswith("http"):
+				url=value
 				username = os.environ.get("MODVISUS_USERNAME", "")
 				password = os.environ.get("MODVISUS_PASSWORD", "")
 				auth = None
 				if username and password: auth = HTTPBasicAuth(username, password) if username else None
 				response = requests.get(url, auth=auth)
 				body = response.body.decode('utf-8') 
-			else:
+			elif os.path.isfile(value):
+				url=value
 				with open(url, "r") as f: body=f.read()
+			else:
+				body=value
 			value = json.loads(body) if body else {}
 
 		if not "datasets" in value:

@@ -212,11 +212,13 @@ class Slice(Widgets):
 		# show the user what is the current offset
 		maxh=self.db.getMaxResolution()
 		dir=self.getDirection()
-		vt,vs=self.logic_to_physic[dir]
+
+		pdim=self.getPointDim()
+		vt,vs=self.logic_to_physic[dir] if pdim==3 else (0.0,1.0)
 		endh=result['H']
 
 		user_physic_offset=self.getOffset()
-		real_logic_offset=logic_box[0][dir]
+		real_logic_offset=logic_box[0][dir] if pdim==3 else 0.0
 		real_physic_offset=vs*real_logic_offset + vt 
 		user_logic_offset=int((user_physic_offset-vt)/vs)
 		
