@@ -73,9 +73,6 @@ python -m pip install chessdata-pyclient
 conda env config vars set MODVISUS_USERNAME="xxxxx"
 conda env config vars set MODVISUS_PASSWORD="yyyyy"
 
-# needed by auth.py module (set_secure_cookie/get_secure_cookie)
-conda env config vars set BOKEH_COOKIE_SECRET="zzzzz"
-
 # for inline openvisuspy code modification
 conda env config vars set PYTHONPATH="${PWD}/src"
 
@@ -127,6 +124,9 @@ init_tracker "/mnt/data1/nsdf/workflow/${NSDF_GROUP}"
 while [[ "1" == "1" ]] ; do
 python ./examples/chess/tracker.py run-loop --convert-dir "/mnt/data1/nsdf/workflow/${NSDF_GROUP}" --jobs "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/*.json"
 done
+
+# AFTER THE FIRST conversion can check in the workflow directory the `visus.config`` file contains the new group
+
 ```
 
 In a second terminal, setup the dashboards
@@ -139,33 +139,30 @@ screen -S ${NSDF_GROUP}-dashboards
 
 conda activate nsdf-env
 
-
 source ./examples/chess/workflow.sh 
 
 export BOKEH_PORT=5007
-while [[ "1" == "1" ]] ; do
-run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json ${BOKEH_PORT}
-done
-```
-
-In a third terminal:
-
-```
-export NSDF_GROUP="nsdf-group"
-
-conda activate nsdf-env
 
 # edit configuration file, and add the group app for the bokeh port
 code /etc/nginx/nginx.conf
-sudo /usr/bin/systemctl restart nginx
+sudo /usr/bin/systemctl restart 3
+
+while [[ "1" == "1" ]] ; do
+run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json ${BOKEH_PORT}
+done
 
 # From a browser open the following URL (change group name as needed)
 # https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
+```
 
+In a third terminal, create the jobs:
+
+```bash
+export NSDF_GROUP="umich"
 cp ./examples/chess/json/* /mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/
 ```
 
-new jobs to test
+# Examples of jobs
 
 ```bash
 
@@ -215,7 +212,6 @@ EOF
 done 
 
 ```
-
 
 # [DEBUG] Check if httpd and nginx are working
 

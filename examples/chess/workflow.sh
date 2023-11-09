@@ -58,7 +58,7 @@ function run_dashboards() {
    python -m bokeh serve examples/dashboards/app \
       --port ${bokeh_port} \
       --use-xheaders \
-      --allow-websocket-origin='nsdf01.classe.cornell.edu' \
+      --allow-websocket-origin='*.classe.cornell.edu' \
       --dev \
       --auth-module=./examples/chess/auth.py \
       --args "${dashboards_config}" \
