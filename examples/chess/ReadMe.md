@@ -1,5 +1,12 @@
 # Introduction
 
+Links:
+
+- https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app/
+- https://nsdf01.classe.cornell.edu/dashboards/umich/app/
+- https://nsdf01.classe.cornell.edu/dashboards/test/app/
+
+
 Directories
 - `/mnt/data1/nsdf/`            official nsdf directory on the entrypoint
 - `/mnt/data1/nsdf/datasets`    some Visus datasets 
@@ -62,7 +69,8 @@ kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
 conda create --name nsdf-env  python=3.10  mamba
 conda activate nsdf-env 
 
-mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock
+mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock nbformat ipykernel plotly pandas
+
 python -m pip install OpenVisusNoGui
 python -m pip install easyad
 
@@ -145,7 +153,7 @@ export BOKEH_PORT=5007
 
 # edit configuration file, and add the group app for the bokeh port
 code /etc/nginx/nginx.conf
-sudo /usr/bin/systemctl restart 3
+sudo /usr/bin/systemctl restart nginx
 
 while [[ "1" == "1" ]] ; do
 run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json ${BOKEH_PORT}
