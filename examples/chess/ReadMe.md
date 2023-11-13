@@ -69,7 +69,10 @@ kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
 conda create --name nsdf-env  python=3.10  mamba
 conda activate nsdf-env 
 
-mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock nbformat ipykernel plotly pandas
+mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock nbformat ipykernel plotly dash pandas nbconvert panel jupyter_bokeh 
+
+# in case you need hexrd
+mamba install -c hexrd -c conda-forge hexrd
 
 python -m pip install OpenVisusNoGui
 python -m pip install easyad
@@ -166,8 +169,29 @@ done
 In a third terminal, create the jobs:
 
 ```bash
-export NSDF_GROUP="umich"
+export NSDF_GROUP="nsdf-group"
 cp ./examples/chess/json/* /mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/
+```
+
+if you want statistics:
+
+```bash
+# use the env of the previous section
+export NSDF_GROUP="nsdf-group"
+screen -S ${NSDF_GROUP}-dashboards
+conda activate nsdf-env
+source ./examples/chess/workflow.sh 
+
+cp ./examples/chess/stats/notebook.ipynb ./.workflow/${NSDF_GROUP}/stats.ipynb
+
+screen -S ${NSDF_GROUP}-stats
+while [[ "1" == "1" ]] ; do   
+   jupyter nbconvert --to html ./.workflow/${NSDF_GROUP}/stats.ipynb --no-input --output-dir ${WWW}/stats --output ~${NSDF_GROUP} --execute 
+   mv ${WWW}/stats/~${NSDF_GROUP}.html ${WWW}/stats/${NSDF_GROUP}.html
+   sleep 30
+done
+
+# https://nsdf01.classe.cornell.edu/stats/${NSDF_GROUP}.html
 ```
 
 # Examples of jobs
