@@ -134,6 +134,7 @@ kinit -k -t ~/krb5_keytab -c ~/krb5_ccache ${USER}
 # init
 init_tracker "/mnt/data1/nsdf/workflow/${NSDF_GROUP}"
 
+
 # run loop (convert-dir job-glob-expr)
 while [[ "1" == "1" ]] ; do
 python ./examples/chess/tracker.py run-loop --convert-dir "/mnt/data1/nsdf/workflow/${NSDF_GROUP}" --jobs "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/*.json"
@@ -174,7 +175,7 @@ In a third terminal, create the jobs:
 
 ```bash
 export NSDF_GROUP="nsdf-group"
-cp ./examples/chess/json/* /mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/
+cp ./examples/chess/json/* .workflow/${NSDF_GROUP}/jobs/
 ```
 
 if you want statistics:

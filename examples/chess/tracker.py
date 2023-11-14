@@ -56,14 +56,18 @@ class Tracker:
 	# convertBySpecs
 	def convertBySpecs(self, specs):
 
+		logger.info(f"specs={specs}...")
+
 		dataset_name=specs["name"]
 
+		# automatic guessing of destination
 		if not specs.get("dst",None):
 			specs["dst"] = self.getDestinationFilename(dataset_name) 
 
-		logger.info(f"specs={specs}...")
+		# metadata
+		if not "metadata" in specs: 
+			specs["metadata"]={}
 		
-		if not "metadata" in specs: specs["metadata"]={}
 		specs["metadata"]=LoadMetadata(specs["metadata"])
 
 		db = ConvertDb(self.db_filename)
@@ -72,6 +76,11 @@ class Tracker:
 		specs["remote_url"] = self.remote_url_template.format(group=self.group_name, name=dataset_name)
 
 		converted=[it for it in db.getConverted()]
+
+		for it in converted:
+			if not it.get("dst",None):
+				it["dst"] = self.getDestinationFilename(it["name"]) 
+
 		AddGroupToModVisus(self.visus_config, self.group_name, self.visus_group_config) # automatically add group
 		GenerateVisusGroupConfig(self.group_name,self.visus_group_config,converted + [specs])
 		GenerateDashboardConfig(self.dashboards_config, self.group_name, add_specs=specs)
@@ -88,6 +97,10 @@ class Tracker:
 		self.convertBySpecs(specs)
 		logger.info(f"record_id={record_id} DONE")
 
+	# getLockFilename
+	def getLockFilename(self, specs):
+		return specs.get("dst",self.getDestinationFilename(specs["name"])) + ".filelock"
+
 	# convertNext
 	def convertNext(self, glob_expr=None):
 
@@ -102,9 +115,6 @@ class Tracker:
 		from convert_puller import LocalPuller
 		puller = LocalPuller(glob_expr)
 		for specs in puller.pull():
-			specs["dst"]          = specs.get("dst",self.getDestinationFilename(specs["name"]))
-			specs["compression"]  = specs.get("compression","zip")
-			specs["arco"]         = specs.get("arco","8mb")
 			specs["metadata"]     = specs.get("metadata",[]) 
 			db.pushPending(specs)
 
@@ -112,16 +122,17 @@ class Tracker:
 		# Let's check if a conversion has failed. We do this by trying to acquire the lock
 		# on the lockfile entry. If we get the lock that means the convert process that held
 		# that lock no longer exists and failed prematurely (because conversion_end is null).
-		for row in db.getRunning():
-			record_id=row['id']
-			lock_filename=row["dst"] + ".filelock"
+
+		for specs in db.getRunning():
+			record_id=specs['id']
+			lock_filename=self.getLockFilename(specs)
 			lock=filelock.FileLock(lock_filename, timeout=1)
 			try:
 				with lock.acquire(timeout=1):
 					# We got the lock. That means conversion is no longer running and failed.
 					# We don't want to see this entry again, so mark it as failed and then log the failure.
 					error_msg=f"got the filelock[{lock_filename}]"
-					db.markDone(row, error_msg=error_msg)
+					db.markDone(specs, error_msg=error_msg)
 					logger.info(f"Conversion record_id={record_id} probably failed error_msg={error_msg}")
 			except filelock.Timeout:
 				logger.info(f"Conversion record_id={record_id} seems to be still running")
@@ -142,7 +153,7 @@ class Tracker:
 		logger.info(f"Found new conversion to run record_id={record_id}")
 
 		# The lockfile is used to monitor whether this conversion is running or not.
-		lock_filename = specs["dst"] + ".filelock"
+		lock_filename = self.getLockFilename(specs)
 		lock=filelock.FileLock(lock_filename)
 		with lock:
 			self.convertByRecordId(record_id)

@@ -1,7 +1,0 @@
-{
-    "name":"near-field-nexus",
-    "src":"/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/18/nf/nf_*.tif",
-    "bitmask":"V(2*)(.*)",
-    "metadata": []
- }
- 

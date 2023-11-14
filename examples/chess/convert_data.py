@@ -182,6 +182,8 @@ def ConvertData(specs):
 
 	idx_axis,idx_physic_box=None,None
 
+	extra_args={}
+
 	logger.info(f"Loading src={src}...")
 
 	t1=time.time()
@@ -238,6 +240,13 @@ def ConvertData(specs):
 
 	D,H,W=data.shape
 
+	# example ofd bitmask with preference along Z "V(2*)(.*)"
+	bitmask=specs.get("bitmask",None)
+	if bitmask: 
+		if "*" in bitmask:
+			bitmask=GuessBitmask([W,H,D],bitmask)
+		extra_args["bitmask"]= bitmask
+
 	if idx_axis is None:
 		idx_axis="X Y Z"
 
@@ -248,15 +257,6 @@ def ConvertData(specs):
 	if True:
 		vmin,vmax=np.min(data),np.max(data)
 		field = ov.Field.fromString(f"""DATA {str(data.dtype)} format(row_major) min({vmin}) max({vmax})""")
-
-		extra_args={}
-
-		# example ofd bitmask with preference along Z "V(2*)(.*)"
-		bitmask=specs.get("bitmask",None)
-		if bitmask: 
-			if "*" in bitmask:
-				bitmask=GuessBitmask([W,H,D],bitmask)
-			extra_args["bitmask"]= bitmask
 
 		db=ov.CreateIdx(
 			url=dst, 

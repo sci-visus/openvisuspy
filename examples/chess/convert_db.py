@@ -20,16 +20,11 @@ class ConvertDb:
 	def createDb(self):
 		self.conn.execute("""
 		CREATE TABLE datasets (
-				id               INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-				name             TEXT NOT NULL,
-				src              TEXT NOT NULL,
-				dst              TEXT NOT NULL,
-				compression      TEXT NOT NULL,
-				arco             TEXT NOT NULL,
-				metadata         TEXT,
-				conversion_start timestamp,
-				conversion_end   timestamp,
-				error_msg        TEXT
+			id               INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+			job              TEXT NOT NULL,
+			conversion_start timestamp,
+			conversion_end   timestamp,
+			error_msg        TEXT
 		)
 		""")
 		self.conn.commit()
@@ -43,7 +38,8 @@ class ConvertDb:
 	# toDict
 	def toDict(self, row):
 		if row is None: return None
-		ret = {k: row[k] for k in row.keys()}
+		ret=json.loads(row['job'])
+		ret['id'] = row['id']
 		return ret
 
 	# getRecordById
@@ -52,9 +48,8 @@ class ConvertDb:
 		return self.toDict(data.fetchone())
 
 	# pushPending
-	def pushPending(self, specs):
-		self.conn.executemany("INSERT INTO datasets (name, src, dst, compression, arco, metadata) values(?,?,?,?,?,?)",
-				[(specs["name"], specs["src"], specs["dst"], specs["compression"], specs["arco"], json.dumps(specs["metadata"]))])
+	def pushPending(self, job):
+		self.conn.executemany("INSERT INTO datasets (job) values(?)",[[json.dumps(job)]])
 		self.conn.commit()
 
 	# popPending
@@ -68,18 +63,18 @@ class ConvertDb:
 		return ret
 
 	# markDone (could be with an error_msg or not)
-	def markDone(self, specs, error_msg=None):
-		specs["conversion_end"] = str(datetime.now())
+	def markDone(self, job, error_msg=None):
+		job["conversion_end"] = str(datetime.now())
 		if error_msg:
-			self.conn.execute("UPDATE datasets set conversion_end=?, error_msg=? WHERE id=?", [specs["conversion_end"], error_msg , specs["id"]])
+			self.conn.execute("UPDATE datasets set conversion_end=?, error_msg=? WHERE id=?", [job["conversion_end"], error_msg , job["id"]])
 		else:
-			self.conn.execute("UPDATE datasets set conversion_end=? WHERE id=?", [specs["conversion_end"], specs["id"]])
+			self.conn.execute("UPDATE datasets set conversion_end=? WHERE id=?", [job["conversion_end"], job["id"]])
 		self.conn.commit()
 
 	# getRunning
 	def getRunning(self):
-			for it in self.conn.execute(f"SELECT * from datasets WHERE conversion_start IS NOT NULL AND conversion_end IS NULL"):
-					yield self.toDict(it)
+		for it in self.conn.execute(f"SELECT * from datasets WHERE conversion_start IS NOT NULL AND conversion_end IS NULL"):
+			yield self.toDict(it)
 
 	# getNumRunning
 	def getNumRunning(self):
@@ -87,8 +82,8 @@ class ConvertDb:
 
 	# getConverted (returns only the ones without errors!)
 	def getConverted(self):
-			for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NULL ORDER BY id ASC"):
-					yield self.toDict(it)
+		for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NULL ORDER BY id ASC"):
+				yield self.toDict(it)
 
 	# getNumConverted
 	def getNumConverted(self):
@@ -96,8 +91,8 @@ class ConvertDb:
 
 	# getFailed
 	def getFailed(self):
-			for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NOT NULL ORDER BY id ASC"):
-					yield self.toDict(it)
+		for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NOT NULL ORDER BY id ASC"):
+			yield self.toDict(it)
 
 	# getNumFailed
 	def getNumFailed(self):
