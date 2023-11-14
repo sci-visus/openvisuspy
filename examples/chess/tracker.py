@@ -12,7 +12,7 @@ from datetime import datetime
 import urllib3
 urllib3.disable_warnings()
 
-from openvisuspy import SaveJSON,LoadJSON, SetupLogger,Touch
+from openvisuspy import SaveJSON, LoadJSON, SetupLogger,Touch
 
 from convert_config import GenerateDashboardConfig, AddGroupToModVisus, GenerateVisusGroupConfig
 from convert_data import ConvertData
@@ -58,30 +58,16 @@ class Tracker:
 
 		dataset_name=specs["name"]
 
-		logger.info(f"name={dataset_name} ...")
-		
-		specs["dst"]          = specs.get("dst", None)
-		specs["arco"]         = specs.get("arco",None)
-		specs["compression"]  = specs.get("compresssion",None)
-
-		if not specs["dst"]:
+		if not specs.get("dst",None):
 			specs["dst"] = self.getDestinationFilename(dataset_name) 
 
-		if not specs["arco"]:
-			specs["arco"]="8mb"
-
-		if not specs["compression"]:
-			specs["compression"]="zip"
-
-		if not "metadata" in specs:
-			specs["metadata"]={}
+		logger.info(f"specs={specs}...")
 		
+		if not "metadata" in specs: specs["metadata"]={}
 		specs["metadata"]=LoadMetadata(specs["metadata"])
 
-		logger.info(f"""src=specs["src"] dst={specs["dst"]} arco={specs["arco"]} compression={specs["compression"]}...""")
-
 		db = ConvertDb(self.db_filename)
-		ConvertData(specs["src"], specs["dst"], arco=specs["arco"], compression=specs["compression"], specs=specs)
+		ConvertData(specs)
 		specs["conversion_end"]=str(datetime.now())
 		specs["remote_url"] = self.remote_url_template.format(group=self.group_name, name=dataset_name)
 
@@ -174,6 +160,9 @@ def Main(args):
 	parser.add_argument("--jobs", type=str, help="action name", required=action in ["run-loop", "run-next"], default=None)
 	args, unknown_args = parser.parse_known_args(args)
 
+	unknown_args=unknown_args[1:]
+
+
 	tracker=Tracker(args.convert_dir)
 
 	if action == "create-db":
@@ -193,7 +182,7 @@ def Main(args):
 	if action=="convert":
 
 		for it in unknown_args:
-			
+
 			if it.isdigit():
 				record_id=int(it)
 				tracker.convertByRecordId(record_id)
