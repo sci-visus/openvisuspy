@@ -186,73 +186,21 @@ cp ./examples/chess/json/* .workflow/${NSDF_GROUP}/jobs/
 if you want statistics:
 
 ```bash
+
 # use the env of the previous section
 export NSDF_GROUP="nsdf-group"
-screen -S ${NSDF_GROUP}-dashboards
+screen -S ${NSDF_GROUP}-stats
 conda activate nsdf-env
-source ./examples/chess/workflow.sh 
 
-cp ./examples/chess/stats/notebook.ipynb ./.workflow/${NSDF_GROUP}/stats.ipynb
-
+# continuos stat
 screen -S ${NSDF_GROUP}-stats
 while [[ "1" == "1" ]] ; do   
-   jupyter nbconvert --to html ./.workflow/${NSDF_GROUP}/stats.ipynb --no-input --output-dir ${WWW}/stats --output ~${NSDF_GROUP} --execute 
-   mv ${WWW}/stats/~${NSDF_GROUP}.html ${WWW}/stats/${NSDF_GROUP}.html
+   jupyter nbconvert --to html examples/chess/brt/${NSDF_GROUP}/stats.ipynb --no-input --execute 
+   mv examples/chess/brt/${NSDF_GROUP}/stats.html ${WWW}/stats/${NSDF_GROUP}.html
    sleep 30
 done
 
 # https://nsdf01.classe.cornell.edu/stats/${NSDF_GROUP}.html
-```
-
-# Examples of jobs
-
-```bash
-
-# NEAR FIELD
-for (( I=25 ; I<=65; I++ )) ; do
-cat <<EOF >  "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/kate-nf-${I}.json"
-{
-   "name":"kate-nf-${I}",
-   "src":"/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/${I}/nf/nf_*.tif",
-   "metadata": [
-      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_nf_scan_layers-retiga-ti25nb.par"},
-      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_nf_scan_layers-retiga-ti25nb.json"}
-   ]
-}
-EOF
-done
-
-# TOMO
-for (( I=20 ; I<=24; I++ )) ; do
-cat <<EOF >  "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/kate-tomo-${I}.json"
-{
-   "name":"kate-tomo-${I}",
-   "src":"/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/${I}/nf/nf_*.tif",
-   "metadata": [
-      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_tomo_scan_layers-retiga-ti25nb.json"},
-      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_tomo_scan_layers-retiga-ti25nb.par"}
-   ]
-}
-EOF
-done
-
-# FAR FIELD
-for h5 in $(find /nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/ -iname "*.h5"); do
-NAME=kate-$(basename $h5)
-echo $h5 $NAME
-cat <<EOF >  "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/${NAME}.json"
-{
-   "name":"${NAME}",
-   "src":"${h5}",
-   "expression": "/imageseries/images",
-   "metadata": [
-      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_ff_scan_layers-dexela-ti25nb.par"},
-      {"type": "file", "path": "/nfs/chess/raw/2023-2/id3a/clausen-3559-c/ti25nb/id3a-rams2_ff_scan_layers-dexela-ti25nb.json"}
-   ]
-}
-EOF
-done 
-
 ```
 
 # [DEBUG] Check if httpd and nginx are working
