@@ -14,23 +14,6 @@ from openvisuspy import LoadJSON
 
 logger = logging.getLogger("nsdf-convert")
 
-# ///////////////////////////////////////////////////////////////////
-def NextPowerOf2(x):  
-	return 1 if x == 0 else 2**(x - 1).bit_length()
-
-# ///////////////////////////////////////////////////////////////////
-# new bitmask VZZZZZ.... so that the access along the z is better
-# assert(len(GuessZBitmask(366,2048,2048))==len("V0120120120120120120120120120101"))
-def GuessZBitmask(D,H,W):
-	ret="V"
-
-	d,h,w=[NextPowerOf2(it) for it in (D,H,W)]
-	while d>1 or h>1 or w>1:
-			if d>1: ret+="2";d>>=1;continue
-			if h>1: ret+="1";h>>=1
-			if w>1: ret+="0";w>>=1
-	return ret
-
 
 # //////////////////////////////////////////////////////////////////
 def ReadImage(filename):
@@ -145,6 +128,38 @@ def CopyNexus(src, dst, extra_attrs={}):
 
 
 # ///////////////////////////////////////////////////////////////////
+def NextPowerOf2(x):  
+	return 1 if x == 0 else 2**(x - 1).bit_length()
+
+# ///////////////////////////////////////////////////////////////////
+# new bitmask VZZZZZ.... so that the access along the z is better
+# assert(len(GuessBitmask(366,2048,2048),"V(2*)(.*)")==len("V0120120120120120120120120120101"))
+def GuessBitmask(dims, bitmask="V(.*)"):
+	
+	dims=[NextPowerOf2(it) for it in dims]
+
+	assert(bitmask[0]=="V")
+	bitmask=bitmask[1:]
+
+	ret="V"
+
+	# access will be on the z
+	if bitmask[0:4]=="(2*)":
+		while dims[2]!=1: 
+			ret+="2"
+			dims[2]>>=1
+		bitmask=bitmask[4:]
+
+	# complete the bitmask this is the openvisus version
+	assert(bitmask)=="(.*)"
+	while dims != [1,1,1]:
+			if dims[0]>1: ret+="0";dims[0]>>=1
+			if dims[1]>1: ret+="1";dims[1]>>=1
+			if dims[2]>1: ret+="2";dims[2]>>=1;
+
+	return ret
+
+# ///////////////////////////////////////////////////////////////////
 def ConvertData(specs):
 
 	T1=time.time()
@@ -234,6 +249,15 @@ def ConvertData(specs):
 		vmin,vmax=np.min(data),np.max(data)
 		field = ov.Field.fromString(f"""DATA {str(data.dtype)} format(row_major) min({vmin}) max({vmax})""")
 
+		extra_args={}
+
+		# example ofd bitmask with preference along Z "V(2*)(.*)"
+		bitmask=specs.get("bitmask",None)
+		if bitmask: 
+			if "*" in bitmask:
+				bitmask=GuessBitmask([W,H,D],bitmask)
+			extra_args["bitmask"]= bitmask
+
 		db=ov.CreateIdx(
 			url=dst, 
 			dims=[W,H,D], 
@@ -241,7 +265,8 @@ def ConvertData(specs):
 			compression="raw",  # first I write uncompressed
 			arco=arco, 
 			axis=idx_axis, 
-			physic_box=idx_physic_box)
+			physic_box=idx_physic_box,
+			**extra_args)
 
 		# print(db.getDatasetBody().toString())
 		logger.info(f"IDX file={dst} created shape={data.shape} dtype={data.dtype} nbytes={data.nbytes} vmin={vmin} vmax={vmax}")
