@@ -18,12 +18,24 @@ def ConvertImageStack(src, dst, compression="raw",arco="modvisus"):
 	logger.info(f"Found {len(filenames)} {ext} files")
 
 	logger.info(f"Loading {filenames[0]}..{filenames[-1]}")
-	from skimage import io
-	img = io.imread(filenames[0])
-	D=len(filenames)
-	H,W=img.shape
-	data=np.zeros((D,H,W),dtype=img.dtype)
-	for Z,filename in enumerate(filenames):
+
+	ext=os.path.splitext(filenames[0])[1]
+	if ext==".cbf":
+		import fabio
+		cbf = fabio.open(filenames[0])
+		D=len(filenames)
+		H,W=cbf.data.shape
+		data=np.zeros((D,H,W),dtype=cbf.dtype)
+		for Z,filename in enumerate(filenames):
+			#print(f"Loading {filename}")
+			data[Z,:,:]=fabio.open(filename).data 
+	else:
+		from skimage import io
+		img = io.imread(filenames[0])
+		D=len(filenames)
+		H,W=img.shape
+		data=np.zeros((D,H,W),dtype=img.dtype)
+		for Z,filename in enumerate(filenames):
 			#print(f"Loading {filename}")
 			data[Z,:,:]=io.imread(filename)
 

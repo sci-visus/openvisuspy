@@ -71,6 +71,9 @@ conda activate nsdf-env
 
 mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock nbformat ipykernel plotly dash pandas nbconvert panel jupyter_bokeh 
 
+# in case you need CBF file 
+pip install fabio
+
 # in case you need hexrd
 mamba install -c hexrd -c conda-forge hexrd
 
@@ -152,7 +155,8 @@ conda activate nsdf-env
 
 source ./examples/chess/workflow.sh 
 
-export BOKEH_PORT=5007
+# choose any port you want which does not collide with other groups
+export BOKEH_PORT=<N>
 
 # edit configuration file, and add the group app for the bokeh port
 code /etc/nginx/nginx.conf

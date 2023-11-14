@@ -25,7 +25,7 @@ def ConvertData(src, dst, arco="8mb", compression="zip", specs=None):
 	src_ext=os.path.splitext(src)[1]
 
 	# image stack 
-	if src_ext==".tif" and "*" in src:
+	if src_ext in (".tif",".cbf") and "*" in src:
 		from convert_image_stack import ConvertImageStack
 		ConvertImageStack(src, dst, compression=compression, arco=arco)
 
