@@ -40,13 +40,23 @@ class LoginHandler(RequestHandler):
 		self.render("chess_login.html")
 
 	def post(self):
+
+		username = self.get_argument("username", "")
+		password = self.get_argument("password", "")
+
+		# in case you want to limit the dashboards to some particular users
+		allowed_users=os.environ.get("NSDF_ALLOWED_USERS","*")
+		
+		if allowed_users and allowed_users!="*" and username not in allowed_users.split(";"):
+			self.redirect(login_url + "?error=" + url_escape("User not allowed for this dashboard"))
+			return
+
 		self.ad = easyad.EasyAD({
 			'AD_SERVER': os.environ["AD_SERVER"],
 			'AD_DOMAIN': os.environ["AD_DOMAIN"]
-		})
-		username = self.get_argument("username", "")
-		password = self.get_argument("password", "")
+		})		
 		is_authorised = self.ad.authenticate_user(username, password, json_safe=True)
+
 		if is_authorised and username:
 			self.set_secure_cookie("user", json_encode(username))
 			self.redirect(APP_URL)

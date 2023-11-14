@@ -163,6 +163,11 @@ export BOKEH_PORT=<N>
 code /etc/nginx/nginx.conf
 sudo /usr/bin/systemctl restart nginx
 
+# in case you need to set who has access or not to the dashboard, use this uids separated by `;`
+# otherwise leave it emty or `*`
+export NSDF_ALLOWED_USERS="aaa;aaa"
+
+
 while [[ "1" == "1" ]] ; do
 run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json ${BOKEH_PORT}
 done
