@@ -1,0 +1,56 @@
+beam:
+  energy: 41.991
+  source_distance: .inf
+  vector:
+    azimuth: 90.0
+    polar_angle: 90.0
+detectors:
+  ff1:
+    buffer:
+    - 2.0
+    - 2.0
+    pixels:
+      columns: 3073
+      roi: null
+      rows: 3889
+      size:
+      - 0.0748
+      - 0.0748
+    saturation_level: 15800.0
+    transform:
+      tilt:
+      - 0.02533486160404811
+      - -0.0012730230089752477
+      - 0.004135260456014122
+      translation:
+      - 121.73964343586867
+      - 1.2745440545684807
+      - -878.7588135592057
+  ff2:
+    buffer:
+    - 2.0
+    - 2.0
+    pixels:
+      columns: 3073
+      roi: null
+      rows: 3889
+      size:
+      - 0.0748
+      - 0.0748
+    saturation_level: 15800.0
+    transform:
+      tilt:
+      - -0.0004620022717836865
+      - -0.003432494824891941
+      - 0.004795258846876171
+      translation:
+      - -119.67414394020723
+      - 1.2119247588852982
+      - -878.4025310683573
+id: dexelas_id3a_20200130
+oscillation_stage:
+  chi: 0.0
+  translation:
+  - 0.0
+  - 0.0
+  - 0.0
