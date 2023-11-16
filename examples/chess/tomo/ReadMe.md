@@ -13,7 +13,7 @@ mamba install -c conda-forge -c  astra-toolbox chessanalysispipeline numpy nexus
 python -m pip install --upgrade pip
 python -m pip install certif-pyspec==1.5.3
 
-CHAP ./pipeline.yaml
+CHAP ./out/pipeline.yaml
 
 
 ```

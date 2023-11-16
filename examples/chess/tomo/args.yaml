@@ -1,9 +1,9 @@
 args:
   interactive: False
   experiment_type: TOMO
-  map_filename: ./map.yaml
+  map_filename: ./out/map.yaml
   detector_name: retiga
-  detector_filename: ./tomo_detector_retiga.yaml
+  detector_filename: ./out/tomo_detector_retiga.yaml
   station: id3a
   btr: berman-3804-a
   sample: mg1y-1-tomo
@@ -13,5 +13,5 @@ args:
   reconstruct_data: true
   save_figs: only
   output_folder: ./out
-  output_filename: data.nxs
+  output_filename: ./out/data.nxs
   force_overwrite: True

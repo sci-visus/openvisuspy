@@ -44,8 +44,7 @@ Groups
 - Zero trust, all separated
 
 
-Misc:
-- auto init procedure (see workflow.sh)
+
 
 
 # Setup Conda env
@@ -131,10 +130,52 @@ screen -S ${NSDF_GROUP}-tracker
 echo $STY
 
 conda activate nsdf-env
-source ./examples/chess/workflow.sh 
 kinit -k -t ~/krb5_keytab -c ~/krb5_ccache ${USER}
 
 # init
+function init_tracker() {
+
+   convert_dir=${1? Error need a directory argument}
+
+   if [ -d ${convert_dir} ]; then
+
+      read -p "Are you sure you want to remove directory=${convert_dir}? (Y/n) " yn
+      case ${yn} in 
+         Y ) 
+            echo ok, we will proceed
+            ;;
+         * ) 
+            echo "skipping"
+            return;;
+      esac
+
+      # remove directory
+      rm  -Rf ${convert_dir} 
+   fi
+
+   # create the conversion directory
+   mkdir -p ${convert_dir}
+
+   # create emtpy files
+   touch "${convert_dir}/convert.log"        
+   touch "${convert_dir}/dashboards.log"
+   touch "${convert_dir}/visus.group.config"
+   touch "${convert_dir}/dashboards.json"
+
+   # link the master visus config to the workflow directory (the tracker assume this name under the workflow folder)
+   ln -f -s /mnt/data1/nsdf/OpenVisus/visus.config ${convert_dir}/visus.config #
+
+   # add the dashboard json to Apache httpd so it can be served (for dashboards)
+   group_name=$(basename ${convert_dir})
+   ln  -f -s ${convert_dir}/dashboards.json ${WWW}/${group_name}.json 
+
+   # make the job directory
+   mkdir -p ${convert_dir}/jobs
+
+   # create the db
+   python  ./examples/chess/tracker.py create-db --convert-dir ${convert_dir} 
+}
+
 init_tracker "/mnt/data1/nsdf/workflow/${NSDF_GROUP}"
 
 # run loop (convert-dir job-glob-expr)
@@ -155,8 +196,6 @@ screen -S ${NSDF_GROUP}-dashboards
 
 conda activate nsdf-env
 
-source ./examples/chess/workflow.sh 
-
 # edit configuration file, and add the group app for the bokeh port
 code /etc/nginx/nginx.conf
 sudo /usr/bin/systemctl restart nginx
@@ -168,9 +207,26 @@ export BOKEH_PORT=<N>
 # otherwise leave it emty or `*`
 export NSDF_ALLOWED_GROUPS="nsdf;<group2>"
 
+# where to store the logs
+export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${dashboards_config/.json/.log}
+
+# json dashboards file
+export DASHBOARDS_CONFIG=/mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json
+
+# needed for AD security
+export BOKEH_COOKIE_SECRET=$(echo $RANDOM | md5sum | head -c 32)
+
 while [[ "1" == "1" ]] ; do
-run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json ${BOKEH_PORT}
+python -m bokeh serve examples/dashboards/app \
+   --port ${BOKEH_PORT} \
+   --use-xheaders \
+   --allow-websocket-origin='*.classe.cornell.edu' \
+   --dev \
+   --auth-module=./examples/chess/auth.py \
+   --args "${DASHBOARDS_CONFIG}" \
+   --prefer local
 done
+
 
 # From a browser open the following URL (change group name as needed)
 # https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
@@ -186,7 +242,7 @@ export NSDF_GROUP="nsdf-group"
 screen -S ${NSDF_GROUP}-stats
 conda activate nsdf-env
 
-cp examples/chess/btr/umich/stats.ipynb examples/chess/btr/${NSDF_GROUP}/stats.ipynb
+cp ./workflow/umich/stats.ipynb ./workflow/${NSDF_GROUP}/stats.ipynb
 
 # Edit the notebook to point to the BTR directory
 
@@ -194,8 +250,8 @@ cp examples/chess/btr/umich/stats.ipynb examples/chess/btr/${NSDF_GROUP}/stats.i
 
 # continuos stat\
 while [[ "1" == "1" ]] ; do   
-   jupyter nbconvert --to html examples/chess/btr/${NSDF_GROUP}/stats.ipynb --no-input --execute 
-   mv examples/chess/btr/${NSDF_GROUP}/stats.html ${WWW}/stats/${NSDF_GROUP}.html
+   jupyter nbconvert --to html .workflow/${NSDF_GROUP}/stats.ipynb --no-input --execute 
+   mv .workflow/${NSDF_GROUP}/stats.html ${WWW}/stats/${NSDF_GROUP}.html
    sleep 30
 done
 
@@ -234,7 +290,7 @@ curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.c
 crontab -l
 
 # add / remove cronjob line 
-# * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/workflow.sh convert /mnt/data1/nsdf/workflow/nsdf-group
+# * * * * * /mnt/data1/nsdf/openvisuspy/examples/chess/<todo>.sh convert /mnt/data1/nsdf/workflow/nsdf-group
 crontab -e
 ```
 
