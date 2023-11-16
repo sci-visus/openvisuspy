@@ -123,6 +123,9 @@ In the first terminal, init the tracker:
 ```bash
 export NSDF_GROUP="nsdf-group"
 
+# create a directory for the group (BTR means `beam time request`)
+mkdir examples/chess/btr/${NSDF_GROUP}
+
 # NOTE: creating a screen session is not strictly necessary, but allows to reconnect if needed
 screen -S ${NSDF_GROUP}-tracker
 echo $STY
@@ -134,14 +137,12 @@ kinit -k -t ~/krb5_keytab -c ~/krb5_ccache ${USER}
 # init
 init_tracker "/mnt/data1/nsdf/workflow/${NSDF_GROUP}"
 
-
 # run loop (convert-dir job-glob-expr)
 while [[ "1" == "1" ]] ; do
 python ./examples/chess/tracker.py run-loop --convert-dir "/mnt/data1/nsdf/workflow/${NSDF_GROUP}" --jobs "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/*.json"
 done
 
 # AFTER THE FIRST conversion can check in the workflow directory the `visus.config`` file contains the new group
-
 ```
 
 In a second terminal, setup the dashboards
@@ -156,17 +157,16 @@ conda activate nsdf-env
 
 source ./examples/chess/workflow.sh 
 
-# choose any port you want which does not collide with other groups
-export BOKEH_PORT=<N>
-
 # edit configuration file, and add the group app for the bokeh port
 code /etc/nginx/nginx.conf
 sudo /usr/bin/systemctl restart nginx
 
+# choose any port you want which does not collide with other groups
+export BOKEH_PORT=<N>
+
 # in case you need to set who has access or not to the dashboard, use this uids separated by `;`
 # otherwise leave it emty or `*`
 export NSDF_ALLOWED_USERS="aaa;aaa"
-
 
 while [[ "1" == "1" ]] ; do
 run_dashboards /mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json ${BOKEH_PORT}
@@ -176,12 +176,6 @@ done
 # https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
 ```
 
-In a third terminal, create the jobs:
-
-```bash
-export NSDF_GROUP="nsdf-group"
-cp ./examples/chess/json/* .workflow/${NSDF_GROUP}/jobs/
-```
 
 if you want statistics:
 
@@ -192,16 +186,29 @@ export NSDF_GROUP="nsdf-group"
 screen -S ${NSDF_GROUP}-stats
 conda activate nsdf-env
 
-# continuos stat
-screen -S ${NSDF_GROUP}-stats
+cp examples/chess/btr/umich/stats.ipynb examples/chess/btr/${NSDF_GROUP}/stats.ipynb
+
+# Edit the notebook to point to the BTR directory
+
+# customize the statistics as needed
+
+# continuos stat\
 while [[ "1" == "1" ]] ; do   
-   jupyter nbconvert --to html examples/chess/brt/${NSDF_GROUP}/stats.ipynb --no-input --execute 
-   mv examples/chess/brt/${NSDF_GROUP}/stats.html ${WWW}/stats/${NSDF_GROUP}.html
+   jupyter nbconvert --to html examples/chess/btr/${NSDF_GROUP}/stats.ipynb --no-input --execute 
+   mv examples/chess/btr/${NSDF_GROUP}/stats.html ${WWW}/stats/${NSDF_GROUP}.html
    sleep 30
 done
 
 # https://nsdf01.classe.cornell.edu/stats/${NSDF_GROUP}.html
 ```
+
+Finally you can run the conversion:
+
+```bash
+export NSDF_GROUP="nsdf-group"
+cp ./examples/chess/json/* .workflow/${NSDF_GROUP}/jobs/
+```
+
 
 # [DEBUG] Check if httpd and nginx are working
 
