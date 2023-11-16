@@ -45,19 +45,25 @@ class LoginHandler(RequestHandler):
 		password = self.get_argument("password", "")
 
 		# in case you want to limit the dashboards to some particular users
-		allowed_users=os.environ.get("NSDF_ALLOWED_USERS","*")
-		
-		if allowed_users and allowed_users!="*" and username not in allowed_users.split(";"):
-			self.redirect(login_url + "?error=" + url_escape("User not allowed for this dashboard"))
-			return
+		allowed_groups=os.environ.get("NSDF_ALLOWED_GROUPS","*")
 
+		# need to authenticate anyway
 		self.ad = easyad.EasyAD({
 			'AD_SERVER': os.environ["AD_SERVER"],
-			'AD_DOMAIN': os.environ["AD_DOMAIN"]
+			'AD_DOMAIN': os.environ["AD_DOMAIN"],
+			"AD_BIND_USERNAME":username,
+			"AD_BIND_PASSWORD":password
 		})		
-		is_authorised = self.ad.authenticate_user(username, password, json_safe=True)
+		user  = self.ad.authenticate_user(username, password, json_safe=True)
 
-		if is_authorised and username:
+		# check if is inside allowed group
+		is_authorised=True if user else False
+
+		if is_authorised and allowed_groups!="*":
+			groups=[it for it in allowed_groups.split(";") if it]
+			is_authorised = is_authorised and any([self.ad.user_is_member_of_group(user,group) for group in groups]) 
+
+		if is_authorised:
 			self.set_secure_cookie("user", json_encode(username))
 			self.redirect(APP_URL)
 		else:

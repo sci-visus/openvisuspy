@@ -1,0 +1,17 @@
+args:
+  interactive: False
+  experiment_type: TOMO
+  map_filename: ./map.yaml
+  detector_name: retiga
+  detector_filename: ./tomo_detector_retiga.yaml
+  station: id3a
+  btr: berman-3804-a
+  sample: mg1y-1-tomo
+  spec_file: /nfs/chess/raw/2023-3/id3a/berman-3804-a/mg1y-1-tomo/spec.log
+  reduce_data: True
+  find_center: True
+  reconstruct_data: true
+  save_figs: only
+  output_folder: ./out
+  output_filename: data.nxs
+  force_overwrite: True

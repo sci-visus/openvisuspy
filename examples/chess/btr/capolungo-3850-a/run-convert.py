@@ -1,13 +1,13 @@
 import glob,os,sys,json
 from openvisuspy import SaveJSON, LoadJSON
 
-group_name=os.environ["NSDF_GROUP"]
+group_name="capolungo-3850-a"
 
 # change as needed
 experiment_dir=f"/nfs/chess/raw/2023-3/id3a/{group_name}"
 
 # change as needed
-job_dir="/mnt/data1/nsdf/workflow/{group_name}/jobs"
+job_dir=f"/mnt/data1/nsdf/workflow/{group_name}/jobs"
 
 # where to temporary store jobs file (to be moved)
 # I prefer not to write direcly to the jobs directory
@@ -19,6 +19,9 @@ nf_ext=".tif"
 
 # //////////////////////////////////////////////////////////
 def ConvertFarField():
+
+
+	force="--force" in sys.argv
 
 	ret=0
 	for filename in glob.glob(f"{experiment_dir}/**/ff/ff*.h5",recursive=True):
@@ -33,7 +36,7 @@ def ConvertFarField():
 		job_name=f"{sample}_{scan}_{panel}"
 
 		# already done
-		if list(glob.glob(f"{job_dir}/{job_name}.json*")):
+		if not force and list(glob.glob(f"{job_dir}/{job_name}.json*")):
 			continue
 
 		SaveJSON(f"{tmp_dir}/{job_name}.json",{
@@ -49,6 +52,9 @@ def ConvertFarField():
 
 # ///////////////////////////////////////////////
 def ConvertNearField():
+
+	force="--force" in sys.argv
+
 	ret=0
 	for dir in glob.glob(f"{experiment_dir}/**/nf",recursive=True):
 		
@@ -60,17 +66,18 @@ def ConvertNearField():
 		sample,scan=dir.split("/")[-3:-1]
 		job_name=f"{sample}_{scan}"
 
+
 		# already done
-		if list(glob.glob(f"{job_dir}/{job_name}.json*")):
+		if not force and list(glob.glob(f"{job_dir}/{job_name}.json*")):
 			continue
 
 		# no image files
-		if not list(glob.glob(f"{dir}/{nf_ext}")):
+		if not list(glob.glob(f"{dir}/*{nf_ext}")):
 			continue
 
 		SaveJSON(f"{tmp_dir}/{job_name}.json",{
 			"name": job_name,
-			"src": f"${dir}/nf_{nf_ext}",
+			"src": f"{dir}/nf_*{nf_ext}",
 			"metadata": [{"type": "chess-metadata", "query": {"Technique": "Tomography"}}]
 		})
 

@@ -20,6 +20,9 @@ nf_ext=".tif"
 # //////////////////////////////////////////////////////////
 def ConvertFarField():
 
+
+	force="--force" in sys.argv
+
 	ret=0
 	for filename in glob.glob(f"{experiment_dir}/**/ff/ff*.h5",recursive=True):
 
@@ -33,7 +36,7 @@ def ConvertFarField():
 		job_name=f"{sample}_{scan}_{panel}"
 
 		# already done
-		if list(glob.glob(f"{job_dir}/{job_name}.json*")):
+		if not force and list(glob.glob(f"{job_dir}/{job_name}.json*")):
 			continue
 
 		SaveJSON(f"{tmp_dir}/{job_name}.json",{
@@ -49,6 +52,9 @@ def ConvertFarField():
 
 # ///////////////////////////////////////////////
 def ConvertNearField():
+
+	force="--force" in sys.argv
+
 	ret=0
 	for dir in glob.glob(f"{experiment_dir}/**/nf",recursive=True):
 		
@@ -60,17 +66,18 @@ def ConvertNearField():
 		sample,scan=dir.split("/")[-3:-1]
 		job_name=f"{sample}_{scan}"
 
+
 		# already done
-		if list(glob.glob(f"{job_dir}/{job_name}.json*")):
+		if not force and list(glob.glob(f"{job_dir}/{job_name}.json*")):
 			continue
 
 		# no image files
-		if not list(glob.glob(f"{dir}/{nf_ext}")):
+		if not list(glob.glob(f"{dir}/*{nf_ext}")):
 			continue
 
 		SaveJSON(f"{tmp_dir}/{job_name}.json",{
 			"name": job_name,
-			"src": f"${dir}/nf_{nf_ext}",
+			"src": f"{dir}/nf_*{nf_ext}",
 			"metadata": [{"type": "chess-metadata", "query": {"Technique": "Tomography"}}]
 		})
 

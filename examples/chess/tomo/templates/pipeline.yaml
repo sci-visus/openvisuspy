@@ -1,0 +1,50 @@
+config:
+  interactive: True
+
+pipeline:
+
+  # Collect map data
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: {{ station }}
+              experiment_type: {{ experiment_type }}
+              spec_scans:
+              - spec_file: {{ spec_file }}
+                scan_numbers:
+                - {{ darkfield_scan_number }}
+            detector_names:
+              - {{ detector_name }}
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: {{ station }}
+              experiment_type: {{ experiment_type }}
+              spec_scans:
+              - spec_file: {{ spec_file }}
+                scan_numbers:
+                - {{ brightfield_scan_number }}
+            detector_names:
+              - {{ detector_name }}
+            schema: brightfield
+        - common.MapReader:
+            filename: {{ map_filename }}
+            detector_names:
+              - {{ detector_name }}
+            schema: tomofields
+        - common.YAMLReader:
+            filename: {{ detector_filename }}
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+
+  # Full tomography reconstruction
+  - tomo.TomoDataProcessor:
+      reduce_data: {{ reduce_data }}
+      find_center: {{ find_center }}
+      reconstruct_data: {{ reconstruct_data }}
+      output_folder: {{ output_folder }}
+      save_figs: '{{ save_figs }}'
+  - common.NexusWriter:
+      filename: {{ output_filename }}
+      force_overwrite: {{ force_overwrite }}

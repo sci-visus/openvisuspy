@@ -1,0 +1,21 @@
+title: {{ sample }}
+station: {{ station }}
+experiment_type: {{ experiment_type }}
+sample:
+  name: {{ sample }}
+spec_scans:
+- spec_file: {{ spec_file }}
+  scan_numbers: [{{ tomo_scan_number }}]
+independent_dimensions:
+- label: rotation_angles
+  units: degrees
+  data_type: scan_column
+  name: theta
+- label: x_translation
+  units: mm
+  data_type: smb_par
+  name: ramsx
+- label: z_translation
+  units: mm
+  data_type: smb_par
+  name: ramsz
