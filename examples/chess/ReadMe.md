@@ -2,9 +2,7 @@
 
 Links:
 
-- https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app/
-- https://nsdf01.classe.cornell.edu/dashboards/umich/app/
-- https://nsdf01.classe.cornell.edu/dashboards/test/app/
+- https://nsdf01.classe.cornell.edu
 
 
 Directories
@@ -231,7 +229,6 @@ done
 # https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
 ```
 
-
 if you want statistics:
 
 ```bash
@@ -241,7 +238,7 @@ export NSDF_GROUP="nsdf-group"
 screen -S ${NSDF_GROUP}-stats
 conda activate nsdf-env
 
-cp .workflow/gopalan/stats.ipynb .workflow/${NSDF_GROUP}/stats.ipynb
+cp .workflow/<your-template>/stats.ipynb .workflow/${NSDF_GROUP}/stats.ipynb
 
 # *** Edit the notebook to point to the BTR directory *** 
 
