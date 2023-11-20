@@ -44,12 +44,17 @@ def LoadMetadataFromChess(query=None):
 # //////////////////////////////////////////////////////////
 def LoadMetadata(value):
 
+	ret=[]
+
+	if not value:
+		return ret
+
 	# can be a JSON string
 	if isinstance(value,str):
 		value=json.loads(value) if len(value) else {}
 
 	assert(isinstance(value,list))
-	ret=[]
+	
 	for it in value:
 		type=it['type']
 		if type=="file":

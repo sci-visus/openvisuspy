@@ -68,7 +68,7 @@ kinit -k -t ~/krb5_keytab -c ~/krb5_ccache gscorzelli
 conda create --name nsdf-env  python=3.10  mamba
 conda activate nsdf-env 
 
-mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock nbformat ipykernel plotly dash pandas nbconvert panel jupyter_bokeh 
+mamba install -c conda-forge pip numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2 nexusformat python-ldap filelock nbformat ipykernel plotly dash pandas nbconvert panel jupyter_bokeh  sqlalchemy 
 
 # in case you need CBF file 
 pip install fabio
@@ -122,9 +122,6 @@ In the first terminal, init the tracker:
 ```bash
 export NSDF_GROUP="nsdf-group"
 
-# create a directory for the group (BTR means `beam time request`)
-mkdir examples/chess/btr/${NSDF_GROUP}
-
 # NOTE: creating a screen session is not strictly necessary, but allows to reconnect if needed
 screen -S ${NSDF_GROUP}-tracker
 echo $STY
@@ -157,7 +154,7 @@ function init_tracker() {
    mkdir -p ${convert_dir}
 
    # create emtpy files
-   touch "${convert_dir}/convert.log"        
+   touch "${convert_dir}/convert.log"
    touch "${convert_dir}/dashboards.log"
    touch "${convert_dir}/visus.group.config"
    touch "${convert_dir}/dashboards.json"
@@ -200,18 +197,21 @@ conda activate nsdf-env
 code /etc/nginx/nginx.conf
 sudo /usr/bin/systemctl restart nginx
 
+# add the group to the `index.html`
+code /var/www/html/index.html
+
 # choose any port you want which does not collide with other groups
 export BOKEH_PORT=<N>
 
 # in case you need to set who has access or not to the dashboard, use this uids separated by `;`
 # otherwise leave it emty or `*`
-export NSDF_ALLOWED_GROUPS="nsdf;<group2>"
-
-# where to store the logs
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${dashboards_config/.json/.log}
+export NSDF_ALLOWED_GROUPS="*"
 
 # json dashboards file
 export DASHBOARDS_CONFIG=/mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json
+
+# where to store the logs
+export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${DASHBOARDS_CONFIG/.json/.log}
 
 # needed for AD security
 export BOKEH_COOKIE_SECRET=$(echo $RANDOM | md5sum | head -c 32)
@@ -227,7 +227,6 @@ python -m bokeh serve examples/dashboards/app \
    --prefer local
 done
 
-
 # From a browser open the following URL (change group name as needed)
 # https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
 ```
@@ -242,9 +241,9 @@ export NSDF_GROUP="nsdf-group"
 screen -S ${NSDF_GROUP}-stats
 conda activate nsdf-env
 
-cp ./workflow/umich/stats.ipynb ./workflow/${NSDF_GROUP}/stats.ipynb
+cp .workflow/gopalan/stats.ipynb .workflow/${NSDF_GROUP}/stats.ipynb
 
-# Edit the notebook to point to the BTR directory
+# *** Edit the notebook to point to the BTR directory *** 
 
 # customize the statistics as needed
 
@@ -263,8 +262,28 @@ Finally you can run the conversion:
 ```bash
 export NSDF_GROUP="nsdf-group"
 cp ./examples/chess/json/* .workflow/${NSDF_GROUP}/jobs/
+
+# or you can run this
+# cp .workflow/from-group/run-convert.py .workflow/${NSDF_GROUP}/
+# edit the file and
+# python .workflow/${NSDF_GROUP}/run-convert.py
+
 ```
 
+if you want to debug the db:
+
+```bash
+
+for group in $(ls .workflow/* -d1); do 
+  todo=$(sqlite3 ${group}/sqllite3.db "SELECT count(*) from datasets WHERE conversion_start is     NULL")
+  finished=$(sqlite3 ${group}/sqllite3.db "SELECT count(*) from datasets WHERE conversion_end   is NOT NULL")
+  minutes=$(sqlite3 ${group}/sqllite3.db "SELECT (JULIANDAY( conversion_end) - JULIANDAY(conversion_start)) * 60*24 AS difference from datasets WHERE conversion_end is NOT NULL")
+  echo ${group} todo $todo finished $finished 
+  echo $minutes
+  echo
+done
+
+```
 
 # [DEBUG] Check if httpd and nginx are working
 

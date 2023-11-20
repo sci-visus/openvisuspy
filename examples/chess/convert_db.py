@@ -7,7 +7,6 @@ from datetime import datetime
 logger = logging.getLogger("nsdf-convert")
 
 
-
 # ///////////////////////////////////////////////////////////////////////
 class ConvertDb:
 
@@ -97,3 +96,12 @@ class ConvertDb:
 	# getNumFailed
 	def getNumFailed(self):
 		return len([it for it in self.getFailed()])
+	
+	# getToDo
+	def getToDo(self):
+		for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_start IS NULL ORDER BY id ASC"):
+			yield self.toDict(it)
+
+	# getNumToDo
+	def getNumToDo(self):
+		return len([it for it in self.getToDo()])

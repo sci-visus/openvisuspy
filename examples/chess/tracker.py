@@ -98,8 +98,8 @@ class Tracker:
 		logger.info(f"record_id={record_id} DONE")
 
 	# getLockFilename
-	def getLockFilename(self, specs):
-		return specs.get("dst",self.getDestinationFilename(specs["name"])) + ".filelock"
+	def getLockFilename(self, record_id):
+		return os.path.join(self.convert_dir, f"~tracker-{record_id}.filelock")
 
 	# convertNext
 	def convertNext(self, glob_expr=None):
@@ -115,7 +115,7 @@ class Tracker:
 		from convert_puller import LocalPuller
 		puller = LocalPuller(glob_expr)
 		for specs in puller.pull():
-			specs["metadata"]     = specs.get("metadata",[]) 
+			specs["metadata"] = specs.get("metadata",[]) 
 			db.pushPending(specs)
 
 		# run a new conversion if there are no old ones
@@ -125,22 +125,23 @@ class Tracker:
 
 		for specs in db.getRunning():
 			record_id=specs['id']
-			lock_filename=self.getLockFilename(specs)
+			lock_filename=self.getLockFilename(record_id)
 			lock=filelock.FileLock(lock_filename, timeout=1)
 			try:
 				with lock.acquire(timeout=1):
 					# We got the lock. That means conversion is no longer running and failed.
 					# We don't want to see this entry again, so mark it as failed and then log the failure.
-					error_msg=f"got the filelock[{lock_filename}]"
+					error_msg=f"ERROR: got the filelock[{lock_filename}] so converter probably crashed"
 					db.markDone(specs, error_msg=error_msg)
 					logger.info(f"Conversion record_id={record_id} probably failed error_msg={error_msg}")
+				os.remove(lock_filename)
 			except filelock.Timeout:
 				logger.info(f"Conversion record_id={record_id} seems to be still running")
 				return
 
 		# avoid parallel conversion
 		if db.getNumRunning():
-			logger.info(f"num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()}")
+			logger.info(f"num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()} num_todo={db.getNumToDo()}")
 			return
 
 		specs=db.popPending()
@@ -153,12 +154,22 @@ class Tracker:
 		logger.info(f"Found new conversion to run record_id={record_id}")
 
 		# The lockfile is used to monitor whether this conversion is running or not.
-		lock_filename = self.getLockFilename(specs)
+		lock_filename = self.getLockFilename(record_id)
 		lock=filelock.FileLock(lock_filename)
-		with lock:
-			self.convertByRecordId(record_id)
 
-		logger.info(f"Tracker num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()} DONE ")
+		try:
+			with lock:
+				self.convertByRecordId(record_id)
+			logger.info(f"Conversion record_id={record_id} OK")
+
+		except Exception as ex:
+			logger.info(f"Conversion record_id={record_id} failed ex={ex}")
+			db.markDone(specs, error_msg=str(ex))
+		finally:
+			try:
+				os.remove(lock_filename)
+			except:
+				pass
 
 
 # ////////////////////////////////////////////////
@@ -172,7 +183,6 @@ def Main(args):
 	args, unknown_args = parser.parse_known_args(args)
 
 	unknown_args=unknown_args[1:]
-
 
 	tracker=Tracker(args.convert_dir)
 

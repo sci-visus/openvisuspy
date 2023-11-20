@@ -20,7 +20,7 @@ def ReadImage(filename):
 	ext=os.path.splitext(filename)[1]
 	if ext==".cbf":
 		import fabio
-		return fabio.open(filename)
+		return fabio.open(filename).data
 	else:
 		from skimage import io
 		return io.imread(filename)
@@ -200,38 +200,56 @@ def ConvertData(specs):
 		for Z,filename in enumerate(filenames):
 			data[Z,:,:]=ReadImage(filename)
 
-	# ___________________________________________
-	elif ext == ".npy":
-		data=np.load(src)
-
-	# ___________________________________________
-	elif ext == ".h5":
-		expression  = specs.get("expression","/imageseries/images") # how to reach the field
-		f = h5py.File(src, 'r')
-		images=f
-		for it in expression.split("/")[1:]: images=images[it]
-		data=images[:,:,:]
-
-	# ___________________________________________
-	elif ext ==".nxs":
-		nexus_src=nxload(src)
-		streamable=copy.deepcopy(nexus_src)
-		found=CopyNexus(nexus_src,streamable,{"openvisus":dst})
-
-		# TODO: not supporting multiple fields inside a nexus file
-		assert(len(found)==1)
-		data, idx_axis, idx_physic_box=found[0]
-
-		# TODO: with some nexus file I am unable to create shrinked streamable (probably related to NXlinkfield)
-		if False:
-			streamable.attrs["streamable"]=True # add an attribute to remember
-			SaveNexus(os.path.splitext(dst)[0]+".nxs", streamable)
-
-		# LocalFileToMetadata(metadata,streamable_nexus)
-
-	# ___________________________________________
 	else:
-		raise Exception(f"Cannot handle src={src}")
+
+		# single file case
+		# allow glob if it ends up with a single file
+		if "*" in src:
+			v=list(glob.glob(src))
+			if len(v)!=1: raise Exception(f"Got src={src} which is not a single file")
+			src=v[0]
+
+		# ___________________________________________
+		if ext == ".npy":
+			data=np.load(src)
+
+		# ___________________________________________
+		elif ext == ".h5":
+			expression  = specs.get("expression","/imageseries/images") # how to reach the field
+
+
+			f = h5py.File(src, 'r')
+			images=f
+			for it in expression.split("/")[1:]: images=images[it]
+			data=images[:,:,:]
+
+		# ___________________________________________
+		elif ext ==".nxs":
+
+			# allow glob if it ends up with a single file
+			if "*" in src:
+				v=list(glob.glob(src))
+				if len(v)!=1: raise Exception(f"Got src={src} which is not a single file")
+				src=v[0]
+
+			nexus_src=nxload(src)
+			streamable=copy.deepcopy(nexus_src)
+			found=CopyNexus(nexus_src,streamable,{"openvisus":dst})
+
+			# TODO: not supporting multiple fields inside a nexus file
+			assert(len(found)==1)
+			data, idx_axis, idx_physic_box=found[0]
+
+			# TODO: with some nexus file I am unable to create shrinked streamable (probably related to NXlinkfield)
+			if False:
+				streamable.attrs["streamable"]=True # add an attribute to remember
+				SaveNexus(os.path.splitext(dst)[0]+".nxs", streamable)
+
+			# LocalFileToMetadata(metadata,streamable_nexus)
+
+		# ___________________________________________
+		else:
+			raise Exception(f"Cannot handle src={src}")
 
 	# why I am forcing it to be float32? I don't rememeber, maybe for openvisus/bokeh?
 	data=data.astype(np.float32) 
