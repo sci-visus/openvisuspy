@@ -68,26 +68,12 @@ class Slices(Widgets):
 
 		# this will fill out the layout
 		self.setViewMode(self.getViewMode())
-
-		if not self.isViewModeVisible():
-			tab=self.widgets.view_mode.tabs[self.widgets.view_mode.active]
-			return tab.child
-		else:
-			return self.widgets.view_mode
+		return self.widgets.view_mode
 
 
 	# getViewMode
 	def getViewMode(self):
 		return self.widgets.view_mode.tabs[self.widgets.view_mode.active].name
-
-	# isViewModeVisible
-	def isViewModeVisible(self):
-		return self.widgets.view_mode.visible
-
-	# setViewModeVisible
-	def setViewModeVisible(self,value):
-		self.widgets.view_mode.visible=value
-		self.setViewMode(self.getViewMode())
 
 	# createChild
 	def createChild(self, options):
