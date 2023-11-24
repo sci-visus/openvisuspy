@@ -42,23 +42,15 @@ if __name__.startswith('bokeh'):
 		doc = None
 	else:
 		import bokeh
-
 		doc = bokeh.io.curdoc()
 		doc.theme = 'light_minimal'
 
-	if False:
-		view = Slice(doc=doc, is_panel=is_panel, )
-		view.setShowOptions(
-			["datasets", "direction", "offset", "palette", "field", "resolution", "num_refinements", "colormapper_type",
-			 "palette_range_mode", "palette_range_vmin", "palette_range_vmax"])
-	else:
-		view = Slices(doc=doc, is_panel=is_panel, cls=ProbeTool)
-		view.setShowOptions([
-			["datasets", "palette", "resolution", "view_dep", "num_refinements", "colormapper_type", "show_metadata", "logout"],
-			["datasets", "direction", "offset", "colormapper_type", "palette_range_mode", "palette_range_vmin",
-			 "palette_range_vmax", "show-probe"]
-		])
-
+	view = Slices(doc=doc, is_panel=is_panel, cls=ProbeTool)
+	view.setShowOptions([
+		["datasets", "palette", "resolution", "view_dep", "num_refinements", "colormapper_type", "show_metadata", "logout"],
+		["datasets", "direction", "offset", "colormapper_type", "palette_range_mode", "palette_range_vmin",
+		 "palette_range_vmax", "show-probe"]
+	])
 	
 	view.setConfig(config)
 
