@@ -178,7 +178,7 @@ class Widgets:
 
 		self.id = f"{type(self).__name__}/{Widgets.ID}"
 		Widgets.ID += 1
-		self.config = None
+		self.config = {}
 		self.db = None
 		self.access = None
 		self.render_id = None  # by default I am not rendering
@@ -365,54 +365,58 @@ class Widgets:
 		for it in self.children:
 			it.gotoPoint(p)
 
-		# getConfig
+	# loadConfig
+	def loadConfig(self, value):
 
+		assert(isinstance(value,str) ) 
+		url=value
+
+		# remote file (maybe I need to setup credentials)
+		if value.startswith("http"):
+			url=value
+			username = os.environ.get("MODVISUS_USERNAME", "")
+			password = os.environ.get("MODVISUS_PASSWORD", "")
+			auth = None
+			if username and password: auth = HTTPBasicAuth(username, password) if username else None
+			response = requests.get(url, auth=auth)
+			body = response.body.decode('utf-8') 
+		elif os.path.isfile(value):
+			url=value
+			with open(url, "r") as f: body=f.read()
+		else:
+			body=value
+
+		return json.loads(body) if body else {}
+		 
+		
+		# getConfig
 	def getConfig(self):
 		return self.config
 
 	# setConfig
-	def setConfig(self, value, skip_set_dataset=False):
-		if value is None: 
-			return
-		logger.info(f"[{self.id}] setConfig value={str(value)[0:30]}...")
+	def setConfig(self, value):
+		if value is None:  return
+		logger.info(f"[{self.id}] setConfig value={str(value)[0:80]}...")
 
-		#is an JSON url
 		if not isinstance(value,dict):
-			
-			assert(isinstance(value,str) ) 
-			url=value
-
-			# remote file (maybe I need to setup credentials)
-			if value.startswith("http"):
-				url=value
-				username = os.environ.get("MODVISUS_USERNAME", "")
-				password = os.environ.get("MODVISUS_PASSWORD", "")
-				auth = None
-				if username and password: auth = HTTPBasicAuth(username, password) if username else None
-				response = requests.get(url, auth=auth)
-				body = response.body.decode('utf-8') 
-			elif os.path.isfile(value):
-				url=value
-				with open(url, "r") as f: body=f.read()
-			else:
-				body=value
-			value = json.loads(body) if body else {}
-
-		if not "datasets" in value:
-			value["datasets"]=[]
-
+			value=self.loadConfig(value)
+	
 		assert(isinstance(value,dict))
 		self.config = value
-		self.datasets = {it["name"]: it for it in value["datasets"]}
-		ordered_names = [it["name"] for it in value["datasets"]]
-		self.widgets.datasets.options = ordered_names
+		self.setDatasets([it["name"] for it in value.get("datasets",[])])
 
-		# recursive
 		for it in self.children:
-			it.setConfig(value, skip_set_dataset=skip_set_dataset)
+			it.setConfig(value)
 
-		if ordered_names and not skip_set_dataset:
-			self.setDataset(ordered_names[0])
+	# setDatasets
+	def setDatasets(self,value):
+		self.widgets.datasets.options = value
+
+	# getDatasets
+	def getDatasets(self):
+		return self.widgets.datasets.options
+
+
 
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
@@ -452,7 +456,6 @@ class Widgets:
 
 		T = [LinearMapping(0, dims[I], *value[I]) for I in range(len(dims))]
 		self.setLogicToPhysic(T)
-
 	# getDataset
 	def getDataset(self):
 		return self.widgets.datasets.value
@@ -460,43 +463,45 @@ class Widgets:
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
 
-		logger.info(f"[{self.id}] setDataset name={name} force={force} current_dataset={self.getDataset()} ")
+		logger.info(f"[{self.id}] setDataset name={name} force={force}")
 
 		# useless call
 		if not force and self.getDataset() == name:
 			return
 
-		# automatically create a config
-		if not self.config or not name in self.datasets:
-			self.setConfig({"datasets": [{"name": name, "url": name}]}, skip_set_dataset=True)
+		config=[it for it in self.config.get("datasets",[]) if it['name']==name]
+		if len(config):
+			config=config[0]
+		else:
+			config={"name": name, "url": name}
 
-		config = self.datasets[name]
 		self.widgets.datasets.value = name
 		self.doc.title = f"ViSUS {name}"
 
-		if db is None:
-			url = config["url"]
-
-			# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
-			logger.info(f"config={config}")
-			if "urls" in config and "--prefer" in sys.argv:
-				prefer = sys.argv[sys.argv.index("--prefer") + 1]
-				for it in config["urls"]:
-					if it["id"] == prefer:
-						url = it["url"]
-						logger.info(f"Overriding url from {it}")
-						break
-
-			logger.info(f"Loading dataset url={url}")
-			self.db = LoadDataset(url=url)
-		else:
-			self.db = db
-
+		self.db=self.loadDataset(config["url"], config) if db is None else db
 		self.access = self.db.createAccess()
-
-		# avoid reloading db multiple times by specifying db
 		for it in self.children:
 			it.setDataset(name, db=self.db)
+
+		self.setStatus(config)
+
+	# loadDataset
+	def loadDataset(self, url, config={}):
+
+		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
+		if "urls" in config and "--prefer" in sys.argv:
+			prefer = sys.argv[sys.argv.index("--prefer") + 1]
+			for it in config["urls"]:
+				if it["id"] == prefer:
+					url = it["url"]
+					logger.info(f"Overriding url from {it}")
+					break
+
+		logger.info(f"Loading dataset url={url}")
+		return LoadDataset(url=url)
+
+	# guessInitialStatus
+	def setStatus(self, config):
 
 		pdim = self.db.getPointDim()
 
@@ -530,8 +535,8 @@ class Widgets:
 
 		# direction
 		self.setDirection(2)
-		for I, it in enumerate(self.children):
-			it.setDirection((I % 3) if pdim == 3 else 2)
+		#for I, it in enumerate(self.children):
+		#	it.setDirection((I % 3) if pdim == 3 else 2)
 
 		# view dependent
 		view_dep = bool(config.get('view-dep', True))
@@ -567,61 +572,68 @@ class Widgets:
 		self.setNumberOfRefinements(num_refinements)
 
 		# metadata
-		metadata = config.get("metadata", None)
-		if metadata:
-			tabs = []
-			for T, item in enumerate(metadata):
+		self.setMetadata(config.get("metadata", None))
+			
+		self.refresh()		
 
-				type = item["type"]
-				filename = item.get("filename",f"metadata_{T:02d}.bin")
+	# loadMetadata
+	def setMetadata(self,value):
 
-				if type == "b64encode":
-					# binary encoded in string
-					base64_s = item["encoded"]
+		if value is None:
+			return
 
-					try:
-						body_s = base64.b64decode(base64_s).decode("utf-8")
-					except:
-						body_s = ""  # it's probably full binary
-				else:
-					# json
-					body_s = json.dumps(item, indent=2)
-					base64_s = base64.b64encode(bytes(body_s, 'utf-8')).decode('utf-8')
+		tabs = []
+		for T, item in enumerate(value):
 
-				base64_s = 'data:application/octet-stream;base64,' + base64_s
+			type = item["type"]
+			filename = item.get("filename",f"metadata_{T:02d}.bin")
 
-				# download button
-				download_button = Button(label="download")
-				download_button.js_on_click(CustomJS(args=dict(base64_s=base64_s, filename=filename), code="""
-						fetch(base64_s, {cache: "no-store"}).then(response => response.blob())
-						    .then(blob => {
-						        if (navigator.msSaveBlob) {
-						            navigator.msSaveBlob(blob, filename);
-						        }
-						        else {
-						            const link = document.createElement('a')
-						            link.href = URL.createObjectURL(blob)
-						            link.download = filename
-						            link.target = '_blank'
-						            link.style.visibility = 'hidden'
-						            link.dispatchEvent(new MouseEvent('click'))
-						        }
-						        return response.text();
-						    });
-						"""))
+			if type == "b64encode":
+				# binary encoded in string
+				base64_s = item["encoded"]
 
-				panel = TabPanel(child=Column(
-					Div(text=f"<b><pre><code>{filename}</code></pre></b>"),
-					download_button,
-					Div(text=f"<div><pre><code>{body_s}</code></pre></div>"),
-				),
-					title=f"{T}")
+				try:
+					body_s = base64.b64decode(base64_s).decode("utf-8")
+				except:
+					body_s = ""  # it's probably full binary
+			else:
+				# json
+				body_s = json.dumps(item, indent=2)
+				base64_s = base64.b64encode(bytes(body_s, 'utf-8')).decode('utf-8')
 
-				tabs.append(panel)
+			base64_s = 'data:application/octet-stream;base64,' + base64_s
 
-			self.widgets.metadata.children = [Tabs(tabs=tabs)]
+			# download button
+			download_button = Button(label="download")
+			download_button.js_on_click(CustomJS(args=dict(base64_s=base64_s, filename=filename), code="""
+					fetch(base64_s, {cache: "no-store"}).then(response => response.blob())
+					    .then(blob => {
+					        if (navigator.msSaveBlob) {
+					            navigator.msSaveBlob(blob, filename);
+					        }
+					        else {
+					            const link = document.createElement('a')
+					            link.href = URL.createObjectURL(blob)
+					            link.download = filename
+					            link.target = '_blank'
+					            link.style.visibility = 'hidden'
+					            link.dispatchEvent(new MouseEvent('click'))
+					        }
+					        return response.text();
+					    });
+					"""))
 
-		self.refresh()
+			panel = TabPanel(child=Column(
+				Div(text=f"<b><pre><code>{filename}</code></pre></b>"),
+				download_button,
+				Div(text=f"<div><pre><code>{body_s}</code></pre></div>"),
+			),
+				title=f"{T}")
+
+			tabs.append(panel)
+
+		self.widgets.metadata.children = [Tabs(tabs=tabs)]
+
 
 	# getTimesteps
 	def getTimesteps(self):

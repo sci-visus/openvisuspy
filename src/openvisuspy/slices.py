@@ -30,9 +30,8 @@ class Slices(Widgets):
 			TabPanel(child=Column(sizing_mode="stretch_both"), title="2-Linked"    , name="2-linked"),
 			TabPanel(child=Column(sizing_mode="stretch_both"), title="4"           , name="4"),
 			TabPanel(child=Column(sizing_mode="stretch_both"), title="4-Linked"    , name="4-linked"),
-		],
-			sizing_mode="stretch_both")
-		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(self.widgets.view_mode.tabs[new].name))
+		],sizing_mode="stretch_both")
+		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(self.getViewMode()))
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -115,6 +114,7 @@ class Slices(Widgets):
 		if not inner_col:
 			return
 
+		dataset=self.getDataset()
 		config = self.getConfig()
 		super().stop()
 
@@ -176,6 +176,7 @@ class Slices(Widgets):
 		]
 
 		self.setConfig(config)
+		self.setDataset(dataset, force=True)
 		super().start()
 
 	# setNumberOfViews (backward compatible)
