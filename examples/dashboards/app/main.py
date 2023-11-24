@@ -5,7 +5,6 @@ import argparse,json
 if __name__.startswith('bokeh'):
 
 	from openvisuspy import SetupLogger, IsPanelServe, GetBackend, Slices
-	from openvisuspy.probes import ProbeTool
 
 	logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"))
 	logger.info(f"GetBackend()={GetBackend()}")
@@ -48,7 +47,7 @@ if __name__.startswith('bokeh'):
 		doc.theme = 'light_minimal'
 		user_args={k: v[0].decode('ascii') for k,v in bokeh.io.curdoc().session_context.request.arguments.items()}
 
-	view = Slices(doc=doc, is_panel=is_panel, cls=ProbeTool)
+	view = Slices(doc=doc, is_panel=is_panel)
 	view.setShowOptions([
 		["datasets", "palette", "resolution", "view_dep", "num_refinements", "colormapper_type", "show_metadata", "logout"],
 		["datasets", "direction", "offset", "colormapper_type", "palette_range_mode", "palette_range_vmin",
