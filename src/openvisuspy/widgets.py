@@ -500,6 +500,28 @@ class Widgets:
 		logger.info(f"Loading dataset url={url}")
 		return LoadDataset(url=url)
 
+	# getStatus
+	def getStatus(self):
+
+		return dict(
+			timesteps=self.getTimesteps(),
+			timestep_delta=self.getTimestepDelta(),
+			timestep=self.getTimestep(),
+			directions=self.getDirections(),
+			physic_box=self.getPhysicBox(),
+			fields=self.getFields(),
+			field=self.getField(),
+			direction=self.getDirection(),
+			view_dep=self.getViewDependent(),
+			resolution=self.getResolution(),
+			palette=self.getPalette(),
+			palette_range=self.getPaletteRange(),
+			palette_medatadata_range=self.getMetadataPaletteRange(),
+			palette_range_mode=self.getPaletteRangeMode(),
+			color_mapper_type=self.getColorMapperType(),
+			num_refinements=self.getNumberOfRefinements()
+		)
+
 	# guessInitialStatus
 	def setStatus(self, config):
 

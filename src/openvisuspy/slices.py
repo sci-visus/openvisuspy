@@ -94,6 +94,9 @@ class Slices(Widgets):
 		ret = self.cls(doc=self.doc, is_panel=self.is_panel, parent=self)
 		if options is not None:
 			ret.setShowOptions(options)
+		ret.config=self.getConfig()
+		ret.setDatasets(self.getDatasets())
+		ret.setDataset(self.getDataset(),force=True)
 		return ret
 
 	# setViewMode
@@ -103,15 +106,15 @@ class Slices(Widgets):
 		tabs = self.widgets.view_mode.tabs
 
 		# look for a tab with the same name
-		inner_col = None
+		tab_layout = None
 		for I, tab in enumerate(tabs):
 			if tab.name == value:
 				self.widgets.view_mode.active = I
-				inner_col = tab.child
+				tab_layout = tab.child
 				break
 
 		# should not happen
-		if not inner_col:
+		if not tab_layout:
 			return
 
 		dataset=self.getDataset()
@@ -163,7 +166,7 @@ class Slices(Widgets):
 			raise Exception(f"problem here with setViewMode({value})")
 			return 
 
-		inner_col.children = [
+		tab_layout.children = [
 			Row(
 				Column(
 					self.first_row_layout,
@@ -175,8 +178,6 @@ class Slices(Widgets):
 			)
 		]
 
-		self.setConfig(config)
-		self.setDataset(dataset, force=True)
 		super().start()
 
 	# setNumberOfViews (backward compatible)
