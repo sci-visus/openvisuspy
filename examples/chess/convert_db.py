@@ -72,8 +72,10 @@ class ConvertDb:
 
 	# getRunning
 	def getRunning(self):
+		ret=[]
 		for it in self.conn.execute(f"SELECT * from datasets WHERE conversion_start IS NOT NULL AND conversion_end IS NULL"):
-			yield self.toDict(it)
+			ret.append(self.toDict(it))
+		return ret
 
 	# getNumRunning
 	def getNumRunning(self):
@@ -81,27 +83,39 @@ class ConvertDb:
 
 	# getConverted (returns only the ones without errors!)
 	def getConverted(self):
+		ret=[]
 		for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NULL ORDER BY id ASC"):
-				yield self.toDict(it)
+			ret.append(self.toDict(it))
+		return ret
+
+	# only if success
+	def isConverted(self,name):
+		for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NULL AND job LIKE ? ORDER BY id ASC",[f'%{name}%']):
+			return True
+		return False
 
 	# getNumConverted
 	def getNumConverted(self):
-		return len([it for it in self.getConverted()])
+		return len(self.getConverted())
 
 	# getFailed
 	def getFailed(self):
+		ret=[]
 		for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_end IS NOT NULL AND error_msg IS NOT NULL ORDER BY id ASC"):
-			yield self.toDict(it)
+			ret.append(self.toDict(it))
+		return ret
 
 	# getNumFailed
 	def getNumFailed(self):
-		return len([it for it in self.getFailed()])
+		return len(self.getFailed())
 	
 	# getToDo
 	def getToDo(self):
+		ret=[]
 		for it in self.conn.execute(f"SELECT * FROM datasets WHERE conversion_start IS NULL ORDER BY id ASC"):
-			yield self.toDict(it)
+			ret.append(self.toDict(it))
+		return ret
 
 	# getNumToDo
 	def getNumToDo(self):
-		return len([it for it in self.getToDo()])
+		return len(self.getToDo())

@@ -55,7 +55,7 @@ def SaveNexus(filename,dst):
 		nxsave(filename, dst , mode='w')
 		logger.info(f"DoConvert::run streamable={filename} reduced-size={os.path.getsize(filename):,}")
 
-
+# ///////////////////////////////////////////////////////////////////
 def CopyNexus(src, dst, extra_attrs={}):
 
 	ret=[]
@@ -79,9 +79,7 @@ def CopyNexus(src, dst, extra_attrs={}):
 				assert(data.shape[0]==1)
 				data=data[0,:,:,:]
 
-			assert(isinstance(src_parent,NXdata))
-
-			if "axes" in src_parent.attrs:
+			if hasattr(src_parent,"attr") and "axes" in src_parent.attrs:
 				idx_axis=[]
 				idx_physic_box=[]
 				axis=[src_parent[it] for it in src_parent.attrs["axes"]]
@@ -216,12 +214,17 @@ def ConvertData(specs):
 		# ___________________________________________
 		elif ext == ".h5":
 			expression  = specs.get("expression","/imageseries/images") # how to reach the field
-
+			logger.info(f"expression={expression}")
 
 			f = h5py.File(src, 'r')
-			images=f
-			for it in expression.split("/")[1:]: images=images[it]
-			data=images[:,:,:]
+
+			data=f
+			for it in expression.split("/")[1:]: data=data[it]
+
+			t1=time.time()
+			logger.info(f"Reading H5 data...")
+			data=data[:,:,:]
+			logger.info(f"Read H5 data in {time.time()-t1} seconds")
 
 		# ___________________________________________
 		elif ext ==".nxs":
@@ -232,20 +235,63 @@ def ConvertData(specs):
 				if len(v)!=1: raise Exception(f"Got src={src} which is not a single file")
 				src=v[0]
 
-			nexus_src=nxload(src)
-			streamable=copy.deepcopy(nexus_src)
-			found=CopyNexus(nexus_src,streamable,{"openvisus":dst})
+			
 
-			# TODO: not supporting multiple fields inside a nexus file
-			assert(len(found)==1)
-			data, idx_axis, idx_physic_box=found[0]
+			if True:
+				expression  = specs["expression"]
+				logger.info(f"expression={expression}")
 
-			# TODO: with some nexus file I am unable to create shrinked streamable (probably related to NXlinkfield)
-			if False:
-				streamable.attrs["streamable"]=True # add an attribute to remember
-				SaveNexus(os.path.splitext(dst)[0]+".nxs", streamable)
+				f=nxload(src)
 
-			# LocalFileToMetadata(metadata,streamable_nexus)
+				field=f
+				for it in expression.split("/")[1:]: field=field[it]
+
+				# replace any 'big' field with something virtually empty
+				# TODO: read nexus by slabs
+				t1=time.time()
+				logger.info(f"Reading Nexus field name={field.nxname} dtype={field.dtype} shape={field.shape} ...")
+				data = field.nxdata
+				logger.info(f"Read Nexus field in {time.time()-t1} seconds")
+
+				# e.g. 1x1441x676x2048 -> 1x1441x676x2048
+				if len(data.shape)==4:
+					assert(data.shape[0]==1)
+					data=data[0,:,:,:]
+
+				parent=field.nxgroup
+				if hasattr(parent,"attr") and "axes" in parent.attrs:
+					axis=[parent[it] for it in parent.attrs["axes"]]
+					idx_axis,idx_physic_box=[],[]
+					for it in axis:
+						idx_physic_box=[str(it.nxdata[0]),str(it.nxdata[-1])] + idx_physic_box
+						idx_axis=[it.nxname] +idx_axis
+					idx_axis=" ".join(idx_axis)
+					logger.info(f"Found axis={idx_axis} idx_physic_box={idx_physic_box}")
+					idx_physic_box=" ".join(idx_physic_box)
+				else:
+					idx_axis="X Y Z"
+					D,H,W=data.shape
+					idx_physic_box=f"0 {W} 0 {H} 0 {D}"
+				idx_physic_box=ov.BoxNd.fromString(idx_physic_box)
+
+			else:
+				nexus_src=nxload(src)
+				streamable=copy.deepcopy(nexus_src)
+				found=CopyNexus(nexus_src,streamable,{"openvisus":dst})
+
+				# TODO: not supporting multiple fields inside a nexus file
+
+				if len(found)>1:
+					logger.info(f"NEXUS Found two fields, talking the first one")
+				assert(len(found))
+				data, idx_axis, idx_physic_box=found[0]
+
+				# TODO: with some nexus file I am unable to create shrinked streamable (probably related to NXlinkfield)
+				if False:
+					streamable.attrs["streamable"]=True # add an attribute to remember
+					SaveNexus(os.path.splitext(dst)[0]+".nxs", streamable)
+
+				# LocalFileToMetadata(metadata,streamable_nexus)
 
 		# ___________________________________________
 		else:

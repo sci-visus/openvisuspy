@@ -56,6 +56,12 @@ class Tracker:
 	# convertBySpecs
 	def convertBySpecs(self, specs):
 
+		# could be a list of jobs
+		if isinstance(specs,list or isinstance(specs,tuple)):
+			for it in specs:
+				self.convertBySpecs(it)
+			return
+
 		logger.info(f"specs={specs}...")
 
 		dataset_name=specs["name"]
@@ -114,35 +120,52 @@ class Tracker:
 		# check for new json files to insert into the db
 		from convert_puller import LocalPuller
 		puller = LocalPuller(glob_expr)
-		for specs in puller.pull():
-			specs["metadata"] = specs.get("metadata",[]) 
-			db.pushPending(specs)
+
+
+		for SPECS in puller.pull():
+			for specs in SPECS if isinstance(SPECS,list) or isinstance(SPECS,tuple) else [SPECS]:
+				specs["metadata"] = specs.get("metadata",[]) 
+
+				force=eval(specs.get('force',"False"))
+				if not force and db.isConverted(specs['name']):
+						logger.info(f"{specs} seems already converted, so skipping it")
+						continue
+
+				logger.info(f"db.pushPending({specs})")
+				db.pushPending(specs)
 
 		# run a new conversion if there are no old ones
 		# Let's check if a conversion has failed. We do this by trying to acquire the lock
 		# on the lockfile entry. If we get the lock that means the convert process that held
 		# that lock no longer exists and failed prematurely (because conversion_end is null).
 
+		running=[it for it in db.getRunning()]
+		running_ids=[it['id'] for it in running]
+		logger.info(f"Found running jobs {running_ids}")
+
 		for specs in db.getRunning():
 			record_id=specs['id']
 			lock_filename=self.getLockFilename(record_id)
 			lock=filelock.FileLock(lock_filename, timeout=1)
 			try:
-				with lock.acquire(timeout=1):
-					# We got the lock. That means conversion is no longer running and failed.
-					# We don't want to see this entry again, so mark it as failed and then log the failure.
-					error_msg=f"ERROR: got the filelock[{lock_filename}] so converter probably crashed"
-					db.markDone(specs, error_msg=error_msg)
-					logger.info(f"Conversion record_id={record_id} probably failed error_msg={error_msg}")
-				os.remove(lock_filename)
+				lock.acquire(timeout=2)
+				# We got the lock. That means conversion is no longer running and failed.
+				# We don't want to see this entry again, so mark it as failed and then log the failure.
+				error_msg=f"ERROR: got the filelock[{lock_filename}] so converter probably crashed"
+				db.markDone(specs, error_msg=error_msg)
+				logger.info(f"Conversion record_id={record_id} probably failed error_msg={error_msg}")
+				
 			except filelock.Timeout:
 				logger.info(f"Conversion record_id={record_id} seems to be still running")
 				return
 
+			finally:
+				lock.release()
+				if os.path.isfile(lock_filename):
+					os.remove(lock_filename)
+
 		# avoid parallel conversion
-		if db.getNumRunning():
-			logger.info(f"num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()} num_todo={db.getNumToDo()}")
-			return
+		logger.info(f"num_running={db.getNumRunning()} num_converted={db.getNumConverted()} num_failed={db.getNumFailed()} num_todo={db.getNumToDo()}")
 
 		specs=db.popPending()
 		if specs is None:
@@ -158,18 +181,26 @@ class Tracker:
 		lock=filelock.FileLock(lock_filename)
 
 		try:
-			with lock:
-				self.convertByRecordId(record_id)
+			lock.acquire(timeout=2)
+			self.convertByRecordId(record_id)
 			logger.info(f"Conversion record_id={record_id} OK")
 
+		except filelock.Timeout:
+			logger.info(f"Cannot acquire the lock")
+
 		except Exception as ex:
-			logger.info(f"Conversion record_id={record_id} failed ex={ex}")
+			import traceback
+			_, _, tb = sys.exc_info()
+			traceback.print_tb(tb) # Fixed format
+			tb_info = traceback.extract_tb(tb)
+			filename, line, func, text = tb_info[-1]
+			logger.info(f"Conversion FAILED record_id={record_id} ex={repr(ex)} filename={filename} line={line} func={func}")
 			db.markDone(specs, error_msg=str(ex))
 		finally:
-			try:
+			lock.release()
+			if os.path.isfile(lock_filename):
 				os.remove(lock_filename)
-			except:
-				pass
+		
 
 
 # ////////////////////////////////////////////////

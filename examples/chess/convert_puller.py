@@ -11,6 +11,7 @@ class LocalPuller:
 	# constructor	
 	def __init__(self,glob_pattern):
 		self.glob_pattern=glob_pattern
+		logger.info(f"Creating local puller glob_pattern={glob_pattern}")
 
 	# pull
 	def pull(self):
