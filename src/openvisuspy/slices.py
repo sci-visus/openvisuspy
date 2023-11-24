@@ -11,6 +11,9 @@ from .widgets import Widgets
 
 logger = logging.getLogger(__name__)
 
+# //////////////////////////////////////////////////////////////////////////////////////
+def RemoveValuesFromList(l, values):
+	return [it for it in l if it not in values]
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Slices(Widgets):
@@ -78,8 +81,7 @@ class Slices(Widgets):
 	# createChild
 	def createChild(self, options):
 		ret = self.cls(doc=self.doc, is_panel=self.is_panel, parent=self)
-		if options is not None:
-			ret.setShowOptions(options)
+		if options is not None: ret.setShowOptions(options)
 		ret.config=self.getConfig()
 		ret.setDatasets(self.getDatasets())
 		ret.setDataset(self.getDataset(),force=True)
@@ -99,36 +101,16 @@ class Slices(Widgets):
 	# createTabLayout
 	def createTabLayout(self, mode):
 
-		def RemoveOptions(v, values):
-			ret = copy.copy(v)
-			for it in values:
-				if it in v: ret.remove(it)
-			return ret
-
 		options = self.slice_show_options
+		if mode=="probe": mode="1-probe"
+		nviews=int(mode[0:1])
 
-		if mode=="1":
-			self.children = [
-				self.createChild(RemoveOptions(options, ["datasets", "colormapper_type", "colormapper-type"]))]
-			central = Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
+		if nviews==1:
+			options=RemoveValuesFromList(options, ["datasets", "colormapper_type", "colormapper-type"])
 
-		elif mode=="probe":
-			child = self.createChild(RemoveOptions(options, ["datasets", "colormapper_type", "colormapper-type"]))
-			child.setProbeVisible(True)
-			self.children = [child]
-			central = Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
-
-		elif mode == "2" or mode == "2-linked":
-			self.children = [self.createChild(options) for I in range(2)]
-			central = Row(children=[child.getMainLayout() for child in self.children], sizing_mode="stretch_both")
-
-		elif mode == "4" or mode == "4-linked":
-			self.children = [self.createChild(options) for I in range(4)]
-			central = Grid(children=[child.getMainLayout() for child in self.children], nrows=2, ncols=2,sizing_mode="stretch_both")
-
-		else:
-			raise Exception(f"problem here with setViewMode({value})")
-			return 
+		self.children = [self.createChild(options) for I in range(nviews)]
+		nrows,ncols={ 1: (1,1), 2: (1,2), 4: (2,2), }[nviews]
+		central=Grid(children=[child.getMainLayout() for child in self.children ], nrows=nrows,ncols=ncols, sizing_mode="stretch_both")
 
 		if "linked" in mode:
 			self.children[0].setLinked(True)
