@@ -11,9 +11,6 @@ from .widgets import Widgets
 
 logger = logging.getLogger(__name__)
 
-# //////////////////////////////////////////////////////////////////////////////////////
-def RemoveValuesFromList(l, values):
-	return [it for it in l if it not in values]
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Slices(Widgets):
@@ -106,7 +103,7 @@ class Slices(Widgets):
 		nviews=int(mode[0:1])
 
 		if nviews==1:
-			options=RemoveValuesFromList(options, ["datasets", "colormapper_type", "colormapper-type"])
+			options=[it for it in options if it not in ["datasets", "colormapper_type", "colormapper-type"]]
 
 		self.children = [self.createChild(options) for I in range(nviews)]
 		nrows,ncols={ 1: (1,1), 2: (1,2), 4: (2,2), }[nviews]
