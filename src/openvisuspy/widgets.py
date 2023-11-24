@@ -537,77 +537,48 @@ class Widgets:
 	# guessInitialStatus
 	def setStatus(self, config):
 
-		pdim = self.db.getPointDim()
-
-		# timestep
+		# read the configuration and guess values if needed
+		pdim = self.getPointDim()
 		timesteps = self.db.getTimesteps()
 		timestep_delta = int(config.get("timestep-delta", 1))
 		timestep = int(config.get("timestep", timesteps[0]))
+		physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+		physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
+		axis = self.db.inner.idxfile.axis.strip().split()
+		if not axis: axis = ["X", "Y", "Z"][0:pdim]
+		axis = [(str(I), name) for I, name in enumerate(axis)]
+		view_dep = bool(config.get('view-dep', True))
+		resolution = int(config.get("resolution", self.db.getMaxResolution() - 6))
+		pdim = self.db.getPointDim()
+		fields = self.db.getFields()
+		field = self.db.getField(config.get("field", self.db.getField().name))
+		dtype_range = field.getDTypeRange()
+		dtype_vmin, dtype_vmax = dtype_range.From, dtype_range.To
+		palette = config.get("palette", "Viridis256")
+		palette_range = config.get("palette-range", None)
+		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic") if palette_range is None else [palette_range,"user"]
+		color_mapper_type = config.get("color-mapper-type", "linear")
+		num_refinements = int(config.get("num-refinements", 2))
+		metadata=config.get("metadata", None)
+	
+		# setting the status
 		self.setTimesteps(timesteps)
 		self.setTimestepDelta(timestep_delta)
 		self.setTimestep(timestep)
-
-		# axis
-		axis = self.db.inner.idxfile.axis.strip().split()
-		if not axis:
-			axis = ["X", "Y", "Z"][0:pdim]
-		axis = [(str(I), name) for I, name in enumerate(axis)]
 		self.setDirections(axis)
-
-		# physic box
-		physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
-		physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
 		self.setPhysicBox(physic_box)
-
-		# field
-		fields = self.db.getFields()
-		default_fieldname = self.db.getField().name
-		fieldname = config.get("field", default_fieldname)
-		field = self.db.getField(fieldname)
 		self.setFields(fields)
 		self.setField(field.name)
-
-		# direction
 		self.setDirection(2)
-		#for I, it in enumerate(self.children):
-		#	it.setDirection((I % 3) if pdim == 3 else 2)
-
-		# view dependent
-		view_dep = bool(config.get('view-dep', True))
 		self.setViewDependent(view_dep)
-
-		# resolution
-		maxh = self.db.getMaxResolution()
-		resolution = int(config.get("resolution", maxh - 6))
-		self.widgets.resolution.start = self.start_resolution
-		self.widgets.resolution.end = maxh
 		self.setResolution(resolution)
-
-		# palette
-		palette = config.get("palette", "Viridis256")
-		palette_range = config.get("palette-range", None)
-		dtype_range = field.getDTypeRange()
 		self.setPalette(palette)
-		vmin, vmax = dtype_range.From, dtype_range.To
-		self.setMetadataPaletteRange([vmin, vmax])
-		if palette_range is None:
-			self.setPaletteRange([vmin, vmax])
-			self.setPaletteRangeMode("dynamic")
-		else:
-			self.setPaletteRange(palette_range)
-			self.setPaletteRangeMode("user")
-
-		# color mapper
-		color_mapper_type = config.get("color-mapper-type", "linear")
+		self.setMetadataPaletteRange([dtype_vmin, dtype_vmax])
+		self.setPaletteRange(palette_range)
+		self.setPaletteRangeMode(palette_range_mode)
 		self.setColorMapperType(color_mapper_type)
-
-		# num_refinements
-		num_refinements = int(config.get("num-refinements", 2))
 		self.setNumberOfRefinements(num_refinements)
-
-		# metadata
-		self.setMetadata(config.get("metadata", None))
-			
+		self.setMetadata(metadata)
 		self.refresh()		
 
 	# loadMetadata
@@ -870,7 +841,9 @@ class Widgets:
 	# setResolution
 	def setResolution(self, value):
 		logger.info(f"[{self.id}] value={value}")
-		value = Clamp(value, 0, self.getMaxResolution())
+		self.widgets.resolution.start = self.start_resolution
+		self.widgets.resolution.end   = self.db.getMaxResolution()
+		value = Clamp(value, 0, self.widgets.resolution.end)
 		self.widgets.resolution.value = value
 		for it in self.children:
 			it.setResolution(value)
