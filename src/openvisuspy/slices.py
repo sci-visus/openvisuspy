@@ -166,10 +166,12 @@ class Slices(Widgets):
 		logger.info(f"[{self.id}] value={value}")
 		tab = self.getTabByName(value)
 		if not tab: return
+		self.hold()
 		super().stop()
 		self.clearTabLayout()
 		tab.child.children = [self.createTabLayout(value)]
 		super().start()
+		self.unhold()
 
 	# setNumberOfViews (backward compatible)
 	def setNumberOfViews(self, value):

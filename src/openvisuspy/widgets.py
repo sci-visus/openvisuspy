@@ -469,6 +469,7 @@ class Widgets:
 		if not force and self.getDataset() == name:
 			return
 
+		self.hold()
 		config=[it for it in self.config.get("datasets",[]) if it['name']==name]
 		if len(config):
 			config=config[0]
@@ -484,6 +485,17 @@ class Widgets:
 			it.setDataset(name, db=self.db)
 
 		self.setStatus(config)
+		self.unhold()
+
+	# hold
+	def hold(self):
+		self.num_hold=getattr(self,"num_hold",0) + 1
+		if self.num_hold==1: self.doc.hold()
+
+	# unhold
+	def unhold(self):
+		self.num_hold-=1
+		if self.num_hold==0: self.doc.unhold()
 
 	# loadDataset
 	def loadDataset(self, url, config={}):
