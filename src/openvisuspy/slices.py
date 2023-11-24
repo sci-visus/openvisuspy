@@ -99,29 +99,9 @@ class Slices(Widgets):
 		ret.setDataset(self.getDataset(),force=True)
 		return ret
 
-	# setViewMode
-	def setViewMode(self, value):
-		value=value.lower().strip()
-		logger.info(f"[{self.id}] value={value}")
-		tabs = self.widgets.view_mode.tabs
+	# clearTabLayout
+	def clearTabLayout(self):
 
-		# look for a tab with the same name
-		tab_layout = None
-		for I, tab in enumerate(tabs):
-			if tab.name == value:
-				self.widgets.view_mode.active = I
-				tab_layout = tab.child
-				break
-
-		# should not happen
-		if not tab_layout:
-			return
-
-		dataset=self.getDataset()
-		config = self.getConfig()
-		super().stop()
-
-		# remove old children
 		v = self.children
 		logger.info(f"[{self.id}] deleting old children {[it.id for it in v]}")
 		for it in v: del it
@@ -129,6 +109,9 @@ class Slices(Widgets):
 		# empty all tabs
 		for tab in self.widgets.view_mode.tabs:
 			tab.child.children = []
+
+	# createTabLayout
+	def createTabLayout(self, mode):
 
 		def RemoveOptions(v, values):
 			ret = copy.copy(v)
@@ -138,46 +121,54 @@ class Slices(Widgets):
 
 		options = self.slice_show_options
 
-		if value=="1":
+		if mode=="1":
 			self.children = [
 				self.createChild(RemoveOptions(options, ["datasets", "colormapper_type", "colormapper-type"]))]
 			central = Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
-		elif value=="probe":
+		elif mode=="probe":
 			child = self.createChild(RemoveOptions(options, ["datasets", "colormapper_type", "colormapper-type"]))
 			child.setProbeVisible(True)
 			self.children = [child]
 			central = Row(self.children[0].getMainLayout(), sizing_mode="stretch_both")
 
-		elif value == "2" or value == "2-linked":
+		elif mode == "2" or mode == "2-linked":
 			self.children = [self.createChild(options) for I in range(2)]
 			central = Row(children=[child.getMainLayout() for child in self.children], sizing_mode="stretch_both")
-			if "linked" in value:
-				self.children[0].setLinked(True)
-				
-		elif value == "4" or value == "4-linked":
+
+		elif mode == "4" or mode == "4-linked":
 			self.children = [self.createChild(options) for I in range(4)]
 			central = Grid(children=[child.getMainLayout() for child in self.children], nrows=2, ncols=2,sizing_mode="stretch_both")
-
-			if "linked" in value:
-				self.children[0].setLinked(True)
 
 		else:
 			raise Exception(f"problem here with setViewMode({value})")
 			return 
 
-		tab_layout.children = [
-			Row(
-				Column(
-					self.first_row_layout,
-					central,
-					sizing_mode='stretch_both'
-				),
-				self.widgets.metadata,
-				sizing_mode='stretch_both'
-			)
-		]
+		if "linked" in mode:
+			self.children[0].setLinked(True)
 
+		return  Row(
+				Column(self.first_row_layout, central, sizing_mode='stretch_both' ),
+				self.widgets.metadata,
+				sizing_mode='stretch_both')
+
+	# getTabByName
+	def getTabByName(self, value):
+		for I, tab in enumerate(self.widgets.view_mode.tabs):
+			if tab.name == value:
+				self.widgets.view_mode.active = I
+				return tab
+		return None
+
+	# setViewMode
+	def setViewMode(self, value):
+		value=value.lower().strip()
+		logger.info(f"[{self.id}] value={value}")
+		tab = self.getTabByName(value)
+		if not tab: return
+		super().stop()
+		self.clearTabLayout()
+		tab.child.children = [self.createTabLayout(value)]
 		super().start()
 
 	# setNumberOfViews (backward compatible)
