@@ -35,15 +35,18 @@ if __name__.startswith('bokeh'):
 		# assuming is a json file
 		config=sys.argv[1]
 
+
+
 	is_panel = IsPanelServe()
 	if is_panel:
 		import panel as pn
-
 		doc = None
+		user_args={}
 	else:
 		import bokeh
 		doc = bokeh.io.curdoc()
 		doc.theme = 'light_minimal'
+		user_args={k: v[0].decode('ascii') for k,v in bokeh.io.curdoc().session_context.request.arguments.items()}
 
 	view = Slices(doc=doc, is_panel=is_panel, cls=ProbeTool)
 	view.setShowOptions([
@@ -55,8 +58,12 @@ if __name__.startswith('bokeh'):
 	view.setConfig(config)
 
 	datasets=view.getDatasets()
-	if len(datasets):
-		view.setDataset(datasets[0], force=True)
+	dataset=user_args.get("dataset",None)
+	if not dataset and len(datasets): 
+		dataset=datasets[0]
+
+	if dataset is not None:
+		view.setDataset(dataset, force=True)
 
 	if is_panel:
 		main_layout = view.getMainLayout()
