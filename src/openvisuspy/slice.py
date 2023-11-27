@@ -2,7 +2,7 @@ import base64
 import types
 import logging
 import copy
-import colorcet
+
 import requests
 import os,sys,io,threading,time
 
@@ -24,40 +24,11 @@ from . canvas import Canvas
 logger = logging.getLogger(__name__)
 
 
-PALETTES = [
-			   "Greys256",
-			   "Inferno256",
-			   "Magma256",
-			   "Plasma256",
-			   "Viridis256",
-			   "Cividis256",
-			   "Turbo256"
-		   ] + [
-			   it for it in [
-		'colorcet.blueternary',
-		'colorcet.coolwarm',
-		'colorcet.cyclicgrey',
-		'colorcet.depth',
-		'colorcet.divbjy',
-		'colorcet.fire',
-		'colorcet.geographic',
-		'colorcet.geographic2',
-		'colorcet.gouldian',
-		'colorcet.gray',
-		'colorcet.greenternary',
-		'colorcet.grey',
-		'colorcet.heat',
-		'colorcet.phase2',
-		'colorcet.phase4',
-		'colorcet.rainbow',
-		'colorcet.rainbow2',
-		'colorcet.rainbow3',
-		'colorcet.rainbow4',
-		'colorcet.redternary',
-		'colorcet.reducedgrey',
-		'colorcet.yellowheat']
-			   if hasattr(colorcet, it[9:])
-		   ]
+import bokeh.palettes
+PALETTES = [name for name in bokeh.palettes.__palettes__ if name.endswith("256")]
+
+import colorcet 
+PALETTES.extend(sorted([f"colorcet.{name}" for name in colorcet.palette]))
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
@@ -737,7 +708,7 @@ class Widgets:
 		logger.info(f"[{self.id}] value={value}")
 		self.palette = value
 		self.widgets.palette.value = value
-		self.color_bar.color_mapper.palette = getattr(colorcet, value[len("colorcet."):]) if value.startswith("colorcet.") else value
+		self.color_bar.color_mapper.palette = getattr(colorcet.palette, value[len("colorcet."):]) if value.startswith("colorcet.") else value
 		for it in self.children:
 			it.setPalette(value)
 		self.refresh()
@@ -817,7 +788,7 @@ class Widgets:
 
 		palette_for_mapper=palette
 		if palette.startswith("colorcet."):
-			palette_for_mapper=getattr(colorcet, palette[len("colorcet."):])
+			palette_for_mapper=getattr(colorcet.palette, palette[len("colorcet."):])
 
 		self.color_bar = ColorBar()  # ticker=BasicTicker(desired_num_ticks=10)
 		if value == "log":
