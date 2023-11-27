@@ -23,42 +23,8 @@ from . canvas import Canvas
 
 logger = logging.getLogger(__name__)
 
-
-PALETTES = [
-			   "Greys256",
-			   "Inferno256",
-			   "Magma256",
-			   "Plasma256",
-			   "Viridis256",
-			   "Cividis256",
-			   "Turbo256"
-		   ] + [
-			   it for it in [
-		'colorcet.blueternary',
-		'colorcet.coolwarm',
-		'colorcet.cyclicgrey',
-		'colorcet.depth',
-		'colorcet.divbjy',
-		'colorcet.fire',
-		'colorcet.geographic',
-		'colorcet.geographic2',
-		'colorcet.gouldian',
-		'colorcet.gray',
-		'colorcet.greenternary',
-		'colorcet.grey',
-		'colorcet.heat',
-		'colorcet.phase2',
-		'colorcet.phase4',
-		'colorcet.rainbow',
-		'colorcet.rainbow2',
-		'colorcet.rainbow3',
-		'colorcet.rainbow4',
-		'colorcet.redternary',
-		'colorcet.reducedgrey',
-		'colorcet.yellowheat']
-			   if hasattr(colorcet, it[9:])
-		   ]
-
+PALETTES=[name for name in bokeh.palettes.__palettes__ if name.endswith("256")] + \
+	[f"colorcet.{name}" for name in sorted(colorcet.palette)]
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class EditableSlider:
@@ -166,12 +132,11 @@ class EditableSlider:
 		self.slider.title = value
 
 
-# //////////////////////////////////////////////////////////////////////////////////////
-class Widgets:
+# ////////////////////////////////////////////////////////////////////////////////////
+class Slice:
+
 	ID = 0
-
 	epsilon = 0.001
-
 	start_resolution = 20
 
 	# constructor
@@ -187,8 +152,8 @@ class Widgets:
 		self.doc = doc
 		self.parent = parent
 
-		self.id = f"{type(self).__name__}/{Widgets.ID}"
-		Widgets.ID += 1
+		self.id = f"{type(self).__name__}/{Slice.ID}"
+		Slice.ID += 1
 		self.config = {}
 		self.db = None
 		self.access = None
@@ -243,8 +208,7 @@ class Widgets:
 		# timestep delta
 		speed_options = ["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"]
 		self.widgets.timestep_delta = Select(title="Speed", options=speed_options, value=speed_options[0], width=100)
-		self.widgets.timestep_delta.on_change("value",
-											  lambda attr, old, new: self.setTimestepDelta(self.speedFromOption(new)))
+		self.widgets.timestep_delta.on_change("value", lambda attr, old, new: self.setTimestepDelta(self.speedFromOption(new)))
 
 		# field
 		self.widgets.field = Select(title='Field', options=[], value='data')
@@ -285,8 +249,7 @@ class Widgets:
 		self.play.is_playing = False
 		self.widgets.play_button = Button(label="Play", width=80, sizing_mode='stretch_height')
 		self.widgets.play_button.on_click(self.togglePlay)
-		self.widgets.play_sec = Select(title="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"],
-									   value="0.01", width=120)
+		self.widgets.play_sec = Select(title="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01", width=120)
 
 		# metadata
 		self.widgets.metadata = Column(width=640, sizing_mode='stretch_both')
@@ -300,6 +263,73 @@ class Widgets:
 
 		self.panel_layout = None
 		self.idle_callback = None
+
+		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","resolution"]
+		self.render_id     = 0
+		self.aborted       = Aborted()
+		self.new_job       = False
+		self.current_img   = None
+		self.options={}
+
+		self.last_query_logic_box = None
+		self.query_node=QueryNode()
+		self.t1=time.time()
+		self.H=None
+
+		# create Gui
+		self.canvas = Canvas(self.id)
+		self.canvas.on_resize=self.onCanvasResize
+		self.canvas.enableDoubleTap(self.onDoubleTap)
+
+	# getShowOptions
+	def getShowOptions(self):
+		return self.show_options
+
+	# setShowOptions
+	def setShowOptions(self,value):
+		self.show_options=value
+		self.first_row_layout.children=self.getFirstRowChildren()
+
+	# getFirstRowChildren
+	def getFirstRowChildren(self):
+		ret=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
+		ret=[it.getMainLayout() if not isinstance(it,UIElement) else it for it in ret]
+		return ret		
+
+
+	# getMainLayout 
+	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
+	def getMainLayout(self):
+
+		self.first_row_layout.children=self.getFirstRowChildren()
+
+		ret = Column(
+			self.first_row_layout,
+			Row(self.canvas.getMainLayout(), self.widgets.metadata, sizing_mode='stretch_both'),
+			Row(
+				self.widgets.status_bar["request"],
+				self.widgets.status_bar["response"], 
+				sizing_mode='stretch_width'
+			),
+			sizing_mode="stretch_both")
+
+		if IsPyodide():
+			self.idle_callback=AddAsyncLoop(f"{self}::onIdle",self.onIdle,1000//30)
+
+		elif self.is_panel:
+			import panel as pn
+			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
+
+			# i should return some panel
+			if self.parent is None:
+				self.panel_layout=pn.pane.Bokeh(ret,sizing_mode="stretch_both")
+				ret=self.panel_layout
+
+		else:
+			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
+			
+		self.start()
+		return ret
 
 	# onOffsetChange
 	def onOffsetChange(self, attr, old, new):
@@ -317,29 +347,6 @@ class Widgets:
 	# onShowMetadataClick
 	def onShowMetadataClick(self):
 		self.widgets.metadata.visible = not self.widgets.metadata.visible
-
-	# start
-	def start(self):
-		for it in self.children:
-			it.start()
-
-	# stop
-	def stop(self):
-		logger.info(f"[{self.id}]:: stop ")
-		for it in self.children:
-			it.stop()
-
-	# onIdle
-	async def onIdle(self):
-
-		self.playNextIfNeeded()
-
-		if self.panel_layout:
-			import panel as pn
-			pn.io.push_notebook(self.panel_layout)
-
-		for it in self.children:
-			await it.onIdle()
 
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self, value):
@@ -362,10 +369,6 @@ class Widgets:
 			it.setWidgetsDisabled(value)
 
 		# refresh (to override if needed)
-
-	def refresh(self):
-		for it in self.children:
-			it.refresh()
 
 	# getPointDim
 	def getPointDim(self):
@@ -399,7 +402,6 @@ class Widgets:
 
 		return json.loads(body) if body else {}
 		 
-		
 		# getConfig
 	def getConfig(self):
 		return self.config
@@ -427,8 +429,6 @@ class Widgets:
 	def getDatasets(self):
 		return self.widgets.datasets.options
 
-
-
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
 		return self.logic_to_physic
@@ -450,11 +450,6 @@ class Widgets:
 			0 * vs[I] + vt[I],
 			dims[I] * vs[I] + vt[I]
 		] for I in range(len(dims))]
-
-	# pdim = self.db.getPointDim()
-	# physic_box=self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
-	# physic_box=[(float(physic_box[I]),float(physic_box[I+1])) for I in range(0,pdim*2,2)]
-	# return physic_box
 
 	# setPhysicBox
 	def setPhysicBox(self, value):
@@ -525,7 +520,6 @@ class Widgets:
 
 	# getStatus
 	def getStatus(self):
-
 		return dict(
 			timesteps=self.getTimesteps(),
 			timestep_delta=self.getTimestepDelta(),
@@ -545,10 +539,8 @@ class Widgets:
 			num_refinements=self.getNumberOfRefinements()
 		)
 
-	# guessInitialStatus
+	# setStatus
 	def setStatus(self, config):
-
-		# read the configuration and guess values if needed
 		pdim = self.getPointDim()
 		timesteps = self.db.getTimesteps()
 		timestep_delta = int(config.get("timestep-delta", 1))
@@ -650,7 +642,6 @@ class Widgets:
 
 		self.widgets.metadata.children = [Tabs(tabs=tabs)]
 
-
 	# getTimesteps
 	def getTimesteps(self):
 		try:
@@ -737,7 +728,7 @@ class Widgets:
 		logger.info(f"[{self.id}] value={value}")
 		self.palette = value
 		self.widgets.palette.value = value
-		self.color_bar.color_mapper.palette = getattr(colorcet, value[len("colorcet."):]) if value.startswith("colorcet.") else value
+		self.color_bar.color_mapper.palette = getattr(colorcet.palette, value[len("colorcet."):]) if value.startswith("colorcet.") else value
 		for it in self.children:
 			it.setPalette(value)
 		self.refresh()
@@ -878,12 +869,15 @@ class Widgets:
 	def getDirections(self):
 		return self.widgets.direction.options
 
-	# setDirections
-	def setDirections(self, value):
+	# setDirection
+	def setDirections(self,value):
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.direction.options = value
 		for it in self.children:
 			it.setDirections(value)
+		dims=[int(it) for it in self.db.getLogicSize()]
+		self.setQueryLogicBox(([0]*self.getPointDim(),dims))
+		self.refresh()
 
 	# getDirection
 	def getDirection(self):
@@ -1108,79 +1102,6 @@ class Widgets:
 		self.play.t1 = time.time()
 		self.setTimestep(T)
 
-# ////////////////////////////////////////////////////////////////////////////////////
-class Slice(Widgets):
-	
-	# constructor
-	def __init__(self, doc=None, is_panel=False, parent=None):
-
-		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
-		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","resolution"]
-		self.render_id     = 0
-		self.aborted       = Aborted()
-		self.new_job       = False
-		self.current_img   = None
-		self.options={}
-
-		self.last_query_logic_box = None
-		self.query_node=QueryNode()
-		self.t1=time.time()
-		self.H=None
-
-		# create Gui
-		self.canvas = Canvas(self.id)
-		self.canvas.on_resize=self.onCanvasResize
-		self.canvas.enableDoubleTap(self.onDoubleTap)
-
-	# getShowOptions
-	def getShowOptions(self):
-		return self.show_options
-
-	# getFirstRowChildren
-	def getFirstRowChildren(self):
-		ret=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
-		ret=[it.getMainLayout() if not isinstance(it,UIElement) else it for it in ret]
-		return ret		
-
-	# setShowOptions
-	def setShowOptions(self,value):
-		self.show_options=value
-		self.first_row_layout.children=self.getFirstRowChildren()
-
-	# getMainLayout 
-	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getMainLayout(self):
-
-		self.first_row_layout.children=self.getFirstRowChildren()
-
-		ret = Column(
-			self.first_row_layout,
-			Row(self.canvas.getMainLayout(), self.widgets.metadata, sizing_mode='stretch_both'),
-			Row(
-				self.widgets.status_bar["request"],
-				self.widgets.status_bar["response"], 
-				sizing_mode='stretch_width'
-			),
-			sizing_mode="stretch_both")
-
-		if IsPyodide():
-			self.idle_callback=AddAsyncLoop(f"{self}::onIdle",self.onIdle,1000//30)
-
-		elif self.is_panel:
-			import panel as pn
-			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
-
-			# i should return some panel
-			if self.parent is None:
-				self.panel_layout=pn.pane.Bokeh(ret,sizing_mode="stretch_both")
-				ret=self.panel_layout
-
-		else:
-			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
-			
-		self.start()
-		return ret
-
 	# onDoubleTap (NOTE: x,y are in physic coords)
 	def onDoubleTap(self,x,y):
 		if False: 
@@ -1188,12 +1109,14 @@ class Slice(Widgets):
 
 	# start
 	def start(self):
-		super().start()
+		for it in self.children:
+			it.start()
 		self.query_node.start()
 
 	# stop
 	def stop(self):
-		super().stop()
+		logger.info(f"[{self.id}]:: stop ")
+		for it in self.children: it.stop()
 		self.aborted.setTrue()
 		self.query_node.stop()	
 
@@ -1218,7 +1141,14 @@ class Slice(Widgets):
 		if self.canvas.getWidth()<=0 or self.canvas.getHeight()<=0:
 			return 
 		
-		await super().onIdle()
+		self.playNextIfNeeded()
+
+		if self.panel_layout:
+			import panel as pn
+			pn.io.push_notebook(self.panel_layout)
+
+		for it in self.children:
+			await it.onIdle()
 
 		result=self.query_node.popResult(last_only=True) 
 		if result is not None: 
@@ -1228,7 +1158,8 @@ class Slice(Widgets):
 
 	# refresh
 	def refresh(self):
-		super().refresh()
+		for it in self.children:
+			it.refresh()
 		self.aborted.setTrue()
 		self.new_job=True
   
@@ -1260,14 +1191,8 @@ class Slice(Widgets):
 		assert(len(p1)==pdim and len(p2)==pdim)
 		return [(p2[I]-p1[I]) for I in range(pdim)]
 
-	# setDirection
-	def setDirection(self,dir):
-		super().setDirection(dir)
-		dims=[int(it) for it in self.db.getLogicSize()]
-		self.setQueryLogicBox(([0]*self.getPointDim(),dims))
-		self.refresh()
-  
 
+  
 	# setAccess
 	def setAccess(self, value):
 		self.access=value
@@ -1442,7 +1367,6 @@ class Slice(Widgets):
 				if child==self: continue
 				child.setQueryLogicBox(query_logic_box)
 				child.setOffset(offset)
-
 
 
 
@@ -1956,7 +1880,7 @@ class ProbeTool(Slice):
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
-class Slices(Widgets):
+class Slices(Slice):
 
 	# constructor
 	def __init__(self, doc=None, is_panel=False, parent=None, cls=None):
