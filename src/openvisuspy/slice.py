@@ -52,6 +52,7 @@ def CreateButton(callback=None,**kwargs):
 	ret = pn.widgets.Button(**kwargs)
 	def onClick(evt):
 		if callback: callback()
+	ret.on_click(onClick)
 	return ret
 
 
@@ -1062,7 +1063,7 @@ class Slice(Widgets):
 			self.idle_callback=AddAsyncLoop(f"{self}::onIdle",self.onIdle,1000//30)
 
 		elif self.is_panel:
-			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=500)
+			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=300)
 
 			# i should return some panel
 			#if self.parent is None:
@@ -1934,8 +1935,7 @@ class Slices(Widgets):
 			options=[it for it in options if it not in ["datasets", "colormapper_type", "colormapper-type"]]
 
 		self.slices = [self.createChild(options) for I in range(nviews)]
-		nrows,ncols={ 1: (1,1), 2: (1,2), 4: (2,2), }[nviews]
-		central_layout=pn.GridBox(*[it.getMainLayout() for it in self.slices ], ncols=1, sizing_mode="stretch_both")
+		central_layout=pn.GridBox(*[it.getMainLayout() for it in self.slices ], ncols=2 if nviews>1 else 1, sizing_mode="stretch_both")
 
 		if "linked" in value:
 			self.slices[0].setLinked(True)
