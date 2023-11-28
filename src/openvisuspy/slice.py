@@ -14,8 +14,6 @@ import bokeh
 from bokeh.events import DoubleTap
 from bokeh.plotting import figure
 
-from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar
-
 import panel as pn
 
 from .utils import *
@@ -181,13 +179,6 @@ class Widgets:
 		self.widgets.palette_range_vmin = CreateFloatInput(name="Min", width=80, callback=onPaletteRangeChange)
 		self.widgets.palette_range_vmax = CreateFloatInput(name="Max", width=80, callback=onPaletteRangeChange)
 
-		# color_bar
-		self.color_bar = ColorBar()
-		self.color_bar.color_mapper = LinearColorMapper()
-		self.color_bar.color_mapper.palette = self.getPalette()
-		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high = self.getPaletteRange()
-
-
 		self.widgets.log_colormapper = CreateCheckBox(name="Log", value=False, callback=self.setLogColorMapper)
 
 		self.widgets.timestep = CreateFloatSlider(name='Time', value=0, start=0, end=1, step=1.0, editable=True, sizing_mode='stretch_width', callback=self.setTimestep)
@@ -221,6 +212,7 @@ class Widgets:
 
 		self.panel_layout = None
 		self.idle_callback = None
+		self.color_bar = None
 
 	# onOffsetChange
 	def onOffsetChange(self, attr, old, new):
@@ -644,9 +636,9 @@ class Widgets:
 	def setPalette(self, value):
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.palette.value = value
-		self.color_bar.color_mapper.palette = getattr(colorcet.palette, value[len("colorcet."):]) if value.startswith("colorcet.") else value
 		for it in self.slices:
 			it.setPalette(value)
+		self.color_bar=None
 		self.refresh()
 
 	# getMetadataPaletteRange
@@ -659,6 +651,8 @@ class Widgets:
 		self.metadata_palette_range = [vmin, vmax]
 		for it in self.slices:
 			it.setMetadataPaletteRange(value)
+		self.color_map=None
+		self.refresh()
 
 	# getPaletteRangeMode
 	def getPaletteRangeMode(self):
@@ -685,6 +679,8 @@ class Widgets:
 
 		for it in self.slices:
 			it.setPaletteRangeMode(mode)
+
+		self.color_map=None
 		self.refresh()
 
 	# getPaletteRange
@@ -701,6 +697,7 @@ class Widgets:
 		self.widgets.palette_range_vmax.value = vmax
 		for it in self.slices:
 			it.setPaletteRange(value)
+		self.color_map=None
 		self.refresh()
 
 	# isLogColorMapper
@@ -709,24 +706,13 @@ class Widgets:
 
 	# setLogColorMapper
 	def setLogColorMapper(self, value):
-
 		logger.info(f"[{self.id}] value={value}")
 		palette = self.getPalette()
 		vmin, vmax = self.getPaletteRange()
 		self.widgets.log_colormapper.value = value
-
-		palette_for_mapper=palette
-		if palette.startswith("colorcet."):
-			palette_for_mapper=getattr(colorcet.palette, palette[len("colorcet."):])
-
-		self.color_bar = ColorBar()
-		if value:
-			self.color_bar.color_mapper = LogColorMapper(palette=palette_for_mapper, low=max(self.epsilon, vmin), high=max(self.epsilon, vmax))
-		else:
-			self.color_bar.color_mapper = LinearColorMapper(palette=palette_for_mapper, low=vmin, high=vmax)
-
 		for it in self.slices:
 			it.setLogColorMapper(value)
+		self.color_bar=None # force refresh
 		self.refresh()
 
 	# getNumberOfRefinements
@@ -1119,7 +1105,10 @@ class Slice(Widgets):
 
 		result=self.query_node.popResult(last_only=True) 
 		if result is not None: 
-			self.gotNewData(result)
+			try:
+				self.gotNewData(result)
+			except Exception as ex:
+				logger.info(f"ERROR ex={ex}")
 
 		self.pushJobIfNeeded()
 
@@ -1190,6 +1179,8 @@ class Slice(Widgets):
 	# gotNewData
 	def gotNewData(self, result):
 
+		logger.info(f"[{self.id}] ENTER")
+
 		data=result['data']
 		try:
 			data_range=np.min(data),np.max(data)
@@ -1209,29 +1200,18 @@ class Slice(Widgets):
 		vt,vs=self.logic_to_physic[dir] if pdim==3 else (0.0,1.0)
 		endh=result['H']
 
-
 		user_physic_offset=self.getOffset()
 
 		real_logic_offset=logic_box[0][dir] if pdim==3 else 0.0
 		real_physic_offset=vs*real_logic_offset + vt 
 		user_logic_offset=int((user_physic_offset-vt)/vs)
-		
-		# self.widgets.offset.show_value=False
 
-		if False and (vs==1.0 and vt==0.0):
-			self.widgets.offset.name=" ".join([
-				f"Offset: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
-				f"Max Res: {endh}/{maxh}"
-			])
+		self.widgets.offset.name=" ".join([
+			f"Offset: {user_physic_offset:.3f}±{abs(user_physic_offset-real_physic_offset):.3f}",
+			f"Pixel: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
+			f"Max Res: {endh}/{maxh}"
+		])
 
-		else:
-			self.widgets.offset.name=" ".join([
-				f"Offset: {user_physic_offset:.3f}±{abs(user_physic_offset-real_physic_offset):.3f}",
-				f"Pixel: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
-				f"Max Res: {endh}/{maxh}"
-			])
-
-		
 		# refresh the range
 		if True:
 
@@ -1249,10 +1229,24 @@ class Slice(Widgets):
 			low =cdouble(self.widgets.palette_range_vmin.value)
 			high=cdouble(self.widgets.palette_range_vmax.value)
 
-			self.color_bar.color_mapper.low = max(self.epsilon,low ) if self.isLogColorMapper() else low
-			self.color_bar.color_mapper.high= max(self.epsilon,high) if self.isLogColorMapper() else high
+		# regenerate colormap
+		if self.color_bar is None:
+			is_log=self.isLogColorMapper()
+			palette=self.getPalette()
+			palette = getattr(colorcet.palette, palette[len("colorcet."):]) if palette.startswith("colorcet.") else palette
+			mapper_low =max(self.epsilon, low ) if is_log else low
+			mapper_high=max(self.epsilon, high) if is_log else high
+			from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar
+			self.color_bar = ColorBar(color_mapper = 
+				LogColorMapper   (palette=palette, low=mapper_low, high=mapper_high) if is_log else 
+				LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
+			)
 
-		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]} color-mapper-range={[self.color_bar.color_mapper.low,self.color_bar.color_mapper.high]}")
+			if hasattr(self,"probe_fig"):
+				self.probe_fig.y_range.start = mapper_low
+				self.probe_fig.y_range.end   = mapper_high
+
+		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
 
 		# update the image
 		(x1,y1),(x2,y2)=self.toPhysic(logic_box)
@@ -1274,7 +1268,9 @@ class Slice(Widgets):
 			f"{result['msec']}msec",
 			str(query_status)
 		])
-		self.render_id+=1     
+		self.render_id+=1 
+		
+		logger.info(f"[{self.id}] EXIT")
   
 	# pushJobIfNeeded
 	def pushJobIfNeeded(self):
@@ -1799,11 +1795,6 @@ class ProbeTool(Slice):
 			self.probe_fig.xaxis.axis_label = self.slider_z_range.name
 			self.probe_fig.x_range.start = z1
 			self.probe_fig.x_range.end = z2
-
-		# Y axis
-		if True:
-			self.probe_fig.y_range.start = self.color_bar.color_mapper.low
-			self.probe_fig.y_range.end   = self.color_bar.color_mapper.high
 
 		# draw figure line for offset
 		if True:
