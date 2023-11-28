@@ -11,11 +11,11 @@ import numpy as np
 from requests.auth import HTTPBasicAuth
 
 import bokeh
-from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar, RangeSlider, Div, Spinner, RadioButtonGroup, InlineStyleSheet
 from bokeh.events import DoubleTap
 from bokeh.plotting import figure
-from bokeh.models.callbacks import CustomJS
-from bokeh.layouts import grid as Grid
+
+from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar
+
 
 import panel as pn
 
@@ -41,6 +41,15 @@ def ReplaceContent(layout, new_list):
 # //////////////////////////////////////////////////////////////////////////////////////
 def CreateCheckBox(callback=None,**kwargs):
 	ret=pn.widgets.Checkbox(**kwargs)
+	def onChange(evt):
+		if evt.old == evt.new or not callback: return
+		callback(evt.new)
+	ret.param.watch(onChange,"value")
+	return ret
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateRadioButtonGroup(callback=None,**kwargs):
+	ret=pn.widgets.RadioButtonGroup(**kwargs)
 	def onChange(evt):
 		if evt.old == evt.new or not callback: return
 		callback(evt.new)
@@ -103,6 +112,17 @@ def CreateFloatSlider(editable=False, format="0.001", callback=None, parameter_n
 	from bokeh.models.formatters import NumeralTickFormatter
 	kwargs["format"]=NumeralTickFormatter(format=format)
 	ret = pn.widgets.EditableFloatSlider(**kwargs) if editable else pn.widgets.FloatSlider
+	def onChange(evt):
+		if evt.old == evt.new: return
+		if callback: callback(evt.new)
+	ret.param.watch(onChange,parameter_name)
+	return ret
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateFloatRangeSlider(editable=False, format="0.001", callback=None, parameter_name="value", **kwargs):
+	from bokeh.models.formatters import NumeralTickFormatter
+	kwargs["format"]=NumeralTickFormatter(format=format)
+	ret = pn.widgets.EditableRangeSlider(**kwargs) if editable else pn.widgets.RangeSlider
 	def onChange(evt):
 		if evt.old == evt.new: return
 		if callback: callback(evt.new)
@@ -549,9 +569,9 @@ class Widgets:
 
 			tabs.append([f"{T}",
 				pn.Column(
-					Div(text=f"<b><pre><code>{filename}</code></pre></b>"),
+					pn.pane.HTML(f"<b><pre><code>{filename}</code></pre></b>"),
 					download_button,
-					Div(text=f"<div><pre><code>{body_s}</code></pre></div>")
+					pn.pane.HTML(f"<div><pre><code>{body_s}</code></pre></div>")
 				)
 			])
 
@@ -769,7 +789,7 @@ class Widgets:
 	def setViewDependent(self, value):
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.view_dep.value = value
-		self.widgets.resolution.title = "Max Res" if value else "Res"
+		self.widgets.resolution.name = "Max Res" if value else "Res"
 		for it in self.slices:
 			it.setViewDependent(value)
 		self.refresh()
@@ -1220,13 +1240,13 @@ class Slice(Widgets):
 		# self.widgets.offset.show_value=False
 
 		if False and (vs==1.0 and vt==0.0):
-			self.widgets.offset.title=" ".join([
+			self.widgets.offset.name=" ".join([
 				f"Offset: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
 				f"Max Res: {endh}/{maxh}"
 			])
 
 		else:
-			self.widgets.offset.title=" ".join([
+			self.widgets.offset.name=" ".join([
 				f"Offset: {user_physic_offset:.3f}±{abs(user_physic_offset-real_physic_offset):.3f}",
 				f"Pixel: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
 				f"Max Res: {endh}/{maxh}"
@@ -1420,21 +1440,17 @@ class ProbeTool(Slice):
 																								 callback=lambda new: self.onProbeXYChange(), 
 																								 parameter_name="value_throttled")
 
-			self.slider_num_points_x = CreateIntSlider(name="#x", start=1, end=8, step=1, value=2, editable=False, width=60, callback=lambda new: self.recompute(), parameter_name='value_throttled')
-			self.slider_num_points_y = CreateIntSlider(name="#y", start=1, end=8, step=1, value=2, editable=False, width=60, callback=lambda new: self. recompute(), parameter_name='value_throttled')
+			self.slider_num_points_x = CreateIntSlider(name="#x", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recompute, parameter_name='value_throttled')
+			self.slider_num_points_y = CreateIntSlider(name="#y", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recompute, parameter_name='value_throttled')
 
 		# probe Z space
-		if True:
-			# Z range
-			self.slider_z_range = RangeSlider(start=0.0, end=1.0, value=(0.0, 1.0), title="Range", sizing_mode="stretch_width")
-			self.slider_z_range.on_change('value_throttled', lambda attr, old, new: self.recompute())
+			self.slider_z_range = CreateFloatRangeSlider(name="Range", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=self.recompute)
 
-			# Z resolution
-			self.slider_z_res = CreateIntSlider(name="Res", start=self.start_resolution, end=99, step=1, value=24, editable=False, width=80, callback=lambda new: self.recompute(), parameter_name='value_throttled')
+		# probe z res
+		self.slider_z_res = CreateIntSlider(name="Res", start=self.start_resolution, end=99, step=1, value=24, editable=False, width=80, callback=self.recompute, parameter_name='value_throttled')
 
-			# Z op
-			self.slider_z_op = RadioButtonGroup(labels=["avg", "mM", "med", "*"], active=0)
-			self.slider_z_op.on_change("active", lambda attr, old, new: self.recompute())
+		# Z op
+		self.slider_z_op = CreateRadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value=0, callback=self.recompute)
 
 		self.probe_layout = pn.Column(
 			pn.Row(
@@ -1538,23 +1554,23 @@ class ProbeTool(Slice):
 		Y1,Y2=(pbox[Y][0],pbox[Y][1])
 		Z1,Z2=(pbox[Z][0],pbox[Z][1]) if pdim==3 else (0,1)
 
-		self.slider_x_pos.title = titles[0]
+		self.slider_x_pos.name = titles[0]
 		self.slider_x_pos.start = X1
 		self.slider_x_pos.end   = X2
 		self.slider_x_pos.step  = (X2 - X1) / 10000
 		self.slider_x_pos.value  = X1
 
-		self.slider_y_pos.title = titles[1]
+		self.slider_y_pos.name = titles[1]
 		self.slider_y_pos.start = Y1
 		self.slider_y_pos.end   = Y2
 		self.slider_y_pos.step  = (Y2 - Y1) / 10000
 		self.slider_y_pos.value = Y1
 
-		self.slider_z_range.title = titles[2]
+		self.slider_z_range.name = titles[2]
 		self.slider_z_range.start = Z1 
 		self.slider_z_range.end   = Z2
 		self.slider_z_range.step  = (Z2 - Z1) / 10000
-		self.slider_z_range.value = [Z1, Z2]
+		self.slider_z_range.value = (Z1, Z2)
 
 		self.guessOffset()
 		self.recompute()
@@ -1730,8 +1746,8 @@ class ProbeTool(Slice):
 				for Y in range(data.shape[1]):
 					ys.append(list(data[Z, Y, :]))
 
-		for it in [self.slider_z_op.active]:
-			op = self.slider_z_op.labels[it]
+		if True:
+			op = self.slider_z_op.value
 
 			if op == "avg":
 				ys = [[mean(p) for p in zip(*ys)]]
@@ -1796,12 +1812,12 @@ class ProbeTool(Slice):
 
 				if self.button_css[slot] != css:
 					self.button_css[slot] = css
-					button.stylesheets = [InlineStyleSheet(css=css)]
+					button.stylesheets = [css]
 
 			# X axis
 		if True:
 			z1, z2 = self.slider_z_range.value
-			self.probe_fig.xaxis.axis_label = self.slider_z_range.title
+			self.probe_fig.xaxis.axis_label = self.slider_z_range.name
 			self.probe_fig.x_range.start = z1
 			self.probe_fig.x_range.end = z2
 
@@ -1820,7 +1836,7 @@ class ProbeTool(Slice):
 				line_width=1, color="black")
 
 	# recompute
-	def recompute(self):
+	def recompute(self, evt=None):
 
 		self.refreshProbe()
 
