@@ -6,9 +6,9 @@ import numpy as np
 from . utils import *
 
 import bokeh
-import bokeh.plotting
-import bokeh.models 
-import bokeh.events 
+from bokeh.events import DoubleTap
+
+import panel as pn
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class Canvas:
 	# constructor
 	def __init__(self, id):
 		self.id=id
-		self.layout=bokeh.models.Row(sizing_mode="stretch_both")	
+		self.layout=pn.Row(sizing_mode="stretch_both")	
 		self.on_double_tab = None
 		self.on_resize=None
 		self.__fig=None
@@ -38,7 +38,7 @@ class Canvas:
 		self.__fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
 		if self.on_double_tab is not None:
-			self.__fig.on_event(bokeh.events.DoubleTap, self.on_double_tab)		
+			self.__fig.on_event(DoubleTap, self.on_double_tab)		
 
 		# TODO: keep the renderers but not the
 		if old is not None:
@@ -48,7 +48,9 @@ class Canvas:
 				if it!=self.last_renderer:
 					self.__fig.renderers.append(it)
 
-		self.layout.children=[self.__fig]
+		while len(self.layout): self.layout.pop(0)
+		self.layout.append(pn.pane.Bokeh(self.__fig))
+		
 		self.last_fig_width =0
 		self.last_fig_height=0
 		self.last_dtype   = None
@@ -123,7 +125,7 @@ class Canvas:
 	# enableDoubleTap
 	def enableDoubleTap(self,fn):
 		self.on_double_tab=lambda evt: fn(evt.x,evt.y)
-		self.__fig.on_event(bokeh.events.DoubleTap, self.on_double_tab)
+		self.__fig.on_event(DoubleTap, self.on_double_tab)
 
 	  # getViewport [[x1,x2],[y1,y2])
 	def getViewport(self):

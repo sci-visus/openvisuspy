@@ -166,7 +166,7 @@ class Widgets:
 
 		# palette range
 		self.metadata_palette_range = [0.0, 255.0]
-		self.widgets.palette_range_mode = CreateSelect(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="metadata", width=80, callback=self.setPaletteRangeMode)
+		self.widgets.palette_range_mode = CreateSelect(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=80, callback=self.setPaletteRangeMode)
 
 		def onPaletteRangeChange(evt):
 			if self.getPaletteRangeMode() == "user":
@@ -464,7 +464,7 @@ class Widgets:
 		dtype_vmin, dtype_vmax = dtype_range.From, dtype_range.To
 		palette = config.get("palette", "Viridis256")
 		palette_range = config.get("palette-range", None)
-		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic") if palette_range is None else [palette_range,"user"]
+		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic-acc") if palette_range is None else [palette_range,"user"]
 		log_colormapper = config.get("log-colormapper", False)
 		num_refinements = int(config.get("num-refinements", 2))
 		metadata=config.get("metadata", None)
@@ -663,12 +663,12 @@ class Widgets:
 		wmax = self.widgets.palette_range_vmax
 
 		if mode == "metadata":
-			wmin.value = str(self.metadata_palette_range[0])
-			wmax.value = str(self.metadata_palette_range[1])
+			wmin.value = self.metadata_palette_range[0]
+			wmax.value = self.metadata_palette_range[1]
 
 		if mode == "dynamic-acc":
-			wmin.value = str(float('+inf'))
-			wmax.value = str(float('-inf'))
+			wmin.value = float('+inf')
+			wmax.value = float('-inf')
 
 		wmin.disabled = False if mode == "user" else True
 		wmax.disabled = False if mode == "user" else True
@@ -1032,7 +1032,10 @@ class Slice(Widgets):
 
 		ret = pn.Column(
 			self.first_row_layout,
-			pn.Row(self.canvas.getMainLayout(), self.widgets.metadata, sizing_mode='stretch_both'),
+			pn.Row(
+				self.canvas.getMainLayout(), 
+				self.widgets.metadata, 
+				sizing_mode='stretch_both'),
 			pn.Row(
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
@@ -1397,7 +1400,9 @@ class ProbeTool(Slice):
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
 
-		self.probe_fig_col = pn.Column(self.probe_fig, sizing_mode='stretch_both')
+		self.probe_fig_col = pn.Column(
+			pn.pane.Bokeh(self.probe_fig), 
+			sizing_mode='stretch_both')
 
 		# probe XY space
 		if True:

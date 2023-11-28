@@ -185,6 +185,9 @@ class QueryNode:
 				
 				time.sleep(0.01)
 
+				# remove me
+				# break
+
 			logger.info("Query finished")
 			self.iqueue.task_done()
 			self.stats.stopCollecting()
