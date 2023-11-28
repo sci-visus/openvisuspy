@@ -17,6 +17,8 @@ from bokeh.plotting import figure
 from bokeh.models.callbacks import CustomJS
 from bokeh.layouts import grid as Grid
 
+import panel as pn
+
 from .utils import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
 from . canvas import Canvas
@@ -157,6 +159,8 @@ class Widgets:
 		self.is_panel = is_panel
 		self.doc = doc
 		self.parent = parent
+
+		self.main_layout=Column(sizing_mode='stretch_both')
 
 		self.id = f"{type(self).__name__}/{Widgets.ID}"
 		Widgets.ID += 1
@@ -301,16 +305,17 @@ class Widgets:
 			it.stop()
 
 	# onIdle
-	async def onIdle(self):
+	# async def onIdle(self):
+	def onIdle(self):
 
 		self.playNextIfNeeded()
 
 		if self.panel_layout:
-			import panel as pn
 			pn.io.push_notebook(self.panel_layout)
 
 		for it in self.children:
-			await it.onIdle()
+			# await it.onIdle()
+			it.onIdle()
 
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self, value):
@@ -459,7 +464,7 @@ class Widgets:
 			config={"name": name, "url": name}
 
 		self.widgets.datasets.value = name
-		self.doc.title = f"ViSUS {name}"
+		# self.doc.title = f"ViSUS {name}"
 
 		self.db=self.loadDataset(config["url"], config) if db is None else db
 		self.access = self.db.createAccess()
@@ -472,12 +477,12 @@ class Widgets:
 	# hold
 	def hold(self):
 		self.num_hold=getattr(self,"num_hold",0) + 1
-		if self.num_hold==1: self.doc.hold()
+		# if self.num_hold==1: self.doc.hold()
 
 	# unhold
 	def unhold(self):
 		self.num_hold-=1
-		if self.num_hold==0: self.doc.unhold()
+		# if self.num_hold==0: self.doc.unhold()
 
 	# loadDataset
 	def loadDataset(self, url, config={}):
@@ -1138,7 +1143,6 @@ class Slice(Widgets):
 			self.idle_callback=AddAsyncLoop(f"{self}::onIdle",self.onIdle,1000//30)
 
 		elif self.is_panel:
-			import panel as pn
 			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
 
 			# i should return some panel
@@ -1177,7 +1181,8 @@ class Slice(Widgets):
 		self.setOffset(offset)
 
 	# onIdle
-	async def onIdle(self):
+	# DISABLED async 
+	def onIdle(self):
 
 		# not ready for jobs
 		if not self.db:
@@ -1189,7 +1194,9 @@ class Slice(Widgets):
 		if self.canvas.getWidth()<=0 or self.canvas.getHeight()<=0:
 			return 
 		
-		await super().onIdle()
+		# DISABLED
+		# await super().onIdle()
+		super().onIdle()
 
 		result=self.query_node.popResult(last_only=True) 
 		if result is not None: 
@@ -1938,15 +1945,8 @@ class Slices(Widgets):
 		self.slice_show_options = ["direction", "offset", "view_dep"]
 
 		# view_mode
-		self.widgets.view_mode = Tabs(tabs=[
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="Explore Data", name="1"), # equivalent to 1 view
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="Probe"       , name="probe"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="2"           , name="2"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="2-Linked"    , name="2-linked"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="4"           , name="4"),
-			TabPanel(child=Column(sizing_mode="stretch_both"), title="4-Linked"    , name="4-linked"),
-		],sizing_mode="stretch_both")
-		self.widgets.view_mode.on_change("active", lambda attr, old, new: self.setViewMode(self.getViewMode()))
+		self.widgets.view_mode = Select(options=["1","probe","2","2-linked","4","4-linked"],value="1",title="view_mode")
+		self.widgets.view_mode.on_change("value", lambda attr, old, new: self.setViewMode(new))
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -1966,11 +1966,12 @@ class Slices(Widgets):
 		options = [it.replace("-", "_") for it in self.show_options]
 		self.first_row_layout.children = [getattr(self.widgets, it) for it in options]
 
+		ret=self.main_layout
+
 		if IsPyodide():
 			self.idle_callbackAddAsyncLoop(f"{self}::onIdle (bokeh)", self.onIdle, 1000 // 30)
 
 		elif self.is_panel:
-			import panel as pn
 			self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
 			if self.parent is None:
 				self.panel_layout = pn.pane.Bokeh(ret, sizing_mode='stretch_both')
@@ -1983,12 +1984,12 @@ class Slices(Widgets):
 
 		# this will fill out the layout
 		self.setViewMode(self.getViewMode())
-		return self.widgets.view_mode
+		return ret
 
 
 	# getViewMode
 	def getViewMode(self):
-		return self.widgets.view_mode.tabs[self.widgets.view_mode.active].name
+		return self.widgets.view_mode.value
 
 	# createChild
 	def createChild(self, options):
@@ -1999,24 +2000,21 @@ class Slices(Widgets):
 		ret.setDataset(self.getDataset(),force=True)
 		return ret
 
-	# clearTabLayout
-	def clearTabLayout(self):
+
+	# setViewMode
+	def setViewMode(self, value):
+		value=str(value).lower().strip()
+		logger.info(f"[{self.id}] value={value}")
+		self.hold()
+		super().stop()
+
+		if value=="probe": value="1-probe"
+		nviews=int(value[0:1])
 
 		v = self.children
-		logger.info(f"[{self.id}] deleting old children {[it.id for it in v]}")
 		for it in v: del it
 
-		# empty all tabs
-		for tab in self.widgets.view_mode.tabs:
-			tab.child.children = []
-
-	# createTabLayout
-	def createTabLayout(self, mode):
-
 		options = self.slice_show_options
-		if mode=="probe": mode="1-probe"
-		nviews=int(mode[0:1])
-
 		if nviews==1:
 			options=[it for it in options if it not in ["datasets", "colormapper_type", "colormapper-type"]]
 
@@ -2024,32 +2022,14 @@ class Slices(Widgets):
 		nrows,ncols={ 1: (1,1), 2: (1,2), 4: (2,2), }[nviews]
 		central=Grid(children=[child.getMainLayout() for child in self.children ], nrows=nrows,ncols=ncols, sizing_mode="stretch_both")
 
-		if "linked" in mode:
+		if "linked" in value:
 			self.children[0].setLinked(True)
 
-		return  Row(
+		self.main_layout.children=[Row(
 				Column(self.first_row_layout, central, sizing_mode='stretch_both' ),
 				self.widgets.metadata,
-				sizing_mode='stretch_both')
+				sizing_mode='stretch_both')]
 
-	# getTabByName
-	def getTabByName(self, value):
-		for I, tab in enumerate(self.widgets.view_mode.tabs):
-			if tab.name == value:
-				self.widgets.view_mode.active = I
-				return tab
-		return None
-
-	# setViewMode
-	def setViewMode(self, value):
-		value=value.lower().strip()
-		logger.info(f"[{self.id}] value={value}")
-		tab = self.getTabByName(value)
-		if not tab: return
-		self.hold()
-		super().stop()
-		self.clearTabLayout()
-		tab.child.children = [self.createTabLayout(value)]
 		super().start()
 		self.unhold()
 
