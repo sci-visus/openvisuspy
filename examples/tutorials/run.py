@@ -35,7 +35,6 @@ if __name__.startswith('bokeh'):
 	palette_range_mode = Select(title="Range",options=["metadata","user","dynamic","dynamic-acc"], value="dynamic")
 	palette_range_vmin = TextInput(title="Min")
 	palette_range_vmax = TextInput(title="Max")	
-	colormapper_type=Select(title='ColorMap',  options=["linear","log"], value="log")
 	timestep = Slider(title='Time', start=0, end=1, sizing_mode='stretch_width')
 	field = Select(title='Field',  options=[])
 	direction = Select(title='Direction', options=[('0','X'), ('1','Y'), ('2','Z')])
@@ -54,7 +53,6 @@ if __name__.startswith('bokeh'):
 		view.setResolution(resolution.value)
 		view.setNumberOfRefinements(num_refinements.value)
 		view.setViewDependent(bool(view_dep.value))
-		view.setColorMapperType(colormapper_type.value)
 		view.setPaletteRangeMode(palette_range_mode.value)
 
 		db=view.db
@@ -119,7 +117,6 @@ if __name__.startswith('bokeh'):
 	palette_range_mode.on_change("value",onPaletteRangeModeChange)
 	palette_range_vmin.on_change("value",onPaletteRangeChange)
 	palette_range_vmax.on_change("value",onPaletteRangeChange)
-	colormapper_type.on_change("value",onColorMapperTypeChange) 
 	timestep.on_change("value",onTimestepChange)
 	field.on_change("value",onFieldChange)  
 	direction.on_change ("value",onDirectionChange)  
@@ -137,7 +134,6 @@ if __name__.startswith('bokeh'):
 			palette_range_mode,
 			palette_range_vmin,
 			palette_range_vmax,
-			colormapper_type,
 			timestep,
 			field,
 			direction,

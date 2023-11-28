@@ -16,12 +16,11 @@ from bokeh.plotting import figure
 
 from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar
 
-
 import panel as pn
 
 from .utils import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
-from . canvas import Canvas
+from .canvas import Canvas
 
 logger = logging.getLogger(__name__)
 
@@ -167,12 +166,9 @@ class Widgets:
 
 		self.widgets = types.SimpleNamespace()
 
-		# datasets
-		self.widgets.datasets = CreateSelect(name="Dataset", options=[], width=60, callback=lambda new: self.setDataset(new, force=True))
 
-		# palette
-		self.palette = 'Viridis256'
-		self.widgets.palette = CreateSelect(name='Palette', options=PALETTES, value=self.palette, callback=self.setPalette)
+		self.widgets.datasets = CreateSelect(name="Dataset", options=[], width=60, callback=lambda new: self.setDataset(new, force=True))
+		self.widgets.palette = CreateSelect(name='Palette', options=PALETTES, value= 'Viridis256', callback=self.setPalette)
 
 		# palette range
 		self.metadata_palette_range = [0.0, 255.0]
@@ -186,13 +182,13 @@ class Widgets:
 		self.widgets.palette_range_vmax = CreateFloatInput(name="Max", width=80, callback=onPaletteRangeChange)
 
 		# color_bar
-		self.color_bar = ColorBar()  # ticker=BasicTicker(desired_num_ticks=10)
+		self.color_bar = ColorBar()
 		self.color_bar.color_mapper = LinearColorMapper()
-		self.color_bar.color_mapper.palette = self.palette
+		self.color_bar.color_mapper.palette = self.getPalette()
 		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high = self.getPaletteRange()
 
-		# color_mapper type
-		self.widgets.colormapper_type = CreateSelect(name="Colormap", options=["linear", "log"], value='linear', callback=self.setColorMapperType)
+
+		self.widgets.log_colormapper = CreateCheckBox(name="Log", value=False, callback=self.setLogColorMapper)
 
 		self.widgets.timestep = CreateFloatSlider(name='Time', value=0, start=0, end=1, step=1.0, editable=True, sizing_mode='stretch_width', callback=self.setTimestep)
 		self.widgets.timestep_delta = CreateSelect(name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=100, callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
@@ -375,11 +371,6 @@ class Widgets:
 			dims[I] * vs[I] + vt[I]
 		] for I in range(len(dims))]
 
-	# pdim = self.db.getPointDim()
-	# physic_box=self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
-	# physic_box=[(float(physic_box[I]),float(physic_box[I+1])) for I in range(0,pdim*2,2)]
-	# return physic_box
-
 	# setPhysicBox
 	def setPhysicBox(self, value):
 		dims = self.db.getLogicSize()
@@ -404,7 +395,7 @@ class Widgets:
 		if not force and self.getDataset() == name:
 			return
 
-		self.hold()
+
 		config=[it for it in self.config.get("datasets",[]) if it['name']==name]
 		if len(config):
 			config=config[0]
@@ -420,17 +411,7 @@ class Widgets:
 			it.setDataset(name, db=self.db)
 
 		self.setStatus(config)
-		self.unhold()
 
-	# hold
-	def hold(self):
-		self.num_hold=getattr(self,"num_hold",0) + 1
-		# if self.num_hold==1: self.doc.hold()
-
-	# unhold
-	def unhold(self):
-		self.num_hold-=1
-		# if self.num_hold==0: self.doc.unhold()
 
 	# loadDataset
 	def loadDataset(self, url, config={}):
@@ -465,7 +446,7 @@ class Widgets:
 			palette_range=self.getPaletteRange(),
 			palette_medatadata_range=self.getMetadataPaletteRange(),
 			palette_range_mode=self.getPaletteRangeMode(),
-			color_mapper_type=self.getColorMapperType(),
+			log_colormapper=self.isLogColorMapper(),
 			num_refinements=self.getNumberOfRefinements()
 		)
 
@@ -496,7 +477,7 @@ class Widgets:
 		palette = config.get("palette", "Viridis256")
 		palette_range = config.get("palette-range", None)
 		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic") if palette_range is None else [palette_range,"user"]
-		color_mapper_type = config.get("color-mapper-type", "linear")
+		log_colormapper = config.get("log-colormapper", False)
 		num_refinements = int(config.get("num-refinements", 2))
 		metadata=config.get("metadata", None)
 	
@@ -515,7 +496,7 @@ class Widgets:
 		self.setMetadataPaletteRange([dtype_vmin, dtype_vmax])
 		self.setPaletteRange(palette_range)
 		self.setPaletteRangeMode(palette_range_mode)
-		self.setColorMapperType(color_mapper_type)
+		self.setLogColorMapper(log_colormapper)
 		self.setNumberOfRefinements(num_refinements)
 		self.setMetadata(metadata)
 		self.refresh()		
@@ -657,12 +638,11 @@ class Widgets:
 
 	# getPalette
 	def getPalette(self):
-		return self.palette
+		return self.widgets.palette.value
 
 	# setPalette
 	def setPalette(self, value):
 		logger.info(f"[{self.id}] value={value}")
-		self.palette = value
 		self.widgets.palette.value = value
 		self.color_bar.color_mapper.palette = getattr(colorcet.palette, value[len("colorcet."):]) if value.startswith("colorcet.") else value
 		for it in self.slices:
@@ -723,31 +703,30 @@ class Widgets:
 			it.setPaletteRange(value)
 		self.refresh()
 
-	# getColorMapperType
-	def getColorMapperType(self):
-		return "log" if isinstance(self.color_bar.color_mapper, LogColorMapper) else "linear"
+	# isLogColorMapper
+	def isLogColorMapper(self):
+		return self.widgets.log_colormapper
 
-	# setColorMapperType
-	def setColorMapperType(self, value):
+	# setLogColorMapper
+	def setLogColorMapper(self, value):
 
-		assert value == "linear" or value == "log"
 		logger.info(f"[{self.id}] value={value}")
 		palette = self.getPalette()
 		vmin, vmax = self.getPaletteRange()
-		self.widgets.colormapper_type.value = value
+		self.widgets.log_colormapper.value = value
 
 		palette_for_mapper=palette
 		if palette.startswith("colorcet."):
 			palette_for_mapper=getattr(colorcet.palette, palette[len("colorcet."):])
 
-		self.color_bar = ColorBar()  # ticker=BasicTicker(desired_num_ticks=10)
-		if value == "log":
+		self.color_bar = ColorBar()
+		if value:
 			self.color_bar.color_mapper = LogColorMapper(palette=palette_for_mapper, low=max(self.epsilon, vmin), high=max(self.epsilon, vmax))
 		else:
 			self.color_bar.color_mapper = LinearColorMapper(palette=palette_for_mapper, low=vmin, high=vmax)
 
 		for it in self.slices:
-			it.setColorMapperType(value)
+			it.setLogColorMapper(value)
 		self.refresh()
 
 	# getNumberOfRefinements
@@ -1270,8 +1249,8 @@ class Slice(Widgets):
 			low =cdouble(self.widgets.palette_range_vmin.value)
 			high=cdouble(self.widgets.palette_range_vmax.value)
 
-			self.color_bar.color_mapper.low = max(self.epsilon,low ) if self.getColorMapperType()=="log" else low
-			self.color_bar.color_mapper.high= max(self.epsilon,high) if self.getColorMapperType()=="log" else high
+			self.color_bar.color_mapper.low = max(self.epsilon,low ) if self.isLogColorMapper() else low
+			self.color_bar.color_mapper.high= max(self.epsilon,high) if self.isLogColorMapper() else high
 
 		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]} color-mapper-range={[self.color_bar.color_mapper.low,self.color_bar.color_mapper.high]}")
 
@@ -1416,7 +1395,7 @@ class ProbeTool(Slice):
 		self.probe_fig = bokeh.plotting.figure(
 			title=None,
 			x_axis_label="Z", x_axis_type="linear",
-			y_axis_label="f", y_axis_type=self.getColorMapperType(),
+			y_axis_label="f", y_axis_type="log" if self.isLogColorMapper() else "linear",
 			x_range=[0.0, 1.0],
 			y_range=[0.0, 1.0],
 			sizing_mode="stretch_both",
@@ -1474,16 +1453,16 @@ class ProbeTool(Slice):
 		if value in target.renderers:
 			target.renderers.remove(value)
 
-	# setColorMapperType
-	def setColorMapperType(self, value):
-		super().setColorMapperType(value)
+	# setLogColorMapper
+	def setLogColorMapper(self, value):
+		super().setLogColorMapper(value)
 
 		# need to recomute to create a brand new figure (because Bokeh cannot change the type of Y axis)
 		old_probe_fig = self.probe_fig
 		self.probe_fig = bokeh.plotting.figure(
 			title=None,
 			x_axis_label="Z",
-			y_axis_label="f", y_axis_type=value,
+			y_axis_label="f", y_axis_type="log" if value else "linear",
 			x_range=[0.0, 1.0],
 			y_range=[0.0, 1.0],
 			sizing_mode="stretch_both",
@@ -1765,7 +1744,7 @@ class ProbeTool(Slice):
 				ys = [it for it in ys]
 
 			for it in ys:
-				if self.getColorMapperType() == "log":
+				if self.isLogColorMapper():
 					it = [max(self.epsilon, value) for value in it]
 				self.renderers[probe]["fig"].append(
 					self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
@@ -1824,7 +1803,7 @@ class ProbeTool(Slice):
 		# Y axis
 		if True:
 			self.probe_fig.y_range.start = self.color_bar.color_mapper.low
-			self.probe_fig.y_range.end = self.color_bar.color_mapper.high
+			self.probe_fig.y_range.end   = self.color_bar.color_mapper.high
 
 		# draw figure line for offset
 		if True:
@@ -1918,7 +1897,6 @@ class Slices(Widgets):
 		self.setViewMode(self.getViewMode())
 		return ret
 
-
 	# getViewMode
 	def getViewMode(self):
 		return self.widgets.view_mode.value
@@ -1937,7 +1915,6 @@ class Slices(Widgets):
 	def setViewMode(self, value):
 		value=str(value).lower().strip()
 		logger.info(f"[{self.id}] value={value}")
-		self.hold()
 		super().stop()
 
 		if value=="probe": value="1-probe"
@@ -1948,7 +1925,7 @@ class Slices(Widgets):
 
 		options = self.slice_show_options
 		if nviews==1:
-			options=[it for it in options if it not in ["datasets", "colormapper_type", "colormapper-type"]]
+			options=[it for it in options if it not in ["datasets", "log_colormapper"]]
 
 		self.slices = [self.createChild(options) for I in range(nviews)]
 		central_layout=pn.GridBox(*[it.getMainLayout() for it in self.slices ], ncols=2 if nviews>1 else 1, sizing_mode="stretch_both")
@@ -1966,7 +1943,6 @@ class Slices(Widgets):
 				sizing_mode='stretch_both')])
 
 		super().start()
-		self.unhold()
 
 	# setNumberOfViews (backward compatible)
 	def setNumberOfViews(self, value):
