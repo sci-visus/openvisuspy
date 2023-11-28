@@ -11,8 +11,8 @@ import numpy as np
 from requests.auth import HTTPBasicAuth
 
 import bokeh
-from bokeh.models import Select, LinearColorMapper, LogColorMapper, ColorBar, Slider,RangeSlider, TextInput, Row, TabPanel, Tabs, Button, Column, Div, Spinner, RadioButtonGroup, InlineStyleSheet, UIElement
-from bokeh.events import ButtonClick, DoubleTap
+from bokeh.models import Select, LinearColorMapper, LogColorMapper, ColorBar, Slider,RangeSlider, Div, Spinner, RadioButtonGroup, InlineStyleSheet
+from bokeh.events import DoubleTap
 from bokeh.plotting import figure
 from bokeh.models.callbacks import CustomJS
 from bokeh.layouts import grid as Grid
@@ -34,110 +34,9 @@ PALETTES.extend(sorted([f"colorcet.{name}" for name in colorcet.palette]))
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
-class EditableSlider:
-
-	# constructor
-	def __init__(self, title='', value=0, start=0, end=1024, step=1, sizing_mode='stretch_width'):
-		self.slider = Slider(title=title, value=value, start=start, end=end, step=step, sizing_mode=sizing_mode)
-		self.slider._check_missing_dimension = None
-		self.spinner = Spinner(title="", value=value, low=start, high=end, step=step, width=80, format="0.00")
-		self.spinner.format = "0.00"
-		self.slider.on_change("value", self.onValueChange)
-		self.spinner.on_change("value", self.onValueChange)
-		self.__value = value
-		self.__start = start
-		self.__end = end
-		self.__step = step
-		self.on_value_change = None
-
-	# getMainLayout
-	def getMainLayout(self):
-		return Row(
-			self.slider,
-			self.spinner,
-			sizing_mode=self.slider.sizing_mode)
-
-	# onValueChange
-	def onValueChange(self, attr, old, new):
-		self.value = new
-
-	@property
-	def value(self):
-		return self.__value
-
-	@value.setter
-	def value(self, new):
-		if hasattr(self, "__changing_value") and self.__changing_value:  return
-		old = self.__value
-		self.__changing_value = True
-		if old != new:
-			self.__value = new
-			self.slider.value = new
-			self.spinner.value = new
-			if self.on_value_change:
-				self.on_value_change("value", old, new)
-		self.__changing_value = False
-
-	# on_change
-	def on_change(self, evt, fn):
-		assert (evt == 'value')
-		self.on_value_change = fn
-
-	@property
-	def start(self):
-		return self.__start
-
-	@start.setter
-	def start(self, value):
-		self.__start = value
-		self.slider.start = value
-		self.spinner.low = value
-
-	@property
-	def end(self):
-		return self.__end
-
-	@end.setter
-	def end(self, value):
-		self.__end = value
-		self.slider.end = value
-		self.spinner.high = value
-
-	@property
-	def step(self):
-		return self.__step
-
-	@step.setter
-	def step(self, value):
-		self.__step = value
-		self.slider.step = value
-		self.spinner.step = value if value else 0.01  # TODO
-
-	@property
-	def disabled(self):
-		return self.slider.disabled
-
-	@disabled.setter
-	def disabled(self, value):
-		self.slider.disabled = value
-		self.spinner.disabled = value
-
-	@property
-	def show_value(self):
-		return self.slider.show_value
-
-	@show_value.setter
-	def show_value(self, value):
-		self.slider.show_value = value
-
-	@property
-	def title(self):
-		return self.slider.title
-
-	@title.setter
-	def title(self, value):
-		self.slider.title = value
-
+def ReplaceContent(layout, new_list):
+	while len(layout): layout.pop(0)
+	layout.extend(new_list)
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Widgets:
@@ -160,7 +59,7 @@ class Widgets:
 		self.doc = doc
 		self.parent = parent
 
-		self.main_layout=Column(sizing_mode='stretch_both')
+		self.main_layout=pn.Column(sizing_mode='stretch_both')
 
 		self.id = f"{type(self).__name__}/{Widgets.ID}"
 		Widgets.ID += 1
@@ -169,10 +68,10 @@ class Widgets:
 		self.access = None
 		self.render_id = None  # by default I am not rendering
 		self.logic_to_physic = [(0.0, 1.0)] * 3
-		self.children = []
+		self.slices = []
 		self.linked = False
 
-		self.first_row_layout = Row(sizing_mode="stretch_width")
+		self.first_row_layout = pn.Row(sizing_mode="stretch_width", height=80)
 
 		self.widgets = types.SimpleNamespace()
 
@@ -188,12 +87,16 @@ class Widgets:
 		# palette range
 		self.metadata_palette_range = [0.0, 255.0]
 		self.widgets.palette_range_mode = Select(title="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="metadata", width=80)
-		self.widgets.palette_range_vmin = TextInput(title="Min", width=80)
-		self.widgets.palette_range_vmax = TextInput(title="Max", width=80)
+		self.widgets.palette_range_vmin = pn.widgets.TextInput(name="Min", width=80)
+		self.widgets.palette_range_vmax = pn.widgets.TextInput(name="Max", width=80)
 
 		self.widgets.palette_range_mode.on_change("value", lambda attr, old, new: self.setPaletteRangeMode(new))
-		self.widgets.palette_range_vmin.on_change("value", lambda attr, old, new: self.onPaletteRangeChange())
-		self.widgets.palette_range_vmax.on_change("value", lambda attr, old, new: self.onPaletteRangeChange())
+		def onPaletteRangeChange(evt):
+			if self.getPaletteRangeMode() == "user":
+				vmin, vmax = self.getPaletteRange()
+				self.setPaletteRange([vmin, vmax])			
+		self.widgets.palette_range_vmin.param.watch(onPaletteRangeChange, 'value')
+		self.widgets.palette_range_vmax.param.watch(onPaletteRangeChange, 'value')
 
 		# color_bar
 		self.color_bar = ColorBar()  # ticker=BasicTicker(desired_num_ticks=10)
@@ -226,12 +129,17 @@ class Widgets:
 		self.widgets.field.on_change("value", lambda attr, old, new: self.setField(new))
 
 		# direction
-		self.widgets.direction = Select(title='Direction', options=[('0', 'X'), ('1', 'Y'), ('2', 'Z')], value='2')
+		self.widgets.direction = Select(title='Direction', options=[('0', 'X'), ('1', 'Y'), ('2', 'Z')], value='2', width=70)
 		self.widgets.direction.on_change("value", lambda attr, old, new: self.setDirection(int(new)))
 
-		# offset
-		self.widgets.offset = EditableSlider(title='Offset', value=0, start=0, end=1024, sizing_mode='stretch_width')
-		self.widgets.offset.on_change("value", self.onOffsetChange)
+
+		from bokeh.models.formatters import NumeralTickFormatter
+		self.widgets.offset = pn.widgets.EditableFloatSlider(name='Offset', value=0.0, start=0.0, end=1024.0, step=1.0, sizing_mode='stretch_width', format=NumeralTickFormatter(format='0.000'),)
+		def onOffsetChange(evt):
+			if evt.old == evt.new: return
+			self.setOffset(evt.new)
+		self.widgets.offset.param.watch(onOffsetChange,"value")
+
 
 		# num_refimements (0==guess)
 		self.widgets.num_refinements = Slider(title='#Ref', value=0, start=0, end=4, width=60)
@@ -250,28 +158,28 @@ class Widgets:
 
 		# status_bar
 		self.widgets.status_bar = {}
-		self.widgets.status_bar["request"] = TextInput(title="", sizing_mode='stretch_width')
-		self.widgets.status_bar["response"] = TextInput(title="", sizing_mode='stretch_width')
-		self.widgets.status_bar["request"].disabled = True
+		self.widgets.status_bar["request" ] = pn.widgets.TextInput(name="", sizing_mode='stretch_width')
+		self.widgets.status_bar["response"] = pn.widgets.TextInput(name="", sizing_mode='stretch_width')
+		self.widgets.status_bar["request" ].disabled = True
 		self.widgets.status_bar["response"].disabled = True
 
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
-		self.widgets.play_button = Button(label="Play", width=80, sizing_mode='stretch_height')
+		self.widgets.play_button = pn.widgets.Button(name="Play", width=80, sizing_mode='stretch_height')
 		self.widgets.play_button.on_click(self.togglePlay)
 		self.widgets.play_sec = Select(title="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"],
 									   value="0.01", width=120)
 
 		# metadata
-		self.widgets.metadata = Column(width=640, sizing_mode='stretch_both')
+		self.widgets.metadata = pn.Column(width=640, sizing_mode='stretch_both')
 		self.widgets.metadata.visible = False
 
-		self.widgets.show_metadata = Button(label="Metadata", width=80, sizing_mode='stretch_height')
+		self.widgets.show_metadata = pn.widgets.Button(name="Metadata", width=80, sizing_mode='stretch_height')
 		self.widgets.show_metadata.on_click(self.onShowMetadataClick)
 
-		self.widgets.logout = Button(label="Logout", width=80, sizing_mode="stretch_height")
-		self.widgets.logout.js_on_event("button_click", CustomJS(code="""window.location=window.location.href + "/logout" """))
+		self.widgets.logout = pn.widgets.Button(name="Logout", width=80, sizing_mode="stretch_height")
+		self.widgets.logout.js_on_click(code="""window.location=window.location.href + "/logout" """)
 
 		self.panel_layout = None
 		self.idle_callback = None
@@ -295,13 +203,13 @@ class Widgets:
 
 	# start
 	def start(self):
-		for it in self.children:
+		for it in self.slices:
 			it.start()
 
 	# stop
 	def stop(self):
 		logger.info(f"[{self.id}]:: stop ")
-		for it in self.children:
+		for it in self.slices:
 			it.stop()
 
 	# onIdle
@@ -313,7 +221,7 @@ class Widgets:
 		if self.panel_layout:
 			pn.io.push_notebook(self.panel_layout)
 
-		for it in self.children:
+		for it in self.slices:
 			# await it.onIdle()
 			it.onIdle()
 
@@ -334,13 +242,13 @@ class Widgets:
 		self.widgets.play_button.disabled = value
 		self.widgets.play_sec.disabled = value
 
-		for it in self.children:
+		for it in self.slices:
 			it.setWidgetsDisabled(value)
 
 		# refresh (to override if needed)
 
 	def refresh(self):
-		for it in self.children:
+		for it in self.slices:
 			it.refresh()
 
 	# getPointDim
@@ -349,7 +257,7 @@ class Widgets:
 
 	# gotoPoint
 	def gotoPoint(self, p):
-		for it in self.children:
+		for it in self.slices:
 			it.gotoPoint(p)
 
 	# loadConfig
@@ -392,7 +300,7 @@ class Widgets:
 		self.config = value
 		self.setDatasets([it["name"] for it in value.get("datasets",[])])
 
-		for it in self.children:
+		for it in self.slices:
 			it.setConfig(value)
 
 	# setDatasets
@@ -413,7 +321,7 @@ class Widgets:
 	def setLogicToPhysic(self, value):
 		logger.info(f"[{self.id}] value={value}")
 		self.logic_to_physic = value
-		for it in self.children:
+		for it in self.slices:
 			it.setLogicToPhysic(value)
 		self.refresh()
 
@@ -468,7 +376,7 @@ class Widgets:
 
 		self.db=self.loadDataset(config["url"], config) if db is None else db
 		self.access = self.db.createAccess()
-		for it in self.children:
+		for it in self.slices:
 			it.setDataset(name, db=self.db)
 
 		self.setStatus(config)
@@ -574,7 +482,7 @@ class Widgets:
 		if value is None:
 			return
 
-		tabs = []
+		tabs = pn.Tabs()
 		for T, item in enumerate(value):
 
 			type = item["type"]
@@ -596,8 +504,8 @@ class Widgets:
 			base64_s = 'data:application/octet-stream;base64,' + base64_s
 
 			# download button
-			download_button = Button(label="download")
-			download_button.js_on_click(CustomJS(args=dict(base64_s=base64_s, filename=filename), code="""
+			download_button = pn.widgets.Button(name="download")
+			download_button.js_on_click(args=dict(base64_s=base64_s, filename=filename), code="""
 					fetch(base64_s, {cache: "no-store"}).then(response => response.blob())
 					    .then(blob => {
 					        if (navigator.msSaveBlob) {
@@ -613,18 +521,17 @@ class Widgets:
 					        }
 					        return response.text();
 					    });
-					"""))
+					""")
 
-			panel = TabPanel(child=Column(
-				Div(text=f"<b><pre><code>{filename}</code></pre></b>"),
-				download_button,
-				Div(text=f"<div><pre><code>{body_s}</code></pre></div>"),
-			),
-				title=f"{T}")
+			tabs.append([f"{T}",
+				pn.Column(
+					Div(text=f"<b><pre><code>{filename}</code></pre></b>"),
+					download_button,
+					Div(text=f"<div><pre><code>{body_s}</code></pre></div>")
+				)
+			])
 
-			tabs.append(panel)
-
-		self.widgets.metadata.children = [Tabs(tabs=tabs)]
+		ReplaceContent(self.widgets.metadata,[tabs])
 
 
 	# getTimesteps
@@ -665,7 +572,7 @@ class Widgets:
 		T = min(B, max(A, T))
 		self.setTimestep(T)
 
-		for it in self.children:
+		for it in self.slices:
 			it.setTimestepDelta(value)
 
 		self.refresh()
@@ -678,7 +585,7 @@ class Widgets:
 	def setTimestep(self, value):
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.timestep.value = value
-		for it in self.children:
+		for it in self.slices:
 			it.setTimestep(value)
 		self.refresh()
 
@@ -700,7 +607,7 @@ class Widgets:
 		logger.info(f"[{self.id}] value={value}")
 		if value is None: return
 		self.widgets.field.value = value
-		for it in self.children:
+		for it in self.slices:
 			it.setField(value)
 		self.refresh()
 
@@ -714,7 +621,7 @@ class Widgets:
 		self.palette = value
 		self.widgets.palette.value = value
 		self.color_bar.color_mapper.palette = getattr(colorcet.palette, value[len("colorcet."):]) if value.startswith("colorcet.") else value
-		for it in self.children:
+		for it in self.slices:
 			it.setPalette(value)
 		self.refresh()
 
@@ -726,7 +633,7 @@ class Widgets:
 	def setMetadataPaletteRange(self, value):
 		vmin, vmax = value
 		self.metadata_palette_range = [vmin, vmax]
-		for it in self.children:
+		for it in self.slices:
 			it.setMetadataPaletteRange(value)
 
 	# getPaletteRangeMode
@@ -752,7 +659,7 @@ class Widgets:
 		wmin.disabled = False if mode == "user" else True
 		wmax.disabled = False if mode == "user" else True
 
-		for it in self.children:
+		for it in self.slices:
 			it.setPaletteRangeMode(mode)
 		self.refresh()
 
@@ -768,15 +675,9 @@ class Widgets:
 		vmin, vmax = value
 		self.widgets.palette_range_vmin.value = str(vmin)
 		self.widgets.palette_range_vmax.value = str(vmax)
-		for it in self.children:
+		for it in self.slices:
 			it.setPaletteRange(value)
 		self.refresh()
-
-	# onPaletteRangeChange
-	def onPaletteRangeChange(self):
-		if self.getPaletteRangeMode() == "user":
-			vmin, vmax = self.getPaletteRange()
-			self.setPaletteRange([vmin, vmax])
 
 	# getColorMapperType
 	def getColorMapperType(self):
@@ -801,7 +702,7 @@ class Widgets:
 		else:
 			self.color_bar.color_mapper = LinearColorMapper(palette=palette_for_mapper, low=vmin, high=vmax)
 
-		for it in self.children:
+		for it in self.slices:
 			it.setColorMapperType(value)
 		self.refresh()
 
@@ -813,7 +714,7 @@ class Widgets:
 	def setNumberOfRefinements(self, value):
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.num_refinements.value = value
-		for it in self.children:
+		for it in self.slices:
 			it.setNumberOfRefinements(value)
 		self.refresh()
 
@@ -832,7 +733,7 @@ class Widgets:
 		self.widgets.resolution.end   = self.db.getMaxResolution()
 		value = Clamp(value, 0, self.widgets.resolution.end)
 		self.widgets.resolution.value = value
-		for it in self.children:
+		for it in self.slices:
 			it.setResolution(value)
 		self.refresh()
 
@@ -846,7 +747,7 @@ class Widgets:
 		self.widgets.view_dep.value = str(int(value))
 		self.widgets.resolution.title = "Max Res" if value else "Res"
 
-		for it in self.children:
+		for it in self.slices:
 			it.setViewDependent(value)
 		self.refresh()
 
@@ -858,7 +759,7 @@ class Widgets:
 	def setDirections(self, value):
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.direction.options = value
-		for it in self.children:
+		for it in self.slices:
 			it.setDirections(value)
 
 	# getDirection
@@ -876,7 +777,7 @@ class Widgets:
 		# default behaviour is to guess the offset
 		self.guessOffset()
 
-		for it in self.children:
+		for it in self.slices:
 			it.setDirection(value)
 
 		self.refresh()
@@ -913,7 +814,7 @@ class Widgets:
 		A, B, step = value
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.offset.start, self.widgets.offset.end, self.widgets.offset.step = A, B, step
-		for it in self.children:
+		for it in self.slices:
 			it.setOffsetStartEndStep(value)
 
 	# getOffset (in physic domain)
@@ -926,8 +827,8 @@ class Widgets:
 
 		self.widgets.offset.value = value
 		assert (self.widgets.offset.value == value)
-		for it in self.children:
-			logging.info(f"[{self.id}] recursively calling setOffset({value}) for children={it.id}")
+		for it in self.slices:
+			logging.info(f"[{self.id}] recursively calling setOffset({value}) for slice={it.id}")
 			it.setOffset(value)
 		self.refresh()
 
@@ -1063,7 +964,7 @@ class Widgets:
 		if (t2 - self.play.t1) < float(self.widgets.play_sec.value):
 			return
 
-		render_id = [self.render_id] + [it.render_id for it in self.children]
+		render_id = [self.render_id] + [it.render_id for it in self.slices]
 
 		if self.play.wait_render_id is not None:
 			if any([a < b for (a, b) in zip(render_id, self.play.wait_render_id) if a is not None and b is not None]):
@@ -1115,24 +1016,23 @@ class Slice(Widgets):
 	# getFirstRowChildren
 	def getFirstRowChildren(self):
 		ret=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
-		ret=[it.getMainLayout() if not isinstance(it,UIElement) else it for it in ret]
 		return ret		
 
 	# setShowOptions
 	def setShowOptions(self,value):
 		self.show_options=value
-		self.first_row_layout.children=self.getFirstRowChildren()
+		ReplaceContent(self.first_row_layout,self.getFirstRowChildren())
 
 	# getMainLayout 
 	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
 	def getMainLayout(self):
 
-		self.first_row_layout.children=self.getFirstRowChildren()
+		ReplaceContent(self.first_row_layout,self.getFirstRowChildren())
 
-		ret = Column(
+		ret = pn.Column(
 			self.first_row_layout,
-			Row(self.canvas.getMainLayout(), self.widgets.metadata, sizing_mode='stretch_both'),
-			Row(
+			pn.Row(self.canvas.getMainLayout(), self.widgets.metadata, sizing_mode='stretch_both'),
+			pn.Row(
 				self.widgets.status_bar["request"],
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'
@@ -1290,12 +1190,14 @@ class Slice(Widgets):
 		vt,vs=self.logic_to_physic[dir] if pdim==3 else (0.0,1.0)
 		endh=result['H']
 
+
 		user_physic_offset=self.getOffset()
+
 		real_logic_offset=logic_box[0][dir] if pdim==3 else 0.0
 		real_physic_offset=vs*real_logic_offset + vt 
 		user_logic_offset=int((user_physic_offset-vt)/vs)
 		
-		self.widgets.offset.show_value=False
+		# self.widgets.offset.show_value=False
 
 		if False and (vs==1.0 and vt==0.0):
 			self.widgets.offset.title=" ".join([
@@ -1309,6 +1211,7 @@ class Slice(Widgets):
 				f"Pixel: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
 				f"Max Res: {endh}/{maxh}"
 			])
+
 		
 		# refresh the range
 		if True:
@@ -1415,11 +1318,11 @@ class Slice(Widgets):
 
 		# link views
 		if self.isLinked() and self.parent:
-			idx=self.parent.children.index(self)
-			for child in self.parent.children:
-				if child==self: continue
-				child.setQueryLogicBox(query_logic_box)
-				child.setOffset(offset)
+			idx=self.parent.slices.index(self)
+			for it in self.parent.slices:
+				if it==self: continue
+				it.setQueryLogicBox(query_logic_box)
+				it.setOffset(offset)
 
 
 
@@ -1462,13 +1365,13 @@ class ProbeTool(Slice):
 		self.button_css = [None] * N
 
 		# create buttons
-		self.buttons = [Button(label=color, sizing_mode="stretch_width") for color in self.colors]
+		self.buttons = [pn.widgets.Button(name=color, sizing_mode="stretch_width") for color in self.colors]
 		for slot, button in enumerate(self.buttons):
-			button.on_event(ButtonClick, lambda evt, slot=slot: self.onButtonClick(slot=slot))
+			button.on_click(lambda evt, slot=slot: self.onButtonClick(slot=slot))
 
 		vmin, vmax = self.getPaletteRange()
 
-		self.widgets.show_probe = Button(label="Probe", width=80, sizing_mode="stretch_height")
+		self.widgets.show_probe = pn.widgets.Button(name="Probe", width=80, sizing_mode="stretch_height")
 		self.widgets.show_probe.on_click(self.toggleProbeVisibility)
 
 		self.probe_fig = bokeh.plotting.figure(
@@ -1485,7 +1388,7 @@ class ProbeTool(Slice):
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
 
-		self.probe_fig_col = Column(self.probe_fig, sizing_mode='stretch_both')
+		self.probe_fig_col = pn.Column(self.probe_fig, sizing_mode='stretch_both')
 
 		# probe XY space
 		if True:
@@ -1519,8 +1422,8 @@ class ProbeTool(Slice):
 			self.slider_z_op = RadioButtonGroup(labels=["avg", "mM", "med", "*"], active=0)
 			self.slider_z_op.on_change("active", lambda attr, old, new: self.recompute())
 
-		self.probe_layout = Column(
-			Row(
+		self.probe_layout = pn.Column(
+			pn.Row(
 				self.slider_x_pos,
 				self.slider_y_pos,
 				self.slider_z_range,
@@ -1530,7 +1433,7 @@ class ProbeTool(Slice):
 				self.slider_num_points_y,
 				sizing_mode="stretch_width"
 			),
-			Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+			pn.Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
 			self.probe_fig_col,
 			sizing_mode="stretch_both"
 		)
@@ -1558,7 +1461,7 @@ class ProbeTool(Slice):
 			toolbar_location=None,
 		)
 		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
-		self.probe_fig_col.children = [self.probe_fig]
+		ReplaceContent(self.probe_fig_col,[self.probe_fig])
 		self.recompute()
 
 	# onProbeXYChange
@@ -1602,7 +1505,7 @@ class ProbeTool(Slice):
 
 	# getMainLayout
 	def getMainLayout(self):
-		return Row(
+		return pn.Row(
 			super().getMainLayout(),
 			self.probe_layout,
 			sizing_mode="stretch_both")
@@ -1958,13 +1861,13 @@ class Slices(Widgets):
 			self.show_options, self.slice_show_options = value
 		else:
 			self.show_otions, self.slice_show_options = value, None
-		self.first_row_layout.children = [getattr(self.widgets, it.replace("-", "_")) for it in self.show_options]
+		ReplaceContent(self.first_row_layout,  [getattr(self.widgets, it.replace("-", "_")) for it in self.show_options])
 
 	# getMainLayout
 	def getMainLayout(self):
 
 		options = [it.replace("-", "_") for it in self.show_options]
-		self.first_row_layout.children = [getattr(self.widgets, it) for it in options]
+		ReplaceContent(self.first_row_layout,[getattr(self.widgets, it) for it in options])
 
 		ret=self.main_layout
 
@@ -1973,9 +1876,10 @@ class Slices(Widgets):
 
 		elif self.is_panel:
 			self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
-			if self.parent is None:
-				self.panel_layout = pn.pane.Bokeh(ret, sizing_mode='stretch_both')
-				ret = self.panel_layout
+			# disabled 
+			#if self.parent is None:
+			#	self.panel_layout = pn.pane.Bokeh(ret, sizing_mode='stretch_both')
+			#	ret = self.panel_layout
 
 		else:
 			self.idle_callback = self.doc.add_periodic_callback(self.onIdle, 1000 // 30)
@@ -2011,24 +1915,28 @@ class Slices(Widgets):
 		if value=="probe": value="1-probe"
 		nviews=int(value[0:1])
 
-		v = self.children
+		v = self.slices
 		for it in v: del it
 
 		options = self.slice_show_options
 		if nviews==1:
 			options=[it for it in options if it not in ["datasets", "colormapper_type", "colormapper-type"]]
 
-		self.children = [self.createChild(options) for I in range(nviews)]
+		self.slices = [self.createChild(options) for I in range(nviews)]
 		nrows,ncols={ 1: (1,1), 2: (1,2), 4: (2,2), }[nviews]
-		central=Grid(children=[child.getMainLayout() for child in self.children ], nrows=nrows,ncols=ncols, sizing_mode="stretch_both")
+		central_layout=pn.GridBox(*[it.getMainLayout() for it in self.slices ], ncols=1, sizing_mode="stretch_both")
 
 		if "linked" in value:
-			self.children[0].setLinked(True)
+			self.slices[0].setLinked(True)
 
-		self.main_layout.children=[Row(
-				Column(self.first_row_layout, central, sizing_mode='stretch_both' ),
+		ReplaceContent(self.main_layout,[pn.Row(
+				pn.Column(
+					self.first_row_layout, 
+					central_layout, 
+					sizing_mode='stretch_both' 
+				),
 				self.widgets.metadata,
-				sizing_mode='stretch_both')]
+				sizing_mode='stretch_both')])
 
 		super().start()
 		self.unhold()
