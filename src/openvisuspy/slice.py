@@ -20,15 +20,11 @@ from .utils import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
 from .canvas import Canvas
 
-logger = logging.getLogger(__name__)
-
-
-import bokeh.palettes
+import colorcet
 PALETTES = [name for name in bokeh.palettes.__palettes__ if name.endswith("256")]
-
-import colorcet 
 PALETTES.extend(sorted([f"colorcet.{name}" for name in colorcet.palette]))
 
+logger = logging.getLogger(__name__)
 
 # //////////////////////////////////////////////////////////////////////////////////////
 def ReplaceContent(layout, new_list):
@@ -1350,7 +1346,6 @@ class Probe:
 		self.pos = None
 		self.enabled = True
 
-
 # //////////////////////////////////////////////////////////////////////////////////////
 class ProbeTool(Slice):
 	colors = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
@@ -1836,7 +1831,7 @@ class ProbeTool(Slice):
 
 
 # //////////////////////////////////////////////////////////////////////////////////////
-class Slices(Widgets):
+class Slices(Slice):
 
 	# constructor
 	def __init__(self, doc=None, is_panel=False, parent=None, cls=None):
@@ -1845,8 +1840,6 @@ class Slices(Widgets):
 		self.cls = cls
 		self.show_options = ["palette", "timestep", "field", "view_dep", "resolution"]
 		self.slice_show_options = ["direction", "offset", "view_dep"]
-
-		# view_mode
 		self.widgets.view_mode = CreateSelect(name="view_mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],callback=self.setViewMode)
 
 	# getShowOptions
@@ -1884,7 +1877,6 @@ class Slices(Widgets):
 
 		self.start()
 
-		# this will fill out the layout
 		self.setViewMode(self.getViewMode())
 		return ret
 
@@ -1901,7 +1893,6 @@ class Slices(Widgets):
 		ret.setDataset(self.getDataset(),force=True)
 		return ret
 
-
 	# setViewMode
 	def setViewMode(self, value):
 		value=str(value).lower().strip()
@@ -1911,8 +1902,9 @@ class Slices(Widgets):
 		if value=="probe": value="1-probe"
 		nviews=int(value[0:1])
 
-		v = self.slices
-		for it in v: del it
+		# remove all inner slices
+		for it in self.slices: 
+			del it
 
 		options = self.slice_show_options
 		if nviews==1:
