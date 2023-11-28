@@ -35,19 +35,11 @@ if __name__.startswith('bokeh'):
 		config=sys.argv[1]
 
 
+	import panel as pn
 
-	is_panel = IsPanelServe()
-	if is_panel:
-		import panel as pn
-		doc = None
-		user_args={}
-	else:
-		import bokeh
-		doc = bokeh.io.curdoc()
-		doc.theme = 'light_minimal'
-		user_args={k: v[0].decode('ascii') for k,v in bokeh.io.curdoc().session_context.request.arguments.items()}
+	query_params={k: v for k,v in pn.state.location.query_params.items()}
 
-	view = Slices(doc=doc, is_panel=is_panel)
+	view = Slices()
 	view.setShowOptions([
 		["view_mode","datasets", "palette", "resolution", "view_dep", "num_refinements", "log_colormapper", "show_metadata", "logout"],
 		["datasets", "direction", "offset", "log_colormapper", "palette_range_mode", "palette_range_vmin",
@@ -57,23 +49,19 @@ if __name__.startswith('bokeh'):
 	view.setConfig(config)
 
 	datasets=view.getDatasets()
-	dataset=user_args.get("dataset",None)
+	dataset=query_params.get("dataset",None)
 	if not dataset and len(datasets): 
 		dataset=datasets[0]
 
 	if dataset is not None:
 		view.setDataset(dataset, force=True)
 
-	if is_panel:
-		main_layout = view.getMainLayout()
-		use_template = True
-		if use_template:
-			template = pn.template.MaterialTemplate(title='NSDF Dashboard')
-			template.main.append(main_layout)
-			template.servable()
-		else:
-			main_layout.servable()
-	else:
 
-		main_layout = view.getMainLayout()
-		doc.add_root(main_layout)
+	main_layout = view.getMainLayout()
+	use_template = False
+	if use_template:
+		template = pn.template.MaterialTemplate(title='NSDF Dashboard')
+		template.main.append(main_layout)
+		template.servable()
+	else:
+		main_layout.servable()
