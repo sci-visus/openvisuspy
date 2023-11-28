@@ -11,7 +11,7 @@ import numpy as np
 from requests.auth import HTTPBasicAuth
 
 import bokeh
-from bokeh.models import Select, LinearColorMapper, LogColorMapper, ColorBar, Slider,RangeSlider, Div, Spinner, RadioButtonGroup, InlineStyleSheet
+from bokeh.models import Select, LinearColorMapper, LogColorMapper, ColorBar, RangeSlider, Div, Spinner, RadioButtonGroup, InlineStyleSheet
 from bokeh.events import DoubleTap
 from bokeh.plotting import figure
 from bokeh.models.callbacks import CustomJS
@@ -37,6 +37,28 @@ PALETTES.extend(sorted([f"colorcet.{name}" for name in colorcet.palette]))
 def ReplaceContent(layout, new_list):
 	while len(layout): layout.pop(0)
 	layout.extend(new_list)
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateIntSlider(callback=None, parameter_name="value", editable=False, **kwargs):
+	ret = pn.widgets.EditableIntSlider(**kwargs) if editable else pn.widgets.IntSlider(**kwargs)
+	def onOffsetChange(evt):
+		if evt.old == evt.new: return
+		if callback: callback(evt.new)
+	ret.param.watch(onOffsetChange,parameter_name)
+	return ret
+
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateFloatSlider(editable=False, format="0.001", callback=None, parameter_name="value", **kwargs):
+	from bokeh.models.formatters import NumeralTickFormatter
+	kwargs["format"]=NumeralTickFormatter(format=format)
+	ret = pn.widgets.EditableFloatSlider(**kwargs) if editable else pn.widgets.FloatSlider
+	def onOffsetChange(evt):
+		if evt.old == evt.new: return
+		if callback: callback(evt.new)
+	ret.param.watch(onOffsetChange,parameter_name)
+	return ret
+
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Widgets:
@@ -109,20 +131,12 @@ class Widgets:
 		self.widgets.colormapper_type.on_change("value", lambda attr, old, new: self.setColorMapperType(new))
 
 		# timestep
-		self.widgets.timestep = Slider(title='Time', value=0, start=0, end=1, sizing_mode='stretch_width')
-		self.widgets.timestep._check_missing_dimension = None
-
-		def onTimestepChange(attr, old, new):
-			if old == new: return
-			self.setTimestep(int(new))
-
-		self.widgets.timestep.on_change("value", onTimestepChange)
+		self.widgets.timestep = CreateFloatSlider(name='Time', value=0, start=0, end=1, step=1.0, editable=True, sizing_mode='stretch_width', callback=self.setTimestep)
 
 		# timestep delta
 		speed_options = ["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"]
 		self.widgets.timestep_delta = Select(title="Speed", options=speed_options, value=speed_options[0], width=100)
-		self.widgets.timestep_delta.on_change("value",
-											  lambda attr, old, new: self.setTimestepDelta(self.speedFromOption(new)))
+		self.widgets.timestep_delta.on_change("value",lambda attr, old, new: self.setTimestepDelta(self.speedFromOption(new)))
 
 		# field
 		self.widgets.field = Select(title='Field', options=[], value='data')
@@ -132,24 +146,14 @@ class Widgets:
 		self.widgets.direction = Select(title='Direction', options=[('0', 'X'), ('1', 'Y'), ('2', 'Z')], value='2', width=70)
 		self.widgets.direction.on_change("value", lambda attr, old, new: self.setDirection(int(new)))
 
-
-		from bokeh.models.formatters import NumeralTickFormatter
-		self.widgets.offset = pn.widgets.EditableFloatSlider(name='Offset', value=0.0, start=0.0, end=1024.0, step=1.0, sizing_mode='stretch_width', format=NumeralTickFormatter(format='0.000'),)
-		def onOffsetChange(evt):
-			if evt.old == evt.new: return
-			self.setOffset(evt.new)
-		self.widgets.offset.param.watch(onOffsetChange,"value")
-
+		# offset
+		self.widgets.offset = CreateFloatSlider(name="offset", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  callback=self.setOffset, sizing_mode="stretch_width")
 
 		# num_refimements (0==guess)
-		self.widgets.num_refinements = Slider(title='#Ref', value=0, start=0, end=4, width=60)
-		self.widgets.num_refinements.on_change("value", lambda attr, old, new: self.setNumberOfRefinements(int(new)))
-		self.widgets.num_refinements._check_missing_dimension = None  # patch
+		self.widgets.num_refinements = CreateIntSlider(name='#Ref', value=0, start=0, end=4, editable=False, width=60, callback=self.setNumberOfRefinements)
 
 		# resolution
-		self.widgets.resolution = Slider(title='Res', value=21, start=self.start_resolution, end=99, width=80)
-		self.widgets.resolution.on_change("value", lambda attr, old, new: self.setResolution(int(new)))
-		self.widgets.resolution._check_missing_dimension = None  # patch
+		self.widgets.resolution = CreateIntSlider(name='Res', value=21, start=self.start_resolution, editable=False, end=99, width=80, callback=self.setResolution)
 
 		# view_dep
 		self.widgets.view_dep = Select(title="Auto Res", options=[('1', 'Enabled'), ('0', 'Disabled')], value="True",
@@ -1393,19 +1397,16 @@ class ProbeTool(Slice):
 		# probe XY space
 		if True:
 			# where the center of the probe (can be set by double click or using this)
-			self.slider_x_pos = Slider(value=0.0, start=0.0, end=1.0, step=1.0, title="X coordinate",
-									   sizing_mode="stretch_width")
-			self.slider_x_pos.on_change('value_throttled', lambda attr, old, new: self.onProbeXYChange())
+			self.slider_x_pos = CreateFloatSlider(name="X coordinate", value=0.0, start=0.0, end=1.0, step=1.0, editable=True, sizing_mode="stretch_width", 
+																								 callback=lambda new: self.onProbeXYChange(), 
+																								 parameter_name="value_throttled")
 
-			self.slider_y_pos = Slider(value=0, start=0, end=1, step=1, title="Y coordinate",
-									   sizing_mode="stretch_width")
-			self.slider_y_pos.on_change('value_throttled', lambda attr, old, new: self.onProbeXYChange())
+			self.slider_y_pos = CreateFloatSlider(name="Y coordinate",value=0, start=0, end=1, step=1, editable=True, sizing_mode="stretch_width", 
+																								 callback=lambda new: self.onProbeXYChange(), 
+																								 parameter_name="value_throttled")
 
-			self.slider_num_points_x = Slider(value=2, start=1, end=8, step=1, title="#x", width=60)
-			self.slider_num_points_x.on_change('value_throttled', lambda attr, old, new: self.recompute())
-
-			self.slider_num_points_y = Slider(value=2, start=1, end=8, step=1, title="#y", width=60)
-			self.slider_num_points_y.on_change('value_throttled', lambda attr, old, new: self.recompute())
+			self.slider_num_points_x = CreateIntSlider(name="#x", start=1, end=8, step=1, value=2, editable=False, width=60, callback=lambda new: self.recompute(), parameter_name='value_throttled')
+			self.slider_num_points_y = CreateIntSlider(name="#y", start=1, end=8, step=1, value=2, editable=False, width=60, callback=lambda new: self. recompute(), parameter_name='value_throttled')
 
 		# probe Z space
 		if True:
@@ -1415,8 +1416,7 @@ class ProbeTool(Slice):
 			self.slider_z_range.on_change('value_throttled', lambda attr, old, new: self.recompute())
 
 			# Z resolution
-			self.slider_z_res = Slider(value=24, start=self.start_resolution, end=99, step=1, title="Res", width=80)
-			self.slider_z_res.on_change('value_throttled', lambda attr, old, new: self.recompute())
+			self.slider_z_res = CreateIntSlider(name="Res", start=self.start_resolution, end=99, step=1, value=24, editable=False, width=80, callback=lambda new: self.recompute(), parameter_name='value_throttled')
 
 			# Z op
 			self.slider_z_op = RadioButtonGroup(labels=["avg", "mM", "med", "*"], active=0)
