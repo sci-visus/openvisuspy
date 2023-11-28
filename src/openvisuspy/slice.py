@@ -11,7 +11,7 @@ import numpy as np
 from requests.auth import HTTPBasicAuth
 
 import bokeh
-from bokeh.models import Select, LinearColorMapper, LogColorMapper, ColorBar, RangeSlider, Div, Spinner, RadioButtonGroup, InlineStyleSheet
+from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar, RangeSlider, Div, Spinner, RadioButtonGroup, InlineStyleSheet
 from bokeh.events import DoubleTap
 from bokeh.plotting import figure
 from bokeh.models.callbacks import CustomJS
@@ -39,24 +39,73 @@ def ReplaceContent(layout, new_list):
 	layout.extend(new_list)
 
 # //////////////////////////////////////////////////////////////////////////////////////
-def CreateIntSlider(callback=None, parameter_name="value", editable=False, **kwargs):
-	ret = pn.widgets.EditableIntSlider(**kwargs) if editable else pn.widgets.IntSlider(**kwargs)
-	def onOffsetChange(evt):
-		if evt.old == evt.new: return
-		if callback: callback(evt.new)
-	ret.param.watch(onOffsetChange,parameter_name)
+def CreateCheckBox(callback=None,**kwargs):
+	ret=pn.widgets.Checkbox(**kwargs)
+	def onChange(evt):
+		if evt.old == evt.new or not callback: return
+		callback(evt.new)
+	ret.param.watch(onChange,"value")
 	return ret
 
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateButton(callback=None,**kwargs):
+	ret = pn.widgets.Button(**kwargs)
+	def onClick(evt):
+		if callback: callback()
+	return ret
+
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateTextInput(callback=None,**kwargs):
+	ret = pn.widgets.TextInput(**kwargs)
+	def onChange(evt):
+		if evt.old == evt.new or not callback: return
+		callback(evt.new)
+	return ret
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateIntInput(callback=None,**kwargs):
+	ret = pn.widgets.IntInput(**kwargs)
+	def onChange(evt):
+		if evt.old == evt.new or not callback: return
+		callback(evt.new)
+	return ret
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateFloatInput(callback=None,**kwargs):
+	ret = pn.widgets.FloatInput(**kwargs)
+	def onChange(evt):
+		if evt.old == evt.new or not callback: return
+		callback(evt.new)
+	return ret
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateSelect(callback=None, **kwargs):
+	ret = pn.widgets.Select(**kwargs) 
+	def onChange(evt):
+		if evt.old == evt.new or not callback: return
+		callback(evt.new)
+	ret.param.watch(onChange,"value")
+	return ret
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def CreateIntSlider(callback=None, parameter_name="value", editable=False, **kwargs):
+	ret = pn.widgets.EditableIntSlider(**kwargs) if editable else pn.widgets.IntSlider(**kwargs)
+	def onChange(evt):
+		if evt.old == evt.new: return
+		if callback: callback(evt.new)
+	ret.param.watch(onChange,parameter_name)
+	return ret
 
 # //////////////////////////////////////////////////////////////////////////////////////
 def CreateFloatSlider(editable=False, format="0.001", callback=None, parameter_name="value", **kwargs):
 	from bokeh.models.formatters import NumeralTickFormatter
 	kwargs["format"]=NumeralTickFormatter(format=format)
 	ret = pn.widgets.EditableFloatSlider(**kwargs) if editable else pn.widgets.FloatSlider
-	def onOffsetChange(evt):
+	def onChange(evt):
 		if evt.old == evt.new: return
 		if callback: callback(evt.new)
-	ret.param.watch(onOffsetChange,parameter_name)
+	ret.param.watch(onChange,parameter_name)
 	return ret
 
 
@@ -98,27 +147,22 @@ class Widgets:
 		self.widgets = types.SimpleNamespace()
 
 		# datasets
-		self.widgets.datasets = Select(title="Dataset", options=[], width=60)
-		self.widgets.datasets.on_change("value", lambda attr, old, new: self.setDataset(new, force=True))
+		self.widgets.datasets = CreateSelect(name="Dataset", options=[], width=60, callback=lambda new: self.setDataset(new, force=True))
 
 		# palette
 		self.palette = 'Viridis256'
-		self.widgets.palette = Select(title='Palette', options=PALETTES, value=self.palette)
-		self.widgets.palette.on_change("value", lambda attr, old, new: self.setPalette(new))
+		self.widgets.palette = CreateSelect(name='Palette', options=PALETTES, value=self.palette, callback=self.setPalette)
 
 		# palette range
 		self.metadata_palette_range = [0.0, 255.0]
-		self.widgets.palette_range_mode = Select(title="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="metadata", width=80)
-		self.widgets.palette_range_vmin = pn.widgets.TextInput(name="Min", width=80)
-		self.widgets.palette_range_vmax = pn.widgets.TextInput(name="Max", width=80)
+		self.widgets.palette_range_mode = CreateSelect(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="metadata", width=80, callback=self.setPaletteRangeMode)
 
-		self.widgets.palette_range_mode.on_change("value", lambda attr, old, new: self.setPaletteRangeMode(new))
 		def onPaletteRangeChange(evt):
 			if self.getPaletteRangeMode() == "user":
-				vmin, vmax = self.getPaletteRange()
-				self.setPaletteRange([vmin, vmax])			
-		self.widgets.palette_range_vmin.param.watch(onPaletteRangeChange, 'value')
-		self.widgets.palette_range_vmax.param.watch(onPaletteRangeChange, 'value')
+				self.setPaletteRange(self.getPaletteRange())
+
+		self.widgets.palette_range_vmin = CreateFloatInput(name="Min", width=80, callback=onPaletteRangeChange)
+		self.widgets.palette_range_vmax = CreateFloatInput(name="Max", width=80, callback=onPaletteRangeChange)
 
 		# color_bar
 		self.color_bar = ColorBar()  # ticker=BasicTicker(desired_num_ticks=10)
@@ -127,62 +171,35 @@ class Widgets:
 		self.color_bar.color_mapper.low, self.color_bar.color_mapper.high = self.getPaletteRange()
 
 		# color_mapper type
-		self.widgets.colormapper_type = Select(title="Colormap", options=["linear", "log"], value='linear')
-		self.widgets.colormapper_type.on_change("value", lambda attr, old, new: self.setColorMapperType(new))
+		self.widgets.colormapper_type = CreateSelect(name="Colormap", options=["linear", "log"], value='linear', callback=self.setColorMapperType)
 
-		# timestep
 		self.widgets.timestep = CreateFloatSlider(name='Time', value=0, start=0, end=1, step=1.0, editable=True, sizing_mode='stretch_width', callback=self.setTimestep)
-
-		# timestep delta
-		speed_options = ["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"]
-		self.widgets.timestep_delta = Select(title="Speed", options=speed_options, value=speed_options[0], width=100)
-		self.widgets.timestep_delta.on_change("value",lambda attr, old, new: self.setTimestepDelta(self.speedFromOption(new)))
-
-		# field
-		self.widgets.field = Select(title='Field', options=[], value='data')
-		self.widgets.field.on_change("value", lambda attr, old, new: self.setField(new))
-
-		# direction
-		self.widgets.direction = Select(title='Direction', options=[('0', 'X'), ('1', 'Y'), ('2', 'Z')], value='2', width=70)
-		self.widgets.direction.on_change("value", lambda attr, old, new: self.setDirection(int(new)))
-
-		# offset
+		self.widgets.timestep_delta = CreateSelect(name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=100, callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
+		self.widgets.field = CreateSelect(name='Field', options=[], value='data', callback=self.setField)
+		self.widgets.direction = CreateSelect(name='Direction', options={'X':0, 'Y':1, 'Z':2}, value='Z', width=70, callback=lambda new: self.setDirection(new))
 		self.widgets.offset = CreateFloatSlider(name="offset", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  callback=self.setOffset, sizing_mode="stretch_width")
-
-		# num_refimements (0==guess)
 		self.widgets.num_refinements = CreateIntSlider(name='#Ref', value=0, start=0, end=4, editable=False, width=60, callback=self.setNumberOfRefinements)
-
-		# resolution
 		self.widgets.resolution = CreateIntSlider(name='Res', value=21, start=self.start_resolution, editable=False, end=99, width=80, callback=self.setResolution)
-
-		# view_dep
-		self.widgets.view_dep = Select(title="Auto Res", options=[('1', 'Enabled'), ('0', 'Disabled')], value="True",
-									   width=100)
-		self.widgets.view_dep.on_change("value", lambda attr, old, new: self.setViewDependent(int(new)))
+		self.widgets.view_dep = CreateCheckBox(name="Auto Res", value=True, callback=lambda new: self.setViewDependent(new))
 
 		# status_bar
 		self.widgets.status_bar = {}
-		self.widgets.status_bar["request" ] = pn.widgets.TextInput(name="", sizing_mode='stretch_width')
-		self.widgets.status_bar["response"] = pn.widgets.TextInput(name="", sizing_mode='stretch_width')
-		self.widgets.status_bar["request" ].disabled = True
-		self.widgets.status_bar["response"].disabled = True
+		self.widgets.status_bar["request" ] = CreateTextInput(name="", sizing_mode='stretch_width', disabled=False)
+		self.widgets.status_bar["response"] = CreateTextInput(name="", sizing_mode='stretch_width', disabled=False)
 
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
-		self.widgets.play_button = pn.widgets.Button(name="Play", width=80, sizing_mode='stretch_height')
-		self.widgets.play_button.on_click(self.togglePlay)
-		self.widgets.play_sec = Select(title="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"],
-									   value="0.01", width=120)
+		self.widgets.play_button = CreateButton(name="Play", width=80, sizing_mode='stretch_height', callback=self.togglePlay)
+		self.widgets.play_sec = CreateSelect(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01", width=120)
 
 		# metadata
 		self.widgets.metadata = pn.Column(width=640, sizing_mode='stretch_both')
 		self.widgets.metadata.visible = False
 
-		self.widgets.show_metadata = pn.widgets.Button(name="Metadata", width=80, sizing_mode='stretch_height')
-		self.widgets.show_metadata.on_click(self.onShowMetadataClick)
+		self.widgets.show_metadata = CreateButton(name="Metadata", width=80, sizing_mode='stretch_height', callback=self.onShowMetadataClick)
 
-		self.widgets.logout = pn.widgets.Button(name="Logout", width=80, sizing_mode="stretch_height")
+		self.widgets.logout = CreateButton(name="Logout", width=80, sizing_mode="stretch_height")
 		self.widgets.logout.js_on_click(code="""window.location=window.location.href + "/logout" """)
 
 		self.panel_layout = None
@@ -315,8 +332,6 @@ class Widgets:
 	def getDatasets(self):
 		return self.widgets.datasets.options
 
-
-
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
 		return self.logic_to_physic
@@ -443,9 +458,13 @@ class Widgets:
 		timestep = int(config.get("timestep", timesteps[0]))
 		physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
 		physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
-		axis = self.db.inner.idxfile.axis.strip().split()
-		if not axis: axis = ["X", "Y", "Z"][0:pdim]
-		axis = [(str(I), name) for I, name in enumerate(axis)]
+
+		directions = self.db.inner.idxfile.axis.strip().split()
+		if not directions: 
+			directions = {'X':0,'Y':1,'Z':2}
+		else:
+			directions = {name: I for I, name in enumerate(directions)}
+
 		view_dep = bool(config.get('view-dep', True))
 		resolution = int(config.get("resolution", self.db.getMaxResolution() - 6))
 		pdim = self.db.getPointDim()
@@ -464,7 +483,7 @@ class Widgets:
 		self.setTimesteps(timesteps)
 		self.setTimestepDelta(timestep_delta)
 		self.setTimestep(timestep)
-		self.setDirections(axis)
+		self.setDirections(directions)
 		self.setPhysicBox(physic_box)
 		self.setFields(fields)
 		self.setField(field.name)
@@ -508,7 +527,7 @@ class Widgets:
 			base64_s = 'data:application/octet-stream;base64,' + base64_s
 
 			# download button
-			download_button = pn.widgets.Button(name="download")
+			download_button = CreateButton(name="download")
 			download_button.js_on_click(args=dict(base64_s=base64_s, filename=filename), code="""
 					fetch(base64_s, {cache: "no-store"}).then(response => response.blob())
 					    .then(blob => {
@@ -677,8 +696,8 @@ class Widgets:
 	# setPaletteRange (backward compatible)
 	def setPaletteRange(self, value):
 		vmin, vmax = value
-		self.widgets.palette_range_vmin.value = str(vmin)
-		self.widgets.palette_range_vmax.value = str(vmax)
+		self.widgets.palette_range_vmin.value = vmin
+		self.widgets.palette_range_vmax.value = vmax
 		for it in self.slices:
 			it.setPaletteRange(value)
 		self.refresh()
@@ -743,14 +762,13 @@ class Widgets:
 
 	# isViewDependent
 	def isViewDependent(self):
-		return cbool(self.widgets.view_dep.value)
+		return self.widgets.view_dep.value
 
 	# setViewDependent
 	def setViewDependent(self, value):
 		logger.info(f"[{self.id}] value={value}")
-		self.widgets.view_dep.value = str(int(value))
+		self.widgets.view_dep.value = value
 		self.widgets.resolution.title = "Max Res" if value else "Res"
-
 		for it in self.slices:
 			it.setViewDependent(value)
 		self.refresh()
@@ -776,7 +794,7 @@ class Widgets:
 		pdim = self.getPointDim()
 		if pdim == 2: value = 2
 		dims = [int(it) for it in self.db.getLogicSize()]
-		self.widgets.direction.value = str(value)
+		self.widgets.direction.value = value
 
 		# default behaviour is to guess the offset
 		self.guessOffset()
@@ -788,13 +806,11 @@ class Widgets:
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
 	def getLogicAxis(self):
-		dir = self.getDirection()
-		dirs = self.getDirections()
-		titles = [it[1] for it in dirs]
-		# print(dir,dirs,titles)
-
+		dir  = self.getDirection()
+		directions = self.getDirections()
+		
 		# this is the projected slice
-		XY = [int(it[0]) for it in dirs]
+		XY = list(directions.values())
 
 		if len(XY) == 3:
 			del XY[dir]
@@ -803,10 +819,9 @@ class Widgets:
 		X, Y = XY
 
 		# this is the cross dimension
-		Z = 2
-		if len(dirs) == 3:
-			Z = int(dirs[dir][0])
+		Z = dir if len(directions) == 3 else 2
 
+		titles = list(directions.keys())
 		return (X, Y, Z), (titles[X], titles[Y], titles[Z] if len(titles) == 3 else 'Z')
 
 	# getOffsetStartEnd
@@ -1047,12 +1062,12 @@ class Slice(Widgets):
 			self.idle_callback=AddAsyncLoop(f"{self}::onIdle",self.onIdle,1000//30)
 
 		elif self.is_panel:
-			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=1000//30)
+			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=500)
 
 			# i should return some panel
-			if self.parent is None:
-				self.panel_layout=pn.pane.Bokeh(ret,sizing_mode="stretch_both")
-				ret=self.panel_layout
+			#if self.parent is None:
+			#	self.panel_layout=pn.pane.Bokeh(ret,sizing_mode="stretch_both")
+			#	ret=self.panel_layout
 
 		else:
 			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
@@ -1222,13 +1237,13 @@ class Slice(Widgets):
 
 			# in dynamic mode, I need to use the data range
 			if mode=="dynamic":
-				self.widgets.palette_range_vmin.value = str(data_range[0])
-				self.widgets.palette_range_vmax.value = str(data_range[1])
+				self.widgets.palette_range_vmin.value = data_range[0]
+				self.widgets.palette_range_vmax.value = data_range[1]
 				
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
-				self.widgets.palette_range_vmin.value = str(min(float(self.widgets.palette_range_vmin.value), data_range[0]))
-				self.widgets.palette_range_vmax.value = str(max(float(self.widgets.palette_range_vmax.value), data_range[1]))
+				self.widgets.palette_range_vmin.value = min(self.widgets.palette_range_vmin.value, data_range[0])
+				self.widgets.palette_range_vmax.value = max(self.widgets.palette_range_vmax.value, data_range[1])
 
 			# update the color bar
 			low =cdouble(self.widgets.palette_range_vmin.value)
@@ -1369,14 +1384,13 @@ class ProbeTool(Slice):
 		self.button_css = [None] * N
 
 		# create buttons
-		self.buttons = [pn.widgets.Button(name=color, sizing_mode="stretch_width") for color in self.colors]
-		for slot, button in enumerate(self.buttons):
-			button.on_click(lambda evt, slot=slot: self.onButtonClick(slot=slot))
+		self.buttons = []
+		for slot, color in enumerate(self.colors):
+			self.buttons.append(CreateButton(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onButtonClick(slot)))
 
 		vmin, vmax = self.getPaletteRange()
 
-		self.widgets.show_probe = pn.widgets.Button(name="Probe", width=80, sizing_mode="stretch_height")
-		self.widgets.show_probe.on_click(self.toggleProbeVisibility)
+		self.widgets.show_probe = CreateButton(name="Probe", width=80, sizing_mode="stretch_height",callback=self.toggleProbeVisibility)
 
 		self.probe_fig = bokeh.plotting.figure(
 			title=None,
@@ -1411,8 +1425,7 @@ class ProbeTool(Slice):
 		# probe Z space
 		if True:
 			# Z range
-			self.slider_z_range = RangeSlider(start=0.0, end=1.0, value=(0.0, 1.0), title="Range",
-											  sizing_mode="stretch_width")
+			self.slider_z_range = RangeSlider(start=0.0, end=1.0, value=(0.0, 1.0), title="Range", sizing_mode="stretch_width")
 			self.slider_z_range.on_change('value_throttled', lambda attr, old, new: self.recompute())
 
 			# Z resolution
@@ -1518,7 +1531,6 @@ class ProbeTool(Slice):
 		pdim=self.getPointDim()
 		logger.info(f"[{self.id}] physic-box={pbox} pdim={pdim}")
 	
-
 		(X, Y, Z), titles = self.getLogicAxis()
 
 		X1,X2=(pbox[X][0],pbox[X][1])
@@ -1848,8 +1860,7 @@ class Slices(Widgets):
 		self.slice_show_options = ["direction", "offset", "view_dep"]
 
 		# view_mode
-		self.widgets.view_mode = Select(options=["1","probe","2","2-linked","4","4-linked"],value="1",title="view_mode")
-		self.widgets.view_mode.on_change("value", lambda attr, old, new: self.setViewMode(new))
+		self.widgets.view_mode = CreateSelect(name="view_mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],callback=self.setViewMode)
 
 	# getShowOptions
 	def getShowOptions(self):
