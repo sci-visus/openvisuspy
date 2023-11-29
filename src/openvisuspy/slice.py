@@ -134,9 +134,6 @@ class Widgets:
 	def __init__(self, parent=None):
 
 		self.parent = parent
-
-		self.main_layout=pn.Column(sizing_mode='stretch_both')
-
 		self.id = f"{type(self).__name__}/{Widgets.ID}"
 		Widgets.ID += 1
 		self.config = {}
@@ -994,27 +991,6 @@ class Slice(Widgets):
 		logger.info(f"[{self.id}] value={value}")
 		self.createGui()
 
-	# createGui 
-	def createGui(self):
-
-		while len(self.main_layout):
-			self.main_layout.pop(0)
-
-		self.main_layout.append(pn.Column(
-			pn.Row(
-				*[getattr(self.widgets,it.replace("-","_")) for it in self.show_options[1] ], # child
-					sizing_mode="stretch_width"),
-			pn.Row(
-				self.canvas.main_layout, 
-				self.widgets.metadata, 
-				sizing_mode='stretch_both'),
-			pn.Row(
-				self.widgets.status_bar["request"],
-				self.widgets.status_bar["response"], 
-				sizing_mode='stretch_width'
-			),
-			sizing_mode="stretch_both"))
-
 	# onDoubleTap (NOTE: x,y are in physic coords)
 	def onDoubleTap(self,x,y):
 		if False: 
@@ -1424,11 +1400,6 @@ class ProbeTool(Slice):
 		if self.db:
 			self.slider_z_res.end = self.db.getMaxResolution()
 
-	# createGui
-	def createGui(self):
-		super().createGui()
-		self.main_layout.append(self.probe_layout)
-
 	# setDirection
 	def setDirection(self, dir):
 		super().setDirection(dir)
@@ -1760,6 +1731,8 @@ class Slices(Slice):
 			["palette", "timestep", "field", "view_dep", "resolution"],
 			["direction", "offset", "view_dep"]
 		]
+		
+		self.main_layout=pn.Column(sizing_mode='stretch_both')
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -1810,8 +1783,28 @@ class Slices(Slice):
 
 		for I in range(nviews):
 			slice = ProbeTool(parent=self, show_options=self.show_options)
-			slice.createGui()
 			slice.config=self.getConfig()
+		
+			slice.main_layout=pn.Row(
+					pn.Column(
+						pn.Row(
+							*[getattr(slice.widgets,it.replace("-","_")) for it in slice.show_options[1] ], # child
+								sizing_mode="stretch_width"),
+						pn.Row(
+							slice.canvas.main_layout, 
+							slice.widgets.metadata, 
+							sizing_mode='stretch_both'),
+						pn.Row(
+							slice.widgets.status_bar["request"],
+							slice.widgets.status_bar["response"], 
+							sizing_mode='stretch_width'
+						),
+						sizing_mode="stretch_both"
+					),
+					slice.probe_layout,
+					sizing_mode="stretch_both"
+				)
+
 			slice.setDatasets(self.getDatasets())
 			slice.setDataset(self.getDataset(),force=True)
 			slice.setLinked(I==0 and "linked" in viewmode)
