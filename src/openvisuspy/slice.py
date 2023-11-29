@@ -1233,6 +1233,96 @@ class Slice(Widgets):
 
 
 
+	# getMainLayout
+	def createGui(self):
+
+		for it in self.slices:
+			it.aborted.setTrue()
+			it.query_node.stop()	
+
+		viewmode=self.getViewMode()
+		if viewmode=="probe": viewmode="1-probe"
+		nviews=int(viewmode[0:1])
+
+		while len(self.main_layout):
+			self.main_layout.pop(0)
+
+		# remove all inner slices
+		for it in self.slices:  del it
+		self.slices=[]
+
+		for I in range(nviews):
+			slice = ProbeTool(parent=self, show_options=self.show_options)
+			slice.config=self.getConfig()
+		
+			slice.main_layout=pn.Row(
+					pn.Column(
+						pn.Row(
+							*[getattr(slice.widgets,it.replace("-","_")) for it in slice.show_options[1] ], # child
+								sizing_mode="stretch_width"),
+						pn.Row(
+							slice.canvas.main_layout, 
+							slice.widgets.metadata, 
+							sizing_mode='stretch_both'),
+						pn.Row(
+							slice.widgets.status_bar["request"],
+							slice.widgets.status_bar["response"], 
+							sizing_mode='stretch_width'
+						),
+						sizing_mode="stretch_both"
+					),
+					slice.probe_layout,
+					sizing_mode="stretch_both"
+				)
+
+			slice.setDatasets(self.getDatasets())
+			slice.setDataset(self.getDataset(),force=True)
+			slice.setLinked(I==0 and "linked" in viewmode)
+			self.slices.append(slice)
+
+		# TODO self.widgets.metadata
+		self.main_layout.append(
+				pn.Column(
+					pn.Row(
+						*[getattr(self.widgets, it.replace("-", "_")) for it in self.show_options[0]], # parent
+						sizing_mode="stretch_width"
+					), 
+					pn.GridBox(
+						*[it.main_layout for it in self.slices ], ncols=2 if nviews>1 else 1, 
+						sizing_mode="stretch_both"), 
+					sizing_mode='stretch_both' 
+				))
+
+		if IsPyodide():
+			self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30)
+		else:
+			self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
+
+		for it in self.slices:
+			it.query_node.start()
+
+
+	# onIdle
+	def onIdle(self):
+
+		# not ready for jobs
+		if not self.db:
+			return
+
+		try:
+			for it in self.slices:
+				# problem in pyodide, I will not get pixel size until I resize the window (remember)
+				it.canvas.checkFigureResize()
+				if it.canvas.getWidth()>0 and it.canvas.getHeight()>0:
+					it.playNextIfNeeded()
+					result=it.query_node.popResult(last_only=True) 
+					if result is not None: 
+						it.gotNewData(result)
+					it.pushJobIfNeeded()
+
+		except Exception as ex:
+			logger.info(f"ERROR ex={ex}")
+
 
 # //s////////////////////////////////////////////////////////////////////////////////////
 class Probe:
@@ -1742,94 +1832,6 @@ class Slices(Slice):
 	def setShowOptions(self, value):
 		self.show_options = value
 
-	# onIdle
-	def onIdle(self):
-
-		# not ready for jobs
-		if not self.db:
-			return
-
-		try:
-			for it in self.slices:
-				# problem in pyodide, I will not get pixel size until I resize the window (remember)
-				it.canvas.checkFigureResize()
-				if it.canvas.getWidth()>0 and it.canvas.getHeight()>0:
-					it.playNextIfNeeded()
-					result=it.query_node.popResult(last_only=True) 
-					if result is not None: 
-						it.gotNewData(result)
-					it.pushJobIfNeeded()
-
-		except Exception as ex:
-			logger.info(f"ERROR ex={ex}")
-
-	# getMainLayout
-	def createGui(self):
-
-		for it in self.slices:
-			it.aborted.setTrue()
-			it.query_node.stop()	
-
-		viewmode=self.getViewMode()
-		if viewmode=="probe": viewmode="1-probe"
-		nviews=int(viewmode[0:1])
-
-		while len(self.main_layout):
-			self.main_layout.pop(0)
-
-		# remove all inner slices
-		for it in self.slices:  del it
-		self.slices=[]
-
-		for I in range(nviews):
-			slice = ProbeTool(parent=self, show_options=self.show_options)
-			slice.config=self.getConfig()
-		
-			slice.main_layout=pn.Row(
-					pn.Column(
-						pn.Row(
-							*[getattr(slice.widgets,it.replace("-","_")) for it in slice.show_options[1] ], # child
-								sizing_mode="stretch_width"),
-						pn.Row(
-							slice.canvas.main_layout, 
-							slice.widgets.metadata, 
-							sizing_mode='stretch_both'),
-						pn.Row(
-							slice.widgets.status_bar["request"],
-							slice.widgets.status_bar["response"], 
-							sizing_mode='stretch_width'
-						),
-						sizing_mode="stretch_both"
-					),
-					slice.probe_layout,
-					sizing_mode="stretch_both"
-				)
-
-			slice.setDatasets(self.getDatasets())
-			slice.setDataset(self.getDataset(),force=True)
-			slice.setLinked(I==0 and "linked" in viewmode)
-			self.slices.append(slice)
-
-		# TODO self.widgets.metadata
-		self.main_layout.append(
-				pn.Column(
-					pn.Row(
-						*[getattr(self.widgets, it.replace("-", "_")) for it in self.show_options[0]], # parent
-						sizing_mode="stretch_width"
-					), 
-					pn.GridBox(
-						*[it.main_layout for it in self.slices ], ncols=2 if nviews>1 else 1, 
-						sizing_mode="stretch_both"), 
-					sizing_mode='stretch_both' 
-				))
-
-		if IsPyodide():
-			self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30)
-		else:
-			self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
-
-		for it in self.slices:
-			it.query_node.start()
 
 	# getMainLayout
 	def getMainLayout(self):
