@@ -14,6 +14,8 @@ import panel as pn
 
 logger = logging.getLogger(__name__)
 
+COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
+
 # //s////////////////////////////////////////////////////////////////////////////////////
 class Probe:
 
@@ -24,13 +26,13 @@ class Probe:
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class ProbeTool(Slice):
-	colors = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
+	
 
 	# constructor
 	def __init__(self, parent=None, show_options=None):
 		super().__init__(parent=parent, show_options=show_options)
 
-		N = len(self.colors)
+		N = len(COLORS)
 
 		self.probes = {}
 		self.renderers = {
@@ -51,7 +53,7 @@ class ProbeTool(Slice):
 
 		# create buttons
 		self.buttons = []
-		for slot, color in enumerate(self.colors):
+		for slot, color in enumerate(COLORS):
 			self.buttons.append(Widgets.Button(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onProbeButtonClick(slot)))
 
 		vmin, vmax = self.getPaletteRange()
@@ -236,7 +238,7 @@ class ProbeTool(Slice):
 	# findProbe
 	def findProbe(self, probe):
 		for dir in range(3):
-			for slot in range(len(self.colors)):
+			for slot in range(len(COLORS)):
 				if self.probes[dir][slot] == probe:
 					return dir, slot
 		return None
@@ -318,7 +320,7 @@ class ProbeTool(Slice):
 		if not all([P1[I] < P2[I] for I in range(3)]):
 			return
 
-		color = self.colors[slot]
+		color = COLORS[slot]
 
 		# for debugging draw points
 		if True:
@@ -421,7 +423,7 @@ class ProbeTool(Slice):
 		if True:
 
 			for slot, button in enumerate(self.buttons):
-				color = self.colors[slot]
+				color = COLORS[slot]
 				probe = self.probes[dir][slot]
 
 				css = [".bk-btn-default {"]
