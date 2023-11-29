@@ -2,6 +2,7 @@ import base64
 import types
 import logging
 import copy
+import traceback
 
 import requests
 import os,sys,io,threading,time
@@ -15,6 +16,8 @@ from bokeh.events import DoubleTap
 from bokeh.plotting import figure
 
 import panel as pn
+pn.extension()
+pn.extension('floatpanel')
 
 from .utils import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
@@ -33,8 +36,13 @@ class Widgets:
 	def CheckBox(callback=None,**kwargs):
 		ret=pn.widgets.Checkbox(**kwargs)
 		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			callback(evt.new)
+			if evt.old == evt.new or not callback: 
+				return
+			try:
+				callback(evt.new)
+			except:
+				logger.info(traceback.format_exc())
+				raise
 		ret.param.watch(onChange,"value")
 		return ret
 
@@ -42,8 +50,13 @@ class Widgets:
 	def RadioButtonGroup(callback=None,**kwargs):
 		ret=pn.widgets.RadioButtonGroup(**kwargs)
 		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			callback(evt.new)
+			if evt.old == evt.new or not callback: 
+				return
+			try:
+				callback(evt.new)
+			except:
+				logger.info(traceback.format_exc())
+				raise
 		ret.param.watch(onChange,"value")
 		return ret
 
@@ -51,7 +64,12 @@ class Widgets:
 	def Button(callback=None,**kwargs):
 		ret = pn.widgets.Button(**kwargs)
 		def onClick(evt):
-			if callback: callback()
+			if not callback: return
+			try:
+				callback()
+			except:
+				logger.info(traceback.format_exc())
+				raise
 		ret.on_click(onClick)
 		return ret
 
@@ -64,7 +82,11 @@ class Widgets:
 		}[type](**kwargs)
 		def onChange(evt):
 			if evt.old == evt.new or not callback: return
-			callback(evt.new)
+			try:
+				callback(evt.new)
+			except:
+				logger.info(traceback.format_exc())
+				raise
 		return ret
 
 
@@ -73,7 +95,11 @@ class Widgets:
 		ret = pn.widgets.Select(**kwargs) 
 		def onChange(evt):
 			if evt.old == evt.new or not callback: return
-			callback(evt.new)
+			try:
+				callback(evt.new)
+			except:
+				logger.info(traceback.format_exc())
+				raise
 		ret.param.watch(onChange,"value")
 		return ret
 
@@ -89,25 +115,38 @@ class Widgets:
 
 		ret = {
 			"int":   pn.widgets.EditableIntSlider   if editable else pn.widgets.IntSlider,
-			"float": pn.widgets.EditableFloatSlider if editable else pn.widgets.FloatSlider
+			"float": pn.widgets.EditableFloatSlider if editable else pn.widgets.FloatSlider,
+			"discrte": pn.widgets.DiscreteSlider
 		}[type](**kwargs) 
 		def onChange(evt):
-			if evt.old == evt.new: return
-			if callback: callback(evt.new)
+			if evt.old == evt.new or not callback: return
+			try:
+				callback(evt.new)
+			except:
+				logger.info(traceback.format_exc())
+				raise
 		ret.param.watch(onChange,parameter_name)
 		return ret
 	
 	@staticmethod
 	def RangeSlider(editable=False, type="float", format="0.001", callback=None, parameter_name="value", **kwargs):
-		assert(type=="float")
 		from bokeh.models.formatters import NumeralTickFormatter
 		kwargs["format"]=NumeralTickFormatter(format=format)
-		ret = pn.widgets.EditableRangeSlider(**kwargs) if editable else pn.widgets.RangeSlider
+		ret = {
+			"float": pn.widgets.EditableRangeSlider if editable else pn.widgets.RangeSlider,
+			"int":   pn.widgets.EditableIntSlider   if editable else pn.widgets.IntRangeSlider
+		}[type](**kwargs)
 		def onChange(evt):
-			if evt.old == evt.new: return
-			if callback: callback(evt.new)
+			if evt.old == evt.new or not callback: return
+			try:
+				callback(evt.new)
+			except:
+				logger.info(traceback.format_exc())
+				raise
 		ret.param.watch(onChange,parameter_name)
 		return ret
+
+
 
 
 # ////////////////////////////////////////////////////////////////////////////////////
@@ -176,10 +215,7 @@ class Slice:
 		self.widgets.play_sec = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
 
 		# metadata
-		self.widgets.metadata = pn.Column(sizing_mode='stretch_both',visible=False)
-		self.widgets.metadata.visible = False
-
-		self.widgets.show_metadata = Widgets.Button(name="Metadata", callback=self.onShowMetadataClick)
+		self.widgets.show_metadata = Widgets.Button(name="Metadata", callback=self.showMetadata)
 
 		self.widgets.view_mode = Widgets.Select(name="view_mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],callback=self.setViewMode)
 
@@ -331,13 +367,10 @@ class Slice:
 		if not force and self.getDataset() == name:
 			return
 
-		config=[it for it in self.config.get("datasets",[]) if it['name']==name]
-		if len(config):
-			config=config[0]
-		else:
-			config={"name": name, "url": name}
-
 		self.widgets.datasets.value = name
+
+		config=self.getDatasetConfig()
+
 		# self.doc.title = f"ViSUS {name}"
 
 		self.db=self.loadDataset(config["url"], config) if db is None else db
@@ -417,8 +450,8 @@ class Slice:
 		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic-acc") if palette_range is None else [palette_range,"user"]
 		log_colormapper = config.get("log-colormapper", False)
 		num_refinements = int(config.get("num-refinements", 2))
-		metadata=config.get("metadata", None)
-	
+		
+
 		# setting the status
 		self.setTimesteps(timesteps)
 		self.setTimestepDelta(timestep_delta)
@@ -436,20 +469,26 @@ class Slice:
 		self.setPaletteRangeMode(palette_range_mode)
 		self.setLogColorMapper(log_colormapper)
 		self.setNumberOfRefinements(num_refinements)
-		self.setMetadata(metadata)
-		self.refresh()		
 
-	# loadMetadata
-	def setMetadata(self,value):
+		self.refresh()
 
-		if value is None:
-			return
+	# getDatasetConfig
+	def getDatasetConfig(self):
+		name=self.getDataset()
+		config=[it for it in self.config.get("datasets",[]) if it['name']==name]
+		return config[0] if config else {"name": name, "url": name}
 
-		tabs = pn.Tabs()
-		for T, item in enumerate(value):
+	# showMetadata
+	def showMetadata(self):
+
+		logger.info(f"Show metadata")
+		value=self.getDatasetConfig().get("metadata", [])
+
+		cards=[]
+		for I, item in enumerate(value):
 
 			type = item["type"]
-			filename = item.get("filename",f"metadata_{T:02d}.bin")
+			filename = item.get("filename",f"metadata_{I:02d}.bin")
 
 			if type == "b64encode":
 				# binary encoded in string
@@ -486,16 +525,20 @@ class Slice:
 					    });
 					""")
 
-			tabs.append([f"{T}",
-				pn.Column(
-					pn.pane.HTML(f"<b><pre><code>{filename}</code></pre></b>"),
-					download_button,
-					pn.pane.HTML(f"<div><pre><code>{body_s}</code></pre></div>")
-				)
-			])
+			cards.append(pn.Card(
+				download_button,
+				pn.pane.HTML(f"<div><pre><code>{body_s}</code></pre></div>",sizing_mode="stretch_width"),
+				title=filename,
+				collapsed=(I>0)
+				))
 
-		ShowDialog("Metadata", tabs)
+		self.showDialog(*cards, name="Metadata", position='center',width=800,height=600,contained=False)
 
+	# showDialog
+	def showDialog(self, *args,**kwargs):
+		name=kwargs["name"]
+		self.dialogs["Metadata"]=pn.layout.FloatPanel(*args, **kwargs)
+		self.placeholder[:]=[v for k,v in self.dialogs.items()]
 
 	# getTimesteps
 	def getTimesteps(self):
@@ -1243,7 +1286,6 @@ class Slice:
 								sizing_mode="stretch_width"),
 						pn.Row(
 							slice.canvas.main_layout, 
-							slice.widgets.metadata, 
 							sizing_mode='stretch_both'),
 						pn.Row(
 							slice.widgets.status_bar["request"],
@@ -1261,8 +1303,10 @@ class Slice:
 			slice.setLinked(I==0 and "linked" in viewmode)
 			self.slices.append(slice)
 
-		# TODO self.widgets.metadata
-		self.main_layout.append(
+			self.dialogs={}
+			self.placeholder=pn.Column(height=0, width=0)
+
+			self.main_layout.append(
 				pn.Column(
 					pn.Row(
 						*[getattr(self.widgets, it.replace("-", "_")) for it in self.show_options[0]], # parent
@@ -1270,7 +1314,9 @@ class Slice:
 					), 
 					pn.GridBox(
 						*[it.main_layout for it in self.slices ], ncols=2 if nviews>1 else 1, 
-						sizing_mode="stretch_both"), 
+						sizing_mode="stretch_both"
+					),
+					self.placeholder,  
 					sizing_mode='stretch_both' 
 				))
 
