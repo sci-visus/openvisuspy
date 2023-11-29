@@ -54,7 +54,7 @@ class ProbeTool(Slice):
 		for slot, color in enumerate(COLORS):
 			self.buttons.append(Widgets.Button(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onProbeButtonClick(slot)))
 
-		vmin, vmax = self.onwer.getPaletteRange()
+		vmin, vmax = self.owner.getPaletteRange()
 
 		self.widgets.show_probe = Widgets.Button(name="Probe", callback=self.toggleProbeVisibility)
 
