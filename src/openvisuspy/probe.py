@@ -210,7 +210,6 @@ class ProbeTool(Slice):
 		self.slider_z_range.step  = (Z2 - Z1) / 10000
 		self.slider_z_range.value = (Z1, Z2)
 
-		self.guessOffset()
 		self.recomputeProbes()
 		self.slot = None
 
