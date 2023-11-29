@@ -132,16 +132,8 @@ class Widgets:
 	start_resolution = 20
 
 	# constructor
-	def __init__(self, doc=None, is_panel=False, parent=None):
+	def __init__(self, parent=None):
 
-		if doc is None and not is_panel:
-			import bokeh.io
-			doc = bokeh.io.curdoc()
-
-		assert (not isinstance(doc, list))
-
-		self.is_panel = is_panel
-		self.doc = doc
 		self.parent = parent
 
 		self.main_layout=pn.Column(sizing_mode='stretch_both')
@@ -197,7 +189,7 @@ class Widgets:
 		self.widgets.play_sec = CreateSelect(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01", width=120)
 
 		# metadata
-		self.widgets.metadata = pn.Column(width=640, sizing_mode='stretch_both')
+		self.widgets.metadata = pn.Column(sizing_mode='stretch_both')
 		self.widgets.metadata.visible = False
 
 		self.widgets.show_metadata = CreateButton(name="Metadata", width=80, sizing_mode='stretch_height', callback=self.onShowMetadataClick)
@@ -989,9 +981,9 @@ class Widgets:
 class Slice(Widgets):
 	
 	# constructor
-	def __init__(self, doc=None, is_panel=False, parent=None):
+	def __init__(self, parent=None):
 
-		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
+		super().__init__(parent=parent)
 		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","resolution"]
 
 		# create Gui
@@ -1042,7 +1034,7 @@ class Slice(Widgets):
 		if IsPyodide():
 			self.idle_callback=AddAsyncLoop(f"{self}::onIdle",self.onIdle,1000//30)
 
-		elif self.is_panel:
+		else:
 			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=300)
 
 			# i should return some panel
@@ -1050,9 +1042,6 @@ class Slice(Widgets):
 			#	self.panel_layout=pn.pane.Bokeh(ret,sizing_mode="stretch_both")
 			#	ret=self.panel_layout
 
-		else:
-			self.idle_callback=self.doc.add_periodic_callback(self.onIdle, 1000//30)
-			
 		self.start()
 		return ret
 
@@ -1350,8 +1339,8 @@ class ProbeTool(Slice):
 	colors = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
 
 	# constructor
-	def __init__(self, doc=None, is_panel=False, parent=None):
-		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
+	def __init__(self, parent=None):
+		super().__init__(parent=parent)
 		self.show_options.append("show-probe")
 
 		N = len(self.colors)
@@ -1835,8 +1824,8 @@ class ProbeTool(Slice):
 class Slices(Slice):
 
 	# constructor
-	def __init__(self, doc=None, is_panel=False, parent=None, cls=None):
-		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
+	def __init__(self, parent=None, cls=None):
+		super().__init__(parent=parent)
 		if cls is None: cls=ProbeTool
 		self.cls = cls
 		self.show_options = ["palette", "timestep", "field", "view_dep", "resolution"]
@@ -1866,15 +1855,13 @@ class Slices(Slice):
 		if IsPyodide():
 			self.idle_callbackAddAsyncLoop(f"{self}::onIdle (bokeh)", self.onIdle, 1000 // 30)
 
-		elif self.is_panel:
+		else:
 			self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
 			# disabled 
 			#if self.parent is None:
 			#	self.panel_layout = pn.pane.Bokeh(ret, sizing_mode='stretch_both')
 			#	ret = self.panel_layout
 
-		else:
-			self.idle_callback = self.doc.add_periodic_callback(self.onIdle, 1000 // 30)
 
 		self.start()
 
@@ -1887,7 +1874,7 @@ class Slices(Slice):
 
 	# createChild
 	def createChild(self, options):
-		ret = self.cls(doc=self.doc, is_panel=self.is_panel, parent=self)
+		ret = self.cls(parent=self)
 		if options is not None: ret.setShowOptions(options)
 		ret.config=self.getConfig()
 		ret.setDatasets(self.getDatasets())
