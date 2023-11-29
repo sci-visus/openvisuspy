@@ -191,6 +191,9 @@ class Widgets:
 
 		self.widgets.show_metadata = CreateButton(name="Metadata", callback=self.onShowMetadataClick)
 
+		
+		self.widgets.view_mode = CreateSelect(name="view_mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],callback=self.setViewMode)
+
 		self.widgets.logout = CreateButton(name="Logout")
 		self.widgets.logout.js_on_click(code="""window.location=window.location.href + "/logout" """)
 
@@ -981,6 +984,17 @@ class Slice(Widgets):
 		self.show_options=value
 		self.createGui()
 
+
+	# getViewMode
+	def getViewMode(self):
+		return self.widgets.view_mode.value
+
+	# setViewMode
+	def setViewMode(self, value):
+		value=str(value).lower().strip()
+		logger.info(f"[{self.id}] value={value}")
+		self.createGui()
+
 	# createGui 
 	def createGui(self):
 
@@ -1737,6 +1751,7 @@ class ProbeTool(Slice):
 		self.refreshProbe()
 
 
+
 # //////////////////////////////////////////////////////////////////////////////////////
 class Slices(Slice):
 
@@ -1745,7 +1760,6 @@ class Slices(Slice):
 		super().__init__(parent=parent)
 		self.show_options = ["palette", "timestep", "field", "view_dep", "resolution"]
 		self.slice_show_options = ["direction", "offset", "view_dep"]
-		self.widgets.view_mode = CreateSelect(name="view_mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],callback=self.setViewMode)
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -1830,15 +1844,7 @@ class Slices(Slice):
 		for it in self.slices:
 			it.query_node.start()
 
-	# getViewMode
-	def getViewMode(self):
-		return self.widgets.view_mode.value
 
-	# setViewMode
-	def setViewMode(self, value):
-		value=str(value).lower().strip()
-		logger.info(f"[{self.id}] value={value}")
-		self.createGui()
 
 	# getMainLayout
 	def getMainLayout(self):
