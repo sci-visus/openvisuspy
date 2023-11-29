@@ -367,6 +367,10 @@ class Widgets:
 
 		self.setStatus(config)
 
+		# the parent will take care of creating the gui
+		if not self.parent:
+			self.createGui()
+
 
 	# loadDataset
 	def loadDataset(self, url, config={}):
@@ -1236,7 +1240,7 @@ class Slice(Widgets):
 
 
 
-	# getMainLayout
+	# createGui
 	def createGui(self):
 
 		for it in self.slices:
@@ -1827,17 +1831,9 @@ class Slices(Slice):
 		
 		self.main_layout=pn.Column(sizing_mode='stretch_both')
 
-	# getShowOptions
-	# def getShowOptions(self):
-	#	return self.show_options
-
-	# setShowOptions
-	#def setShowOptions(self, value):
-	#	self.show_options = value
-
 	# getMainLayout
 	def getMainLayout(self):
-		self.createGui()
+		# self.createGui()
 		return self.main_layout
 
 	# setNumberOfViews (backward compatible)
