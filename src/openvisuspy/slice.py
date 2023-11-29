@@ -1806,8 +1806,6 @@ class Slices(Slice):
 			slice.setLinked(I==0 and "linked" in viewmode)
 			self.slices.append(slice)
 
-		print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SLICES",self.slices)
-
 		# TODO self.widgets.metadata
 
 		self.main_layout.append(
