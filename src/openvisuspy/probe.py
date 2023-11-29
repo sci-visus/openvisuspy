@@ -19,19 +19,17 @@ COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", 
 # //s////////////////////////////////////////////////////////////////////////////////////
 class Probe:
 
-	# constructor
 	def __init__(self):
 		self.pos = None
 		self.enabled = True
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class ProbeTool(Slice):
-	
 
 	# constructor
 	def __init__(self, parent=None, show_options=None):
 		super().__init__(parent=parent, show_options=show_options)
-
+		self.owner=self
 		N = len(COLORS)
 
 		self.probes = {}
@@ -44,8 +42,8 @@ class ProbeTool(Slice):
 				probe = Probe()
 				self.probes[dir].append(probe)
 				self.renderers[probe] = {
-					"canvas": [],
-					"fig": []
+					"canvas": [], # i am drwing on slice.canva s
+					"fig": []     # or probe fig
 				}
 
 		self.slot = None
@@ -56,14 +54,14 @@ class ProbeTool(Slice):
 		for slot, color in enumerate(COLORS):
 			self.buttons.append(Widgets.Button(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onProbeButtonClick(slot)))
 
-		vmin, vmax = self.getPaletteRange()
+		vmin, vmax = self.onwer.getPaletteRange()
 
 		self.widgets.show_probe = Widgets.Button(name="Probe", callback=self.toggleProbeVisibility)
 
 		self.probe_fig = bokeh.plotting.figure(
 			title=None,
 			x_axis_label="Z", x_axis_type="linear",
-			y_axis_label="f", y_axis_type="log" if self.isLogColorMapper() else "linear",
+			y_axis_label="f", y_axis_type="log" if self.owner.isLogColorMapper() else "linear",
 			x_range=[0.0, 1.0],
 			y_range=[0.0, 1.0],
 			sizing_mode="stretch_both",
@@ -72,7 +70,7 @@ class ProbeTool(Slice):
 		)
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
-		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
+		self.probe_fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
 
 		self.probe_fig_col = pn.Column(
 			pn.pane.Bokeh(self.probe_fig), 
@@ -138,7 +136,7 @@ class ProbeTool(Slice):
 			active_scroll="wheel_zoom",
 			toolbar_location=None,
 		)
-		self.probe_fig.on_event(DoubleTap, lambda evt: self.setOffset(evt.x))
+		self.probe_fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
 
 		while len(self.probe_fig_col):
 			self.probe_fig_col.pop(0)
@@ -148,7 +146,7 @@ class ProbeTool(Slice):
 
 	# onProbeXYChange
 	def onProbeXYChange(self):
-		dir = self.getDirection()
+		dir = self.owner.getDirection()
 		slot = self.slot
 		if slot is None: return
 		probe = self.probes[dir][slot]
@@ -171,8 +169,8 @@ class ProbeTool(Slice):
 
 	# onDoubleTap
 	def onDoubleTap(self, x, y):
-		logger.info(f"[{self.id}] x={x} y={y}")
-		dir = self.getDirection()
+		logger.info(f"[{self.owner.id}] x={x} y={y}")
+		dir = self.owner.getDirection()
 		slot = self.slot
 		if slot is None: slot = 0
 		probe = self.probes[dir][slot]
@@ -184,9 +182,9 @@ class ProbeTool(Slice):
 
 		pbox = self.getPhysicBox()
 		pdim=self.getPointDim()
-		logger.info(f"[{self.id}] physic-box={pbox} pdim={pdim}")
+		logger.info(f"[{self.owner.id}] physic-box={pbox} pdim={pdim}")
 	
-		(X, Y, Z), titles = self.getLogicAxis()
+		(X, Y, Z), titles = self.owner.getLogicAxis()
 
 		X1,X2=(pbox[X][0],pbox[X][1])
 		Y1,Y2=(pbox[Y][0],pbox[Y][1])
@@ -215,10 +213,10 @@ class ProbeTool(Slice):
 
 	# onProbeButtonClick
 	def onProbeButtonClick(self, slot):
-		dir = self.getDirection()
+		dir = self.owner.getDirection()
 		probe = self.probes[dir][slot]
 		logger.info(
-			f"[{self.id}] slot={slot} self.slot={self.slot} probe.pos={probe.pos} probe.enabled={probe.enabled}")
+			f"[{self.owner.id}] slot={slot} self.slot={self.slot} probe.pos={probe.pos} probe.enabled={probe.enabled}")
 
 		# when I click on the same slot, I am disabling the probe
 		if self.slot == slot:
@@ -245,12 +243,12 @@ class ProbeTool(Slice):
 	# addProbe
 	def addProbe(self, probe):
 		dir, slot = self.findProbe(probe)
-		logger.info(f"[{self.id}] dir={dir} slot={slot} probe.pos={probe.pos}")
+		logger.info(f"[{self.owner.id}] dir={dir} slot={slot} probe.pos={probe.pos}")
 		self.removeProbe(probe)
 		probe.enabled = True
 
-		vt = [self.logic_to_physic[I][0] for I in range(3)]
-		vs = [self.logic_to_physic[I][1] for I in range(3)]
+		vt = [self.owner.logic_to_physic[I][0] for I in range(3)]
+		vs = [self.owner.logic_to_physic[I][1] for I in range(3)]
 
 		def LogicToPhysic(P):
 			ret = [vt[I] + vs[I] * P[I] for I in range(3)]
@@ -289,8 +287,8 @@ class ProbeTool(Slice):
 		# compute delta
 		Delta = [1, 1, 1]
 		endh = self.slider_z_res.value
-		maxh = self.db.getMaxResolution()
-		bitmask = self.db.getBitmask()
+		maxh = self.owner.db.getMaxResolution()
+		bitmask = self.owner.db.getBitmask()
 		for K in range(maxh, endh, -1):
 			Delta[ord(bitmask[K]) - ord('0')] *= 2
 
@@ -299,7 +297,7 @@ class ProbeTool(Slice):
 		# print(P1,P2)
 
 		# align to the bitmask
-		(X, Y, Z), titles = self.getLogicAxis()
+		(X, Y, Z), titles = self.owner.getLogicAxis()
 
 		def Align(idx, p):
 			return int(Delta[idx] * (p[idx] // Delta[idx]))
@@ -336,18 +334,18 @@ class ProbeTool(Slice):
 			y1, y2 = min(ys), max(ys);
 			cy = (y1 + y2) / 2.0
 
-			fig = self.canvas.getFigure()
+			fig = self.owner.canvas.getFigure()
 			self.renderers[probe]["canvas"] = [
 				fig.scatter(xs, ys, color=color),
 				fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color=color),
-				fig.line(self.getPhysicBox()[X], [cy, cy], line_width=1, color=color),
-				fig.line([cx, cx], self.getPhysicBox()[Y], line_width=1, color=color),
+				fig.line(self.owner.getPhysicBox()[X], [cy, cy], line_width=1, color=color),
+				fig.line([cx, cx], self.owner.getPhysicBox()[Y], line_width=1, color=color),
 			]
 
 		# execute the query
-		access = self.db.createAccess()
+		access = self.owner.db.createAccess()
 		logger.info(f"ExecuteBoxQuery logic_box={[P1, P2]} endh={endh} num_refinements={1} full_dim={True}")
-		multi = ExecuteBoxQuery(self.db, access=access, logic_box=[P1, P2], endh=endh, num_refinements=1,
+		multi = ExecuteBoxQuery(self.owner.db, access=access, logic_box=[P1, P2], endh=endh, num_refinements=1,
 								full_dim=True)  # full_dim means I am not quering a slice
 		data = list(multi)[0]['data']
 
@@ -392,8 +390,8 @@ class ProbeTool(Slice):
 				ys = [it for it in ys]
 
 			for it in ys:
-				if self.isLogColorMapper():
-					it = [max(self.epsilon, value) for value in it]
+				if self.owner.isLogColorMapper():
+					it = [max(self.owner.epsilon, value) for value in it]
 				self.renderers[probe]["fig"].append(
 					self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
@@ -401,7 +399,7 @@ class ProbeTool(Slice):
 
 	# removeProbe
 	def removeProbe(self, probe):
-		fig = self.canvas.getFigure()
+		fig = self.owner.canvas.getFigure()
 		for r in self.renderers[probe]["canvas"]:
 			self.removeRenderer(fig, r)
 		self.renderers[probe]["canvas"] = []
@@ -416,7 +414,7 @@ class ProbeTool(Slice):
 	# refreshProbe
 	def refreshProbe(self):
 
-		dir = self.getDirection()
+		dir = self.owner.getDirection()
 
 		# buttons
 		if True:
@@ -450,7 +448,7 @@ class ProbeTool(Slice):
 
 		# draw figure line for offset
 		if True:
-			offset = self.getOffset()
+			offset = self.owner.getOffset()
 			self.removeRenderer(self.probe_fig, self.renderers["offset"])
 			self.renderers["offset"] = self.probe_fig.line(
 				[offset, offset],
@@ -476,7 +474,7 @@ class ProbeTool(Slice):
 
 		# add the probes only if sibile
 		if self.isProbeVisible():
-			dir = self.getDirection()
+			dir = self.owner.getDirection()
 			for slot, probe in enumerate(self.probes[dir]):
 				if probe.pos is not None and probe.enabled:
 					self.addProbe(probe)
