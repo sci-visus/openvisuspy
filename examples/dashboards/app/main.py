@@ -42,8 +42,7 @@ if __name__.startswith('bokeh'):
 	view = Slices()
 	view.setShowOptions([
 		["view_mode","datasets", "palette", "resolution", "view_dep", "num_refinements", "log_colormapper", "show_metadata", "logout"],
-		["datasets", "direction", "offset", "log_colormapper", "palette_range_mode", "palette_range_vmin",
-		 "palette_range_vmax", "show-probe"]
+		["datasets", "direction", "offset", "log_colormapper", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax", "show-probe"]
 	])
 	
 	view.setConfig(config)

@@ -957,10 +957,10 @@ class Widgets:
 class Slice(Widgets):
 	
 	# constructor
-	def __init__(self, parent=None):
+	def __init__(self, parent=None,show_options=None):
 
 		super().__init__(parent=parent)
-		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","resolution"]
+		self.show_options  = show_options
 
 		# create Gui
 		self.t1=time.time()
@@ -984,7 +984,6 @@ class Slice(Widgets):
 		self.show_options=value
 		self.createGui()
 
-
 	# getViewMode
 	def getViewMode(self):
 		return self.widgets.view_mode.value
@@ -1003,7 +1002,7 @@ class Slice(Widgets):
 
 		self.main_layout.append(pn.Column(
 			pn.Row(
-				*[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ],
+				*[getattr(self.widgets,it.replace("-","_")) for it in self.show_options[1] ], # child
 					sizing_mode="stretch_width"),
 			pn.Row(
 				self.canvas.main_layout, 
@@ -1272,9 +1271,8 @@ class ProbeTool(Slice):
 	colors = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
 
 	# constructor
-	def __init__(self, parent=None):
-		super().__init__(parent=parent)
-		self.show_options.append("show-probe")
+	def __init__(self, parent=None, show_options=None):
+		super().__init__(parent=parent, show_options=show_options)
 
 		N = len(self.colors)
 
@@ -1758,20 +1756,18 @@ class Slices(Slice):
 	# constructor
 	def __init__(self, parent=None):
 		super().__init__(parent=parent)
-		self.show_options = ["palette", "timestep", "field", "view_dep", "resolution"]
-		self.slice_show_options = ["direction", "offset", "view_dep"]
+		self.show_options = [
+			["palette", "timestep", "field", "view_dep", "resolution"],
+			["direction", "offset", "view_dep"]
+		]
 
 	# getShowOptions
 	def getShowOptions(self):
-		return [self.show_options, self.slice_show_options]
+		return self.show_options
 
 	# setShowOptions
 	def setShowOptions(self, value):
-		if isinstance(value, tuple) or isinstance(value, list):
-			self.show_options, self.slice_show_options = value
-		else:
-			self.show_otions, self.slice_show_options = value, None
-
+		self.show_options = value
 
 	# onIdle
 	def onIdle(self):
@@ -1813,9 +1809,8 @@ class Slices(Slice):
 		self.slices=[]
 
 		for I in range(nviews):
-			options=[it for it in self.slice_show_options if nviews>1 or it not in ["datasets", "log_colormapper"]]
-			slice = ProbeTool(parent=self)
-			slice.setShowOptions(options)
+			slice = ProbeTool(parent=self, show_options=self.show_options)
+			slice.createGui()
 			slice.config=self.getConfig()
 			slice.setDatasets(self.getDatasets())
 			slice.setDataset(self.getDataset(),force=True)
@@ -1823,11 +1818,10 @@ class Slices(Slice):
 			self.slices.append(slice)
 
 		# TODO self.widgets.metadata
-
 		self.main_layout.append(
 				pn.Column(
 					pn.Row(
-						*[getattr(self.widgets, it.replace("-", "_")) for it in self.show_options],
+						*[getattr(self.widgets, it.replace("-", "_")) for it in self.show_options[0]], # parent
 						sizing_mode="stretch_width"
 					), 
 					pn.GridBox(
@@ -1843,8 +1837,6 @@ class Slices(Slice):
 
 		for it in self.slices:
 			it.query_node.start()
-
-
 
 	# getMainLayout
 	def getMainLayout(self):

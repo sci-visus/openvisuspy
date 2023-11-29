@@ -44,7 +44,7 @@ if __name__.startswith('bokeh'):
 	view_dep = Select(title="Auto Res",options=[str(True),str(False)])	
 
 	view=Slice()
-	view.setShowOptions([])
+	# view.setShowOptions([])
 	view.setConfig(config)
 
 	def SetDataset(value):
