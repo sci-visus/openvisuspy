@@ -961,7 +961,10 @@ class Widgets:
 class Slice(Widgets):
 	
 	# constructor
-	def __init__(self, parent=None,show_options=None):
+	def __init__(self, parent=None,show_options=[
+			["palette", "timestep", "field", "view_dep", "resolution"],
+			["direction", "offset", "view_dep"]
+		]):
 
 		super().__init__(parent=parent)
 		self.show_options  = show_options
@@ -978,6 +981,16 @@ class Slice(Widgets):
 		self.canvas.on_resize=self.onCanvasResize
 		self.canvas.enableDoubleTap(self.onDoubleTap)
 
+		# for parent
+		self.main_layout=pn.Column(sizing_mode='stretch_both')
+
+	# getMainLayout
+	def getMainLayout(self):
+		return self.main_layout
+
+	# setNumberOfViews (backward compatible)
+	def setNumberOfViews(self, value):
+		self.setViewMode(str(value))
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -1329,6 +1342,8 @@ class Slice(Widgets):
 
 		except Exception as ex:
 			logger.info(f"ERROR ex={ex}")
+
+Slices=Slice
 
 
 # //s////////////////////////////////////////////////////////////////////////////////////
@@ -1817,25 +1832,3 @@ class ProbeTool(Slice):
 		self.refreshProbe()
 
 
-
-# //////////////////////////////////////////////////////////////////////////////////////
-class Slices(Slice):
-
-	# constructor
-	def __init__(self, parent=None):
-		super().__init__(parent=parent)
-		self.show_options = [
-			["palette", "timestep", "field", "view_dep", "resolution"],
-			["direction", "offset", "view_dep"]
-		]
-		
-		self.main_layout=pn.Column(sizing_mode='stretch_both')
-
-	# getMainLayout
-	def getMainLayout(self):
-		# self.createGui()
-		return self.main_layout
-
-	# setNumberOfViews (backward compatible)
-	def setNumberOfViews(self, value):
-		self.setViewMode(str(value))
