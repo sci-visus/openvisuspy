@@ -380,6 +380,10 @@ class Slice:
 		if not self.parent:
 			self.createGui()
 
+		from .probe import ProbeTool
+		if isinstance(self,ProbeTool):
+			self.slider_z_res.end = self.db.getMaxResolution()
+
 	# loadDataset
 	def loadDataset(self, url, config={}):
 
@@ -698,6 +702,11 @@ class Slice:
 		for it in self.slices:
 			it.setLogColorMapper(value)
 		self.color_bar=None # force refresh
+
+		from .probe import ProbeTool
+		if isinstance(self,ProbeTool):
+			self.setYAxisLog(value)
+		
 		self.refresh()
 
 	# getNumberOfRefinements
@@ -777,6 +786,10 @@ class Slice:
 		for it in self.slices:
 			it.setDirection(value)
 
+		from .probe import ProbeTool
+		if isinstance(self,ProbeTool):
+			self.setProbesPlane(dir)
+
 		self.refresh()
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
@@ -819,11 +832,20 @@ class Slice:
 	def setOffset(self, value):
 		logger.info(f"[{self.id}] new-value={value} old-value={self.getOffset()}")
 
+		# do not send float offset if it's all integer
+		if all([int(it) == it for it in self.getOffsetStartEnd()]):
+			value = int(value)
+
 		self.widgets.offset.value = value
 		assert (self.widgets.offset.value == value)
 		for it in self.slices:
 			logging.info(f"[{self.id}] recursively calling setOffset({value}) for slice={it.id}")
 			it.setOffset(value)
+
+		from .probe import ProbeTool
+		if isinstance(self,ProbeTool):
+			self.refreshProbe()
+
 		self.refresh()
 
 	# guessOffset
@@ -1183,6 +1205,10 @@ class Slice:
 			str(query_status)
 		])
 		self.render_id+=1 
+
+		from .probe import ProbeTool
+		if isinstance(self,ProbeTool):
+			self.refreshProbe()
 		
 		logger.info(f"[{self.id}] EXIT")
   

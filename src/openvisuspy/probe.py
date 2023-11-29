@@ -52,7 +52,7 @@ class ProbeTool(Slice):
 		# create buttons
 		self.buttons = []
 		for slot, color in enumerate(self.colors):
-			self.buttons.append(Widgets.Button(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onButtonClick(slot)))
+			self.buttons.append(Widgets.Button(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onProbeButtonClick(slot)))
 
 		vmin, vmax = self.getPaletteRange()
 
@@ -87,17 +87,17 @@ class ProbeTool(Slice):
 																								 callback=lambda new: self.onProbeXYChange(), 
 																								 parameter_name="value_throttled")
 
-			self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recompute, parameter_name='value_throttled')
-			self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recompute, parameter_name='value_throttled')
+			self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recomputeProbes, parameter_name='value_throttled')
+			self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recomputeProbes, parameter_name='value_throttled')
 
 		# probe Z space
-			self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=self.recompute)
+			self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=self.recomputeProbes)
 
 		# probe z res
-		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.start_resolution, end=99, step=1, value=24, editable=False, width=80, callback=self.recompute, parameter_name='value_throttled')
+		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.start_resolution, end=99, step=1, value=24, editable=False, width=80, callback=self.recomputeProbes, parameter_name='value_throttled')
 
 		# Z op
-		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value=0, callback=self.recompute)
+		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value=0, callback=self.recomputeProbes)
 
 		self.probe_layout = pn.Column(
 			pn.Row(
@@ -121,9 +121,8 @@ class ProbeTool(Slice):
 		if value in target.renderers:
 			target.renderers.remove(value)
 
-	# setLogColorMapper
-	def setLogColorMapper(self, value):
-		super().setLogColorMapper(value)
+	# setYAxisLog
+	def setYAxisLog(self, value):
 
 		# need to recomute to create a brand new figure (because Bokeh cannot change the type of Y axis)
 		old_probe_fig = self.probe_fig
@@ -143,7 +142,7 @@ class ProbeTool(Slice):
 			self.probe_fig_col.pop(0)
 
 		self.probe_fig_col.append(self.probe_fig)
-		self.recompute()
+		self.recomputeProbes()
 
 	# onProbeXYChange
 	def onProbeXYChange(self):
@@ -166,7 +165,7 @@ class ProbeTool(Slice):
 	def toggleProbeVisibility(self):
 		value = not self.isProbeVisible()
 		self.setProbeVisible(value)
-		self.recompute()
+		self.recomputeProbes()
 
 	# onDoubleTap
 	def onDoubleTap(self, x, y):
@@ -178,15 +177,8 @@ class ProbeTool(Slice):
 		probe.pos = [x, y]
 		self.addProbe(probe)
 
-	# setDataset
-	def setDataset(self, name, db=None, force=False):
-		super().setDataset(name, db=db, force=force)
-		if self.db:
-			self.slider_z_res.end = self.db.getMaxResolution()
-
-	# setDirection
-	def setDirection(self, dir):
-		super().setDirection(dir)
+	# setProbesPlane
+	def setProbesPlane(self, dir):
 
 		pbox = self.getPhysicBox()
 		pdim=self.getPointDim()
@@ -217,21 +209,11 @@ class ProbeTool(Slice):
 		self.slider_z_range.value = (Z1, Z2)
 
 		self.guessOffset()
-		self.recompute()
+		self.recomputeProbes()
 		self.slot = None
 
-	# setOffset
-	def setOffset(self, value):
-
-		# do not send float offset if it's all integer
-		if all([int(it) == it for it in self.getOffsetStartEnd()]):
-			value = int(value)
-
-		super().setOffset(value)
-		self.refreshProbe()
-
-	# onButtonClick
-	def onButtonClick(self, slot):
+	# onProbeButtonClick
+	def onProbeButtonClick(self, slot):
 		dir = self.getDirection()
 		probe = self.probes[dir][slot]
 		logger.info(
@@ -474,8 +456,8 @@ class ProbeTool(Slice):
 				[self.probe_fig.y_range.start, self.probe_fig.y_range.end],
 				line_width=1, color="black")
 
-	# recompute
-	def recompute(self, evt=None):
+	# recomputeProbes
+	def recomputeProbes(self, evt=None):
 
 		self.refreshProbe()
 
@@ -498,7 +480,4 @@ class ProbeTool(Slice):
 				if probe.pos is not None and probe.enabled:
 					self.addProbe(probe)
 
-	# gotNewData
-	def gotNewData(self, result):
-		super().gotNewData(result)
-		self.refreshProbe()
+
