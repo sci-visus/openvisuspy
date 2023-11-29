@@ -57,7 +57,6 @@ def CreateButton(callback=None,**kwargs):
 	ret.on_click(onClick)
 	return ret
 
-
 # //////////////////////////////////////////////////////////////////////////////////////
 def CreateTextInput(callback=None,**kwargs):
 	ret = pn.widgets.TextInput(**kwargs)
@@ -148,8 +147,6 @@ class Widgets:
 		self.slices = []
 		self.linked = False
 
-		self.first_row_layout = pn.Row(sizing_mode="stretch_width", height=80)
-
 		self.widgets = types.SimpleNamespace()
 
 		self.widgets.datasets = CreateSelect(name="Dataset", options=[], width=60, callback=lambda new: self.setDataset(new, force=True))
@@ -185,19 +182,18 @@ class Widgets:
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
-		self.widgets.play_button = CreateButton(name="Play", width=80, sizing_mode='stretch_height', callback=self.togglePlay)
+		self.widgets.play_button = CreateButton(name="Play", sizing_mode='stretch_height', callback=self.togglePlay)
 		self.widgets.play_sec = CreateSelect(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01", width=120)
 
 		# metadata
 		self.widgets.metadata = pn.Column(sizing_mode='stretch_both')
 		self.widgets.metadata.visible = False
 
-		self.widgets.show_metadata = CreateButton(name="Metadata", width=80, sizing_mode='stretch_height', callback=self.onShowMetadataClick)
+		self.widgets.show_metadata = CreateButton(name="Metadata", callback=self.onShowMetadataClick)
 
-		self.widgets.logout = CreateButton(name="Logout", width=80, sizing_mode="stretch_height")
+		self.widgets.logout = CreateButton(name="Logout")
 		self.widgets.logout.js_on_click(code="""window.location=window.location.href + "/logout" """)
 
-		self.panel_layout = None
 		self.idle_callback = None
 		self.color_bar = None
 
@@ -218,29 +214,6 @@ class Widgets:
 	def onShowMetadataClick(self):
 		self.widgets.metadata.visible = not self.widgets.metadata.visible
 
-	# start
-	def start(self):
-		for it in self.slices:
-			it.start()
-
-	# stop
-	def stop(self):
-		logger.info(f"[{self.id}]:: stop ")
-		for it in self.slices:
-			it.stop()
-
-	# onIdle
-	# async def onIdle(self):
-	def onIdle(self):
-
-		self.playNextIfNeeded()
-
-		if self.panel_layout:
-			pn.io.push_notebook(self.panel_layout)
-
-		for it in self.slices:
-			# await it.onIdle()
-			it.onIdle()
 
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self, value):
@@ -998,28 +971,26 @@ class Slice(Widgets):
 		self.canvas.on_resize=self.onCanvasResize
 		self.canvas.enableDoubleTap(self.onDoubleTap)
 
+
 	# getShowOptions
 	def getShowOptions(self):
 		return self.show_options
 
-	# getFirstRowChildren
-	def getFirstRowChildren(self):
-		ret=[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ] 
-		return ret		
-
 	# setShowOptions
 	def setShowOptions(self,value):
 		self.show_options=value
-		ReplaceContent(self.first_row_layout,self.getFirstRowChildren())
+		self.createGui()
 
-	# getMainLayout 
-	# NOTE: doc is needed in case of jupyter notebooks, where curdoc() gives the wrong value
-	def getMainLayout(self):
+	# createGui 
+	def createGui(self):
 
-		ReplaceContent(self.first_row_layout,self.getFirstRowChildren())
+		while len(self.main_layout):
+			self.main_layout.pop(0)
 
-		ret = pn.Column(
-			self.first_row_layout,
+		self.main_layout.append(pn.Column(
+			pn.Row(
+				*[getattr(self.widgets,it.replace("-","_")) for it in self.show_options ],
+					sizing_mode="stretch_width"),
 			pn.Row(
 				self.canvas.main_layout, 
 				self.widgets.metadata, 
@@ -1029,37 +1000,12 @@ class Slice(Widgets):
 				self.widgets.status_bar["response"], 
 				sizing_mode='stretch_width'
 			),
-			sizing_mode="stretch_both")
-
-		if IsPyodide():
-			self.idle_callback=AddAsyncLoop(f"{self}::onIdle",self.onIdle,1000//30)
-
-		else:
-			self.idle_callback=pn.state.add_periodic_callback(self.onIdle, period=300)
-
-			# i should return some panel
-			#if self.parent is None:
-			#	self.panel_layout=pn.pane.Bokeh(ret,sizing_mode="stretch_both")
-			#	ret=self.panel_layout
-
-		self.start()
-		return ret
+			sizing_mode="stretch_both"))
 
 	# onDoubleTap (NOTE: x,y are in physic coords)
 	def onDoubleTap(self,x,y):
 		if False: 
 			self.gotoPoint([x,y])
-
-	# start
-	def start(self):
-		super().start()
-		self.query_node.start()
-
-	# stop
-	def stop(self):
-		super().stop()
-		self.aborted.setTrue()
-		self.query_node.stop()	
 
 	# onCanvasResize
 	def onCanvasResize(self):
@@ -1068,33 +1014,6 @@ class Slice(Widgets):
 		offset=self.getOffset()
 		self.setDirection(dir)
 		self.setOffset(offset)
-
-	# onIdle
-	# DISABLED async 
-	def onIdle(self):
-
-		# not ready for jobs
-		if not self.db:
-			return
-		
-		self.canvas.checkFigureResize()
-
-		# problem in pyodide, I will not get pixel size until I resize the window (remember)
-		if self.canvas.getWidth()<=0 or self.canvas.getHeight()<=0:
-			return 
-		
-		# DISABLED
-		# await super().onIdle()
-		super().onIdle()
-
-		result=self.query_node.popResult(last_only=True) 
-		if result is not None: 
-			try:
-				self.gotNewData(result)
-			except Exception as ex:
-				logger.info(f"ERROR ex={ex}")
-
-		self.pushJobIfNeeded()
 
 	# refresh
 	def refresh(self):
@@ -1326,7 +1245,7 @@ class Slice(Widgets):
 
 
 
-# //////////////////////////////////////////////////////////////////////////////////////
+# //s////////////////////////////////////////////////////////////////////////////////////
 class Probe:
 
 	# constructor
@@ -1369,7 +1288,7 @@ class ProbeTool(Slice):
 
 		vmin, vmax = self.getPaletteRange()
 
-		self.widgets.show_probe = CreateButton(name="Probe", width=80, sizing_mode="stretch_height",callback=self.toggleProbeVisibility)
+		self.widgets.show_probe = CreateButton(name="Probe", callback=self.toggleProbeVisibility)
 
 		self.probe_fig = bokeh.plotting.figure(
 			title=None,
@@ -1493,12 +1412,10 @@ class ProbeTool(Slice):
 		if self.db:
 			self.slider_z_res.end = self.db.getMaxResolution()
 
-	# getMainLayout
-	def getMainLayout(self):
-		return pn.Row(
-			super().getMainLayout(),
-			self.probe_layout,
-			sizing_mode="stretch_both")
+	# createGui
+	def createGui(self):
+		super().createGui()
+		self.main_layout.append(self.probe_layout)
 
 	# setDirection
 	def setDirection(self, dir):
@@ -1842,31 +1759,76 @@ class Slices(Slice):
 			self.show_options, self.slice_show_options = value
 		else:
 			self.show_otions, self.slice_show_options = value, None
-		ReplaceContent(self.first_row_layout,  [getattr(self.widgets, it.replace("-", "_")) for it in self.show_options])
+
+
+	# onIdle
+	def onIdle(self):
+
+		# not ready for jobs
+		if not self.db:
+			return
+
+		try:
+			for it in self.slices:
+				# problem in pyodide, I will not get pixel size until I resize the window (remember)
+				it.canvas.checkFigureResize()
+				if it.canvas.getWidth()>0 and it.canvas.getHeight()>0:
+					it.playNextIfNeeded()
+					result=it.query_node.popResult(last_only=True) 
+					if result is not None: 
+						it.gotNewData(result)
+					it.pushJobIfNeeded()
+
+		except Exception as ex:
+			logger.info(f"ERROR ex={ex}")
 
 	# getMainLayout
-	def getMainLayout(self):
+	def createGui(self):
 
-		options = [it.replace("-", "_") for it in self.show_options]
-		ReplaceContent(self.first_row_layout,[getattr(self.widgets, it) for it in options])
+		for it in self.slices:
+			it.aborted.setTrue()
+			it.query_node.stop()	
 
-		ret=self.main_layout
+		viewmode=self.getViewMode()
+		if viewmode=="probe": viewmode="1-probe"
+		nviews=int(viewmode[0:1])
+
+		while len(self.main_layout):
+			self.main_layout.pop(0)
+
+		# remove all inner slices
+		for it in self.slices:  del it
+		self.slices=[]
+
+		for I in range(nviews):
+			options=[it for it in self.slice_show_options if nviews>1 or it not in ["datasets", "log_colormapper"]]
+			slice=self.createChild(options)
+			slice.setLinked(I==0 and "linked" in viewmode)
+			self.slices.append(slice)
+
+		print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SLICES",self.slices)
+
+		# TODO self.widgets.metadata
+
+		self.main_layout.append(
+				pn.Column(
+					pn.Row(
+						*[getattr(self.widgets, it.replace("-", "_")) for it in self.show_options],
+						sizing_mode="stretch_width"
+					), 
+					pn.GridBox(
+						*[it.main_layout for it in self.slices ], ncols=2 if nviews>1 else 1, 
+						sizing_mode="stretch_both"), 
+					sizing_mode='stretch_both' 
+				))
 
 		if IsPyodide():
-			self.idle_callbackAddAsyncLoop(f"{self}::onIdle (bokeh)", self.onIdle, 1000 // 30)
-
+			self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30)
 		else:
 			self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
-			# disabled 
-			#if self.parent is None:
-			#	self.panel_layout = pn.pane.Bokeh(ret, sizing_mode='stretch_both')
-			#	ret = self.panel_layout
 
-
-		self.start()
-
-		self.setViewMode(self.getViewMode())
-		return ret
+		for it in self.slices:
+			it.query_node.start()
 
 	# getViewMode
 	def getViewMode(self):
@@ -1885,33 +1847,12 @@ class Slices(Slice):
 	def setViewMode(self, value):
 		value=str(value).lower().strip()
 		logger.info(f"[{self.id}] value={value}")
-		super().stop()
+		self.createGui()
 
-		if value=="probe": value="1-probe"
-		nviews=int(value[0:1])
-
-		# remove all inner slices
-		for it in self.slices:  del it
-		self.slices=[]
-
-		for I in range(nviews):
-			options=[it for it in self.slice_show_options if nviews>1 or it not in ["datasets", "log_colormapper"]]
-			slice=self.createChild(options)
-			slice.setLinked(I==0 and "linked" in value)
-			self.slices.append(slice)
-
-		ReplaceContent(self.main_layout,[pn.Row(
-				pn.Column(
-					self.first_row_layout, 
-					pn.GridBox(
-			*[it.getMainLayout() for it in self.slices ], ncols=2 if nviews>1 else 1, 
-			sizing_mode="stretch_both"), 
-					sizing_mode='stretch_both' 
-				),
-				self.widgets.metadata,
-				sizing_mode='stretch_both')])
-
-		super().start()
+	# getMainLayout
+	def getMainLayout(self):
+		self.createGui()
+		return self.main_layout
 
 	# setNumberOfViews (backward compatible)
 	def setNumberOfViews(self, value):
