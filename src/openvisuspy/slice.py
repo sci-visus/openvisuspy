@@ -160,7 +160,6 @@ class Widgets:
 
 		self.widgets = types.SimpleNamespace()
 
-
 		self.widgets.datasets = CreateSelect(name="Dataset", options=[], width=60, callback=lambda new: self.setDataset(new, force=True))
 		self.widgets.palette = CreateSelect(name='Palette', options=PALETTES, value= 'Viridis256', callback=self.setPalette)
 
@@ -994,18 +993,15 @@ class Slice(Widgets):
 
 		super().__init__(doc=doc, is_panel=is_panel, parent=parent)
 		self.show_options  = ["palette","timestep","field","direction","offset","view_dep","resolution"]
+
+		# create Gui
+		self.t1=time.time()
 		self.render_id     = 0
 		self.aborted       = Aborted()
 		self.new_job       = False
 		self.current_img   = None
-		self.options={}
-
 		self.last_query_logic_box = None
 		self.query_node=QueryNode()
-		self.t1=time.time()
-		self.H=None
-
-		# create Gui
 		self.canvas = Canvas(self.id)
 		self.canvas.on_resize=self.onCanvasResize
 		self.canvas.enableDoubleTap(self.onDoubleTap)
@@ -1033,7 +1029,7 @@ class Slice(Widgets):
 		ret = pn.Column(
 			self.first_row_layout,
 			pn.Row(
-				self.canvas.getMainLayout(), 
+				self.canvas.main_layout, 
 				self.widgets.metadata, 
 				sizing_mode='stretch_both'),
 			pn.Row(
@@ -1908,23 +1904,21 @@ class Slices(Slice):
 		nviews=int(value[0:1])
 
 		# remove all inner slices
-		for it in self.slices: 
-			del it
+		for it in self.slices:  del it
+		self.slices=[]
 
-		options = self.slice_show_options
-		if nviews==1:
-			options=[it for it in options if it not in ["datasets", "log_colormapper"]]
-
-		self.slices = [self.createChild(options) for I in range(nviews)]
-		central_layout=pn.GridBox(*[it.getMainLayout() for it in self.slices ], ncols=2 if nviews>1 else 1, sizing_mode="stretch_both")
-
-		if "linked" in value:
-			self.slices[0].setLinked(True)
+		for I in range(nviews):
+			options=[it for it in self.slice_show_options if nviews>1 or it not in ["datasets", "log_colormapper"]]
+			slice=self.createChild(options)
+			slice.setLinked(I==0 and "linked" in value)
+			self.slices.append(slice)
 
 		ReplaceContent(self.main_layout,[pn.Row(
 				pn.Column(
 					self.first_row_layout, 
-					central_layout, 
+					pn.GridBox(
+			*[it.getMainLayout() for it in self.slices ], ncols=2 if nviews>1 else 1, 
+			sizing_mode="stretch_both"), 
 					sizing_mode='stretch_both' 
 				),
 				self.widgets.metadata,

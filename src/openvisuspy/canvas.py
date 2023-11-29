@@ -18,13 +18,14 @@ class Canvas:
 	# constructor
 	def __init__(self, id):
 		self.id=id
-		self.layout=pn.Row(sizing_mode="stretch_both")	
 		self.on_double_tab = None
 		self.on_resize=None
 		self.__fig=None
+		self.main_layout=pn.Row(sizing_mode="stretch_both")	
 		self.createFigure() 
 		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.last_renderer=self.__fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
+		
 
 	# createFigure
 	def createFigure(self):
@@ -48,8 +49,9 @@ class Canvas:
 				if it!=self.last_renderer:
 					self.__fig.renderers.append(it)
 
-		while len(self.layout): self.layout.pop(0)
-		self.layout.append(pn.pane.Bokeh(self.__fig))
+		while len(self.main_layout): 
+			self.main_layout.pop(0)
+		self.main_layout.append(pn.pane.Bokeh(self.__fig))
 		
 		self.last_fig_width =0
 		self.last_fig_height=0
@@ -164,10 +166,6 @@ class Canvas:
 	#		self.__fig.renderers.remove(self.points)
 	#	self.points = self.__fig.scatter(x=[p[0] for p in points], y=[p[1] for p in points], size=size, color=color, marker=marker)   
 	#	assert self.points in self.__fig.renderers
-
-	# getMainLayout
-	def getMainLayout(self):
-		return self.layout
 
 	# setImage
 	def setImage(self, data, x1, y1, x2, y2, color_bar):
