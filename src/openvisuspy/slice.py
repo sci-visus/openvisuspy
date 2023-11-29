@@ -122,20 +122,25 @@ def CreateFloatRangeSlider(editable=False, format="0.001", callback=None, parame
 	return ret
 
 
-# //////////////////////////////////////////////////////////////////////////////////////
-class Widgets:
+# ////////////////////////////////////////////////////////////////////////////////////
+class Slice:
+
 	ID = 0
-
 	epsilon = 0.001
-
 	start_resolution = 20
 
+	
 	# constructor
-	def __init__(self, parent=None):
+	def __init__(self, parent=None,show_options=[
+			["palette", "timestep", "field", "view_dep", "resolution"],
+			["direction", "offset", "view_dep"]
+		]):
+
+		self.show_options  = show_options
 
 		self.parent = parent
-		self.id = f"{type(self).__name__}/{Widgets.ID}"
-		Widgets.ID += 1
+		self.id = f"{type(self).__name__}/{Slice.ID}"
+		Slice.ID += 1
 		self.config = {}
 		self.db = None
 		self.access = None
@@ -197,58 +202,51 @@ class Widgets:
 		self.idle_callback = None
 		self.color_bar = None
 
-	# onOffsetChange
-	def onOffsetChange(self, attr, old, new):
-		if old == new: return
-		self.setOffset(new)
+		
 
-	# isLinked
-	def isLinked(self):
-		return self.linked
+		# create Gui
+		self.t1=time.time()
+		self.render_id     = 0
+		self.aborted       = Aborted()
+		self.new_job       = False
+		self.current_img   = None
+		self.last_query_logic_box = None
+		self.query_node=QueryNode()
+		self.canvas = Canvas(self.id)
+		self.canvas.on_resize=self.onCanvasResize
+		self.canvas.enableDoubleTap(self.onDoubleTap)
 
-	# setLinked
-	def setLinked(self, value):
-		self.linked = value
+		# for parent
+		self.main_layout=pn.Column(sizing_mode='stretch_both')
 
-	# onShowMetadataClick
-	def onShowMetadataClick(self):
-		self.widgets.metadata.visible = not self.widgets.metadata.visible
+	# getMainLayout
+	def getMainLayout(self):
+		return self.main_layout
+
+	# setNumberOfViews (backward compatible)
+	def setNumberOfViews(self, value):
+		self.setViewMode(str(value))
+
+	# getShowOptions
+	def getShowOptions(self):
+		return self.show_options
+
+	# setShowOptions
+	def setShowOptions(self,value):
+		self.show_options=value
+		self.createGui()
+
+	# getViewMode
+	def getViewMode(self):
+		return self.widgets.view_mode.value
+
+	# setViewMode
+	def setViewMode(self, value):
+		value=str(value).lower().strip()
+		logger.info(f"[{self.id}] value={value}")
+		self.createGui()
 
 
-	# setWidgetsDisabled
-	def setWidgetsDisabled(self, value):
-		self.widgets.datasets.disabled = value
-		self.widgets.palette.disabled = value
-		self.widgets.timestep.disabled = value
-		self.widgets.timestep_delta.disabled = value
-		self.widgets.field.disabled = value
-		self.widgets.direction.disabled = value
-		self.widgets.offset.disabled = value
-		self.widgets.num_refinements.disabled = value
-		self.widgets.resolution.disabled = value
-		self.widgets.view_dep.disabled = value
-		self.widgets.status_bar["request"].disabled = value
-		self.widgets.status_bar["response"].disabled = value
-		self.widgets.play_button.disabled = value
-		self.widgets.play_sec.disabled = value
-
-		for it in self.slices:
-			it.setWidgetsDisabled(value)
-
-		# refresh (to override if needed)
-
-	def refresh(self):
-		for it in self.slices:
-			it.refresh()
-
-	# getPointDim
-	def getPointDim(self):
-		return self.db.getPointDim() if self.db else 2
-
-	# gotoPoint
-	def gotoPoint(self, p):
-		for it in self.slices:
-			it.gotoPoint(p)
 
 	# loadConfig
 	def loadConfig(self, value):
@@ -350,7 +348,6 @@ class Widgets:
 		if not force and self.getDataset() == name:
 			return
 
-
 		config=[it for it in self.config.get("datasets",[]) if it['name']==name]
 		if len(config):
 			config=config[0]
@@ -370,7 +367,6 @@ class Widgets:
 		# the parent will take care of creating the gui
 		if not self.parent:
 			self.createGui()
-
 
 	# loadDataset
 	def loadDataset(self, url, config={}):
@@ -752,6 +748,10 @@ class Widgets:
 		# default behaviour is to guess the offset
 		self.guessOffset()
 
+		dims=[int(it) for it in self.db.getLogicSize()]
+		self.setQueryLogicBox(([0]*self.getPointDim(),dims))
+
+		# recursive
 		for it in self.slices:
 			it.setDirection(value)
 
@@ -957,59 +957,46 @@ class Widgets:
 		self.play.t1 = time.time()
 		self.setTimestep(T)
 
-# ////////////////////////////////////////////////////////////////////////////////////
-class Slice(Widgets):
-	
-	# constructor
-	def __init__(self, parent=None,show_options=[
-			["palette", "timestep", "field", "view_dep", "resolution"],
-			["direction", "offset", "view_dep"]
-		]):
+	# isLinked
+	def isLinked(self):
+		return self.linked
 
-		super().__init__(parent=parent)
-		self.show_options  = show_options
+	# setLinked
+	def setLinked(self, value):
+		self.linked = value
 
-		# create Gui
-		self.t1=time.time()
-		self.render_id     = 0
-		self.aborted       = Aborted()
-		self.new_job       = False
-		self.current_img   = None
-		self.last_query_logic_box = None
-		self.query_node=QueryNode()
-		self.canvas = Canvas(self.id)
-		self.canvas.on_resize=self.onCanvasResize
-		self.canvas.enableDoubleTap(self.onDoubleTap)
+	# onShowMetadataClick
+	def onShowMetadataClick(self):
+		self.widgets.metadata.visible = not self.widgets.metadata.visible
 
-		# for parent
-		self.main_layout=pn.Column(sizing_mode='stretch_both')
 
-	# getMainLayout
-	def getMainLayout(self):
-		return self.main_layout
+	# setWidgetsDisabled
+	def setWidgetsDisabled(self, value):
+		self.widgets.datasets.disabled = value
+		self.widgets.palette.disabled = value
+		self.widgets.timestep.disabled = value
+		self.widgets.timestep_delta.disabled = value
+		self.widgets.field.disabled = value
+		self.widgets.direction.disabled = value
+		self.widgets.offset.disabled = value
+		self.widgets.num_refinements.disabled = value
+		self.widgets.resolution.disabled = value
+		self.widgets.view_dep.disabled = value
+		self.widgets.status_bar["request"].disabled = value
+		self.widgets.status_bar["response"].disabled = value
+		self.widgets.play_button.disabled = value
+		self.widgets.play_sec.disabled = value
 
-	# setNumberOfViews (backward compatible)
-	def setNumberOfViews(self, value):
-		self.setViewMode(str(value))
+		for it in self.slices:
+			it.setWidgetsDisabled(value)
 
-	# getShowOptions
-	def getShowOptions(self):
-		return self.show_options
+		# refresh (to override if needed)
 
-	# setShowOptions
-	def setShowOptions(self,value):
-		self.show_options=value
-		self.createGui()
+	# getPointDim
+	def getPointDim(self):
+		return self.db.getPointDim() if self.db else 2
 
-	# getViewMode
-	def getViewMode(self):
-		return self.widgets.view_mode.value
 
-	# setViewMode
-	def setViewMode(self, value):
-		value=str(value).lower().strip()
-		logger.info(f"[{self.id}] value={value}")
-		self.createGui()
 
 	# onDoubleTap (NOTE: x,y are in physic coords)
 	def onDoubleTap(self,x,y):
@@ -1026,10 +1013,10 @@ class Slice(Widgets):
 
 	# refresh
 	def refresh(self):
-		super().refresh()
-		self.aborted.setTrue()
-		self.new_job=True
-  
+		for it in self.slices:
+			it.aborted.setTrue()
+			it.new_job=True
+
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
 		(x1,x2),(y1,y2)=self.canvas.getViewport()
@@ -1058,14 +1045,6 @@ class Slice(Widgets):
 		assert(len(p1)==pdim and len(p2)==pdim)
 		return [(p2[I]-p1[I]) for I in range(pdim)]
 
-	# setDirection
-	def setDirection(self,dir):
-		super().setDirection(dir)
-		dims=[int(it) for it in self.db.getLogicSize()]
-		self.setQueryLogicBox(([0]*self.getPointDim(),dims))
-		self.refresh()
-  
-
 	# setAccess
 	def setAccess(self, value):
 		self.access=value
@@ -1076,17 +1055,18 @@ class Slice(Widgets):
 		assert(False) # not sure if point is in physic or logic corrdinates (I think physic)
 		logger.info(f"[{self.id}] point={point}")
 		pdim=self.getPointDim()
-		# go to the slice
-		if pdim==3:
-			dir=self.getDirection()
-			self.setOffset(point[dir])
-		# the point should be centered in p3d
-		(p1,p2),dims=self.getQueryLogicBox(),self.getLogicSize()
-		p1,p2=list(p1),list(p2)
-		for I in range(pdim):
-			p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
-		self.setQueryLogicBox([p1,p2])
-		self.canvas.renderPoints([self.toPhysic(point)]) # COMMENTED OUT
+		for it in self.slices:
+			# go to the slice
+			if pdim==3:
+				dir=it.getDirection()
+				it.setOffset(point[dir])
+			# the point should be centered in p3d
+			(p1,p2),dims=it.getQueryLogicBox(),it.getLogicSize()
+			p1,p2=list(p1),list(p2)
+			for I in range(pdim):
+				p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
+			it.setQueryLogicBox([p1,p2])
+			it.canvas.renderPoints([it.toPhysic(point)]) # COMMENTED OUT
   
 	# gotNewData
 	def gotNewData(self, result):
