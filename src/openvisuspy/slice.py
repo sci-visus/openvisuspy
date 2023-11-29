@@ -341,6 +341,9 @@ class Widgets:
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
 
+		if not name: 
+			return
+
 		logger.info(f"[{self.id}] setDataset name={name} force={force}")
 
 		# useless call
@@ -1825,13 +1828,12 @@ class Slices(Slice):
 		self.main_layout=pn.Column(sizing_mode='stretch_both')
 
 	# getShowOptions
-	def getShowOptions(self):
-		return self.show_options
+	# def getShowOptions(self):
+	#	return self.show_options
 
 	# setShowOptions
-	def setShowOptions(self, value):
-		self.show_options = value
-
+	#def setShowOptions(self, value):
+	#	self.show_options = value
 
 	# getMainLayout
 	def getMainLayout(self):
