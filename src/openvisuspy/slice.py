@@ -1741,10 +1741,8 @@ class ProbeTool(Slice):
 class Slices(Slice):
 
 	# constructor
-	def __init__(self, parent=None, cls=None):
+	def __init__(self, parent=None):
 		super().__init__(parent=parent)
-		if cls is None: cls=ProbeTool
-		self.cls = cls
 		self.show_options = ["palette", "timestep", "field", "view_dep", "resolution"]
 		self.slice_show_options = ["direction", "offset", "view_dep"]
 		self.widgets.view_mode = CreateSelect(name="view_mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],callback=self.setViewMode)
@@ -1802,7 +1800,11 @@ class Slices(Slice):
 
 		for I in range(nviews):
 			options=[it for it in self.slice_show_options if nviews>1 or it not in ["datasets", "log_colormapper"]]
-			slice=self.createChild(options)
+			slice = ProbeTool(parent=self)
+			slice.setShowOptions(options)
+			slice.config=self.getConfig()
+			slice.setDatasets(self.getDatasets())
+			slice.setDataset(self.getDataset(),force=True)
 			slice.setLinked(I==0 and "linked" in viewmode)
 			self.slices.append(slice)
 
@@ -1831,15 +1833,6 @@ class Slices(Slice):
 	# getViewMode
 	def getViewMode(self):
 		return self.widgets.view_mode.value
-
-	# createChild
-	def createChild(self, options):
-		ret = self.cls(parent=self)
-		if options is not None: ret.setShowOptions(options)
-		ret.config=self.getConfig()
-		ret.setDatasets(self.getDatasets())
-		ret.setDataset(self.getDataset(),force=True)
-		return ret
 
 	# setViewMode
 	def setViewMode(self, value):
