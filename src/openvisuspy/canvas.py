@@ -18,7 +18,7 @@ class Canvas:
 	# constructor
 	def __init__(self, id):
 		self.id=id
-		self.on_double_tab = None
+		self.on_event_callbacks = []
 		self.on_resize=None
 		self.__fig=None
 		self.main_layout=pn.Row(sizing_mode="stretch_both")	
@@ -26,7 +26,6 @@ class Canvas:
 		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.last_renderer=self.__fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
 		
-
 	# createFigure
 	def createFigure(self):
 		old=self.__fig
@@ -38,8 +37,8 @@ class Canvas:
 		self.__fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.__fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
-		if self.on_double_tab is not None:
-			self.__fig.on_event(DoubleTap, self.on_double_tab)		
+		for event,callback in self.on_event_callbacks:
+			self.__fig.on_event(event, callback)
 
 		# TODO: keep the renderers but not the
 		if old is not None:
@@ -124,10 +123,10 @@ class Canvas:
 	def getHeight(self):
 		return self.last_fig_height
 
-	# enableDoubleTap
-	def enableDoubleTap(self,fn):
-		self.on_double_tab=lambda evt: fn(evt.x,evt.y)
-		self.__fig.on_event(DoubleTap, self.on_double_tab)
+	# on_event
+	def on_event(self,event, callback):
+		self.on_event_callbacks.append([event,callback])
+		self.__fig.on_event(event, callback)
 
 	  # getViewport [[x1,x2],[y1,y2])
 	def getViewport(self):

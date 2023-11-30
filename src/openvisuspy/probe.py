@@ -116,6 +116,9 @@ class ProbeTool(Slice):
 		)
 		self.probe_layout.visible = False
 
+		self.canvas.on_event(DoubleTap, self.onDoubleTap)
+
+
 	# removeRenderer
 	def removeRenderer(self, target, value):
 		if value in target.renderers:
@@ -168,7 +171,8 @@ class ProbeTool(Slice):
 		self.recomputeProbes()
 
 	# onDoubleTap
-	def onDoubleTap(self, x, y):
+	def onDoubleTap(self, evt):
+		x,y=evt.x,evt.y
 		logger.info(f"[{self.owner.id}] x={x} y={y}")
 		dir = self.owner.getDirection()
 		slot = self.slot

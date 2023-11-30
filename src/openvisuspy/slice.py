@@ -117,7 +117,6 @@ class Slice:
 		self.query_node=QueryNode()
 		self.canvas = Canvas(self.id)
 		self.canvas.on_resize=self.onCanvasResize
-		self.canvas.enableDoubleTap(self.onDoubleTap)
 
 		# for parent
 		self.main_layout=pn.Column(sizing_mode='stretch_both')
@@ -928,12 +927,6 @@ class Slice:
 	def getPointDim(self):
 		return self.db.getPointDim() if self.db else 2
 
-
-
-	# onDoubleTap (NOTE: x,y are in physic coords)
-	def onDoubleTap(self,x,y):
-		if False: 
-			self.gotoPoint([x,y])
 
 	# onCanvasResize
 	def onCanvasResize(self):
