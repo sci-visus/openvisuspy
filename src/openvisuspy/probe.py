@@ -47,7 +47,7 @@ class ProbeTool(Slice):
 
 		self.createProbeGui()
 
-		self.owner.on_change('dataset',lambda attr,old,new: self.setProbeDataset(new))
+		self.owner.on_change('dataset'         ,lambda attr,old,new: self.setProbeDataset(new))
 		self.owner.on_change('log_colormapper',lambda attr,old, new: self.setYAxisLog(new))
 		self.owner.on_change('direction',lambda attr,old, new: self.setProbesPlane(new))
 		self.owner.on_change('offset',lambda attr,old, new: self.refreshProbeGui())
@@ -94,14 +94,14 @@ class ProbeTool(Slice):
 																							 callback=lambda new: self.onProbeXYChange())
 		self.slider_y_pos = Widgets.Slider(name="Y coordinate", type="float", value=0, start=0, end=1, step=1, editable=True, sizing_mode="stretch_width", parameter_name="value_throttled",
 																							 callback=lambda new: self.onProbeXYChange())
-		self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recomputeProbes, parameter_name='value_throttled')
-		self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recomputeProbes, parameter_name='value_throttled')
+		self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
+		self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
 
 	# probe Z space
 		self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=self.recomputeProbes)
 
 		# probe z res
-		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.start_resolution, end=99, step=1, value=24, editable=False, width=80, callback=self.recomputeProbes, parameter_name='value_throttled')
+		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.start_resolution, end=99, step=1, value=24, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
 		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=self.recomputeProbes)
 		self.probe_layout = pn.Column(
 			pn.Row(
@@ -415,6 +415,12 @@ class ProbeTool(Slice):
 	def refreshProbeGui(self):
 
 		dir = self.owner.getDirection()
+
+		try:
+			self.probe_fig.y_range.start = self.owner.color_bar.color_mapper.low
+			self.probe_fig.y_range.end   = self.owner.color_bar.color_mapper.high
+		except:
+			pass
 
 		# buttons
 		if True:

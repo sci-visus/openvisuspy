@@ -36,7 +36,6 @@ class Slice:
 	epsilon = 0.001
 	start_resolution = 20
 
-	
 	# constructor
 	def __init__(self, parent=None,show_options=[
 			["palette", "timestep", "field", "view_dep", "resolution"],
@@ -247,8 +246,6 @@ class Slice:
 	def getDataset(self):
 		return self.widgets.datasets.value
 
-
-		
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
 
@@ -347,7 +344,6 @@ class Slice:
 		log_colormapper = config.get("log-colormapper", False)
 		num_refinements = int(config.get("num-refinements", 2))
 		
-
 		# setting the status
 		self.setTimesteps(timesteps)
 		self.setTimestepDelta(timestep_delta)
@@ -938,6 +934,7 @@ class Slice:
 
 	# refresh
 	def refresh(self):
+
 		for it in self.slices:
 			it.aborted.setTrue()
 			it.new_job=True
@@ -1059,10 +1056,6 @@ class Slice:
 				LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
 			)
 
-			if hasattr(self,"probe_fig"):
-				self.probe_fig.y_range.start = mapper_low
-				self.probe_fig.y_range.end   = mapper_high
-
 		logger.info(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
 
 		# update the image
@@ -1087,7 +1080,7 @@ class Slice:
 		])
 		self.render_id+=1 
 
-		self.triggerCallback("data",None,data)
+		self.triggerCallback("data", None, data)
 		logger.info(f"[{self.id}] EXIT")
   
 	# pushJobIfNeeded
@@ -1253,7 +1246,8 @@ class Slice:
 					it.pushJobIfNeeded()
 
 		except Exception as ex:
-			logger.info(f"ERROR ex={ex}")
+			logger.info(f"ERROR {ex}\n{traceback.format_exc()}\n\n\n\n\n\n") 
+			raise 
 
 Slices=Slice
 
