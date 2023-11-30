@@ -97,7 +97,7 @@ class ProbeTool(Slice):
 		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.start_resolution, end=99, step=1, value=24, editable=False, width=80, callback=self.recomputeProbes, parameter_name='value_throttled')
 
 		# Z op
-		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value=0, callback=self.recomputeProbes)
+		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=self.recomputeProbes)
 
 		self.probe_layout = pn.Column(
 			pn.Row(

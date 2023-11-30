@@ -79,7 +79,7 @@ class Slice:
 		self.widgets.timestep = Widgets.Slider(name='Time', type="float", value=0, start=0, end=1, step=1.0, editable=True, sizing_mode='stretch_width', callback=self.setTimestep)
 		self.widgets.timestep_delta = Widgets.Select(name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
 		self.widgets.field = Widgets.Select(name='Field', options=[], value='data', callback=self.setField)
-		self.widgets.direction = Widgets.Select(name='Direction', options={'X':0, 'Y':1, 'Z':2}, value='Z', callback=lambda new: self.setDirection(new))
+		self.widgets.direction = Widgets.Select(name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, callback=lambda new: self.setDirection(new))
 		self.widgets.offset = Widgets.Slider(name="offset", type="float", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  callback=self.setOffset, sizing_mode="stretch_width")
 		self.widgets.num_refinements = Widgets.Slider(name='#Ref', type="int", value=0, start=0, end=4, editable=False, callback=self.setNumberOfRefinements)
 		self.widgets.resolution = Widgets.Slider(name='Res', type="int", value=21, start=self.start_resolution, editable=False, end=99, callback=self.setResolution)
