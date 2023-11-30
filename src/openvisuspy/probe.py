@@ -24,17 +24,15 @@ class Probe:
 		self.enabled = True
 
 # //////////////////////////////////////////////////////////////////////////////////////
-class ProbeTool(Slice):
+class ProbeTool:
 
 	# constructor
-	def __init__(self, parent=None, show_options=None):
-		super().__init__(parent=parent, show_options=show_options)
-		self.owner=self
+	def __init__(self, owner):
+		self.owner=owner
 
 		self.probes = {}
-		self.renderers = {
-			"offset": None
-		}
+		self.renderers = {"offset": None}
+
 		for dir in range(3):
 			self.probes[dir] = []
 			for I in range(len(COLORS)):
@@ -47,11 +45,10 @@ class ProbeTool(Slice):
 
 		self.createProbeGui()
 
-		self.owner.on_change('direction',lambda attr,old, new: self.setProbesPlane(new))
-
-		self.owner.on_change('offset' , lambda attr,old, new: self.refreshProbeGui())
-		self.owner.on_change('data'   , lambda attr,old, new: self.refreshProbeGui())
-		self.owner.on_change('dataset', lambda attr,old, new: self.refreshProbeGui())
+		self.owner.on_change('direction', lambda attr,old, new: self.setProbesPlane(new))
+		self.owner.on_change('offset'   , lambda attr,old, new: self.refreshProbeGui())
+		self.owner.on_change('data'     , lambda attr,old, new: self.refreshProbeGui())
+		self.owner.on_change('dataset'  , lambda attr,old, new: self.refreshProbeGui())
 
 	# createFigure
 	def createFigure(self):
@@ -81,7 +78,6 @@ class ProbeTool(Slice):
 		for slot, color in enumerate(COLORS):
 			self.buttons.append(Widgets.Button(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onProbeButtonClick(slot)))
 
-
 		# probe XY space
 		# where the center of the probe (can be set by double click or using this)
 		self.slider_x_pos = Widgets.Slider(name="X coordinate", type="float", value=0.0, start=0.0, end=1.0, step=1.0, editable=True, sizing_mode="stretch_width", parameter_name="value_throttled",
@@ -95,7 +91,7 @@ class ProbeTool(Slice):
 		self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=self.recomputeProbes)
 
 		# probe z res
-		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.start_resolution, end=99, step=1, value=24, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
+		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.owner.start_resolution, end=99, step=1, value=24, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
 		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=self.recomputeProbes)
 
 		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
@@ -117,7 +113,7 @@ class ProbeTool(Slice):
 			sizing_mode="stretch_both"
 		)
 		
-		self.canvas.on_event(DoubleTap, self.onDoubleTap)
+		self.owner.canvas.on_event(DoubleTap, self.onDoubleTap)
 
 	# isVisible
 	def isVisible(self):
@@ -391,6 +387,9 @@ class ProbeTool(Slice):
 	# refreshProbeGui
 	def refreshProbeGui(self):
 
+		if not self.probe_layout.visible:
+			return
+
 		# self.probe_fig.y_scale=bokeh.models.LogScale() if self.owner.isLogColorMapper() else bokeh.models.LinearScale()
 		# DOES NOT WORK (!)
 		is_log=self.owner.isLogColorMapper()
@@ -434,8 +433,6 @@ class ProbeTool(Slice):
 				self.button_css[slot] = css
 				button.stylesheets = [css]
 
-		
-
 		# draw figure line for offset
 		offset = self.owner.getOffset()
 		self.removeRenderer(self.probe_fig, self.renderers["offset"])
@@ -446,6 +443,9 @@ class ProbeTool(Slice):
 
 	# recomputeProbes
 	def recomputeProbes(self, evt=None):
+
+		if not self.probe_layout.visible:
+			return
 
 		self.refreshProbeGui()
 
