@@ -230,7 +230,7 @@ class ProbeTool(Slice):
 			if not probe.enabled and probe.pos is not None:
 				self.addProbe(probe)
 
-		self.refreshProbe()
+		self.refreshGui()
 
 	# findProbe
 	def findProbe(self, probe):
@@ -395,7 +395,7 @@ class ProbeTool(Slice):
 				self.renderers[probe]["fig"].append(
 					self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
-		self.refreshProbe()
+		self.refreshGui()
 
 	# removeProbe
 	def removeProbe(self, probe):
@@ -409,10 +409,10 @@ class ProbeTool(Slice):
 		self.renderers[probe]["fig"] = []
 
 		probe.enabled = False
-		self.refreshProbe()
+		self.refreshGui()
 
-	# refreshProbe
-	def refreshProbe(self):
+	# refreshGui
+	def refreshGui(self):
 
 		dir = self.owner.getDirection()
 
@@ -458,7 +458,7 @@ class ProbeTool(Slice):
 	# recomputeProbes
 	def recomputeProbes(self, evt=None):
 
-		self.refreshProbe()
+		self.refreshGui()
 
 		# remove all old probes
 		was_enabled = {}

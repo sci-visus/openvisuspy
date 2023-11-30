@@ -21,129 +21,13 @@ pn.extension('floatpanel')
 from .utils import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
 from .canvas import Canvas
+from .widgets import Widgets
 
 import colorcet
 PALETTES = [name for name in bokeh.palettes.__palettes__ if name.endswith("256")]
 PALETTES.extend(sorted([f"colorcet.{name}" for name in colorcet.palette]))
 
 logger = logging.getLogger(__name__)
-
-# ////////////////////////////////////////////////////////
-class Widgets:
-
-	@staticmethod
-	def CheckBox(callback=None,**kwargs):
-		ret=pn.widgets.Checkbox(**kwargs)
-		def onChange(evt):
-			if evt.old == evt.new or not callback: 
-				return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,"value")
-		return ret
-
-	@staticmethod
-	def RadioButtonGroup(callback=None,**kwargs):
-		ret=pn.widgets.RadioButtonGroup(**kwargs)
-		def onChange(evt):
-			if evt.old == evt.new or not callback: 
-				return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,"value")
-		return ret
-
-	@staticmethod
-	def Button(callback=None,**kwargs):
-		ret = pn.widgets.Button(**kwargs)
-		def onClick(evt):
-			if not callback: return
-			try:
-				callback()
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.on_click(onClick)
-		return ret
-
-	@staticmethod
-	def Input(callback=None, type="text", **kwargs):
-		ret = {
-			"text": pn.widgets.TextInput,
-			"int": pn.widgets.IntInput,
-			"float": pn.widgets.FloatInput
-		}[type](**kwargs)
-		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		return ret
-
-
-	@staticmethod
-	def Select(callback=None, **kwargs):
-		ret = pn.widgets.Select(**kwargs) 
-		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,"value")
-		return ret
-
-	@staticmethod
-	def Slider(callback=None, type="int", parameter_name="value", editable=False, format="0.001",**kwargs):
-
-		if type=="float":
-			from bokeh.models.formatters import NumeralTickFormatter
-			kwargs["format"]=NumeralTickFormatter(format=format)
-
-		if "sizing_mode" not in kwargs:
-			kwargs["sizing_mode"]="stretch_width"
-
-		ret = {
-			"int":   pn.widgets.EditableIntSlider   if editable else pn.widgets.IntSlider,
-			"float": pn.widgets.EditableFloatSlider if editable else pn.widgets.FloatSlider,
-			"discrte": pn.widgets.DiscreteSlider
-		}[type](**kwargs) 
-		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,parameter_name)
-		return ret
-	
-	@staticmethod
-	def RangeSlider(editable=False, type="float", format="0.001", callback=None, parameter_name="value", **kwargs):
-		from bokeh.models.formatters import NumeralTickFormatter
-		kwargs["format"]=NumeralTickFormatter(format=format)
-		ret = {
-			"float": pn.widgets.EditableRangeSlider if editable else pn.widgets.RangeSlider,
-			"int":   pn.widgets.EditableIntSlider   if editable else pn.widgets.IntRangeSlider
-		}[type](**kwargs)
-		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,parameter_name)
-		return ret
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice:
@@ -160,6 +44,8 @@ class Slice:
 		]):
 
 		self.show_options  = show_options
+
+		self.callbacks={}
 
 		self.parent = parent
 		self.id = f"{type(self).__name__}/{Slice.ID}"
@@ -235,6 +121,17 @@ class Slice:
 
 		# for parent
 		self.main_layout=pn.Column(sizing_mode='stretch_both')
+
+	# on_change
+	def on_change(self, attr, callback):
+		if not attr in self.callbacks:
+			self.callbacks[attr]=[]
+		self.callbacks[attr].append(callback)
+
+	# triggerCallback
+	def triggerCallback(self, attr, old,new):
+		for fn in self.callbacks.get(attr,[]):
+			fn(attr,old,new)
 
 	# getMainLayout
 	def getMainLayout(self):
@@ -351,6 +248,8 @@ class Slice:
 	def getDataset(self):
 		return self.widgets.datasets.value
 
+
+		
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
 
@@ -380,9 +279,7 @@ class Slice:
 		if not self.parent:
 			self.createGui()
 
-		from .probe import ProbeTool
-		if isinstance(self,ProbeTool):
-			self.slider_z_res.end = self.db.getMaxResolution()
+		self.triggerCallback('db', None, self.db)
 
 	# loadDataset
 	def loadDataset(self, url, config={}):
@@ -703,10 +600,7 @@ class Slice:
 			it.setLogColorMapper(value)
 		self.color_bar=None # force refresh
 
-		from .probe import ProbeTool
-		if isinstance(self,ProbeTool):
-			self.setYAxisLog(value)
-		
+		self.triggerCallback('log_colormapper',None, value)
 		self.refresh()
 
 	# getNumberOfRefinements
@@ -786,10 +680,7 @@ class Slice:
 		for it in self.slices:
 			it.setDirection(value)
 
-		from .probe import ProbeTool
-		if isinstance(self,ProbeTool):
-			self.setProbesPlane(dir)
-
+		self.triggerCallback('direction', None, dir)
 		self.refresh()
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
@@ -842,10 +733,7 @@ class Slice:
 			logging.info(f"[{self.id}] recursively calling setOffset({value}) for slice={it.id}")
 			it.setOffset(value)
 
-		from .probe import ProbeTool
-		if isinstance(self,ProbeTool):
-			self.refreshProbe()
-
+		self.triggerCallback('offset', None, value)
 		self.refresh()
 
 	# guessOffset
@@ -1206,10 +1094,7 @@ class Slice:
 		])
 		self.render_id+=1 
 
-		from .probe import ProbeTool
-		if isinstance(self,ProbeTool):
-			self.refreshProbe()
-		
+		self.triggerCallback("data",None,data)
 		logger.info(f"[{self.id}] EXIT")
   
 	# pushJobIfNeeded
@@ -1298,10 +1183,20 @@ class Slice:
 		self.slices=[]
 
 		for I in range(nviews):
-			from .probe import ProbeTool
-			slice = ProbeTool(parent=self, show_options=self.show_options)
+			from .probe import ProbeTool as Tool
+			slice = Tool(parent=self, show_options=self.show_options)
 			slice.config=self.getConfig()
-		
+
+			tool = slice
+			def onDbChange(attr,old,new):
+				tool.slider_z_res.end = new.getMaxResolution()
+
+			slice.on_change('db',onDbChange)
+			slice.on_change('log_colormapper',lambda attr,old, new: tool.setYAxisLog(new))
+			slice.on_change('direction',lambda attr,old, new: tool.setProbesPlane(new))
+			slice.on_change('offset',lambda attr,old, new: tool.refreshGui())
+			slice.on_change('data',lambda attr,old, new: tool.refreshGui())
+
 			slice.main_layout=pn.Row(
 					pn.Column(
 						pn.Row(
