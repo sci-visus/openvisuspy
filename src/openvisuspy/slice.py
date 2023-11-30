@@ -424,13 +424,13 @@ class Slice:
 				collapsed=(I>0)
 				))
 
-		self.showDialog(*cards, name="Metadata", position='center',width=800,height=600,contained=False)
+		self.showDialog(*cards, name="Metadata", position='center', width=800, height=600, contained=False)
 
 	# showDialog
 	def showDialog(self, *args,**kwargs):
 		name=kwargs["name"]
 		self.dialogs["Metadata"]=pn.layout.FloatPanel(*args, **kwargs)
-		self.placeholder[:]=[v for k,v in self.dialogs.items()]
+		self.dialogs_placeholder[:]=[v for k,v in self.dialogs.items()]
 
 	# getTimesteps
 	def getTimesteps(self):
@@ -1195,7 +1195,7 @@ class Slice:
 						),
 						sizing_mode="stretch_both"
 					),
-					tool.probe_layout,
+					tool.main_layout,
 					sizing_mode="stretch_both"
 				)
 
@@ -1205,7 +1205,7 @@ class Slice:
 			self.slices.append(slice)
 
 			self.dialogs={}
-			self.placeholder=pn.Column(height=0, width=0)
+			self.dialogs_placeholder=pn.Column(height=0, width=0)
 
 			self.main_layout.append(
 				pn.Column(
@@ -1217,7 +1217,7 @@ class Slice:
 						*[it.main_layout for it in self.slices ], ncols=2 if nviews>1 else 1, 
 						sizing_mode="stretch_both"
 					),
-					self.placeholder,  
+					self.dialogs_placeholder,  
 					sizing_mode='stretch_both' 
 				))
 

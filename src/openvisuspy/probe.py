@@ -97,7 +97,7 @@ class ProbeTool:
 		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
 		self.createFigure()
 
-		self.probe_layout = pn.Column(
+		self.main_layout = pn.Column(
 			pn.Row(
 				self.slider_x_pos,
 				self.slider_y_pos,
@@ -117,11 +117,11 @@ class ProbeTool:
 
 	# isVisible
 	def isVisible(self):
-		return self.probe_layout.visible
+		return self.main_layout.visible
 
 	# setVisible
 	def setVisible(self, value):
-		self.probe_layout.visible = value
+		self.main_layout.visible = value
 		if value:
 			self.recompute()
 
@@ -353,7 +353,7 @@ class ProbeTool:
 	# refresh
 	def refresh(self):
 
-		if not self.probe_layout.visible:
+		if not self.main_layout.visible:
 			return
 
 		# self.fig.y_scale=bokeh.models.LogScale() if self.owner.isLogColorMapper() else bokeh.models.LinearScale()
@@ -435,7 +435,7 @@ class ProbeTool:
 	# recompute
 	def recompute(self):
 
-		if not self.probe_layout.visible:
+		if not self.main_layout.visible:
 			return
 		
 		self.refresh()
@@ -453,7 +453,7 @@ class ProbeTool:
 				probe.enabled = was_enabled[probe]
 
 		# add the probes only if sibile
-		if self.probe_layout.visible:
+		if self.main_layout.visible:
 			dir = self.owner.getDirection()
 			for slot, probe in enumerate(self.probes[dir]):
 		
