@@ -45,10 +45,10 @@ class ProbeTool:
 
 		self.createProbeGui()
 
-		self.owner.on_change('direction', lambda attr,old, new: self.setProbesPlane(new))
-		self.owner.on_change('offset'   , lambda attr,old, new: self.refreshProbeGui())
-		self.owner.on_change('data'     , lambda attr,old, new: self.refreshProbeGui())
-		self.owner.on_change('dataset'  , lambda attr,old, new: self.refreshProbeGui())
+		self.owner.on_change('offset'   , lambda attr,old, new: self.refresh()) # display the offset
+		self.owner.on_change('data'     , lambda attr,old, new: self.refresh()) # new data, important for the range
+		self.owner.on_change('dataset'  , lambda attr,old, new: self.recompute()) 
+		self.owner.on_change('direction', lambda attr,old, new: self.recompute())
 
 	# createFigure
 	def createFigure(self):
@@ -56,16 +56,16 @@ class ProbeTool:
 		x1, x2 = self.slider_z_range.value
 		y1, y2 = (self.owner.color_bar.color_mapper.low, self.owner.color_bar.color_mapper.high) if self.owner.color_bar else (0.0,1.0)
 
-		self.probe_fig=bokeh.plotting.figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
+		self.fig=bokeh.plotting.figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
 				x_axis_label="Z", x_range=[x1,x2],x_axis_type="linear",
 				y_axis_label="f", y_range=[y2,y2],y_axis_type="log" if self.owner.isLogColorMapper() else "linear")
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
-		self.probe_fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
+		self.fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
 
 		while len(self.fig_placeholder):
 			self.fig_placeholder.pop(0)
-		self.fig_placeholder.append(self.probe_fig)
+		self.fig_placeholder.append(self.fig)
 
 	# createGui
 	def createProbeGui(self):
@@ -84,15 +84,15 @@ class ProbeTool:
 																							 callback=lambda new: self.onProbeXYChange())
 		self.slider_y_pos = Widgets.Slider(name="Y coordinate", type="float", value=0, start=0, end=1, step=1, editable=True, sizing_mode="stretch_width", parameter_name="value_throttled",
 																							 callback=lambda new: self.onProbeXYChange())
-		self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
-		self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
+		self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
+		self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
 
-	# probe Z space
-		self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=self.recomputeProbes)
+		# probe Z space
+		self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=lambda evt: self.recompute())
 
 		# probe z res
-		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.owner.start_resolution, end=99, step=1, value=24, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
-		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=self.recomputeProbes)
+		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.owner.start_resolution, end=99, step=1, value=24, editable=False, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
+		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=lambda evt: self.recompute())
 
 		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
 		self.createFigure()
@@ -123,7 +123,7 @@ class ProbeTool:
 	def setVisible(self, value):
 		self.probe_layout.visible = value
 		if value:
-			self.recomputeProbes()
+			self.recompute()
 
 	# removeRenderer
 	def removeRenderer(self, target, value):
@@ -150,40 +150,6 @@ class ProbeTool:
 		probe.pos = [x, y]
 		self.addProbe(probe)
 
-	# setProbesPlane
-	def setProbesPlane(self, dir):
-
-		pbox = self.owner.getPhysicBox()
-		pdim=self.owner.getPointDim()
-		logger.info(f"[{self.owner.id}] physic-box={pbox} pdim={pdim}")
-	
-		(X, Y, Z), titles = self.owner.getLogicAxis()
-
-		X1,X2=(pbox[X][0],pbox[X][1])
-		Y1,Y2=(pbox[Y][0],pbox[Y][1])
-		Z1,Z2=(pbox[Z][0],pbox[Z][1]) if pdim==3 else (0,1)
-
-		self.slider_x_pos.name = titles[0]
-		self.slider_x_pos.start = X1
-		self.slider_x_pos.end   = X2
-		self.slider_x_pos.step  = (X2 - X1) / 10000
-		self.slider_x_pos.value  = X1
-
-		self.slider_y_pos.name = titles[1]
-		self.slider_y_pos.start = Y1
-		self.slider_y_pos.end   = Y2
-		self.slider_y_pos.step  = (Y2 - Y1) / 10000
-		self.slider_y_pos.value = Y1
-
-		self.slider_z_range.name = titles[2]
-		self.slider_z_range.start = Z1 
-		self.slider_z_range.end   = Z2
-		self.slider_z_range.step  = (Z2 - Z1) / 10000
-		self.slider_z_range.value = (Z1, Z2)
-
-		self.recomputeProbes()
-		self.slot = None
-
 	# onProbeButtonClick
 	def onProbeButtonClick(self, slot):
 		dir = self.owner.getDirection()
@@ -203,7 +169,7 @@ class ProbeTool:
 			if not probe.enabled and probe.pos is not None:
 				self.addProbe(probe)
 
-		self.refreshProbeGui()
+		self.refreshGui()
 
 	# findProbe
 	def findProbe(self, probe):
@@ -366,9 +332,9 @@ class ProbeTool:
 				if self.owner.isLogColorMapper():
 					it = [max(self.owner.epsilon, value) for value in it]
 				self.renderers[probe]["fig"].append(
-					self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
+					self.fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
-		self.refreshProbeGui()
+		self.refresh()
 
 	# removeProbe
 	def removeProbe(self, probe):
@@ -378,40 +344,64 @@ class ProbeTool:
 		self.renderers[probe]["canvas"] = []
 
 		for r in self.renderers[probe]["fig"]:
-			self.removeRenderer(self.probe_fig, r)
+			self.removeRenderer(self.fig, r)
 		self.renderers[probe]["fig"] = []
 
 		probe.enabled = False
-		self.refreshProbeGui()
+		self.refresh()
 
-	# refreshProbeGui
-	def refreshProbeGui(self):
+	# refresh
+	def refresh(self):
 
 		if not self.probe_layout.visible:
 			return
 
-		# self.probe_fig.y_scale=bokeh.models.LogScale() if self.owner.isLogColorMapper() else bokeh.models.LinearScale()
+		# self.fig.y_scale=bokeh.models.LogScale() if self.owner.isLogColorMapper() else bokeh.models.LinearScale()
 		# DOES NOT WORK (!)
 		is_log=self.owner.isLogColorMapper()
-		fig_log=isinstance(self.probe_fig.y_scale, bokeh.models.scales.LogScale)
+		fig_log=isinstance(self.fig.y_scale, bokeh.models.scales.LogScale)
 		if is_log!=fig_log:
 			self.createFigure()
-			self.recomputeProbes()
-			return
+
+		pbox = self.owner.getPhysicBox()
+		pdim=self.owner.getPointDim()
+		(X, Y, Z), titles = self.owner.getLogicAxis()
+		X1,X2=(pbox[X][0],pbox[X][1])
+		Y1,Y2=(pbox[Y][0],pbox[Y][1])
+		Z1,Z2=(pbox[Z][0],pbox[Z][1]) if pdim==3 else (0,1)
 
 		self.slider_z_res.end = self.owner.db.getMaxResolution()
 
-			# refresh X axis
+		if self.slider_x_pos.name!=titles[0]:
+			self.slider_x_pos.name = titles[0]
+			self.slider_x_pos.start = X1
+			self.slider_x_pos.end   = X2
+			self.slider_x_pos.step  = (X2 - X1) / 10000
+			self.slider_x_pos.value  = X1
+
+		if self.slider_y_pos.name!=titles[1]:
+			self.slider_y_pos.name = titles[1]
+			self.slider_y_pos.start = Y1
+			self.slider_y_pos.end   = Y2
+			self.slider_y_pos.step  = (Y2 - Y1) / 10000
+			self.slider_y_pos.value  = Y1
+
+		if self.slider_z_range.name!=titles[2]:
+			self.slider_z_range.name = titles[2]
+			self.slider_z_range.start = Z1 
+			self.slider_z_range.end   = Z2
+			self.slider_z_range.step  = (Z2 - Z1) / 10000
+			self.slider_z_range.value    = (Z1,Z2)
+
 		z1, z2 = self.slider_z_range.value
-		self.probe_fig.xaxis.axis_label = self.slider_z_range.name
-		self.probe_fig.x_range.start = z1
-		self.probe_fig.x_range.end   = z2
+		self.fig.xaxis.axis_label = self.slider_z_range.name
+		self.fig.x_range.start = z1
+		self.fig.x_range.end   = z2
 
-		# refresh Y axis
-		self.probe_fig.y_range.start = self.owner.color_bar.color_mapper.low  if self.owner.color_bar else 0.0
-		self.probe_fig.y_range.end   = self.owner.color_bar.color_mapper.high if self.owner.color_bar else 1.0
+		self.fig.y_range.start = self.owner.color_bar.color_mapper.low  if self.owner.color_bar else 0.0
+		self.fig.y_range.end   = self.owner.color_bar.color_mapper.high if self.owner.color_bar else 1.0
 
-		# refresh buttons
+		# buttons
 		dir = self.owner.getDirection()
 		for slot, button in enumerate(self.buttons):
 			color = COLORS[slot]
@@ -435,19 +425,20 @@ class ProbeTool:
 
 		# draw figure line for offset
 		offset = self.owner.getOffset()
-		self.removeRenderer(self.probe_fig, self.renderers["offset"])
-		self.renderers["offset"] = self.probe_fig.line(
+		self.removeRenderer(self.fig, self.renderers["offset"])
+		self.renderers["offset"] = self.fig.line(
 			[offset, offset],
-			[self.probe_fig.y_range.start, self.probe_fig.y_range.end],
+			[self.fig.y_range.start, self.fig.y_range.end],
 			line_width=1, color="black")
 
-	# recomputeProbes
-	def recomputeProbes(self, evt=None):
+
+	# recompute
+	def recompute(self):
 
 		if not self.probe_layout.visible:
 			return
-
-		self.refreshProbeGui()
+		
+		self.refresh()
 
 		# remove all old probes
 		was_enabled = {}
@@ -465,7 +456,6 @@ class ProbeTool:
 		if self.probe_layout.visible:
 			dir = self.owner.getDirection()
 			for slot, probe in enumerate(self.probes[dir]):
+		
 				if probe.pos is not None and probe.enabled:
 					self.addProbe(probe)
-
-
