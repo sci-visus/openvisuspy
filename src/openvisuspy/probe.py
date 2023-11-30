@@ -169,7 +169,7 @@ class ProbeTool:
 			if not probe.enabled and probe.pos is not None:
 				self.addProbe(probe)
 
-		self.refreshGui()
+		self.refresh()
 
 	# findProbe
 	def findProbe(self, probe):
