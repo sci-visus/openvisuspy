@@ -45,7 +45,13 @@ class ProbeTool(Slice):
 					"fig": []     # or probe fig
 				}
 
-		self.createGui()
+		self.createProbeGui()
+
+		self.owner.on_change('dataset',lambda attr,old,new: self.setProbeDataset(new))
+		self.owner.on_change('log_colormapper',lambda attr,old, new: self.setYAxisLog(new))
+		self.owner.on_change('direction',lambda attr,old, new: self.setProbesPlane(new))
+		self.owner.on_change('offset',lambda attr,old, new: self.refreshGui())
+		self.owner.on_change('data',lambda attr,old, new: self.refreshGui())
 
 	# setProbeFigure
 	def setProbeFigure(self,value):
@@ -58,9 +64,9 @@ class ProbeTool(Slice):
 			self.probe_fig_col.pop(0)
 
 		self.probe_fig_col.append(self.probe_fig)
-		
+
 	# createGui
-	def createGui(self):
+	def createProbeGui(self):
 
 		self.slot = None
 		self.button_css = [None] * len(COLORS)
@@ -134,6 +140,10 @@ class ProbeTool(Slice):
 	def removeRenderer(self, target, value):
 		if value in target.renderers:
 			target.renderers.remove(value)
+
+	# setProbeDataset
+	def setProbeDataset(self,value):
+		self.slider_z_res.end = self.owner.db.getMaxResolution()
 
 	# setYAxisLog
 	def setYAxisLog(self, value):
