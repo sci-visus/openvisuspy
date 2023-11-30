@@ -50,8 +50,8 @@ class ProbeTool(Slice):
 		self.owner.on_change('dataset',lambda attr,old,new: self.setProbeDataset(new))
 		self.owner.on_change('log_colormapper',lambda attr,old, new: self.setYAxisLog(new))
 		self.owner.on_change('direction',lambda attr,old, new: self.setProbesPlane(new))
-		self.owner.on_change('offset',lambda attr,old, new: self.refreshGui())
-		self.owner.on_change('data',lambda attr,old, new: self.refreshGui())
+		self.owner.on_change('offset',lambda attr,old, new: self.refreshProbeGui())
+		self.owner.on_change('data',lambda attr,old, new: self.refreshProbeGui())
 
 	# setProbeFigure
 	def setProbeFigure(self,value):
@@ -88,30 +88,21 @@ class ProbeTool(Slice):
 			toolbar_location=None,
 		))
 
-
 		# probe XY space
-		if True:
-			# where the center of the probe (can be set by double click or using this)
-			self.slider_x_pos = Widgets.Slider(name="X coordinate", type="float", value=0.0, start=0.0, end=1.0, step=1.0, editable=True, sizing_mode="stretch_width", 
-																								 callback=lambda new: self.onProbeXYChange(), 
-																								 parameter_name="value_throttled")
+		# where the center of the probe (can be set by double click or using this)
+		self.slider_x_pos = Widgets.Slider(name="X coordinate", type="float", value=0.0, start=0.0, end=1.0, step=1.0, editable=True, sizing_mode="stretch_width", parameter_name="value_throttled",
+																							 callback=lambda new: self.onProbeXYChange())
+		self.slider_y_pos = Widgets.Slider(name="Y coordinate", type="float", value=0, start=0, end=1, step=1, editable=True, sizing_mode="stretch_width", parameter_name="value_throttled",
+																							 callback=lambda new: self.onProbeXYChange())
+		self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recomputeProbes, parameter_name='value_throttled')
+		self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recomputeProbes, parameter_name='value_throttled')
 
-			self.slider_y_pos = Widgets.Slider(name="Y coordinate", type="float", value=0, start=0, end=1, step=1, editable=True, sizing_mode="stretch_width", 
-																								 callback=lambda new: self.onProbeXYChange(), 
-																								 parameter_name="value_throttled")
-
-			self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recomputeProbes, parameter_name='value_throttled')
-			self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, width=60, callback=self.recomputeProbes, parameter_name='value_throttled')
-
-		# probe Z space
-			self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=self.recomputeProbes)
+	# probe Z space
+		self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=self.recomputeProbes)
 
 		# probe z res
 		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.start_resolution, end=99, step=1, value=24, editable=False, width=80, callback=self.recomputeProbes, parameter_name='value_throttled')
-
-		# Z op
 		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=self.recomputeProbes)
-
 		self.probe_layout = pn.Column(
 			pn.Row(
 				self.slider_x_pos,
@@ -128,9 +119,7 @@ class ProbeTool(Slice):
 			sizing_mode="stretch_both"
 		)
 		
-
 		self.canvas.on_event(DoubleTap, self.onDoubleTap)
-
 
 	# removeRenderer
 	def removeRenderer(self, target, value):
@@ -167,7 +156,6 @@ class ProbeTool(Slice):
 		probe.pos = (self.slider_x_pos.value, self.slider_y_pos.value)
 		self.addProbe(probe)
 
-
 	# onDoubleTap
 	def onDoubleTap(self, evt):
 		x,y=evt.x,evt.y
@@ -182,8 +170,8 @@ class ProbeTool(Slice):
 	# setProbesPlane
 	def setProbesPlane(self, dir):
 
-		pbox = self.getPhysicBox()
-		pdim=self.getPointDim()
+		pbox = self.owner.getPhysicBox()
+		pdim=self.owner.getPointDim()
 		logger.info(f"[{self.owner.id}] physic-box={pbox} pdim={pdim}")
 	
 		(X, Y, Z), titles = self.owner.getLogicAxis()
@@ -232,7 +220,7 @@ class ProbeTool(Slice):
 			if not probe.enabled and probe.pos is not None:
 				self.addProbe(probe)
 
-		self.refreshGui()
+		self.refreshProbeGui()
 
 	# findProbe
 	def findProbe(self, probe):
@@ -397,7 +385,7 @@ class ProbeTool(Slice):
 				self.renderers[probe]["fig"].append(
 					self.probe_fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
-		self.refreshGui()
+		self.refreshProbeGui()
 
 	# removeProbe
 	def removeProbe(self, probe):
@@ -411,10 +399,10 @@ class ProbeTool(Slice):
 		self.renderers[probe]["fig"] = []
 
 		probe.enabled = False
-		self.refreshGui()
+		self.refreshProbeGui()
 
-	# refreshGui
-	def refreshGui(self):
+	# refreshProbeGui
+	def refreshProbeGui(self):
 
 		dir = self.owner.getDirection()
 
@@ -460,7 +448,7 @@ class ProbeTool(Slice):
 	# recomputeProbes
 	def recomputeProbes(self, evt=None):
 
-		self.refreshGui()
+		self.refreshProbeGui()
 
 		# remove all old probes
 		was_enabled = {}
