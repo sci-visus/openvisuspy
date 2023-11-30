@@ -76,10 +76,6 @@ class ProbeTool(Slice):
 		for slot, color in enumerate(COLORS):
 			self.buttons.append(Widgets.Button(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onProbeButtonClick(slot)))
 
-		vmin, vmax = self.owner.getPaletteRange()
-
-		self.widgets.show_probe = Widgets.Button(name="Probe", callback=self.toggleProbeVisibility)
-
 		self.probe_fig_col = pn.Column(sizing_mode='stretch_both')
 		self.setProbeFigure(bokeh.plotting.figure(
 			title=None,
@@ -131,7 +127,7 @@ class ProbeTool(Slice):
 			self.probe_fig_col,
 			sizing_mode="stretch_both"
 		)
-		self.probe_layout.visible = False
+		
 
 		self.canvas.on_event(DoubleTap, self.onDoubleTap)
 
@@ -171,19 +167,6 @@ class ProbeTool(Slice):
 		probe.pos = (self.slider_x_pos.value, self.slider_y_pos.value)
 		self.addProbe(probe)
 
-	# isProbeVisible
-	def isProbeVisible(self):
-		return self.probe_layout.visible
-
-	# setProbeVisible
-	def setProbeVisible(self, value):
-		self.probe_layout.visible = value
-
-	# toggleProbeVisibility
-	def toggleProbeVisibility(self):
-		value = not self.isProbeVisible()
-		self.setProbeVisible(value)
-		self.recomputeProbes()
 
 	# onDoubleTap
 	def onDoubleTap(self, evt):
@@ -492,7 +475,7 @@ class ProbeTool(Slice):
 				probe.enabled = was_enabled[probe]
 
 		# add the probes only if sibile
-		if self.isProbeVisible():
+		if self.probe_layout.visible:
 			dir = self.owner.getDirection()
 			for slot, probe in enumerate(self.probes[dir]):
 				if probe.pos is not None and probe.enabled:

@@ -278,7 +278,7 @@ class Slice:
 		if not self.parent:
 			self.createGui()
 
-		self.triggerCallback('db', None, self.db)
+		self.triggerCallback('dataset', None, name)
 
 	# loadDataset
 	def loadDataset(self, url, config={}):
@@ -1181,14 +1181,11 @@ class Slice:
 			slice.config=self.getConfig()
 
 			tool = slice
-			def onDbChange(attr,old,new):
-				tool.slider_z_res.end = new.getMaxResolution()
-
-			slice.on_change('db',onDbChange)
-			slice.on_change('log_colormapper',lambda attr,old, new: tool.setYAxisLog(new))
-			slice.on_change('direction',lambda attr,old, new: tool.setProbesPlane(new))
-			slice.on_change('offset',lambda attr,old, new: tool.refreshGui())
-			slice.on_change('data',lambda attr,old, new: tool.refreshGui())
+			tool.probe_layout.visible = False
+			def toggleProbeVisibility():
+				tool.probe_layout.visible=not tool.probe_layout.visible
+				tool.recomputeProbes()
+			slice.widgets.show_probe = Widgets.Button(name="Probe", callback=toggleProbeVisibility)
 
 			slice.main_layout=pn.Row(
 					pn.Column(
@@ -1205,7 +1202,7 @@ class Slice:
 						),
 						sizing_mode="stretch_both"
 					),
-					slice.probe_layout,
+					tool.probe_layout,
 					sizing_mode="stretch_both"
 				)
 
