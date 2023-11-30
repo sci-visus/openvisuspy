@@ -47,23 +47,28 @@ class ProbeTool(Slice):
 
 		self.createProbeGui()
 
-		self.owner.on_change('dataset'         ,lambda attr,old,new: self.setProbeDataset(new))
-		self.owner.on_change('log_colormapper',lambda attr,old, new: self.setYAxisLog(new))
 		self.owner.on_change('direction',lambda attr,old, new: self.setProbesPlane(new))
-		self.owner.on_change('offset',lambda attr,old, new: self.refreshProbeGui())
-		self.owner.on_change('data',lambda attr,old, new: self.refreshProbeGui())
 
-	# setProbeFigure
-	def setProbeFigure(self,value):
-		self.probe_fig=value
+		self.owner.on_change('offset' , lambda attr,old, new: self.refreshProbeGui())
+		self.owner.on_change('data'   , lambda attr,old, new: self.refreshProbeGui())
+		self.owner.on_change('dataset', lambda attr,old, new: self.refreshProbeGui())
+
+	# createFigure
+	def createFigure(self):
+
+		x1, x2 = self.slider_z_range.value
+		y1, y2 = (self.owner.color_bar.color_mapper.low, self.owner.color_bar.color_mapper.high) if self.owner.color_bar else (0.0,1.0)
+
+		self.probe_fig=bokeh.plotting.figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
+				x_axis_label="Z", x_range=[x1,x2],x_axis_type="linear",
+				y_axis_label="f", y_range=[y2,y2],y_axis_type="log" if self.owner.isLogColorMapper() else "linear")
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		self.probe_fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
 
-		while len(self.probe_fig_col):
-			self.probe_fig_col.pop(0)
-
-		self.probe_fig_col.append(self.probe_fig)
+		while len(self.fig_placeholder):
+			self.fig_placeholder.pop(0)
+		self.fig_placeholder.append(self.probe_fig)
 
 	# createGui
 	def createProbeGui(self):
@@ -76,17 +81,6 @@ class ProbeTool(Slice):
 		for slot, color in enumerate(COLORS):
 			self.buttons.append(Widgets.Button(name=color, sizing_mode="stretch_width", callback=lambda slot=slot:self.onProbeButtonClick(slot)))
 
-		self.probe_fig_col = pn.Column(sizing_mode='stretch_both')
-		self.setProbeFigure(bokeh.plotting.figure(
-			title=None,
-			x_axis_label="Z", x_axis_type="linear",
-			y_axis_label="f", y_axis_type="log" if self.owner.isLogColorMapper() else "linear",
-			x_range=[0.0, 1.0],
-			y_range=[0.0, 1.0],
-			sizing_mode="stretch_both",
-			active_scroll="wheel_zoom",
-			toolbar_location=None,
-		))
 
 		# probe XY space
 		# where the center of the probe (can be set by double click or using this)
@@ -103,6 +97,10 @@ class ProbeTool(Slice):
 		# probe z res
 		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.start_resolution, end=99, step=1, value=24, editable=False, callback=self.recomputeProbes, parameter_name='value_throttled')
 		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=self.recomputeProbes)
+
+		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
+		self.createFigure()
+
 		self.probe_layout = pn.Column(
 			pn.Row(
 				self.slider_x_pos,
@@ -115,7 +113,7 @@ class ProbeTool(Slice):
 				sizing_mode="stretch_width"
 			),
 			pn.Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
-			self.probe_fig_col,
+			self.fig_placeholder,
 			sizing_mode="stretch_both"
 		)
 		
@@ -135,27 +133,6 @@ class ProbeTool(Slice):
 	def removeRenderer(self, target, value):
 		if value in target.renderers:
 			target.renderers.remove(value)
-
-	# setProbeDataset
-	def setProbeDataset(self,value):
-		self.slider_z_res.end = self.owner.db.getMaxResolution()
-
-	# setYAxisLog
-	def setYAxisLog(self, value):
-
-		# need to recomute to create a brand new figure (because Bokeh cannot change the type of Y axis)
-		self.setProbeFigure(bokeh.plotting.figure(
-			title=None,
-			x_axis_label="Z",
-			y_axis_label="f", y_axis_type="log" if value else "linear",
-			x_range=[0.0, 1.0],
-			y_range=[0.0, 1.0],
-			sizing_mode="stretch_both",
-			active_scroll="wheel_zoom",
-			toolbar_location=None,
-		))
-
-		self.recomputeProbes()
 
 	# onProbeXYChange
 	def onProbeXYChange(self):
@@ -414,52 +391,58 @@ class ProbeTool(Slice):
 	# refreshProbeGui
 	def refreshProbeGui(self):
 
+		# self.probe_fig.y_scale=bokeh.models.LogScale() if self.owner.isLogColorMapper() else bokeh.models.LinearScale()
+		# DOES NOT WORK (!)
+		is_log=self.owner.isLogColorMapper()
+		fig_log=isinstance(self.probe_fig.y_scale, bokeh.models.scales.LogScale)
+		if is_log!=fig_log:
+			self.createFigure()
+			self.recomputeProbes()
+			return
+
+		self.slider_z_res.end = self.owner.db.getMaxResolution()
+
+			# refresh X axis
+		z1, z2 = self.slider_z_range.value
+		self.probe_fig.xaxis.axis_label = self.slider_z_range.name
+		self.probe_fig.x_range.start = z1
+		self.probe_fig.x_range.end   = z2
+
+		# refresh Y axis
+		self.probe_fig.y_range.start = self.owner.color_bar.color_mapper.low  if self.owner.color_bar else 0.0
+		self.probe_fig.y_range.end   = self.owner.color_bar.color_mapper.high if self.owner.color_bar else 1.0
+
+		# refresh buttons
 		dir = self.owner.getDirection()
+		for slot, button in enumerate(self.buttons):
+			color = COLORS[slot]
+			probe = self.probes[dir][slot]
 
-		try:
-			self.probe_fig.y_range.start = self.owner.color_bar.color_mapper.low
-			self.probe_fig.y_range.end   = self.owner.color_bar.color_mapper.high
-		except:
-			pass
+			css = [".bk-btn-default {"]
 
-		# buttons
-		if True:
+			if slot == self.slot:
+				css.append("font-weight: bold;")
+				css.append("border: 2px solid black;")
 
-			for slot, button in enumerate(self.buttons):
-				color = COLORS[slot]
-				probe = self.probes[dir][slot]
+			if slot == self.slot or (probe.pos is not None and probe.enabled):
+				css.append("background-color: " + color + " !important;")
 
-				css = [".bk-btn-default {"]
+			css.append("}")
+			css = " ".join(css)
 
-				if slot == self.slot:
-					css.append("font-weight: bold;")
-					css.append("border: 2px solid black;")
+			if self.button_css[slot] != css:
+				self.button_css[slot] = css
+				button.stylesheets = [css]
 
-				if slot == self.slot or (probe.pos is not None and probe.enabled):
-					css.append("background-color: " + color + " !important;")
-
-				css.append("}")
-				css = " ".join(css)
-
-				if self.button_css[slot] != css:
-					self.button_css[slot] = css
-					button.stylesheets = [css]
-
-			# X axis
-		if True:
-			z1, z2 = self.slider_z_range.value
-			self.probe_fig.xaxis.axis_label = self.slider_z_range.name
-			self.probe_fig.x_range.start = z1
-			self.probe_fig.x_range.end = z2
+		
 
 		# draw figure line for offset
-		if True:
-			offset = self.owner.getOffset()
-			self.removeRenderer(self.probe_fig, self.renderers["offset"])
-			self.renderers["offset"] = self.probe_fig.line(
-				[offset, offset],
-				[self.probe_fig.y_range.start, self.probe_fig.y_range.end],
-				line_width=1, color="black")
+		offset = self.owner.getOffset()
+		self.removeRenderer(self.probe_fig, self.renderers["offset"])
+		self.renderers["offset"] = self.probe_fig.line(
+			[offset, offset],
+			[self.probe_fig.y_range.start, self.probe_fig.y_range.end],
+			line_width=1, color="black")
 
 	# recomputeProbes
 	def recomputeProbes(self, evt=None):

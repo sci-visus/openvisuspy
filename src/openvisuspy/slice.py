@@ -517,9 +517,9 @@ class Slice:
 	def setPalette(self, value):
 		logger.info(f"[{self.id}] value={value}")
 		self.widgets.palette.value = value
+		self.color_bar=None
 		for it in self.slices:
 			it.setPalette(value)
-		self.color_bar=None
 		self.refresh()
 
 	# getMetadataPaletteRange
@@ -583,7 +583,7 @@ class Slice:
 
 	# isLogColorMapper
 	def isLogColorMapper(self):
-		return self.widgets.log_colormapper
+		return self.widgets.log_colormapper.value
 
 	# setLogColorMapper
 	def setLogColorMapper(self, value):
@@ -593,9 +593,9 @@ class Slice:
 		self.widgets.log_colormapper.value = value
 		for it in self.slices:
 			it.setLogColorMapper(value)
-		self.color_bar=None # force refresh
 
-		self.triggerCallback('log_colormapper',None, value)
+		# force refresh
+		self.color_bar=None 
 		self.refresh()
 
 	# getNumberOfRefinements
@@ -1051,6 +1051,7 @@ class Slice:
 			mapper_low =max(self.epsilon, low ) if is_log else low
 			mapper_high=max(self.epsilon, high) if is_log else high
 			from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar
+
 			self.color_bar = ColorBar(color_mapper = 
 				LogColorMapper   (palette=palette, low=mapper_low, high=mapper_high) if is_log else 
 				LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
