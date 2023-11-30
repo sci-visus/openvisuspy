@@ -121,6 +121,16 @@ class ProbeTool(Slice):
 		
 		self.canvas.on_event(DoubleTap, self.onDoubleTap)
 
+	# isVisible
+	def isVisible(self):
+		return self.probe_layout.visible
+
+	# setVisible
+	def setVisible(self, value):
+		self.probe_layout.visible = value
+		if value:
+			self.recomputeProbes()
+
 	# removeRenderer
 	def removeRenderer(self, target, value):
 		if value in target.renderers:

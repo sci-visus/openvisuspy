@@ -1176,16 +1176,13 @@ class Slice:
 		self.slices=[]
 
 		for I in range(nviews):
-			from .probe import ProbeTool as Tool
-			slice = Tool(parent=self, show_options=self.show_options)
+			from .probe import ProbeTool
+			slice = ProbeTool(parent=self, show_options=self.show_options)
 			slice.config=self.getConfig()
 
 			tool = slice
-			tool.probe_layout.visible = False
-			def toggleProbeVisibility():
-				tool.probe_layout.visible=not tool.probe_layout.visible
-				tool.recomputeProbes()
-			slice.widgets.show_probe = Widgets.Button(name="Probe", callback=toggleProbeVisibility)
+			tool.setVisible(False)
+			slice.widgets.show_probe = Widgets.Button(name="Probe", callback=lambda: tool.setVisible(not tool.isVisible()))
 
 			slice.main_layout=pn.Row(
 					pn.Column(
