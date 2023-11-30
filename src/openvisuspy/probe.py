@@ -30,7 +30,6 @@ class ProbeTool(Slice):
 	def __init__(self, parent=None, show_options=None):
 		super().__init__(parent=parent, show_options=show_options)
 		self.owner=self
-		N = len(COLORS)
 
 		self.probes = {}
 		self.renderers = {
@@ -38,7 +37,7 @@ class ProbeTool(Slice):
 		}
 		for dir in range(3):
 			self.probes[dir] = []
-			for I in range(N):
+			for I in range(len(COLORS)):
 				probe = Probe()
 				self.probes[dir].append(probe)
 				self.renderers[probe] = {
@@ -46,8 +45,25 @@ class ProbeTool(Slice):
 					"fig": []     # or probe fig
 				}
 
+		self.createGui()
+
+	# setProbeFigure
+	def setProbeFigure(self,value):
+		self.probe_fig=value
+
+		# change the offset on the proble plot (NOTE evt.x in is physic domain)
+		self.probe_fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
+
+		while len(self.probe_fig_col):
+			self.probe_fig_col.pop(0)
+
+		self.probe_fig_col.append(self.probe_fig)
+		
+	# createGui
+	def createGui(self):
+
 		self.slot = None
-		self.button_css = [None] * N
+		self.button_css = [None] * len(COLORS)
 
 		# create buttons
 		self.buttons = []
@@ -58,7 +74,8 @@ class ProbeTool(Slice):
 
 		self.widgets.show_probe = Widgets.Button(name="Probe", callback=self.toggleProbeVisibility)
 
-		self.probe_fig = bokeh.plotting.figure(
+		self.probe_fig_col = pn.Column(sizing_mode='stretch_both')
+		self.setProbeFigure(bokeh.plotting.figure(
 			title=None,
 			x_axis_label="Z", x_axis_type="linear",
 			y_axis_label="f", y_axis_type="log" if self.owner.isLogColorMapper() else "linear",
@@ -67,14 +84,8 @@ class ProbeTool(Slice):
 			sizing_mode="stretch_both",
 			active_scroll="wheel_zoom",
 			toolbar_location=None,
-		)
+		))
 
-		# change the offset on the proble plot (NOTE evt.x in is physic domain)
-		self.probe_fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
-
-		self.probe_fig_col = pn.Column(
-			pn.pane.Bokeh(self.probe_fig), 
-			sizing_mode='stretch_both')
 
 		# probe XY space
 		if True:
@@ -128,8 +139,7 @@ class ProbeTool(Slice):
 	def setYAxisLog(self, value):
 
 		# need to recomute to create a brand new figure (because Bokeh cannot change the type of Y axis)
-		old_probe_fig = self.probe_fig
-		self.probe_fig = bokeh.plotting.figure(
+		self.setProbeFigure(bokeh.plotting.figure(
 			title=None,
 			x_axis_label="Z",
 			y_axis_label="f", y_axis_type="log" if value else "linear",
@@ -138,13 +148,8 @@ class ProbeTool(Slice):
 			sizing_mode="stretch_both",
 			active_scroll="wheel_zoom",
 			toolbar_location=None,
-		)
-		self.probe_fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
+		))
 
-		while len(self.probe_fig_col):
-			self.probe_fig_col.pop(0)
-
-		self.probe_fig_col.append(self.probe_fig)
 		self.recomputeProbes()
 
 	# onProbeXYChange
