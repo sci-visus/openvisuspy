@@ -383,12 +383,13 @@ class Slice:
 		d["timestep"       ] = d.get("timestep", self.db.getTimesteps()[0])
 		d['view-dep'       ] = d.get('view-dep', True)
 		d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
+		d["field"          ] = d.get("field", self.db.getField().name)
 		d["offset"         ] = d.get("offset",0.0)
 		d['play']={
 			"sec": d.get("play", {}).get("sec","0.01")
 		}
 
-		field = self.db.getField(d.get("field", self.db.getField().name))
+		field = self.db.getField(d["field"])
 		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
 		if False:
 			d['palette']={
