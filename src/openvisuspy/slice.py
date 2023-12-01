@@ -385,19 +385,21 @@ class Slice:
 
 
 		# read the configuration and guess values if needed
-		d["timestep-delta" ] = d.get("timestep-delta", 1)
-		d["timestep"       ] = d.get("timestep", self.db.getTimesteps()[0])
-		d['view-dep'       ] = d.get('view-dep', True)
-		d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
-		d["field"          ] = d.get("field", self.db.getField().name)
-		d["offset"         ] = d.get("offset",0.0)
-		d['num-refinements'] = d.get("num-refinements", 2)
-		d['direction']       = d.get("direction", 2)
-		d['play']={
-			"sec": d.get("play", {}).get("sec","0.01")
-		}
+		if True:
+			d["timestep-delta" ] = d.get("timestep-delta", 1)
+			d["timestep"       ] = d.get("timestep", self.db.getTimesteps()[0])
+			d['view-dep'       ] = d.get('view-dep', True)
+			d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
+			d["field"          ] = d.get("field", self.db.getField().name)
+			d["offset"         ] = d.get("offset",0.0)
+			d['num-refinements'] = d.get("num-refinements", 2)
+			d['direction']       = d.get("direction", 2)
+			d['play']={
+				"sec": d.get("play", {}).get("sec","0.01")
+			}
+			field = self.db.getField(d["field"])
+			low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
 
-		if False:
 			d['palette']={
 				"name"           : d.get("palette", {}).get("name",DEFAULT_PALETTE) ,
 				"metadata-range" : [low, high],
@@ -405,14 +407,6 @@ class Slice:
 				"range"         : d.get("palette", {}).get("range",[low, high]),
 				"log"           : d.get("palette", {}).get("log", False)
 			}
-
-		field = self.db.getField(d["field"])
-		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
-		palette = d.get("palette", DEFAULT_PALETTE) 
-		palette_range = d.get("palette-range", None)
-		palette_range,palette_range_mode=([low, high],"dynamic-acc") if palette_range is None else [palette_range,"user"]
-		palette_log = d.get("palette-log", False)
-		
 
 		if True:
 			self.setTimestepDelta(int(d["timestep-delta"]))
@@ -423,11 +417,11 @@ class Slice:
 			self.setViewDependent(bool(d['view-dep']))
 			self.setResolution(int(d['resolution']))
 			self.setPlaySec(float(d['play']["sec"]))
-			self.setPalette(palette)
-			self.setMetadataPaletteRange([low, high])
-			self.setPaletteRange(palette_range)
-			self.setPaletteRangeMode(palette_range_mode)
-			self.setLogPalette(palette_log)
+			self.setPalette(d['palette']["name"])
+			self.setMetadataPaletteRange(d["palette"]["metadata-range"])
+			self.setPaletteRangeMode(d["palette"]["range-mode"])
+			self.setPaletteRange(d["palette"]["range"]) if self.getPaletteRangeMode()=="user" else None
+			self.setLogPalette(bool(d["palette"]["log"]))
 			self.setNumberOfRefinements(int(d['num-refinements']))
 
 		# self.unhold()
