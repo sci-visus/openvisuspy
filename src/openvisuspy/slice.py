@@ -493,12 +493,19 @@ class Slice:
 	# saveAs
 	def saveAs(self):
 		status=self.save()
-		sio = io.StringIO(json.dumps(status))
+		body=json.dumps(status)
+		sio = io.StringIO(body)
 		sio.seek(0)
+
+		copy_clipboard=Widgets.Button(name="Copy to clipbloard")
+		copy_clipboard.js_on_click( args={"body": body}, code="navigator.clipboard.writeText(body);")
+
 		self.showDialog(
 			pn.Column(
-				pn.pane.JSON(status,name="Save",depth=99, sizing_mode="stretch_width"),
-				pn.widgets.FileDownload(sio, embed=True, filename='status.json', align="end"),
+				pn.pane.JSON(status,name="Save",depth=-1, sizing_mode="stretch_width"),
+				pn.Row(copy_clipboard,
+					pn.widgets.FileDownload(sio, embed=True, filename='status.json', align="end")
+				),
 				sizing_mode="stretch_width"
 			), 
 			name="Save")
@@ -525,7 +532,7 @@ class Slice:
 				obj=item["object"]
 				file = io.StringIO(json.dumps(obj))
 				file.seek(0)
-				internal_panel=pn.pane.JSON(obj,name="Object",depth=6, sizing_mode="stretch_width") 
+				internal_panel=pn.pane.JSON(obj,name="Object",depth=3, sizing_mode="stretch_width") 
 			else:
 				continue
 
