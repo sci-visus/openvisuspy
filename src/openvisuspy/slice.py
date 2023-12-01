@@ -379,12 +379,10 @@ class Slice:
 
 
 		# read the configuration and guess values if needed
-		timestep_delta = int(d.get("timestep-delta", 1))
-		timestep = int(d.get("timestep", self.db.getTimesteps()[0]))
-		view_dep = bool(d.get('view-dep', True))
-		resolution = int(d.get("resolution", self.db.getMaxResolution() - 6))
-		pdim = self.db.getPointDim()
-		fields = self.db.getFields()
+		d["timestep-delta" ] = d.get("timestep-delta", 1)
+		d["timestep"       ] = d.get("timestep", self.db.getTimesteps()[0])
+		d['view-dep'       ] = d.get('view-dep', True)
+		d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
 		field = self.db.getField(d.get("field", self.db.getField().name))
 		dtype_range = field.getDTypeRange()
 		dtype_vmin, dtype_vmax = dtype_range.From, dtype_range.To
@@ -392,21 +390,21 @@ class Slice:
 		palette_range = d.get("palette-range", None)
 		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic-acc") if palette_range is None else [palette_range,"user"]
 		palette_log = d.get("palette-log", False)
-		num_refinements = int(d.get("num-refinements", 2))
+		d['num-refinements'] = d.get("num-refinements", 2)
 
-		self.setTimestepDelta(timestep_delta)
-		self.setTimestep(timestep)
-		self.setFields(fields)
-		self.setField(field.name)
-		self.setDirection(2)
-		self.setViewDependent(view_dep)
-		self.setResolution(resolution)
-		self.setPalette(palette)
-		self.setMetadataPaletteRange([dtype_vmin, dtype_vmax])
-		self.setPaletteRange(palette_range)
-		self.setPaletteRangeMode(palette_range_mode)
-		self.setLogPalette(palette_log)
-		self.setNumberOfRefinements(num_refinements)
+		if True:
+			self.setTimestepDelta(int(d["timestep-delta" ]))
+			self.setTimestep(int(d["timestep"]))
+			self.setField(field.name)
+			self.setDirection(2)
+			self.setViewDependent(bool(d['view-dep']))
+			self.setResolution(int(d['resolution']))
+			self.setPalette(palette)
+			self.setMetadataPaletteRange([dtype_vmin, dtype_vmax])
+			self.setPaletteRange(palette_range)
+			self.setPaletteRangeMode(palette_range_mode)
+			self.setLogPalette(palette_log)
+			self.setNumberOfRefinements(int(d['num-refinements']))
 
 		# the parent will take care of creating the gui
 		if not self.parent:
