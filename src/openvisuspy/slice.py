@@ -346,7 +346,6 @@ class Slice:
 		if not self.parent:
 			self.setViewMode(d.get("view-mode","1"))
 
-
 		dataset=d.get("dataset",d["name"])
 		
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
@@ -431,9 +430,7 @@ class Slice:
 
 		# self.unhold()
 
-		# the parent will take care of creating the gui
-		if not self.parent:
-			self.rebuildGui()
+		self.refresh()
 
 	# getDatasetConfig
 	def getDatasetConfig(self, name=None):
