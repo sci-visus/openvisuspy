@@ -340,42 +340,43 @@ class Slice:
 	# guessInitialStatus
 	def load(self, d):
 
-		name=d["name"]
-		url =d["url"]
-		self.widgets.dataset.value = name
+		self.widgets.dataset.value = d["name"]
 
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
 		if "urls" in d and "--prefer" in sys.argv:
 			prefer = sys.argv[sys.argv.index("--prefer") + 1]
-			for it in d["urls"]:
-				if it["id"] == prefer:
-					url = it["url"]
-					logger.info(f"Overriding url from {it}")
-					break
+			v=[it for it in d["urls"] if it["id"] == prefer]
+			if v:
+				logger.info(f"Overriding url from {v[0]}")
+				d["url"] = v[0]["url"]
 
-		logger.info(f"Loading dataset url={url}")
-		self.db=LoadDataset(url=url) if not self.parent else self.parent.db
+		logger.info(f"Loading dataset url={d['url']}")
+		self.db=LoadDataset(url=d["url"]) if not self.parent else self.parent.db
 		self.access = self.db.createAccess()
 
-		# self.doc.title = f"ViSUS {name}"
+		# self.doc.title = f"ViSUS {d['name']}"
 
 		for it in self.slices:
-			it.setDataset(name)
+			it.setDataset(d["name"])
+
+		# automatic from dataset
+		if True:
+			self.setTimesteps(self.db.getTimesteps())
+			self.setFields(self.db.getFields())
+
+			pdim = self.getPointDim()
+			physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+			physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
+			self.setPhysicBox(physic_box)
+
+			directions = self.db.inner.idxfile.axis.strip().split()
+			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
+			self.setDirections(directions)
+
 
 		# read the configuration and guess values if needed
-		pdim = self.getPointDim()
-		timesteps = self.db.getTimesteps()
 		timestep_delta = int(d.get("timestep-delta", 1))
-		timestep = int(d.get("timestep", timesteps[0]))
-		physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
-		physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
-
-		directions = self.db.inner.idxfile.axis.strip().split()
-		if not directions: 
-			directions = {'X':0,'Y':1,'Z':2}
-		else:
-			directions = {name: I for I, name in enumerate(directions)}
-
+		timestep = int(d.get("timestep", self.db.getTimesteps()[0]))
 		view_dep = bool(d.get('view-dep', True))
 		resolution = int(d.get("resolution", self.db.getMaxResolution() - 6))
 		pdim = self.db.getPointDim()
@@ -388,12 +389,9 @@ class Slice:
 		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic-acc") if palette_range is None else [palette_range,"user"]
 		palette_log = d.get("palette-log", False)
 		num_refinements = int(d.get("num-refinements", 2))
-		
-		self.setTimesteps(timesteps)
+
 		self.setTimestepDelta(timestep_delta)
 		self.setTimestep(timestep)
-		self.setDirections(directions)
-		self.setPhysicBox(physic_box)
 		self.setFields(fields)
 		self.setField(field.name)
 		self.setDirection(2)
