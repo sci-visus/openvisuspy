@@ -383,12 +383,26 @@ class Slice:
 		d["timestep"       ] = d.get("timestep", self.db.getTimesteps()[0])
 		d['view-dep'       ] = d.get('view-dep', True)
 		d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
+		d["offset"         ] = d.get("offset",0.0)
+		d['play']={
+			"sec": d.get("play", {}).get("sec","0.01")
+		}
+
 		field = self.db.getField(d.get("field", self.db.getField().name))
+		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
+		if False:
+			d['palette']={
+				"name"           : d.get("palette", {}).get("name",DEFAULT_PALETTE) ,
+				"metadata-range" : [low, high],
+				"range-mode"    : d.get("palette", {}).get("range-mode","dynamic-acc"),
+				"range"         : d.get("palette", {}).get("range",[low, high]),
+				"log"           : d.get("palette", {}).get("log", False)
+			}
+
 		dtype_range = field.getDTypeRange()
-		dtype_vmin, dtype_vmax = dtype_range.From, dtype_range.To
 		palette = d.get("palette", DEFAULT_PALETTE) 
 		palette_range = d.get("palette-range", None)
-		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic-acc") if palette_range is None else [palette_range,"user"]
+		palette_range,palette_range_mode=([low, high],"dynamic-acc") if palette_range is None else [palette_range,"user"]
 		palette_log = d.get("palette-log", False)
 		d['num-refinements'] = d.get("num-refinements", 2)
 
@@ -397,10 +411,12 @@ class Slice:
 			self.setTimestep(int(d["timestep"]))
 			self.setField(field.name)
 			self.setDirection(2)
+			# self.setOffset(float(d["offset"]))
 			self.setViewDependent(bool(d['view-dep']))
 			self.setResolution(int(d['resolution']))
+			self.setPlaySec(float(d['play']["sec"]))
 			self.setPalette(palette)
-			self.setMetadataPaletteRange([dtype_vmin, dtype_vmax])
+			self.setMetadataPaletteRange([low, high])
 			self.setPaletteRange(palette_range)
 			self.setPaletteRangeMode(palette_range_mode)
 			self.setLogPalette(palette_log)
