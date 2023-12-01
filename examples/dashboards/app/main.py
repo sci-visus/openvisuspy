@@ -53,12 +53,7 @@ if __name__.startswith('bokeh'):
 			query_params={k: v for k,v in pn.state.location.query_params.items()}
 
 			view = Slices()
-			view.setShowOptions([
-				["view_mode","datasets", "palette", "resolution", "view_dep", "num_refinements", "log_colormapper", "show_metadata", "logout"],
-				["datasets", "direction", "offset", "log_colormapper", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
-			])
-			
-			view.setConfig(config)
+			view.setDashboardsConfig(config)
 
 			datasets=view.getDatasets()
 			dataset=query_params.get("dataset",None)
@@ -67,7 +62,6 @@ if __name__.startswith('bokeh'):
 
 			if dataset is not None:
 				view.setDataset(dataset, force=True)
-
 
 			main_layout = view.getMainLayout()
 			use_template = False

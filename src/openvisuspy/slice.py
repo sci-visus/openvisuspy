@@ -43,6 +43,11 @@ DEFAULT_PALETTE="Viridis256"
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_SHOW_OPTIONS=[
+	["view_mode","dataset", "palette", "resolution", "view_dep", "num_refinements", "palette_log", "show_metadata", "logout"],
+	["dataset", "direction", "offset", "palette_log", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
+]
+
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice:
 
@@ -51,12 +56,7 @@ class Slice:
 	start_resolution = 20
 
 	# constructor
-	def __init__(self, parent=None,show_options=[
-			["palette", "timestep", "field", "view_dep", "resolution"],
-			["direction", "offset", "view_dep"]
-		]):
-
-		self.show_options  = show_options
+	def __init__(self, parent=None):
 
 		self.callbacks={}
 
@@ -64,7 +64,8 @@ class Slice:
 		self.num_hold=0
 		self.id = f"{type(self).__name__}/{Slice.ID}"
 		Slice.ID += 1
-		self.config = {}
+		self.dashboards_config     = {}
+		self.dashboards_config_url = None
 		self.db = None
 		self.access = None
 		self.render_id = 0 
@@ -81,12 +82,13 @@ class Slice:
 
 		self.widgets = types.SimpleNamespace()
 
-		self.widgets.datasets              = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new, force=True))
+		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2 link", "4", "4 link"],width=80, callback=self.setViewMode)
+		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new, force=True))
 		self.widgets.palette               = Widgets.ColorMap (options=PALETTES, value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette)
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode,)
 		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=self.onPaletteRangeChange,width=80)
 		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=self.onPaletteRangeChange,width=80)
-		self.widgets.log_colormapper       = Widgets.CheckBox (name="Log", value=False, callback=self.setLogColorMapper)
+		self.widgets.palette_log           = Widgets.CheckBox (name="Log", value=False, callback=self.setLogPalette)
 		self.widgets.timestep              = Widgets.Slider   (name='Time', type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,width=120)
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField)
@@ -107,7 +109,6 @@ class Slice:
 		self.widgets.play_button            = Widgets.Button(name="Play", width=8, callback=self.togglePlay)
 		self.widgets.play_sec               = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
 		self.widgets.show_metadata          = Widgets.Button(name="Metadata", callback=self.showMetadata)
-		self.widgets.view_mode              = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2 link", "4", "4 link"],width=80, callback=self.setViewMode)
 		self.widgets.logout                 = Widgets.Button(name="Logout")
 		self.widgets.logout.js_on_click(code="""window.location=window.location.href + "/logout" """)
 
@@ -165,15 +166,6 @@ class Slice:
 	def setNumberOfViews(self, value):
 		self.setViewMode(str(value))
 
-	# getShowOptions
-	def getShowOptions(self):
-		return self.show_options
-
-	# setShowOptions
-	def setShowOptions(self,value):
-		self.show_options=value
-		self.refreshGui()
-
 	# getViewMode
 	def getViewMode(self):
 		return self.widgets.view_mode.value
@@ -184,8 +176,8 @@ class Slice:
 		logger.debug(f"[{self.id}] value={value}")
 		self.refreshGui()
 
-	# loadConfig
-	def loadConfig(self, value):
+	# loadDashboardsConfig
+	def loadDashboardsConfig(self, value):
 
 		assert(isinstance(value,str) ) 
 		url=value
@@ -207,33 +199,34 @@ class Slice:
 
 		return json.loads(body) if body else {}
 		 
-		
-		# getConfig
-	def getConfig(self):
-		return self.config
+	# getDashboardsConfig
+	def getDashboardsConfig(self):
+		return self.dashboards_config
 
-	# setConfig
-	def setConfig(self, value):
+	# setDashboardsConfig
+	def setDashboardsConfig(self, value):
 		if value is None:  return
-		logger.debug(f"[{self.id}] setConfig value={str(value)[0:80]}...")
+		
+		logger.debug(f"[{self.id}] value={str(value)[0:80]}...")
 
 		if not isinstance(value,dict):
-			value=self.loadConfig(value)
+			self.dashboards_config_url=value
+			value=self.loadDashboardsConfig(value)
 	
 		assert(isinstance(value,dict))
-		self.config = value
+		self.dashboards_config = value
 		self.setDatasets([it["name"] for it in value.get("datasets",[])])
 
 		for it in self.slices:
-			it.setConfig(value)
+			it.setDashboardsConfig(value)
 
 	# setDatasets
 	def setDatasets(self,value):
-		self.widgets.datasets.options = value
+		self.widgets.dataset.options = value
 
 	# getDatasets
 	def getDatasets(self):
-		return self.widgets.datasets.options
+		return self.widgets.dataset.options
 
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
@@ -270,7 +263,7 @@ class Slice:
 		self.setLogicToPhysic(T)
 	# getDataset
 	def getDataset(self):
-		return self.widgets.datasets.value
+		return self.widgets.dataset.value
 
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
@@ -284,18 +277,18 @@ class Slice:
 		if not force and self.getDataset() == name:
 			return
 
-		self.widgets.datasets.value = name
+		self.widgets.dataset.value = name
 
-		config=self.getDatasetConfig()
+		dataset_config=self.getDatasetConfig()
 
 		# self.doc.title = f"ViSUS {name}"
 
-		self.db=self.loadDataset(config["url"], config) if db is None else db
+		self.db=self.loadDataset(dataset_config["url"], dataset_config) if db is None else db
 		self.access = self.db.createAccess()
 		for it in self.slices:
 			it.setDataset(name, db=self.db)
 
-		self.setStatus(config)
+		self.setStatus(dataset_config)
 
 		# the parent will take care of creating the gui
 		if not self.parent:
@@ -304,12 +297,12 @@ class Slice:
 		self.triggerCallback('dataset', None, name)
 
 	# loadDataset
-	def loadDataset(self, url, config={}):
+	def loadDataset(self, url, dataset_config={}):
 
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
-		if "urls" in config and "--prefer" in sys.argv:
+		if "urls" in dataset_config and "--prefer" in sys.argv:
 			prefer = sys.argv[sys.argv.index("--prefer") + 1]
-			for it in config["urls"]:
+			for it in dataset_config["urls"]:
 				if it["id"] == prefer:
 					url = it["url"]
 					logger.info(f"Overriding url from {it}")
@@ -320,34 +313,56 @@ class Slice:
 
 	# getStatus
 	def getStatus(self):
+		ret={
+			"config": self.dashboards_config_url,
+			"view-mode": self.getViewMode(),
+			"dataset": self.getDataset(), 
+			# NOT needed
+			#   "timesteps": self.getTimesteps(),
+			#   "physic_box": self.getPhysicBox(),
+			#   "fields": self.getFields(),
+			"timestep-delta": self.getTimestepDelta(),
+			"timestep": self.getTimestep(),
+			"direction": self.getDirection(),
+			"offset": self.getOffset(), 
+			"field": self.getField(),
+			"view-dep": self.isViewDependent(),
+			"resolution": self.getResolution(),
+			"num-refinements": self.getNumberOfRefinements(),
+			"play":{
+				"sec": self.widgets.play_sec.value
+			},
+			"palette": {
+				"name": self.getPalette(),
+				"range": self.getPaletteRange(),
+				# "metadata-range": self.getMetadataPaletteRange(),
+				"range-mode": self.getPaletteRangeMode(),
+				"log": self.isLogPalette(),
+			},
+			"slices":[]
+		}
 
-		return dict(
-			timesteps=self.getTimesteps(),
-			timestep_delta=self.getTimestepDelta(),
-			timestep=self.getTimestep(),
-			directions=self.getDirections(),
-			physic_box=self.getPhysicBox(),
-			fields=self.getFields(),
-			field=self.getField(),
-			direction=self.getDirection(),
-			view_dep=self.getViewDependent(),
-			resolution=self.getResolution(),
-			palette=self.getPalette(),
-			palette_range=self.getPaletteRange(),
-			palette_medatadata_range=self.getMetadataPaletteRange(),
-			palette_range_mode=self.getPaletteRangeMode(),
-			log_colormapper=self.isLogColorMapper(),
-			num_refinements=self.getNumberOfRefinements()
-		)
+		for it in self.slices:
+			sub=it.getStatus()
+			# do not repeat same value in child
+			for k,v in copy.deepcopy(sub.items()):
+				if v==ret.get(k,None):
+					del sub[k]
+			ret["slices"].append(sub)
+
+		return ret
+
 
 	# guessInitialStatus
-	def setStatus(self, config):
+	def setStatus(self, d):
+
+		# TODO: this assume the config and dataset are the same
 
 		# read the configuration and guess values if needed
 		pdim = self.getPointDim()
 		timesteps = self.db.getTimesteps()
-		timestep_delta = int(config.get("timestep-delta", 1))
-		timestep = int(config.get("timestep", timesteps[0]))
+		timestep_delta = int(d.get("timestep-delta", 1))
+		timestep = int(d.get("timestep", timesteps[0]))
 		physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
 		physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
 
@@ -357,20 +372,19 @@ class Slice:
 		else:
 			directions = {name: I for I, name in enumerate(directions)}
 
-		view_dep = bool(config.get('view-dep', True))
-		resolution = int(config.get("resolution", self.db.getMaxResolution() - 6))
+		view_dep = bool(d.get('view-dep', True))
+		resolution = int(d.get("resolution", self.db.getMaxResolution() - 6))
 		pdim = self.db.getPointDim()
 		fields = self.db.getFields()
-		field = self.db.getField(config.get("field", self.db.getField().name))
+		field = self.db.getField(d.get("field", self.db.getField().name))
 		dtype_range = field.getDTypeRange()
 		dtype_vmin, dtype_vmax = dtype_range.From, dtype_range.To
-		palette = config.get("palette", DEFAULT_PALETTE) 
-		palette_range = config.get("palette-range", None)
+		palette = d.get("palette", DEFAULT_PALETTE) 
+		palette_range = d.get("palette-range", None)
 		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic-acc") if palette_range is None else [palette_range,"user"]
-		log_colormapper = config.get("log-colormapper", False)
-		num_refinements = int(config.get("num-refinements", 2))
+		palette_log = d.get("palette-log", False)
+		num_refinements = int(d.get("num-refinements", 2))
 		
-		# setting the status
 		self.setTimesteps(timesteps)
 		self.setTimestepDelta(timestep_delta)
 		self.setTimestep(timestep)
@@ -385,16 +399,19 @@ class Slice:
 		self.setMetadataPaletteRange([dtype_vmin, dtype_vmax])
 		self.setPaletteRange(palette_range)
 		self.setPaletteRangeMode(palette_range_mode)
-		self.setLogColorMapper(log_colormapper)
+		self.setLogPalette(palette_log)
 		self.setNumberOfRefinements(num_refinements)
+
+		# todo slices
 
 		self.refresh()
 
 	# getDatasetConfig
 	def getDatasetConfig(self):
 		name=self.getDataset()
-		config=[it for it in self.config.get("datasets",[]) if it['name']==name]
-		return config[0] if config else {"name": name, "url": name}
+		datasets=self.dashboards_config.get("datasets",[])
+		ret=[it for it in datasets if it['name']==name]
+		return ret[0] if ret else {"name": name, "url": name}
 
 	# showMetadata
 	def showMetadata(self):
@@ -609,20 +626,18 @@ class Slice:
 		self.color_map=None
 		self.refresh()
 
-	# isLogColorMapper
-	def isLogColorMapper(self):
-		return self.widgets.log_colormapper.value
+	# isLogPalette
+	def isLogPalette(self):
+		return self.widgets.palette_log.value
 
-	# setLogColorMapper
-	def setLogColorMapper(self, value):
+	# setLogPalette
+	def setLogPalette(self, value):
 		logger.debug(f"[{self.id}] value={value}")
 
 		palette = self.getPalette()
-		self.widgets.log_colormapper.value = value
-
+		self.widgets.palette_log.value = value
 		for it in self.slices:
-			it.setLogColorMapper(value)
-
+			it.setLogPalette(value)
 		# force refresh
 		self.color_bar=None 
 		self.refresh()
@@ -931,7 +946,7 @@ class Slice:
 
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self, value):
-		self.widgets.datasets.disabled = value
+		self.widgets.dataset.disabled = value
 		self.widgets.palette.disabled = value
 		self.widgets.timestep.disabled = value
 		self.widgets.timestep_delta.disabled = value
@@ -1080,7 +1095,7 @@ class Slice:
 
 		# regenerate colormap
 		if self.color_bar is None:
-			is_log=self.isLogColorMapper()
+			is_log=self.isLogPalette()
 			palette=self.widgets.palette.value
 			mapper_low =max(self.epsilon, low ) if is_log else low
 			mapper_high=max(self.epsilon, high) if is_log else high
@@ -1234,29 +1249,31 @@ class Slice:
 
 		self.dialogs={}
 		self.dialogs_placeholder=pn.Column(height=0, width=0)
+		self_show_options=self.dashboards_config.get("show-options",DEFAULT_SHOW_OPTIONS)
 
 		for I in range(nviews):
 
-			options=self.show_options[1]
-
 			# useless to replicate options down
+			
 			if nviews==1:
-				options=[it for it in options if it not in self.show_options[0]]
+				slice_show_options=[it for it in self_show_options[1] if it not in self_show_options[0]]
+			else:
+				slice_show_options=self_show_options[1]
 
-			slice = Slice(parent=self, show_options=None)
+			slice = Slice(parent=self)
 			self.slices.append(slice)
 
 			from .probe import ProbeTool
 			slice.tool = ProbeTool(slice)
 			slice.tool.main_layout.visible=show_probe
 
-			slice.config=self.getConfig()
+			slice.dashboards_config=self.dashboards_config
 			# slice.widgets.show_probe = Widgets.Button(name="Probe", callback=lambda: slice.tool.setVisible(not slice.tool.isVisible()))
 
 			slice.main_layout=pn.Row(
 				pn.Column(
 					pn.Row(
-						*[getattr(slice.widgets,it.replace("-","_")) for it in options], # child
+						*[getattr(slice.widgets,it.replace("-","_")) for it in slice_show_options], # child
 							sizing_mode="stretch_width"),
 					pn.Row(
 						slice.canvas.main_layout, 
@@ -1279,7 +1296,7 @@ class Slice:
 		self.main_layout.append(
 			pn.Column(
 				pn.Row(
-					*[getattr(self.widgets, it.replace("-", "_")) for it in self.show_options[0]], # parent
+					*[getattr(self.widgets, it.replace("-", "_")) for it in self_show_options[0]], # parent
 					sizing_mode="stretch_width"
 				), 
 				pn.GridBox(
