@@ -434,6 +434,20 @@ class Slice:
 
 		# self.unhold()
 
+		# recursive
+		for S,it in d.get("slices",{}):
+			if S>=len(self.slices): 
+				break
+
+			if it.get("dataset",dataset)==dataset:
+				sub_d=copy.deepcopy(d) # inherit values from the parent
+			else:
+				sub_d={} # do not inherit
+
+			# children values will always overwrite have precedence
+			sub_d.update(it)
+			self.slices[S].load(sub_d)
+
 		self.refresh()
 
 	# getDatasetConfig
