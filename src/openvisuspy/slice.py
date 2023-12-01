@@ -340,15 +340,16 @@ class Slice:
 	# guessInitialStatus
 	def load(self, d):
 
+			# broken??? try to change the dataset...
+		# self.hold()
+
+		dataset=d.get("dataset",d["name"])
 
 		# viewmode is only a thingy for the parent
 		if not self.parent:
 			self.setViewMode(d.get("view-mode","1"))
 
-
 		
-		# self.hold()
-		dataset=d.get("dataset",d["name"])
 		
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
 		if "urls" in d and "--prefer" in sys.argv:
