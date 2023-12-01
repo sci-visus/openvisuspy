@@ -385,12 +385,12 @@ class Slice:
 		d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
 		d["field"          ] = d.get("field", self.db.getField().name)
 		d["offset"         ] = d.get("offset",0.0)
+		d['num-refinements'] = d.get("num-refinements", 2)
+		d['direction']       = d.get("direction", 2)
 		d['play']={
 			"sec": d.get("play", {}).get("sec","0.01")
 		}
 
-		field = self.db.getField(d["field"])
-		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
 		if False:
 			d['palette']={
 				"name"           : d.get("palette", {}).get("name",DEFAULT_PALETTE) ,
@@ -400,18 +400,19 @@ class Slice:
 				"log"           : d.get("palette", {}).get("log", False)
 			}
 
-		dtype_range = field.getDTypeRange()
+		field = self.db.getField(d["field"])
+		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
 		palette = d.get("palette", DEFAULT_PALETTE) 
 		palette_range = d.get("palette-range", None)
 		palette_range,palette_range_mode=([low, high],"dynamic-acc") if palette_range is None else [palette_range,"user"]
 		palette_log = d.get("palette-log", False)
-		d['num-refinements'] = d.get("num-refinements", 2)
+		
 
 		if True:
-			self.setTimestepDelta(int(d["timestep-delta" ]))
+			self.setTimestepDelta(int(d["timestep-delta"]))
 			self.setTimestep(int(d["timestep"]))
-			self.setField(field.name)
-			self.setDirection(2)
+			self.setField(d["field"])
+			self.setDirection(int(d["direction"]))
 			# self.setOffset(float(d["offset"]))
 			self.setViewDependent(bool(d['view-dep']))
 			self.setResolution(int(d['resolution']))
