@@ -178,7 +178,7 @@ class Slice:
 	def setViewMode(self, value):
 		value=str(value).lower().strip()
 		logger.debug(f"[{self.id}] value={value}")
-		self.refreshGui()
+		self.rebuildGui()
 
 	# loadDashboardsConfig
 	def loadDashboardsConfig(self, value):
@@ -296,7 +296,7 @@ class Slice:
 
 		# the parent will take care of creating the gui
 		if not self.parent:
-			self.refreshGui()
+			self.rebuildGui()
 
 		self.triggerOnChange('dataset', None, name)
 
@@ -315,8 +315,8 @@ class Slice:
 		logger.info(f"Loading dataset url={url}")
 		return LoadDataset(url=url)
 
-	# getStatus
-	def getStatus(self):
+	# save
+	def save(self):
 		ret={
 			# must connect to the same dashboard to make it working...
 			# "config": self.dashboards_config_url,
@@ -328,7 +328,8 @@ class Slice:
 			#   "timesteps": self.getTimesteps(),
 			#   "physic_box": self.getPhysicBox(),
 			#   "fields": self.getFields(),
-			
+			#   "directions" : self.getDirections(),
+
 			"timestep-delta": self.getTimestepDelta(),
 			"timestep": self.getTimestep(),
 			"direction": self.getDirection(),
@@ -338,26 +339,31 @@ class Slice:
 			"resolution": self.getResolution(),
 			"num-refinements": self.getNumberOfRefinements(),
 			"play":{
-				"sec": self.widgets.play_sec.value
+				"sec": self.getPlaySec()
 			},
 			"palette": {
 				"name": self.getPalette(),
 				"range": self.getPaletteRange() if self.getPaletteRangeMode()=="user" else [0.0,1.0],
-				# "metadata-range": self.getMetadataPaletteRange(),
+				# "metadata-range": self.getMetadataPaletteRange(), NOT NEEDED
 				"range-mode": self.getPaletteRangeMode(),
 				"log": self.isLogPalette(),
-			},
-			"slices":[]
+			}
 		}
 
-		for it in self.slices:
-			sub=it.getStatus()
-			# do not repeat same value in child
-			for k in copy.copy(sub):
-				v=sub[k]
-				if v==ret.get(k,None):
-					del sub[k]
-			ret["slices"].append(sub)
+		for I,it in enumerate(self.slices):
+			sub=it.save()
+
+			# do not repeat same value in child since they will be inherited
+			if self.getDataset()==it.getDataset():
+				for k in copy.copy(sub):
+					v=sub[k]
+					if v==ret.get(k,None):
+						del sub[k]
+			else:
+				"""otherwise to need to dump the full status since they are two different datasets"""
+			
+			if sub:
+				ret["slices"][I]=sub
 
 		return ret
 
@@ -424,7 +430,7 @@ class Slice:
 
 	# saveAs
 	def saveAs(self):
-		status=self.getStatus()
+		status=self.save()
 		sio = io.StringIO(json.dumps(status))
 		sio.seek(0)
 		self.showDialog(
@@ -505,6 +511,8 @@ class Slice:
 		self.widgets.timestep.start = value[0]
 		self.widgets.timestep.end = value[-1]
 		self.widgets.timestep.step = 1
+		for it in self.slices:
+			it.setTimesteps(value)
 
 	# speedFromOption
 	def speedFromOption(self, option):
@@ -513,6 +521,16 @@ class Slice:
 	# optionFromSpeed
 	def optionFromSpeed(self, speed):
 		return (str(speed) + "x")
+
+	# getPlaySec
+	def getPlaySec(self):
+		return self.widgets.play_sec.value
+
+	# setPlaySec
+	def setPlaySec(self,value):
+		self.widgets.play_sec.value=value
+		for it in self.slices:
+			it.setPlaySec(value)
 
 	# getTimestepDelta
 	def getTimestepDelta(self):
@@ -1239,8 +1257,8 @@ class Slice:
 				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30) if IsPyodide() else pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
 
 
-	# refreshGui
-	def refreshGui(self):
+	# rebuildGui
+	def rebuildGui(self):
 
 		self.hold()
 
