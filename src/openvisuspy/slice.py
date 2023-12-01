@@ -342,6 +342,11 @@ class Slice:
 
 		# self.hold()
 
+		# viewmode is only a thingy for the parent
+		if not self.parent:
+			self.setViewMode(d.get("view-mode","1"))
+
+
 		dataset=d.get("dataset",d["name"])
 		
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
