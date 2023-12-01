@@ -45,7 +45,7 @@ DEFAULT_PALETTE="Viridis256"
 logger = logging.getLogger(__name__)
 
 DEFAULT_SHOW_OPTIONS=[
-	["view_mode","dataset", "palette", "resolution", "view_dep", "num_refinements", "palette_log", "show_metadata", "save", "logout"],
+	["view_mode","dataset", "palette", "resolution", "view_dep", "num_refinements", "palette_log", "show_metadata", "open", "save", "logout"],
 	["dataset", "direction", "offset", "palette_log", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
 ]
 
@@ -112,6 +112,7 @@ class Slice:
 		self.widgets.play_button            = Widgets.Button(name="Play", width=8, callback=self.togglePlay)
 		self.widgets.play_sec               = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
 		self.widgets.show_metadata          = Widgets.Button(name="Metadata", callback=self.showMetadata)
+		self.widgets.open                   = Widgets.Button(name="Open", callback=self.openAs)
 		self.widgets.save                   = Widgets.Button(name="Save", callback=self.saveAs)
 		self.widgets.logout                 = Widgets.Button(name="Logout")
 		self.widgets.logout.js_on_click(code="""window.location=window.location.href + "/logout" """)
@@ -340,17 +341,21 @@ class Slice:
 	# guessInitialStatus
 	def load(self, d):
 
-			# broken??? try to change the dataset...
+		# broken??? try to change the dataset...
 		# self.hold()
 
-		dataset=d.get("dataset",d["name"])
+		if isinstance(d,str):
+			d=json.loads(d)
+
+		dataset=d.get("dataset",d.get("name"))
+		assert(dataset)
+
+		url=self.getDatasetConfig(dataset)["url"]
 
 		# viewmode is only a thingy for the parent
 		if not self.parent:
 			self.setViewMode(d.get("view-mode","1"))
 
-		
-		
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
 		if "urls" in d and "--prefer" in sys.argv:
 			prefer = sys.argv[sys.argv.index("--prefer") + 1]
@@ -358,12 +363,12 @@ class Slice:
 			v=[it for it in urls if it["id"] == prefer]
 			if v:
 				logger.info(f"Overriding url from {v[0]}")
-				d["url"] = v[0]["url"]
+				url = v[0]["url"]
 
 		# # load dataset
 		if True:
-			logger.info(f"Loading dataset url={d['url']}")
-			self.db=LoadDataset(url=d["url"]) if not self.parent else self.parent.db
+			logger.info(f"Loading dataset url={url}")
+			self.db=LoadDataset(url=url) if not self.parent else self.parent.db
 			self.access = self.db.createAccess()
 			self.widgets.dataset.value = dataset
 
@@ -372,7 +377,7 @@ class Slice:
 		# assuming all children will have the same dataset, if not later I am rewritingt it
 		# for the below calls I need the sub dataset to be ready
 		for it in self.slices:
-			it.widgets.dataset.value = d['name']
+			it.widgets.dataset.value = dataset
 			it.db=self.db
 			it.access=it.db.createAccess()
 
@@ -458,6 +463,32 @@ class Slice:
 		datasets=self.dashboards_config.get("datasets",[])
 		ret=[it for it in datasets if it['name']==name]
 		return ret[0] if ret else {"name": name, "url": name}
+
+	# openAs
+	def openAs(self):
+		
+
+		file_input = pn.widgets.FileInput(accept=".json",sizing_mode="stretch_width")
+		text_area=pn.widgets.TextAreaInput(name='JSON',sizing_mode="stretch_width",height=400)
+
+		def doOpen(evt=None):
+			if file_input.value:
+				d=file_input.value.decode('ascii')
+			else:
+				d=text_area.value
+
+			self.load(d)
+
+		button=Widgets.Button(name="Open", width=8, callback=doOpen,align='end')
+
+		self.showDialog(
+			pn.Column(
+				file_input,
+				text_area,
+				button, 
+				sizing_mode="stretch_width"
+			), 
+			name="Open")
 
 	# saveAs
 	def saveAs(self):
