@@ -383,6 +383,7 @@ class Slice:
 		d["timestep"       ] = d.get("timestep", self.db.getTimesteps()[0])
 		d['view-dep'       ] = d.get('view-dep', True)
 		d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
+		d["direction"      ] = d.get("direction",2)
 		field = self.db.getField(d.get("field", self.db.getField().name))
 		dtype_range = field.getDTypeRange()
 		dtype_vmin, dtype_vmax = dtype_range.From, dtype_range.To
@@ -396,7 +397,7 @@ class Slice:
 			self.setTimestepDelta(int(d["timestep-delta" ]))
 			self.setTimestep(int(d["timestep"]))
 			self.setField(field.name)
-			self.setDirection(2)
+			self.setDirection(int(d["direction"]))
 			self.setViewDependent(bool(d['view-dep']))
 			self.setResolution(int(d['resolution']))
 			self.setPalette(palette)
@@ -562,6 +563,8 @@ class Slice:
 	def setFields(self, value):
 		logger.debug(f"[{self.id}] value={value}")
 		self.widgets.field.options = list(value)
+		for it in self.slices:
+			it.setFields(value)
 
 	# getField
 	def getField(self):
