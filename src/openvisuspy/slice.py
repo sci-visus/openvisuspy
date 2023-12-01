@@ -362,8 +362,12 @@ class Slice:
 
 		# self.doc.title = f"ViSUS {d['dataset']}"
 
+		# assuming all children will have the same dataset, if not later I am rewritingt it
+		# for the below calls I need the sub dataset to be ready
 		for it in self.slices:
-			it.setDataset(dataset)
+			it.widgets.dataset.value = d['name']
+			it.db=self.db
+			it.access=it.db.createAccess()
 
 		# automatic from dataset
 		if True:
@@ -415,7 +419,7 @@ class Slice:
 			self.setTimestep(int(d["timestep"]))
 			self.setField(d["field"])
 			self.setDirection(int(d["direction"]))
-			# self.setOffset(float(d["offset"]))
+			# self.setOffset(float(d["offset"])) FIX HERE
 			self.setViewDependent(bool(d['view-dep']))
 			self.setResolution(int(d['resolution']))
 			self.setPlaySec(float(d['play']["sec"]))
