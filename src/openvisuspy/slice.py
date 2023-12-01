@@ -758,7 +758,10 @@ class Slice:
 		self.widgets.direction.value = value
 
 		# default behaviour is to guess the offset
-		self.guessOffset()
+		_value,_range=self.guessOffset()
+		self.setOffsetRange(_range)  # both extrema included
+		self.setOffset(_value)
+		
 
 		if self.canvas:
 			dims=[int(it) for it in self.db.getLogicSize()]
@@ -791,17 +794,17 @@ class Slice:
 		titles = list(directions.keys())
 		return (X, Y, Z), (titles[X], titles[Y], titles[Z] if len(titles) == 3 else 'Z')
 
-	# getOffsetStartEnd
-	def getOffsetStartEnd(self):
+	# getOffsetRange
+	def getOffsetRange(self):
 		return self.widgets.offset.start, self.widgets.offset.end, self.widgets.offset.step
 
-	# setOffsetStartEnd
-	def setOffsetStartEndStep(self, value):
+	# setOffsetRange
+	def setOffsetRange(self, value):
 		A, B, step = value
 		logger.debug(f"[{self.id}] value={value}")
 		self.widgets.offset.start, self.widgets.offset.end, self.widgets.offset.step = A, B, step
 		for it in self.slices:
-			it.setOffsetStartEndStep(value)
+			it.setOffsetRange(value)
 
 	# getOffset (in physic domain)
 	def getOffset(self):
@@ -812,7 +815,7 @@ class Slice:
 		logger.debug(f"[{self.id}] new-value={value} old-value={self.getOffset()}")
 
 		# do not send float offset if it's all integer
-		if all([int(it) == it for it in self.getOffsetStartEnd()]):
+		if all([int(it) == it for it in self.getOffsetRange()]):
 			value = int(value)
 
 		self.widgets.offset.value = value
@@ -835,8 +838,7 @@ class Slice:
 			assert dir == 2
 			value = 0
 			logger.debug(f"[{self.id}] pdim==2 calling setOffset({value})")
-			self.setOffsetStartEndStep([0, 0, 1])  # both extrema included
-			self.setOffset(value)
+			return value,[0, 0, 1]
 		else:
 			vt = [self.logic_to_physic[I][0] for I in range(pdim)]
 			vs = [self.logic_to_physic[I][1] for I in range(pdim)]
@@ -844,13 +846,11 @@ class Slice:
 			if all([it == 0 for it in vt]) and all([it == 1.0 for it in vs]):
 				dims = [int(it) for it in self.db.getLogicSize()]
 				value = dims[dir] // 2
-				self.setOffsetStartEndStep([0, int(dims[dir]) - 1, 1])
-				self.setOffset(value)
+				return value,[0, int(dims[dir]) - 1, 1]
 			else:
 				A, B = self.getPhysicBox()[dir]
 				value = (A + B) / 2.0
-				self.setOffsetStartEndStep([A, B, 0])
-				self.setOffset(value)
+				return value,[A, B, 0]
 
 	# toPhysic
 	def toPhysic(self, value):
