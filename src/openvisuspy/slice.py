@@ -340,24 +340,28 @@ class Slice:
 	# guessInitialStatus
 	def load(self, d):
 
-		self.widgets.dataset.value = d["name"]
-
+		dataset=d.get("dataset",d["name"])
+		
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
 		if "urls" in d and "--prefer" in sys.argv:
 			prefer = sys.argv[sys.argv.index("--prefer") + 1]
-			v=[it for it in d["urls"] if it["id"] == prefer]
+			urls=self.getDatasetConfig(dataset).get("urls",{})
+			v=[it for it in urls if it["id"] == prefer]
 			if v:
 				logger.info(f"Overriding url from {v[0]}")
 				d["url"] = v[0]["url"]
 
-		logger.info(f"Loading dataset url={d['url']}")
-		self.db=LoadDataset(url=d["url"]) if not self.parent else self.parent.db
-		self.access = self.db.createAccess()
+		# # load dataset
+		if True:
+			logger.info(f"Loading dataset url={d['url']}")
+			self.db=LoadDataset(url=d["url"]) if not self.parent else self.parent.db
+			self.access = self.db.createAccess()
+			self.widgets.dataset.value = dataset
 
-		# self.doc.title = f"ViSUS {d['name']}"
+		# self.doc.title = f"ViSUS {d['dataset']}"
 
 		for it in self.slices:
-			it.setDataset(d["name"])
+			it.setDataset(dataset)
 
 		# automatic from dataset
 		if True:
