@@ -395,9 +395,12 @@ class Slice:
 			d['view-dep'       ] = d.get('view-dep', True)
 			d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
 			d["field"          ] = d.get("field", self.db.getField().name)
-			d["offset"         ] = d.get("offset",0.0)
 			d['num-refinements'] = d.get("num-refinements", 2)
 			d['direction']       = d.get("direction", 2)
+
+			default_offset, offset_range=self.guessOffset(int(d['direction']))
+			d["offset"         ] = d.get("offset",default_offset)
+
 			d['play']={
 				"sec": d.get("play", {}).get("sec","0.01")
 			}
@@ -417,7 +420,8 @@ class Slice:
 			self.setTimestep(int(d["timestep"]))
 			self.setField(d["field"])
 			self.setDirection(int(d["direction"]))
-			# self.setOffset(float(d["offset"])) FIX HERE
+			self.setOffsetRange(offset_range) 
+			self.setOffset(float(d["offset"]))
 			self.setViewDependent(bool(d['view-dep']))
 			self.setResolution(int(d['resolution']))
 			self.setPlaySec(float(d['play']["sec"]))
@@ -758,11 +762,10 @@ class Slice:
 		self.widgets.direction.value = value
 
 		# default behaviour is to guess the offset
-		_value,_range=self.guessOffset()
+		_value,_range=self.guessOffset(self.getDirection())
 		self.setOffsetRange(_range)  # both extrema included
 		self.setOffset(_value)
 		
-
 		if self.canvas:
 			dims=[int(it) for it in self.db.getLogicSize()]
 			self.setQueryLogicBox(([0]*self.getPointDim(),dims))
@@ -828,10 +831,9 @@ class Slice:
 		self.refresh()
 
 	# guessOffset
-	def guessOffset(self):
+	def guessOffset(self, dir):
 
 		pdim = self.getPointDim()
-		dir = self.getDirection()
 
 		# 2d there is no direction
 		if pdim == 2:
