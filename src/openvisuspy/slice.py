@@ -143,7 +143,7 @@ class Slice:
 	def hold(self):
 		self.num_hold+=1
 		if self.num_hold==1:
-			pn.state.curdoc.hold(policy="combine")
+			pn.state.curdoc.hold(policy="collect")
 
 	# hold
 	def unhold(self):
@@ -340,12 +340,14 @@ class Slice:
 	# guessInitialStatus
 	def load(self, d):
 
-		# self.hold()
 
 		# viewmode is only a thingy for the parent
 		if not self.parent:
 			self.setViewMode(d.get("view-mode","1"))
 
+
+		
+		# self.hold()
 		dataset=d.get("dataset",d["name"])
 		
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
@@ -432,8 +434,6 @@ class Slice:
 			self.setLogPalette(bool(d["palette"]["log"]))
 			self.setNumberOfRefinements(int(d['num-refinements']))
 
-		# self.unhold()
-
 		# recursive
 		for S,it in d.get("slices",{}):
 			if S>=len(self.slices): 
@@ -448,6 +448,7 @@ class Slice:
 			sub_d.update(it)
 			self.slices[S].load(sub_d)
 
+		# self.unhold()
 		self.refresh()
 
 	# getDatasetConfig
