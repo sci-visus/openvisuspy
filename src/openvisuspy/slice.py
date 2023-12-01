@@ -340,6 +340,8 @@ class Slice:
 	# guessInitialStatus
 	def load(self, d):
 
+		# self.hold()
+
 		dataset=d.get("dataset",d["name"])
 		
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
@@ -423,6 +425,8 @@ class Slice:
 			self.setPaletteRangeMode(palette_range_mode)
 			self.setLogPalette(palette_log)
 			self.setNumberOfRefinements(int(d['num-refinements']))
+
+		# self.unhold()
 
 		# the parent will take care of creating the gui
 		if not self.parent:
