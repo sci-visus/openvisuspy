@@ -281,39 +281,8 @@ class Slice:
 		if not force and self.getDataset() == name:
 			return
 
-		self.widgets.dataset.value = name
-
-		dataset_config=self.getDatasetConfig()
-
-		# self.doc.title = f"ViSUS {name}"
-
-		self.db=self.loadDataset(dataset_config["url"], dataset_config) if db is None else db
-		self.access = self.db.createAccess()
-		for it in self.slices:
-			it.setDataset(name, db=self.db)
-
-		self.setStatus(dataset_config)
-
-		# the parent will take care of creating the gui
-		if not self.parent:
-			self.rebuildGui()
-
+		self.load(self.getDatasetConfig(name))
 		self.triggerOnChange('dataset', None, name)
-
-	# loadDataset
-	def loadDataset(self, url, dataset_config={}):
-
-		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
-		if "urls" in dataset_config and "--prefer" in sys.argv:
-			prefer = sys.argv[sys.argv.index("--prefer") + 1]
-			for it in dataset_config["urls"]:
-				if it["id"] == prefer:
-					url = it["url"]
-					logger.info(f"Overriding url from {it}")
-					break
-
-		logger.info(f"Loading dataset url={url}")
-		return LoadDataset(url=url)
 
 	# save
 	def save(self):
@@ -369,9 +338,29 @@ class Slice:
 
 
 	# guessInitialStatus
-	def setStatus(self, d):
+	def load(self, d):
 
-		# TODO: this assume the config and dataset are the same
+		name=d["name"]
+		url =d["url"]
+		self.widgets.dataset.value = name
+
+		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
+		if "urls" in d and "--prefer" in sys.argv:
+			prefer = sys.argv[sys.argv.index("--prefer") + 1]
+			for it in d["urls"]:
+				if it["id"] == prefer:
+					url = it["url"]
+					logger.info(f"Overriding url from {it}")
+					break
+
+		logger.info(f"Loading dataset url={url}")
+		self.db=LoadDataset(url=url) if not self.parent else self.parent.db
+		self.access = self.db.createAccess()
+
+		# self.doc.title = f"ViSUS {name}"
+
+		for it in self.slices:
+			it.setDataset(name)
 
 		# read the configuration and guess values if needed
 		pdim = self.getPointDim()
@@ -417,13 +406,13 @@ class Slice:
 		self.setLogPalette(palette_log)
 		self.setNumberOfRefinements(num_refinements)
 
-		# todo slices
-
-		self.refresh()
+		# the parent will take care of creating the gui
+		if not self.parent:
+			self.rebuildGui()
 
 	# getDatasetConfig
-	def getDatasetConfig(self):
-		name=self.getDataset()
+	def getDatasetConfig(self, name=None):
+		name=name or self.getDataset()
 		datasets=self.dashboards_config.get("datasets",[])
 		ret=[it for it in datasets if it['name']==name]
 		return ret[0] if ret else {"name": name, "url": name}
@@ -940,7 +929,7 @@ class Slice:
 
 		# avoid playing too fast by waiting a minimum amount of time
 		t2 = time.time()
-		if (t2 - self.play.t1) < float(self.widgets.play_sec.value):
+		if (t2 - self.play.t1) < float(self.getPlaySec()):
 			return
 
 		render_id = [self.render_id] + [it.render_id for it in self.slices]
