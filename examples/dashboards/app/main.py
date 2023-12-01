@@ -1,6 +1,7 @@
 import os, sys
 import argparse,json
 import panel as pn
+import logging
 pn.extension("floatpanel")
 
 # //////////////////////////////////////////////////////////////////////////////////////
@@ -21,7 +22,7 @@ if __name__.startswith('bokeh'):
 
 		from openvisuspy import SetupLogger, IsPanelServe, GetBackend, Slices
 
-		logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"))
+		logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"),logging_level=logging.INFO)
 		logger.info(f"GetBackend()={GetBackend()}")
 
 		if "--dataset" in sys.argv:
@@ -54,7 +55,7 @@ if __name__.startswith('bokeh'):
 			view = Slices()
 			view.setShowOptions([
 				["view_mode","datasets", "palette", "resolution", "view_dep", "num_refinements", "log_colormapper", "show_metadata", "logout"],
-				["datasets", "direction", "offset", "log_colormapper", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax", "show-probe"]
+				["datasets", "direction", "offset", "log_colormapper", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
 			])
 			
 			view.setConfig(config)

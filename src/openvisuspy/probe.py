@@ -43,7 +43,7 @@ class ProbeTool:
 					"fig": []     # or probe fig
 				}
 
-		self.createProbeGui()
+		self.createGui()
 
 		self.owner.on_change('offset'   , lambda attr,old, new: self.refresh()) # display the offset
 		self.owner.on_change('data'     , lambda attr,old, new: self.refresh()) # new data, important for the range
@@ -63,15 +63,15 @@ class ProbeTool:
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		self.fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
 
-		while len(self.fig_placeholder):
-			self.fig_placeholder.pop(0)
+		self.fig_placeholder[:]=[]
 		self.fig_placeholder.append(self.fig)
 
 	# createGui
-	def createProbeGui(self):
+	def createGui(self):
 
 		self.slot = None
 		self.button_css = [None] * len(COLORS)
+		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
 
 		# create buttons
 		self.buttons = []
@@ -80,21 +80,14 @@ class ProbeTool:
 
 		# probe XY space
 		# where the center of the probe (can be set by double click or using this)
-		self.slider_x_pos = Widgets.Slider(name="X coordinate", type="float", value=0.0, start=0.0, end=1.0, step=1.0, editable=True, sizing_mode="stretch_width", parameter_name="value_throttled",
-																							 callback=lambda new: self.onProbeXYChange())
-		self.slider_y_pos = Widgets.Slider(name="Y coordinate", type="float", value=0, start=0, end=1, step=1, editable=True, sizing_mode="stretch_width", parameter_name="value_throttled",
-																							 callback=lambda new: self.onProbeXYChange())
-		self.slider_num_points_x = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
-		self.slider_num_points_y = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
+		self.slider_x_pos         = Widgets.Slider(name="X coordinate", type="float", value=0.0, start=0.0, end=1.0, step=1.0, editable=True, width=160, parameter_name="value_throttled",callback=lambda new: self.onProbeXYChange())
+		self.slider_y_pos         = Widgets.Slider(name="Y coordinate", type="float", value=0, start=0, end=1, step=1, editable=True, width=160, parameter_name="value_throttled",callback=lambda new: self.onProbeXYChange())
+		self.slider_z_range       = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, width=250, callback=lambda evt: self.recompute())
+		self.slider_num_points_x  = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, width=80, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
+		self.slider_num_points_y  = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, width=80, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
+		self.slider_z_res         = Widgets.Slider(name="Res", type="int", start=self.owner.start_resolution, end=99, step=1, value=24, editable=False, width=100, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
+		self.slider_z_op          = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=lambda evt: self.recompute())
 
-		# probe Z space
-		self.slider_z_range = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=True, sizing_mode="stretch_width", callback=lambda evt: self.recompute())
-
-		# probe z res
-		self.slider_z_res = Widgets.Slider(name="Res", type="int", start=self.owner.start_resolution, end=99, step=1, value=24, editable=False, callback=lambda evt: self.recompute(), parameter_name='value_throttled')
-		self.slider_z_op = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg", callback=lambda evt: self.recompute())
-
-		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
 		self.createFigure()
 
 		self.main_layout = pn.Column(
@@ -108,7 +101,10 @@ class ProbeTool:
 				self.slider_num_points_y,
 				sizing_mode="stretch_width"
 			),
-			pn.Row(*[button for button in self.buttons], sizing_mode="stretch_width"),
+			pn.Row(
+				*[button for button in self.buttons], 
+				sizing_mode="stretch_width"
+			),
 			self.fig_placeholder,
 			sizing_mode="stretch_both"
 		)

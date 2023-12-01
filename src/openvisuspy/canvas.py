@@ -20,25 +20,25 @@ class Canvas:
 		self.id=id
 		self.on_event_callbacks = []
 		self.on_resize=None
-		self.__fig=None
+		self.fig=None
 		self.main_layout=pn.Row(sizing_mode="stretch_both")	
 		self.createFigure() 
 		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
-		self.last_renderer=self.__fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
+		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
 		
 	# createFigure
 	def createFigure(self):
-		old=self.__fig
-		self.__fig=bokeh.plotting.figure(active_scroll = "wheel_zoom") 
-		self.__fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
-		self.__fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
-		self.__fig.toolbar_location=None                 if old is None else old.toolbar_location
-		self.__fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
-		self.__fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
-		self.__fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
+		old=self.fig
+		self.fig=bokeh.plotting.figure(active_scroll = "wheel_zoom") 
+		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
+		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
+		self.fig.toolbar_location=None                 if old is None else old.toolbar_location
+		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
+		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
+		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
 		for event,callback in self.on_event_callbacks:
-			self.__fig.on_event(event, callback)
+			self.fig.on_event(event, callback)
 
 		# TODO: keep the renderers but not the
 		if old is not None:
@@ -46,11 +46,10 @@ class Canvas:
 			old.renderers=[]
 			for it in v:
 				if it!=self.last_renderer:
-					self.__fig.renderers.append(it)
+					self.fig.renderers.append(it)
 
-		while len(self.main_layout): 
-			self.main_layout.pop(0)
-		self.main_layout.append(pn.pane.Bokeh(self.__fig))
+		self.main_layout[:]=[]
+		self.main_layout.append(pn.pane.Bokeh(self.fig))
 		
 		self.last_fig_width =0
 		self.last_fig_height=0
@@ -61,12 +60,12 @@ class Canvas:
 
 	# getFigure
 	def getFigure(self):
-		return self.__fig
+		return self.fig
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.__fig.xaxis.axis_label  = x
-		self.__fig.yaxis.axis_label  = y		
+		self.fig.xaxis.axis_label  = x
+		self.fig.yaxis.axis_label  = y		
 
 	# checkFigureResize
 	def checkFigureResize(self):
@@ -79,8 +78,8 @@ class Canvas:
 		# self.fig.on_change('inner_height', self.onResize)
 
 		try:
-			w=self.__fig.inner_width
-			h=self.__fig.inner_height
+			w=self.fig.inner_width
+			h=self.fig.inner_height
 		except Exception as ex:
 			return
 		
@@ -126,13 +125,13 @@ class Canvas:
 	# on_event
 	def on_event(self,event, callback):
 		self.on_event_callbacks.append([event,callback])
-		self.__fig.on_event(event, callback)
+		self.fig.on_event(event, callback)
 
 	  # getViewport [[x1,x2],[y1,y2])
 	def getViewport(self):
 		return [
-			[self.__fig.x_range.start, self.__fig.x_range.end],
-			[self.__fig.y_range.start, self.__fig.y_range.end]
+			[self.fig.x_range.start, self.fig.x_range.end],
+			[self.fig.y_range.start, self.fig.y_range.end]
 		]
 
 	  # setViewport
@@ -155,16 +154,16 @@ class Canvas:
 			x1,y1=cx-w/2,cy-h/2
 			x2,y2=cx+w/2,cy+h/2
 
-		logger.info(f"setViewport x1={x1} x2={x2} y1={y1} y2={y2} W={W} H={H}")
-		self.__fig.x_range.start,self.__fig.x_range.end=x1,x2
-		self.__fig.y_range.start,self.__fig.y_range.end=y1,y2
+		logger.debug(f"setViewport x1={x1} x2={x2} y1={y1} y2={y2} W={W} H={H}")
+		self.fig.x_range.start,self.fig.x_range.end=x1,x2
+		self.fig.y_range.start,self.fig.y_range.end=y1,y2
 
 	# renderPoints
 	#def renderPoints(self, points, size=20, color="red", marker="cross"):
 	#	if self.points is not None: 
-	#		self.__fig.renderers.remove(self.points)
-	#	self.points = self.__fig.scatter(x=[p[0] for p in points], y=[p[1] for p in points], size=size, color=color, marker=marker)   
-	#	assert self.points in self.__fig.renderers
+	#		self.fig.renderers.remove(self.points)
+	#	self.points = self.fig.scatter(x=[p[0] for p in points], y=[p[1] for p in points], size=size, color=color, marker=marker)   
+	#	assert self.points in self.fig.renderers
 
 	# setImage
 	def setImage(self, data, x1, y1, x2, y2, color_bar):
@@ -175,15 +174,18 @@ class Canvas:
 		if self.last_dtype==dtype and self.last_cb==color_bar:
 			# current dtype is 'compatible' with the new image dtype, just change the source _data
 			self.source_image.data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]}
+
+
+			
 		else:
 			self.createFigure()
 			self.source_image = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]})
 
 			if img.dtype==np.uint32:	
-				self.last_renderer=self.__fig.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
+				self.last_renderer=self.fig.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
 			else:
-				self.last_renderer=self.__fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+				self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 
-			self.__fig.add_layout(color_bar, 'right')
+			self.fig.add_layout(color_bar, 'right')
 			self.last_dtype=img.dtype
 			self.last_cb=color_bar

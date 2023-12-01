@@ -85,7 +85,7 @@ def AddAsyncLoop(name, fn, msec):
 				logger.info(f"ERROR {fn} : {ex}")
 			await SleepMsec(msec)
 
-	return asyncio.create_task(MyLoop())			 
+	return asyncio.create_task(MyLoop())
 
 
 # ////////////////////////////////////////////////////////////////////////////////////////////////////////////

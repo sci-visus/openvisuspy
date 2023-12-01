@@ -9,32 +9,28 @@ logger = logging.getLogger(__name__)
 # ////////////////////////////////////////////////////////
 class Widgets:
 
-	@staticmethod
-	def CheckBox(callback=None,**kwargs):
-		ret=pn.widgets.Checkbox(**kwargs)
-		def onChange(evt):
+	@ staticmethod
+	def OnChange(callback):
+		def fn(evt):
 			if evt.old == evt.new or not callback: 
 				return
 			try:
 				callback(evt.new)
 			except:
 				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,"value")
+				raise		
+		return fn
+
+	@staticmethod
+	def CheckBox(callback=None,**kwargs):
+		ret=pn.widgets.Checkbox(**kwargs)
+		ret.param.watch(Widgets.OnChange(callback),"value")
 		return ret
 
 	@staticmethod
 	def RadioButtonGroup(callback=None,**kwargs):
 		ret=pn.widgets.RadioButtonGroup(**kwargs)
-		def onChange(evt):
-			if evt.old == evt.new or not callback: 
-				return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,"value")
+		ret.param.watch(Widgets.OnChange(callback),"value")
 		return ret
 
 	@staticmethod
@@ -57,27 +53,14 @@ class Widgets:
 			"int": pn.widgets.IntInput,
 			"float": pn.widgets.FloatInput
 		}[type](**kwargs)
-		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
+		ret.param.watch(Widgets.OnChange(callback),"value")
 		return ret
 
 
 	@staticmethod
 	def Select(callback=None, **kwargs):
 		ret = pn.widgets.Select(**kwargs) 
-		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,"value")
+		ret.param.watch(Widgets.OnChange(callback),"value")
 		return ret
 
 	@staticmethod
@@ -87,22 +70,16 @@ class Widgets:
 			from bokeh.models.formatters import NumeralTickFormatter
 			kwargs["format"]=NumeralTickFormatter(format=format)
 
-		if "sizing_mode" not in kwargs:
-			kwargs["sizing_mode"]="stretch_width"
+		#if "sizing_mode" not in kwargs:
+		#	kwargs["sizing_mode"]="stretch_width"
 
 		ret = {
 			"int":   pn.widgets.EditableIntSlider   if editable else pn.widgets.IntSlider,
 			"float": pn.widgets.EditableFloatSlider if editable else pn.widgets.FloatSlider,
 			"discrte": pn.widgets.DiscreteSlider
 		}[type](**kwargs) 
-		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,parameter_name)
+
+		ret.param.watch(Widgets.OnChange(callback),parameter_name)
 		return ret
 	
 	@staticmethod
@@ -113,12 +90,6 @@ class Widgets:
 			"float": pn.widgets.EditableRangeSlider if editable else pn.widgets.RangeSlider,
 			"int":   pn.widgets.EditableIntSlider   if editable else pn.widgets.IntRangeSlider
 		}[type](**kwargs)
-		def onChange(evt):
-			if evt.old == evt.new or not callback: return
-			try:
-				callback(evt.new)
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.param.watch(onChange,parameter_name)
+
+		ret.param.watch(Widgets.OnChange(callback),parameter_name)
 		return ret
