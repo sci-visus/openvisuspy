@@ -64,6 +64,12 @@ class Widgets:
 		return ret
 
 	@staticmethod
+	def ColorMap(callback=None, **kwargs):
+		ret = pn.widgets.ColorMap(**kwargs) 
+		ret.param.watch(Widgets.OnChange(callback),"value_name")
+		return ret
+
+	@staticmethod
 	def Slider(callback=None, type="int", parameter_name="value", editable=False, format="0.001",**kwargs):
 
 		if type=="float":

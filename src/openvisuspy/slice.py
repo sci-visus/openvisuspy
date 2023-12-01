@@ -24,8 +24,22 @@ from .canvas import Canvas
 from .widgets import Widgets
 
 import colorcet
-PALETTES = [name for name in bokeh.palettes.__palettes__ if name.endswith("256")]
-PALETTES.extend(sorted([f"colorcet.{name}" for name in colorcet.palette]))
+PALETTES = {}
+
+for name in bokeh.palettes.__palettes__:
+	value=getattr(bokeh.palettes,name,None)
+	if value and len(value)>=256:
+		PALETTES[name]=value
+
+for name in sorted(colorcet.palette):
+	value=getattr(colorcet.palette,name,None)
+	if value and len(value)>=256:
+		# stupid criteria but otherwise I am getting too much palettes
+		if len(name)>12: continue
+		PALETTES[name]=value
+
+
+DEFAULT_PALETTE="Viridis256"
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +82,7 @@ class Slice:
 		self.widgets = types.SimpleNamespace()
 
 		self.widgets.datasets              = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new, force=True))
-		self.widgets.palette               = Widgets.Select   (name='Palette', options=PALETTES, value= 'Viridis256', width=120, callback=self.setPalette)
+		self.widgets.palette               = Widgets.ColorMap (options=PALETTES, value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette)
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode,)
 		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=self.onPaletteRangeChange,width=80)
 		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=self.onPaletteRangeChange,width=80)
@@ -350,7 +364,7 @@ class Slice:
 		field = self.db.getField(config.get("field", self.db.getField().name))
 		dtype_range = field.getDTypeRange()
 		dtype_vmin, dtype_vmax = dtype_range.From, dtype_range.To
-		palette = config.get("palette", "Viridis256")
+		palette = config.get("palette", DEFAULT_PALETTE) 
 		palette_range = config.get("palette-range", None)
 		palette_range,palette_range_mode=([dtype_vmin, dtype_vmax],"dynamic-acc") if palette_range is None else [palette_range,"user"]
 		log_colormapper = config.get("log-colormapper", False)
@@ -525,12 +539,12 @@ class Slice:
 
 	# getPalette
 	def getPalette(self):
-		return self.widgets.palette.value
+		return self.widgets.palette.value_name 
 
 	# setPalette
 	def setPalette(self, value):
 		logger.debug(f"[{self.id}] value={value}")
-		self.widgets.palette.value = value
+		self.widgets.palette.value_name = value
 		self.color_bar=None
 		for it in self.slices:
 			it.setPalette(value)
@@ -1067,8 +1081,7 @@ class Slice:
 		# regenerate colormap
 		if self.color_bar is None:
 			is_log=self.isLogColorMapper()
-			palette=self.getPalette()
-			palette = getattr(colorcet.palette, palette[len("colorcet."):]) if palette.startswith("colorcet.") else palette
+			palette=self.widgets.palette.value
 			mapper_low =max(self.epsilon, low ) if is_log else low
 			mapper_high=max(self.epsilon, high) if is_log else high
 			from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar
