@@ -3,6 +3,7 @@ import types
 import logging
 import copy
 import traceback
+import io 
 
 import requests
 import os,sys,io,threading,time
@@ -44,7 +45,7 @@ DEFAULT_PALETTE="Viridis256"
 logger = logging.getLogger(__name__)
 
 DEFAULT_SHOW_OPTIONS=[
-	["view_mode","dataset", "palette", "resolution", "view_dep", "num_refinements", "palette_log", "show_metadata", "logout"],
+	["view_mode","dataset", "palette", "resolution", "view_dep", "num_refinements", "palette_log", "show_metadata", "save", "logout"],
 	["dataset", "direction", "offset", "palette_log", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
 ]
 
@@ -58,21 +59,23 @@ class Slice:
 	# constructor
 	def __init__(self, parent=None):
 
-		self.callbacks={}
+		self.on_change_callbacks={}
 
 		self.parent = parent
 		self.num_hold=0
 		self.id = f"{type(self).__name__}/{Slice.ID}"
 		Slice.ID += 1
-		self.dashboards_config     = {}
-		self.dashboards_config_url = None
 		self.db = None
 		self.access = None
 		self.render_id = 0 
-		self.logic_to_physic = [(0.0, 1.0)] * 3
 		self.slices = []
 		self.linked = False
-		self.metadata_palette_range = [0.0, 255.0]
+
+		self.logic_to_physic        = parent.logic_to_physic        if parent else [(0.0, 1.0)] * 3
+		self.metadata_palette_range = parent.metadata_palette_range if parent else [0.0, 255.0]
+		self.dashboards_config      = parent.dashboards_config      if parent else None
+		self.dashboards_config_url  = parent.dashboards_config_url  if parent else None		
+
 
 		self.createGui()
 		logger.info(f"Created Slice id={self.id} parent={self.parent}")
@@ -109,6 +112,7 @@ class Slice:
 		self.widgets.play_button            = Widgets.Button(name="Play", width=8, callback=self.togglePlay)
 		self.widgets.play_sec               = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
 		self.widgets.show_metadata          = Widgets.Button(name="Metadata", callback=self.showMetadata)
+		self.widgets.save                   = Widgets.Button(name="Save", callback=self.saveAs)
 		self.widgets.logout                 = Widgets.Button(name="Logout")
 		self.widgets.logout.js_on_click(code="""window.location=window.location.href + "/logout" """)
 
@@ -149,13 +153,13 @@ class Slice:
 
 	# on_change
 	def on_change(self, attr, callback):
-		if not attr in self.callbacks:
-			self.callbacks[attr]=[]
-		self.callbacks[attr].append(callback)
+		if not attr in self.on_change_callbacks:
+			self.on_change_callbacks[attr]=[]
+		self.on_change_callbacks[attr].append(callback)
 
-	# triggerCallback
-	def triggerCallback(self, attr, old,new):
-		for fn in self.callbacks.get(attr,[]):
+	# triggerOnChange
+	def triggerOnChange(self, attr, old,new):
+		for fn in self.on_change_callbacks.get(attr,[]):
 			fn(attr,old,new)
 
 	# getMainLayout
@@ -294,7 +298,7 @@ class Slice:
 		if not self.parent:
 			self.refreshGui()
 
-		self.triggerCallback('dataset', None, name)
+		self.triggerOnChange('dataset', None, name)
 
 	# loadDataset
 	def loadDataset(self, url, dataset_config={}):
@@ -314,13 +318,17 @@ class Slice:
 	# getStatus
 	def getStatus(self):
 		ret={
-			"config": self.dashboards_config_url,
+			# must connect to the same dashboard to make it working...
+			# "config": self.dashboards_config_url,
+
 			"view-mode": self.getViewMode(),
 			"dataset": self.getDataset(), 
+			
 			# NOT needed
 			#   "timesteps": self.getTimesteps(),
 			#   "physic_box": self.getPhysicBox(),
 			#   "fields": self.getFields(),
+			
 			"timestep-delta": self.getTimestepDelta(),
 			"timestep": self.getTimestep(),
 			"direction": self.getDirection(),
@@ -334,7 +342,7 @@ class Slice:
 			},
 			"palette": {
 				"name": self.getPalette(),
-				"range": self.getPaletteRange(),
+				"range": self.getPaletteRange() if self.getPaletteRangeMode()=="user" else [0.0,1.0],
 				# "metadata-range": self.getMetadataPaletteRange(),
 				"range-mode": self.getPaletteRangeMode(),
 				"log": self.isLogPalette(),
@@ -345,7 +353,8 @@ class Slice:
 		for it in self.slices:
 			sub=it.getStatus()
 			# do not repeat same value in child
-			for k,v in copy.deepcopy(sub.items()):
+			for k in copy.copy(sub):
+				v=sub[k]
 				if v==ret.get(k,None):
 					del sub[k]
 			ret["slices"].append(sub)
@@ -413,6 +422,19 @@ class Slice:
 		ret=[it for it in datasets if it['name']==name]
 		return ret[0] if ret else {"name": name, "url": name}
 
+	# saveAs
+	def saveAs(self):
+		status=self.getStatus()
+		sio = io.StringIO(json.dumps(status))
+		sio.seek(0)
+		self.showDialog(
+			pn.Column(
+				pn.pane.JSON(status,name="Save",depth=99, sizing_mode="stretch_width", align="end"),
+				pn.widgets.FileDownload(sio, embed=True, filename='status.json'),
+				sizing_mode="stretch_width"
+			), 
+			name="Save")
+
 	# showMetadata
 	def showMetadata(self):
 
@@ -424,56 +446,49 @@ class Slice:
 
 			type = item["type"]
 			filename = item.get("filename",f"metadata_{I:02d}.bin")
-			json_obj=None
 
 			if type == "b64encode":
 				# binary encoded in string
-				base64_s = item["encoded"]
-				try:
-					body = base64.b64decode(base64_s).decode("utf-8")
-				except:
-					body = ""  # it's probably full binary
+				body = base64.b64decode(item["encoded"]).decode("utf-8")
+				body = io.StringIO(body)
+				body.seek(0)
 				internal_panel=pn.pane.HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width")
+			elif type=="json-object":
+				obj=item["object"]
+				file = io.StringIO(json.dumps(obj))
+				file.seek(0)
+				internal_panel=pn.pane.JSON(obj,name="Object",depth=6, sizing_mode="stretch_width") 
 			else:
-				# default json
-				json_obj=item
-				base64_s = base64.b64encode(bytes(json.dumps(json_obj, indent=2), 'utf-8')).decode('utf-8')
-				internal_panel=pn.pane.JSON(json_obj,name="Object",depth=6, sizing_mode="stretch_width") 
-
-			base64_s = 'data:application/octet-stream;base64,' + base64_s
-
-			# download button
-			download_button = Widgets.Button(name="download",align='end')
-			download_button.js_on_click(args=dict(base64_s=base64_s, filename=filename), code="""
-					fetch(base64_s, {cache: "no-store"}).then(response => response.blob())
-					    .then(blob => {
-					        if (navigator.msSaveBlob) {
-					            navigator.msSaveBlob(blob, filename);
-					        }
-					        else {
-					            const link = document.createElement('a')
-					            link.href = URL.createObjectURL(blob)
-					            link.download = filename
-					            link.target = '_blank'
-					            link.style.visibility = 'hidden'
-					            link.dispatchEvent(new MouseEvent('click'))
-					        }
-					        return response.text();
-					    });
-					""")
+				continue
 
 			cards.append(pn.Card(
-				internal_panel,
-				download_button,
-				title=filename,
-				collapsed=(I>0)
-				))
+					internal_panel,
+					pn.widgets.FileDownload(file, embed=True, filename=filename,align="end"),
+					title=filename,
+					collapsed=(I>0),
+					sizing_mode="stretch_width"
+				)
+			)
 
-		self.showDialog(*cards, name="Metadata", position='center', width=800, height=600, contained=False)
+		self.showDialog(*cards, name="Metadata")
 
 	# showDialog
 	def showDialog(self, *args,**kwargs):
 		name=kwargs["name"]
+
+		if not "position" in kwargs:
+			kwargs["position"]="center"
+
+		if not "width" in kwargs:
+			kwargs["width"]=800
+
+		if not "height" in kwargs:
+			kwargs["height"]=600
+
+		if not "contained" in kwargs:
+			kwargs["contained"]=False
+
+
 		self.dialogs["Metadata"]=pn.layout.FloatPanel(*args, **kwargs)
 		self.dialogs_placeholder[:]=[v for k,v in self.dialogs.items()]
 
@@ -722,7 +737,7 @@ class Slice:
 		for it in self.slices:
 			it.setDirection(value)
 
-		self.triggerCallback('direction', None, dir)
+		self.triggerOnChange('direction', None, dir)
 		self.refresh()
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
@@ -775,7 +790,7 @@ class Slice:
 			logger.debug(f"[{self.id}] recursively calling setOffset({value}) for slice={it.id}")
 			it.setOffset(value)
 
-		self.triggerCallback('offset', None, value)
+		self.triggerOnChange('offset', None, value)
 		self.refresh()
 
 	# guessOffset
@@ -1130,7 +1145,7 @@ class Slice:
 		])
 		self.render_id+=1 
 
-		self.triggerCallback("data", None, data)
+		self.triggerOnChange("data", None, data)
 		logger.debug(f"[{self.id}] gotNewData EXIT")
   
 	# pushJobIfNeeded
@@ -1267,7 +1282,6 @@ class Slice:
 			slice.tool = ProbeTool(slice)
 			slice.tool.main_layout.visible=show_probe
 
-			slice.dashboards_config=self.dashboards_config
 			# slice.widgets.show_probe = Widgets.Button(name="Probe", callback=lambda: slice.tool.setVisible(not slice.tool.isVisible()))
 
 			slice.main_layout=pn.Row(
