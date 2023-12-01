@@ -393,24 +393,26 @@ class Slice:
 
 			type = item["type"]
 			filename = item.get("filename",f"metadata_{I:02d}.bin")
+			json_obj=None
 
 			if type == "b64encode":
 				# binary encoded in string
 				base64_s = item["encoded"]
-
 				try:
-					body_s = base64.b64decode(base64_s).decode("utf-8")
+					body = base64.b64decode(base64_s).decode("utf-8")
 				except:
-					body_s = ""  # it's probably full binary
+					body = ""  # it's probably full binary
+				internal_panel=pn.pane.HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width")
 			else:
-				# json
-				body_s = json.dumps(item, indent=2)
-				base64_s = base64.b64encode(bytes(body_s, 'utf-8')).decode('utf-8')
+				# default json
+				json_obj=item
+				base64_s = base64.b64encode(bytes(json.dumps(json_obj, indent=2), 'utf-8')).decode('utf-8')
+				internal_panel=pn.pane.JSON(json_obj,name="Object",depth=6, sizing_mode="stretch_width") 
 
 			base64_s = 'data:application/octet-stream;base64,' + base64_s
 
 			# download button
-			download_button = Widgets.Button(name="download")
+			download_button = Widgets.Button(name="download",align='end')
 			download_button.js_on_click(args=dict(base64_s=base64_s, filename=filename), code="""
 					fetch(base64_s, {cache: "no-store"}).then(response => response.blob())
 					    .then(blob => {
@@ -430,8 +432,8 @@ class Slice:
 					""")
 
 			cards.append(pn.Card(
+				internal_panel,
 				download_button,
-				pn.pane.HTML(f"<div><pre><code>{body_s}</code></pre></div>",sizing_mode="stretch_width"),
 				title=filename,
 				collapsed=(I>0)
 				))
