@@ -429,8 +429,8 @@ class Slice:
 		sio.seek(0)
 		self.showDialog(
 			pn.Column(
-				pn.pane.JSON(status,name="Save",depth=99, sizing_mode="stretch_width", align="end"),
-				pn.widgets.FileDownload(sio, embed=True, filename='status.json'),
+				pn.pane.JSON(status,name="Save",depth=99, sizing_mode="stretch_width"),
+				pn.widgets.FileDownload(sio, embed=True, filename='status.json', align="end"),
 				sizing_mode="stretch_width"
 			), 
 			name="Save")
