@@ -11,9 +11,13 @@ import easyad
 from tornado.escape import json_decode, url_escape, json_encode
 from tornado.web import RequestHandler
 
-APP_URL    = "/app"
-login_url  = f"{APP_URL}/login"
-logout_url = f"{APP_URL}/logout"
+import panel as pn
+
+# panel serve --prefix "" (it removes anything before the `app`)
+login_url  = f"/app/login"
+logout_url = f"/app/logout"
+
+app_url="/app"
 
 # //////////////////////////////////////////////////////
 def get_user(request_handler):
@@ -26,9 +30,11 @@ def get_user(request_handler):
 # //////////////////////////////////////////////////////
 class LogoutHandler(RequestHandler):
 	def get(self):
+		# __cookie=self.get_secure_cookie("user")
 		self.clear_cookie("user")
+		# __cookie=self.get_secure_cookie("user")
+		# print(f"LogoutHandler self.request.path=[{self.request.path}] redirecting to [{login_url}]")
 		self.redirect(login_url)
-
 
 # //////////////////////////////////////////////////////
 class LoginHandler(RequestHandler):
@@ -37,12 +43,14 @@ class LoginHandler(RequestHandler):
 	"""
 
 	def get(self):
+		# print(f"LoginHandler::get(self) self.request.path=[{self.request.path}] rendering [chess_login.html]")
 		self.render("chess_login.html")
 
 	def post(self):
 
 		username = self.get_argument("username", "")
 		password = self.get_argument("password", "")
+		# print(f"LoginHandler::post username=[{username}] self.request.path=[{self.request.path}]")
 
 		# in case you want to limit the dashboards to some particular users
 		allowed_groups=os.environ.get("NSDF_ALLOWED_GROUPS","*")
@@ -64,8 +72,10 @@ class LoginHandler(RequestHandler):
 			is_authorised = is_authorised and any([self.ad.user_is_member_of_group(user,group) for group in groups]) 
 
 		if is_authorised:
+			# print(f"username={username} is_authorised self.request.path=[{self.request.path}]")
 			self.set_secure_cookie("user", json_encode(username))
-			self.redirect(APP_URL)
+			self.redirect(app_url)
 		else:
-			self.redirect(login_url + "?error=" + url_escape("Login incorrect."))
+			# print("username={username}  is not authorized self.request.path=[{self.request.path}]")
+			self.redirect(f"{login_url}?error={url_escape('Login incorrect')}")
 			self.clear_cookie("user")

@@ -45,7 +45,7 @@ DEFAULT_PALETTE="Viridis256"
 logger = logging.getLogger(__name__)
 
 DEFAULT_SHOW_OPTIONS=[
-	["view_mode","dataset", "palette", "resolution", "view_dep", "num_refinements", "palette_log", "show_metadata", "open", "save", "logout"],
+	["menu", "view_mode","dataset", "palette", "palette_log", "resolution", "view_dep", "num_refinements"],
 	["dataset", "direction", "offset", "palette_log", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
 ]
 
@@ -106,16 +106,28 @@ class Slice:
 		self.widgets.status_bar["request" ] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
 		self.widgets.status_bar["response"] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
 
+		# I cannot find a way to access MenuButton `clicked` on the javascript side, so I am using this trick
+		__hidden = pn.widgets.StaticText(visible=False)
+		__hidden.jscallback(args={'widget': __hidden}, value="""if(widget.text=="Logout") window.location=window.location.href + "/logout";""")
+
+		# menu
+		def onMenuClick(evt):
+			__hidden.value=evt.new
+			if evt.new=="Open"    : return self.openAs()
+			if evt.new=="Save"    : return self.saveAs()
+			if evt.new=="Show Metadata": return self.showMetadata()
+			# if evt.new=="Logout"  : return self.logout()
+		self.widgets.menu = pn.widgets.MenuButton(name='File', items=[['Open']*2, ['Save']*2, ['Show Metadata']*2, None, ['Logout']*2], button_type='primary',width=120)
+		self.widgets.menu.on_click(onMenuClick)
+		self.widgets.menu=pn.Row(self.widgets.menu,__hidden)
+
+
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
 		self.widgets.play_button            = Widgets.Button(name="Play", width=8, callback=self.togglePlay)
 		self.widgets.play_sec               = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
-		self.widgets.show_metadata          = Widgets.Button(name="Metadata", callback=self.showMetadata)
-		self.widgets.open                   = Widgets.Button(name="Open", callback=self.openAs)
-		self.widgets.save                   = Widgets.Button(name="Save", callback=self.saveAs)
-		self.widgets.logout                 = Widgets.Button(name="Logout")
-		self.widgets.logout.js_on_click(code="""window.location=window.location.href + "/logout" """)
+
 
 		self.idle_callback = None
 		self.color_bar     = None
@@ -527,12 +539,12 @@ class Slice:
 				body = base64.b64decode(item["encoded"]).decode("utf-8")
 				body = io.StringIO(body)
 				body.seek(0)
-				internal_panel=pn.pane.HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width")
+				internal_panel=pn.pane.HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width",height=600)
 			elif type=="json-object":
 				obj=item["object"]
 				file = io.StringIO(json.dumps(obj))
 				file.seek(0)
-				internal_panel=pn.pane.JSON(obj,name="Object",depth=3, sizing_mode="stretch_width") 
+				internal_panel=pn.pane.JSON(obj,name="Object",depth=3, sizing_mode="stretch_width",height=600) 
 			else:
 				continue
 

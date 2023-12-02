@@ -214,8 +214,9 @@ export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${DASHBOARDS_CONFIG/.json/.log}
 # needed for AD security
 export BOKEH_COOKIE_SECRET=$(echo $RANDOM | md5sum | head -c 32)
 
+
 while [[ "1" == "1" ]] ; do
-python -m bokeh serve examples/dashboards/app \
+python -m panel serve examples/dashboards/app    \
    --port ${BOKEH_PORT} \
    --use-xheaders \
    --allow-websocket-origin='*.classe.cornell.edu' \
@@ -226,7 +227,8 @@ python -m bokeh serve examples/dashboards/app \
 done
 
 # From a browser open the following URL (change group name as needed)
-# https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
+echo "https://nsdf01.classe.cornell.edu/dashboards/${NSDF_GROUP}/app"
+
 ```
 
 if you want statistics:
@@ -251,7 +253,7 @@ while [[ "1" == "1" ]] ; do
    sleep 30
 done
 
-# https://nsdf01.classe.cornell.edu/stats/${NSDF_GROUP}.html
+echo "https://nsdf01.classe.cornell.edu/stats/${NSDF_GROUP}.html"
 ```
 
 Finally you can run the conversion:
@@ -259,15 +261,19 @@ Finally you can run the conversion:
 ```bash
 export NSDF_GROUP="nsdf-group"
 cp ./examples/chess/json/* .workflow/${NSDF_GROUP}/jobs/
+```
 
-# or you can run this
-# cp .workflow/from-group/run-convert.py .workflow/${NSDF_GROUP}/
-# edit the file and
-# python .workflow/${NSDF_GROUP}/run-convert.py
+you can use a python script to check for new files
+
+```bash
+cp .workflow/from-group/run-convert.py .workflow/${NSDF_GROUP}/
+
+# edit the file and...
+python .workflow/${NSDF_GROUP}/run-convert.py
 
 ```
 
-if you want to debug the db:
+You can follow conversions using sqllite:
 
 ```bash
 
@@ -403,7 +409,7 @@ screen -S nsdf-dashboards
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install   numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2
+python3 -m pip install   numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.3.1
 python3 -m pip install --upgrade OpenVisusNoGui
 
 # TODO HERE
