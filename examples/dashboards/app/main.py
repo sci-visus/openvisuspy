@@ -2,6 +2,8 @@ import os, sys
 import argparse,json
 import panel as pn
 import logging
+import base64,json
+
 pn.extension("floatpanel")
 
 # //////////////////////////////////////////////////////////////////////////////////////
@@ -46,12 +48,7 @@ if __name__.startswith('bokeh'):
 	# set a default dataset
 	if True:
 		if "open" in query_params:
-			value=query_params['open']
-
-			import base64,json
-			value=json.loads(base64.b64decode(value).decode("utf-8"))
-			print("!!!!",value)
-
+			value=json.loads(base64.b64decode(query_params['open']).decode("utf-8"))
 			view.open(value)
 
 		else:

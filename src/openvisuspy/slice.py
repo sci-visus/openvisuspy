@@ -360,11 +360,7 @@ class Slice:
 		# broken??? try to change the dataset...
 		# self.hold()
 
-		if isinstance(d,str):
-			d=json.loads(d)
-
-		print("!!!!"*100,d)
-
+		assert(isinstance(d,dict))
 		dataset=d.get("dataset",d.get("name"))
 		assert(dataset)
 
@@ -490,11 +486,10 @@ class Slice:
 
 		def doOpen(evt=None):
 			if file_input.value:
-				d=file_input.value.decode('ascii')
+				body=file_input.value.decode('ascii')
 			else:
-				d=text_area.value
-
-			self.open(d)
+				body=text_area.value
+			self.open(json.loads(body))
 
 		button=Widgets.Button(name="Open", width=8, callback=doOpen,align='end')
 
@@ -523,7 +518,7 @@ class Slice:
 
 		self.showDialog(
 			pn.Column(
-				pn.widgets.TextAreaInput(name='JSON',value=url, sizing_mode="stretch_width",height=100),
+				pn.widgets.TextAreaInput(name='URL',value=url, sizing_mode="stretch_width",height=100,disabled=True),
 				copy_clipboard,
 				pn.pane.JSON(status,name="Save",depth=-1, sizing_mode="stretch_width"),
 				pn.widgets.FileDownload(sio, embed=True, filename='status.json', align="end"),
