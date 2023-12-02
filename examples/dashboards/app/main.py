@@ -7,54 +7,54 @@ pn.extension("floatpanel")
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
 
-	if False:
 
-		w=pn.Column(pn.widgets.Button(name="hello"),styles={"background": "blue"}, sizing_mode="stretch_both",width_policy='max',height_policy ="max", )
-		app = pn.FloatPanel(
-			w,
-			name="Settings",
-			contained=False,
-			width=1024,height=800,
-			width_policy='max',height_policy ="max", )
+	from openvisuspy import SetupLogger, IsPanelServe, GetBackend, Slices
 
-		app.servable()
+	logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"),logging_level=logging.INFO)
+	logger.info(f"GetBackend()={GetBackend()}")
+
+	# serving a single dataset
+	if "--dataset" in sys.argv:
+
+		parser = argparse.ArgumentParser(description="Dashboard")
+		parser.add_argument("--dataset", type=str, help="action name", required=True)	
+		parser.add_argument("--name", type=str, default=None,help="name", required=False)
+		parser.add_argument("--palette", type=str, default=None,help="palette", required=False)	
+		parser.add_argument("--palette-range", type=str, default=None,help="palette range", required=False)	
+		args = parser.parse_args(sys.argv[1:])
+
+		config={
+	      "dataset": args.name if args.name is not None else os.path.basename(args.dataset),
+	      "url": args.dataset,
+				"palette": {
+					"name": args.palette,
+					"range": eval(args.palette_range),
+				}}
+		config={"datasets": [config]}
+
 	else:
+		# is a filename
+		config=sys.argv[1]
 
-		from openvisuspy import SetupLogger, IsPanelServe, GetBackend, Slices
+	# coming from user (i.e. dataset?dataset-name | open=...)
+	query_params={k: v for k,v in pn.state.location.query_params.items()}
 
-		logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"),logging_level=logging.INFO)
-		logger.info(f"GetBackend()={GetBackend()}")
+	view = Slices()
 
-		if "--dataset" in sys.argv:
-			parser = argparse.ArgumentParser(description="Dashboard")
-			parser.add_argument("--dataset", type=str, help="action name", required=True)	
-			parser.add_argument("--name", type=str, default=None,help="name", required=False)
-			parser.add_argument("--palette", type=str, default=None,help="palette", required=False)	
-			parser.add_argument("--palette-range", type=str, default=None,help="palette range", required=False)	
-			args = parser.parse_args(sys.argv[1:])
+	view.setDashboardsConfig(config)
 
-			config={
-				"name" : args.name if args.name is not None else os.path.basename(args.dataset),
-				"url" : args.dataset
-			}
+	# set a default dataset
+	if True:
+		if "open" in query_params:
+			value=query_params['open']
 
-			if args.palette is not None:
-				config["palette"]=args.palette
+			import base64,json
+			value=json.loads(base64.b64decode(value).decode("utf-8"))
+			print("!!!!",value)
 
-			if args.palette_range is not None:
-				config["palette-range"]=eval(args.palette_range)
-
-			config={"datasets" : [config]}
+			view.open(value)
 
 		else:
-			# assuming is a json file
-			config=sys.argv[1]	
-
-			query_params={k: v for k,v in pn.state.location.query_params.items()}
-
-			view = Slices()
-			view.setDashboardsConfig(config)
-
 			datasets=view.getDatasets()
 			dataset=query_params.get("dataset",None)
 			if not dataset and len(datasets): 
@@ -63,11 +63,13 @@ if __name__.startswith('bokeh'):
 			if dataset is not None:
 				view.setDataset(dataset, force=True)
 
-			main_layout = view.getMainLayout()
-			use_template = False
-			if use_template:
-				template = pn.template.MaterialTemplate(title='NSDF Dashboard')
-				template.main.append(main_layout)
-				template.servable()
-			else:
-				main_layout.servable()
+	# show the GUI
+	if True:
+		main_layout = view.getMainLayout()
+		use_template = False
+		if use_template:
+			template = pn.template.MaterialTemplate(title='NSDF Dashboard')
+			template.main.append(main_layout)
+			template.servable()
+		else:
+			main_layout.servable()

@@ -112,11 +112,15 @@ class Slice:
 
 		# menu
 		def onMenuClick(evt):
-			__hidden.value=evt.new
-			if evt.new=="Open"    : return self.openAs()
-			if evt.new=="Save"    : return self.saveAs()
-			if evt.new=="Show Metadata": return self.showMetadata()
-			# if evt.new=="Logout"  : return self.logout()
+			try:
+				__hidden.value=evt.new
+				if evt.new=="Open"    : return self.openAs()
+				if evt.new=="Save"    : return self.saveAs()
+				if evt.new=="Show Metadata": return self.showMetadata()
+			except:
+				logger.info(traceback.format_exc())
+				raise		
+
 		self.widgets.menu = pn.widgets.MenuButton(name='File', items=[['Open']*2, ['Save']*2, ['Show Metadata']*2, None, ['Logout']*2], button_type='primary',width=120)
 		self.widgets.menu.on_click(onMenuClick)
 		self.widgets.menu=pn.Row(self.widgets.menu,__hidden)
@@ -294,7 +298,7 @@ class Slice:
 		if not force and self.getDataset() == name:
 			return
 
-		self.load(self.getDatasetConfig(name))
+		self.open(self.getDatasetConfig(name))
 		self.triggerOnChange('dataset', None, name)
 
 	# save
@@ -350,14 +354,16 @@ class Slice:
 		return ret
 
 
-	# guessInitialStatus
-	def load(self, d):
+	# open
+	def open(self, d):
 
 		# broken??? try to change the dataset...
 		# self.hold()
 
 		if isinstance(d,str):
 			d=json.loads(d)
+
+		print("!!!!"*100,d)
 
 		dataset=d.get("dataset",d.get("name"))
 		assert(dataset)
@@ -377,7 +383,7 @@ class Slice:
 				logger.info(f"Overriding url from {v[0]}")
 				url = v[0]["url"]
 
-		# # load dataset
+		# # open dataset
 		if True:
 			logger.info(f"Loading dataset url={url}")
 			self.db=LoadDataset(url=url) if not self.parent else self.parent.db
@@ -464,7 +470,7 @@ class Slice:
 
 			# children values will always overwrite have precedence
 			sub_d.update(it)
-			self.slices[S].load(sub_d)
+			self.slices[S].open(sub_d)
 
 		# self.unhold()
 		self.refresh()
@@ -478,7 +484,6 @@ class Slice:
 
 	# openAs
 	def openAs(self):
-		
 
 		file_input = pn.widgets.FileInput(accept=".json",sizing_mode="stretch_width")
 		text_area=pn.widgets.TextAreaInput(name='JSON',sizing_mode="stretch_width",height=400)
@@ -489,7 +494,7 @@ class Slice:
 			else:
 				d=text_area.value
 
-			self.load(d)
+			self.open(d)
 
 		button=Widgets.Button(name="Open", width=8, callback=doOpen,align='end')
 
@@ -509,18 +514,23 @@ class Slice:
 		sio = io.StringIO(body)
 		sio.seek(0)
 
-		copy_clipboard=Widgets.Button(name="Copy to clipbloard")
-		copy_clipboard.js_on_click( args={"body": body}, code="navigator.clipboard.writeText(body);")
+		from urllib.parse import urlparse, urlencode
+		url=pn.state.location.href
+		url += ('&' if urlparse(url).query else '?') + urlencode({'open':base64.b64encode(body.encode('utf-8')).decode('ascii')})
+
+		copy_clipboard=Widgets.Button(name="Copy to clipbloard", align='end')
+		copy_clipboard.js_on_click( args={"url": url}, code="navigator.clipboard.writeText(url);")
 
 		self.showDialog(
 			pn.Column(
+				pn.widgets.TextAreaInput(name='JSON',value=url, sizing_mode="stretch_width",height=100),
+				copy_clipboard,
 				pn.pane.JSON(status,name="Save",depth=-1, sizing_mode="stretch_width"),
-				pn.Row(copy_clipboard,
-					pn.widgets.FileDownload(sio, embed=True, filename='status.json', align="end")
-				),
+				pn.widgets.FileDownload(sio, embed=True, filename='status.json', align="end"),
 				sizing_mode="stretch_width"
 			), 
-			name="Save")
+			name="Save"
+		)
 
 	# showMetadata
 	def showMetadata(self):
