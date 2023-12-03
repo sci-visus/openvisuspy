@@ -197,7 +197,77 @@ class Slice:
 	def setViewMode(self, value):
 		value=str(value).lower().strip()
 		logger.debug(f"[{self.id}] value={value}")
-		self.rebuildGui()
+
+		# "2 probe linked"
+		v=self.getViewMode().split()
+		if v==["probe"]: v=["1","probe"]
+		show_probe ="probe"  in v
+		show_linked="linked" in v
+		nviews=int(v[0])
+
+		self.stop()
+
+		# rebuild Gui
+		if True:
+			
+			self.main_layout[:]=[]
+
+			for it in self.slices:  del it
+			self.slices=[]
+
+			self_show_options=self.dashboards_config.get("show-options",DEFAULT_SHOW_OPTIONS)
+
+			for I in range(nviews):
+
+				if nviews==1:
+					slice_show_options=[it for it in self_show_options[1] if it not in self_show_options[0]]
+				else:
+					slice_show_options=self_show_options[1]
+
+				slice = Slice(parent=self)
+				self.slices.append(slice)
+
+				from .probe import ProbeTool
+				slice.tool = ProbeTool(slice)
+				slice.tool.main_layout.visible=show_probe
+
+				# slice.widgets.show_probe = Widgets.Button(name="Probe", callback=lambda: slice.tool.setVisible(not slice.tool.isVisible()))
+
+				slice.main_layout=pn.Row(
+					pn.Column(
+						pn.Row(
+							*[getattr(slice.widgets,it.replace("-","_")) for it in slice_show_options], # child
+								sizing_mode="stretch_width"),
+						pn.Row(
+							slice.canvas.main_layout, 
+							sizing_mode='stretch_both'),
+						pn.Row(
+							slice.widgets.status_bar["request"],
+							slice.widgets.status_bar["response"], 
+							sizing_mode='stretch_width'
+						),
+						sizing_mode="stretch_both"
+					),
+					slice.tool.main_layout,
+					sizing_mode="stretch_both"
+				)
+
+			self.main_layout.append(
+				pn.Column(
+					pn.Row(
+						*[getattr(self.widgets, it.replace("-", "_")) for it in self_show_options[0]], # parent
+						sizing_mode="stretch_width"
+					), 
+					pn.GridBox(
+						*[it.main_layout for it in self.slices ], ncols=2 if nviews>1 else 1, 
+						sizing_mode="stretch_both"
+					),
+					self.dialogs_placeholder,  
+					sizing_mode='stretch_both' 
+				))
+
+		self.start()
+		# self.unhold()
 
 		linked="linked" in value
 		for I,slice in enumerate(self.slices):
@@ -297,16 +367,9 @@ class Slice:
 
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
-
-		if not name: 
-			return
-
+		if not name:  return
 		logger.info(f"[{self.id}] setDataset name={name} force={force}")
-
-		# useless call
-		if not force and self.getDataset() == name:
-			return
-
+		if not force and self.getDataset() == name: return
 		d=self.getDatasetConfig(name)
 		self.load(d)
 		self.triggerOnChange('dataset', None, name)
@@ -1399,87 +1462,6 @@ class Slice:
 			if not self.idle_callback:
 				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30) if IsPyodide() else pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
 
-
-	# rebuildGui
-	def rebuildGui(self):
-
-		# self.hold()
-
-		logger.info(f"Rebuiling gui id={self.id} parent={self.parent}")
-
-		self.stop()
-
-		# "2 probe linked"
-		v=self.getViewMode().split()
-		if v==["probe"]: v=["1","probe"]
-		show_probe ="probe"  in v
-		show_linked="linked" in v
-		nviews=int(v[0])
-
-		# empty main layout
-		self.main_layout[:]=[]
-		#while len(self.main_layout):
-		#	self.main_layout.pop(0)
-
-		# remove slices
-		for it in self.slices:  del it
-		self.slices=[]
-
-		self_show_options=self.dashboards_config.get("show-options",DEFAULT_SHOW_OPTIONS)
-
-		for I in range(nviews):
-
-			# useless to replicate options down
-			
-			if nviews==1:
-				slice_show_options=[it for it in self_show_options[1] if it not in self_show_options[0]]
-			else:
-				slice_show_options=self_show_options[1]
-
-			slice = Slice(parent=self)
-			self.slices.append(slice)
-
-			from .probe import ProbeTool
-			slice.tool = ProbeTool(slice)
-			slice.tool.main_layout.visible=show_probe
-
-			# slice.widgets.show_probe = Widgets.Button(name="Probe", callback=lambda: slice.tool.setVisible(not slice.tool.isVisible()))
-
-			slice.main_layout=pn.Row(
-				pn.Column(
-					pn.Row(
-						*[getattr(slice.widgets,it.replace("-","_")) for it in slice_show_options], # child
-							sizing_mode="stretch_width"),
-					pn.Row(
-						slice.canvas.main_layout, 
-						sizing_mode='stretch_both'),
-					pn.Row(
-						slice.widgets.status_bar["request"],
-						slice.widgets.status_bar["response"], 
-						sizing_mode='stretch_width'
-					),
-					sizing_mode="stretch_both"
-				),
-				slice.tool.main_layout,
-				sizing_mode="stretch_both"
-			)
-
-		self.main_layout.append(
-			pn.Column(
-				pn.Row(
-					*[getattr(self.widgets, it.replace("-", "_")) for it in self_show_options[0]], # parent
-					sizing_mode="stretch_width"
-				), 
-				pn.GridBox(
-					*[it.main_layout for it in self.slices ], ncols=2 if nviews>1 else 1, 
-					sizing_mode="stretch_both"
-				),
-				self.dialogs_placeholder,  
-				sizing_mode='stretch_both' 
-			))
-
-		self.start()
-		# self.unhold()
 
 	# onIdle
 	def onIdle(self):
