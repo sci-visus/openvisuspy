@@ -199,6 +199,13 @@ class Slice:
 		logger.debug(f"[{self.id}] value={value}")
 		self.rebuildGui()
 
+		linked="linked" in value
+		for I,slice in enumerate(self.slices):
+			slice.setDatasets(self.getDatasets())
+			slice.setDataset(self.getDataset(),force=True)
+			slice.setLinked(I==0 and linked)
+
+
 	# loadDashboardsConfig
 	def loadDashboardsConfig(self, value):
 
@@ -1456,10 +1463,6 @@ class Slice:
 				slice.tool.main_layout,
 				sizing_mode="stretch_both"
 			)
-
-			slice.setDatasets(self.getDatasets())
-			slice.setDataset(self.getDataset(),force=True)
-			slice.setLinked(I==0 and show_linked)
 
 		self.main_layout.append(
 			pn.Column(
