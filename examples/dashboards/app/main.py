@@ -50,9 +50,9 @@ if __name__.startswith('bokeh'):
 	if True:
 		if "load" in query_params:
 			decoded=base64.b64decode(query_params['load']).decode("utf-8")
-			value=json.loads(decoded)
-			logger.info("Opening from {value}")
-			view.load(value)
+			d=json.loads(decoded)
+			logger.info("Opening from {d}")
+			view.load(d)
 
 		else:
 			datasets=view.getDatasets()

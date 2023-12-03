@@ -300,7 +300,8 @@ class Slice:
 		if not force and self.getDataset() == name:
 			return
 
-		self.load(self.getDatasetConfig(name))
+		d=self.getDatasetConfig(name)
+		self.load(d)
 		self.triggerOnChange('dataset', None, name)
 
 	# save
@@ -520,7 +521,8 @@ class Slice:
 
 		# eval
 		def onEvalClick(evt=None):
-			self.load(json.loads(text_area.value))
+			d=json.loads(text_area.value)
+			self.load(d)
 			pn.state.notifications.info('Eval done')
 		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
