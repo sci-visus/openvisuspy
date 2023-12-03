@@ -300,7 +300,7 @@ class Slice:
 		if not force and self.getDataset() == name:
 			return
 
-		self.open(self.getDatasetConfig(name))
+		self.load(self.getDatasetConfig(name))
 		self.triggerOnChange('dataset', None, name)
 
 	# save
@@ -368,8 +368,8 @@ class Slice:
 		return ret
 
 
-	# open
-	def open(self, d):
+	# load
+	def load(self, d):
 
 		# broken??? try to change the dataset...
 		# self.hold()
@@ -393,7 +393,7 @@ class Slice:
 				logger.info(f"Overriding url from {v[0]}")
 				url = v[0]["url"]
 
-		# # open dataset
+		# # load dataset
 		if True:
 			logger.info(f"Loading dataset url={url}")
 			self.db=LoadDataset(url=url) if not self.parent else self.parent.db
@@ -500,7 +500,7 @@ class Slice:
 
 			# children values will always overwrite have precedence
 			sub_d.update(it)
-			self.slices[S].open(sub_d)
+			self.slices[S].load(sub_d)
 
 		# self.unhold()
 		self.refresh()
@@ -520,7 +520,7 @@ class Slice:
 
 		# eval
 		def onEvalClick(evt=None):
-			self.open(json.loads(text_area.value))
+			self.load(json.loads(text_area.value))
 			pn.state.notifications.info('Eval done')
 		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
@@ -546,7 +546,7 @@ class Slice:
 			current_url=pn.state.location.href
 			o=urlparse(current_url)
 			encoded=base64.b64encode(text_area.value.encode('utf-8')).decode('ascii')
-			copy_url_value.value = o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'open': encoded})
+			copy_url_value.value = o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': encoded})
 			print(copy_url_value.value)
 			pn.state.notifications.info('Copy url done')
 			# after this the javascript code will be executed

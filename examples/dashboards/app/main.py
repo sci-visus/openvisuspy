@@ -39,7 +39,7 @@ if __name__.startswith('bokeh'):
 		# is a filename
 		config=sys.argv[1]
 
-	# coming from user (i.e. dataset?dataset-name | open=...)
+	# coming from user
 	query_params={k: v for k,v in pn.state.location.query_params.items()}
 
 	view = Slices()
@@ -48,11 +48,11 @@ if __name__.startswith('bokeh'):
 
 	# set a default dataset
 	if True:
-		if "open" in query_params:
-			decoded=base64.b64decode(query_params['open']).decode("utf-8")
+		if "load" in query_params:
+			decoded=base64.b64decode(query_params['load']).decode("utf-8")
 			value=json.loads(decoded)
 			logger.info("Opening from {value}")
-			view.open(value)
+			view.load(value)
 
 		else:
 			datasets=view.getDatasets()
