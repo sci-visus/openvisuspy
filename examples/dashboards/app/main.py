@@ -5,6 +5,7 @@ import logging
 import base64,json
 
 pn.extension("floatpanel")
+pn.config.notifications = True
 
 # //////////////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
@@ -12,7 +13,7 @@ if __name__.startswith('bokeh'):
 
 	from openvisuspy import SetupLogger, IsPanelServe, GetBackend, Slices
 
-	logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"),logging_level=logging.INFO)
+	logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"),logging_level=logging.DEBUG)
 	logger.info(f"GetBackend()={GetBackend()}")
 
 	# serving a single dataset
@@ -48,7 +49,9 @@ if __name__.startswith('bokeh'):
 	# set a default dataset
 	if True:
 		if "open" in query_params:
-			value=json.loads(base64.b64decode(query_params['open']).decode("utf-8"))
+			decoded=base64.b64decode(query_params['open']).decode("utf-8")
+			value=json.loads(decoded)
+			logger.info("Opening from {value}")
 			view.open(value)
 
 		else:
@@ -70,3 +73,4 @@ if __name__.startswith('bokeh'):
 			template.servable()
 		else:
 			main_layout.servable()
+

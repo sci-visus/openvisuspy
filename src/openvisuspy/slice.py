@@ -16,8 +16,8 @@ from bokeh.events import DoubleTap
 from bokeh.plotting import figure
 
 import panel as pn
-pn.extension()
 pn.extension('floatpanel')
+pn.extension(notifications=True)
 
 from .utils import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
@@ -76,6 +76,9 @@ class Slice:
 		self.dashboards_config      = parent.dashboards_config      if parent else None
 		self.dashboards_config_url  = parent.dashboards_config_url  if parent else None		
 
+		self.dialogs={}
+		self.dialogs_placeholder=pn.Column(height=0, width=0)
+
 
 		self.createGui()
 		logger.info(f"Created Slice id={self.id} parent={self.parent}")
@@ -114,14 +117,13 @@ class Slice:
 		def onMenuClick(evt):
 			try:
 				__hidden.value=evt.new
-				if evt.new=="Open"    : return self.openAs()
-				if evt.new=="Save"    : return self.saveAs()
+				if evt.new=="Import/Export"    : return self.importExport()
 				if evt.new=="Show Metadata": return self.showMetadata()
 			except:
 				logger.info(traceback.format_exc())
 				raise		
 
-		self.widgets.menu = pn.widgets.MenuButton(name='File', items=[['Open']*2, ['Save']*2, ['Show Metadata']*2, None, ['Logout']*2], button_type='primary',width=120)
+		self.widgets.menu = pn.widgets.MenuButton(name='File', items=[['Import/Export']*2, ['Show Metadata']*2, None, ['Logout']*2], button_type='primary',width=120)
 		self.widgets.menu.on_click(onMenuClick)
 		self.widgets.menu=pn.Row(self.widgets.menu,__hidden)
 
@@ -303,6 +305,7 @@ class Slice:
 
 	# save
 	def save(self):
+
 		ret={
 			# must connect to the same dashboard to make it working...
 			# "config": self.dashboards_config_url,
@@ -329,27 +332,38 @@ class Slice:
 			},
 			"palette": {
 				"name": self.getPalette(),
-				"range": self.getPaletteRange() if self.getPaletteRangeMode()=="user" else [0.0,1.0],
-				# "metadata-range": self.getMetadataPaletteRange(), NOT NEEDED
+				"range": str(self.getPaletteRange() if self.getPaletteRangeMode()=="user" else [0.0,1.0]),
+				# "metadata-range": str(self.getMetadataPaletteRange()), NOT NEEDED
 				"range-mode": self.getPaletteRangeMode(),
 				"log": self.isLogPalette(),
 			}
 		}
 
-		for I,it in enumerate(self.slices):
-			sub=it.save()
+		# query
+		if self.canvas:
+			ret['query']={
+				"domain":"logic",
+				"box": str(self.getQueryLogicBox())
+			}
 
-			# do not repeat same value in child since they will be inherited
-			if self.getDataset()==it.getDataset():
-				for k in copy.copy(sub):
-					v=sub[k]
-					if v==ret.get(k,None):
-						del sub[k]
-			else:
-				"""otherwise to need to dump the full status since they are two different datasets"""
-			
-			if sub:
-				ret["slices"][I]=sub
+		# children
+		else:
+
+			ret["slices"]={}
+			for I,it in enumerate(self.slices):
+				sub=it.save()
+
+				# do not repeat same value in child since they will be inherited
+				if self.getDataset()==it.getDataset():
+					for k in copy.copy(sub):
+						v=sub[k]
+						if v==ret.get(k,None):
+							del sub[k]
+				else:
+					"""otherwise to need to dump the full status since they are two different datasets"""
+				
+				if sub:
+					ret["slices"][I]=sub
 
 		return ret
 
@@ -437,6 +451,11 @@ class Slice:
 				"log"           : d.get("palette", {}).get("log", False)
 			}
 
+			d['query']={
+				"domain":  d.get("query", {}).get("domain","logic"),
+				"box"   :  d.get("query", {}).get("box"   ,None),
+			}
+
 		if True:
 			self.setTimestepDelta(int(d["timestep-delta"]))
 			self.setTimestep(int(d["timestep"]))
@@ -450,12 +469,27 @@ class Slice:
 			self.setPalette(d['palette']["name"])
 			self.setMetadataPaletteRange(d["palette"]["metadata-range"])
 			self.setPaletteRangeMode(d["palette"]["range-mode"])
-			self.setPaletteRange(d["palette"]["range"]) if self.getPaletteRangeMode()=="user" else None
+
+			if self.getPaletteRangeMode()=="user":
+				palette_range=d["palette"]["range"]
+				if isinstance(palette_range,str): 
+					palette_range=eval(palette_range)
+				self.setPaletteRange(palette_range)
+			
 			self.setLogPalette(bool(d["palette"]["log"]))
 			self.setNumberOfRefinements(int(d['num-refinements']))
 
+			if d["query"]["box"]:
+				assert(d["query"]["domain"]=="logic")
+				box=eval(d["query"]["box"])
+				print("---------------------------",box)
+				self.setQueryLogicBox(box)
+
 		# recursive
-		for S,it in d.get("slices",{}):
+		for S,it in d.get("slices",{}).items():
+
+			S=int(S)
+
 			if S>=len(self.slices): 
 				break
 
@@ -478,54 +512,56 @@ class Slice:
 		ret=[it for it in datasets if it['name']==name]
 		return ret[0] if ret else {"name": name, "url": name}
 
-	# openAs
-	def openAs(self):
+	# importExport
+	def importExport(self):
 
-		file_input = pn.widgets.FileInput(accept=".json",sizing_mode="stretch_width")
-		text_area=pn.widgets.TextAreaInput(name='JSON',sizing_mode="stretch_width",height=400)
+		# text
+		text_area=pn.widgets.TextAreaInput(name='Current',value=json.dumps(self.save(),indent=2),sizing_mode="stretch_width",height=450)
 
-		def doOpen(evt=None):
-			if file_input.value:
-				body=file_input.value.decode('ascii')
-			else:
-				body=text_area.value
-			self.open(json.loads(body))
+		# eval
+		def onEvalClick(evt=None):
+			self.open(json.loads(text_area.value))
+			pn.state.notifications.info('Eval done')
+		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
-		button=Widgets.Button(name="Open", width=8, callback=doOpen,align='end')
+		# import
+		import_button = pn.widgets.FileInput(name="Import", description="Import", accept=".json")
+		def onImportClick(evt=None):
+			text_area.value=import_button.value.decode('ascii')
+			pn.state.notifications.info('Import done')
+		import_button.param.watch(Widgets.OnChange(onImportClick),"value")
+
+		# export
+		def onExportClick(evt=None):
+			sio = io.StringIO(text_area.value)
+			sio.seek(0)
+			pn.state.notifications.info('Export done')
+			return sio
+		export_button=pn.widgets.FileDownload(label="Export", callback=onExportClick, embed=True, filename='nsdf.json', align="end")
+
+		# copy url
+		copy_url_value=pn.widgets.TextAreaInput(visible=False)
+		def onCopyUrlClick(evt=None):
+			from urllib.parse import urlparse, urlencode
+			current_url=pn.state.location.href
+			o=urlparse(current_url)
+			encoded=base64.b64encode(text_area.value.encode('utf-8')).decode('ascii')
+			copy_url_value.value = o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'open': encoded})
+			print(copy_url_value.value)
+			pn.state.notifications.info('Copy url done')
+			# after this the javascript code will be executed
+		copy_url_button = Widgets.Button(name="Copy URL", callback=onCopyUrlClick, align='end')
+		copy_url_button.js_on_click( args={"copy_url_value": copy_url_value}, code="navigator.clipboard.writeText(copy_url_value.value);")
 
 		self.showDialog(
 			pn.Column(
-				file_input,
 				text_area,
-				button, 
-				sizing_mode="stretch_width"
+				pn.Row(eval_button,export_button, copy_url_button, copy_url_value,align='end'),
+				pn.Row(pn.pane.HTML("Import"),import_button,align='end'),
+				sizing_mode="stretch_width",align="end"
 			), 
-			name="Open")
+			name="Import/Export")
 
-	# saveAs
-	def saveAs(self):
-		status=self.save()
-		body=json.dumps(status)
-		sio = io.StringIO(body)
-		sio.seek(0)
-
-		from urllib.parse import urlparse, urlencode
-		url=pn.state.location.href
-		url += ('&' if urlparse(url).query else '?') + urlencode({'open':base64.b64encode(body.encode('utf-8')).decode('ascii')})
-
-		copy_clipboard=Widgets.Button(name="Copy to clipbloard", align='end')
-		copy_clipboard.js_on_click( args={"url": url}, code="navigator.clipboard.writeText(url);")
-
-		self.showDialog(
-			pn.Column(
-				pn.widgets.TextAreaInput(name='URL',value=url, sizing_mode="stretch_width",height=100,disabled=True),
-				copy_clipboard,
-				pn.pane.JSON(status,name="Save",depth=-1, sizing_mode="stretch_width"),
-				pn.widgets.FileDownload(sio, embed=True, filename='status.json', align="end"),
-				sizing_mode="stretch_width"
-			), 
-			name="Save"
-		)
 
 	# showMetadata
 	def showMetadata(self):
@@ -579,7 +615,6 @@ class Slice:
 
 		if not "contained" in kwargs:
 			kwargs["contained"]=False
-
 
 		self.dialogs["Metadata"]=pn.layout.FloatPanel(*args, **kwargs)
 		self.dialogs_placeholder[:]=[v for k,v in self.dialogs.items()]
@@ -1093,10 +1128,22 @@ class Slice:
 	# onCanvasResize
 	def onCanvasResize(self):
 		if not self.db: return
-		dir=self.getDirection()
-		offset=self.getOffset()
-		self.setDirection(dir)
-		self.setOffset(offset)
+		logger.info(f"[{self.id}] onCanvasResize")
+		if True:
+			(x1,x2),(y1,y2)=self.canvas.getViewport()
+			x,y,w,h=0.5*(x1+x2), 0.5*(y1+y2), (x2-x1), (y2-y1)
+			ratio=self.canvas.getWidth()/self.canvas.getHeight()
+			w,h=(w,w/ratio) if w>h else (ratio*h,h)
+			x1,x2=x-w/2,y+w/2
+			y1,y2=x-h/2,y+h/2
+			logic_box=self.toLogic([(x1,y1),(x2,y2)])
+			self.setQueryLogicBox(logic_box)
+
+		else:
+			dir=self.getDirection()
+			offset=self.getOffset()
+			self.setDirection(dir)
+			self.setOffset(offset)
 
 	# refresh
 	def refresh(self):
@@ -1119,6 +1166,7 @@ class Slice:
 		x1,y1=proj[0]
 		x2,y2=proj[1]
 		self.canvas.setViewport([(x1,x2),(y1,y2)])
+		print("!!!!!!!!!!!!!!!!!!!!!!",value, (x1,y1,x2,y2))
 		self.refresh()
   
 	# getLogicCenter
@@ -1346,7 +1394,9 @@ class Slice:
 	# rebuildGui
 	def rebuildGui(self):
 
-		self.hold()
+		# self.hold()
+
+		logger.info(f"Rebuiling gui id={self.id} parent={self.parent}")
 
 		self.stop()
 
@@ -1366,8 +1416,6 @@ class Slice:
 		for it in self.slices:  del it
 		self.slices=[]
 
-		self.dialogs={}
-		self.dialogs_placeholder=pn.Column(height=0, width=0)
 		self_show_options=self.dashboards_config.get("show-options",DEFAULT_SHOW_OPTIONS)
 
 		for I in range(nviews):
@@ -1426,7 +1474,7 @@ class Slice:
 			))
 
 		self.start()
-		self.unhold()
+		# self.unhold()
 
 	# onIdle
 	def onIdle(self):
@@ -1451,6 +1499,7 @@ class Slice:
 			raise 
 
 Slices=Slice
+
 
 
 
