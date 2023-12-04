@@ -1428,25 +1428,23 @@ class Slice:
 	# stop
 	def stop(self):
 
-		if self.parent:
-			self.aborted.setTrue()
-			self.query_node.stop()
-
-		for it in self.slices:
-			it.stop()
+		for it in [self] + self.slices:
+			if it.query_node:
+				it.aborted.setTrue()
+				it.query_node.stop()
 
 	# start
 	def start(self):
 
-		if self.parent:
-			self.query_node.start()
+		for it in [self] + self.slices:
+			if it.query_node:
+				it.query_node.start()
 
-		for it in self.slices:
-			it.start()
-
-		if not self.parent:
-			if not self.idle_callback:
-				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30) if IsPyodide() else pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
+		if not self.parent and not self.idle_callback:
+			if IsPyodide():
+				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30)  
+			else:
+				self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
 
 
 	# onIdle
