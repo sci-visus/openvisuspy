@@ -185,8 +185,8 @@ def SetupLogger(
 	stream=None, 
 	log_filename:str=None, 
 	logging_level=logging.INFO,
-	fmt="[%(asctime)s][%(levelname)s][%(filename)s:%(lineno)d:%(funcName)s] %(message)s",
-	datefmt="%H%M%S"
+	fmt="%(asctime)s %(levelname)s %(filename)s:%(lineno)d:%(funcName)s %(message)s",
+	datefmt="%Y-%M-%d- %H:%M:%S"
 	):
 
 	if logger is None:
