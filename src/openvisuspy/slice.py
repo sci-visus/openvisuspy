@@ -161,14 +161,30 @@ class Slice:
 	# hold
 	def hold(self):
 		self.num_hold+=1
-		if self.num_hold==1:
-			pn.state.curdoc.hold(policy="collect")
+		if self.num_hold>1: return
+
+		# pn.state.curdoc.hold(policy="collect")
+		for it in [self] + self.slices:
+			if it.query_node:
+				it.aborted.setTrue()
+				it.query_node.stop()
 
 	# hold
 	def unhold(self):
 		self.num_hold-=1
-		if self.num_hold==0:
-			pn.state.curdoc.unhold()
+		if self.num_hold>0: return
+
+		for it in [self] + self.slices:
+			if it.query_node:
+				it.query_node.start()
+
+		if not self.parent and not self.idle_callback:
+			if IsPyodide():
+				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30)  
+			else:
+				self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
+
+		self.refresh()
 
 	# on_change
 	def on_change(self, attr, callback):
@@ -201,7 +217,7 @@ class Slice:
 		show_linked="linked" in value
 		nviews=1 if value=="probe" else int(value[0])
 
-		self.stop()
+		self.hold()
 		
 		self.widgets.view_mode.value=value
 
@@ -262,8 +278,7 @@ class Slice:
 					sizing_mode='stretch_both' 
 				))
 
-		self.start()
-		# self.unhold()
+		self.unhold()
 
 		linked="linked" in value
 		for I,slice in enumerate(self.slices):
@@ -567,8 +582,7 @@ class Slice:
 			sub_d.update(scene.get(str(S),{}))
 			self.slices[S].loadScene(sub_d)
 
-		# self.unhold()
-		self.refresh()
+		self.unhold()
 
 
 	# loadSave
@@ -858,7 +872,7 @@ class Slice:
 		self.color_bar=None 
 		self.refresh()
 
-		#doc.unhold()
+		self.unhold()
 
 	# getNumberOfRefinements
 	def getNumberOfRefinements(self):
@@ -1424,28 +1438,6 @@ class Slice:
 				if it==self: continue
 				it.setQueryLogicBox(query_logic_box)
 				it.setOffset(offset)
-
-	# stop
-	def stop(self):
-
-		for it in [self] + self.slices:
-			if it.query_node:
-				it.aborted.setTrue()
-				it.query_node.stop()
-
-	# start
-	def start(self):
-
-		for it in [self] + self.slices:
-			if it.query_node:
-				it.query_node.start()
-
-		if not self.parent and not self.idle_callback:
-			if IsPyodide():
-				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30)  
-			else:
-				self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
-
 
 	# onIdle
 	def onIdle(self):
