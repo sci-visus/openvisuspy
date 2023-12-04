@@ -300,8 +300,13 @@ class Slice:
 		return json.loads(body) if body else {}
 		 
 	# getDashboardsConfig
-	def getDashboardsConfig(self):
-		return self.dashboards_config
+	def getDashboardsConfig(self, name=None):
+		if name is None:
+			return self.dashboards_config
+		else:
+			datasets=self.dashboards_config.get("datasets",[])
+			ret=[it for it in datasets if it['name']==name]
+			return ret[-1]
 
 	# setDashboardsConfig
 	def setDashboardsConfig(self, value):
@@ -370,8 +375,8 @@ class Slice:
 		if not name:  return
 		logger.info(f"[{self.id}] setDataset name={name} force={force}")
 		if not force and self.getDataset() == name: return
-		d=self.getDatasetConfig(name)
-		self.loadScene(d)
+		scene=self.getDashboardsConfig(name)
+		self.loadScene(scene)
 		self.triggerOnChange('dataset', None, name)
 
 	# saveScene
@@ -440,37 +445,37 @@ class Slice:
 
 
 	# loadScene
-	def loadScene(self, d):
+	def loadScene(self, scene):
 
 		# broken??? try to change the dataset...
 		# self.hold()
 
-		assert(isinstance(d,dict))
-		dataset=d.get("dataset",d.get("name"))
+		assert(isinstance(scene,dict))
+		dataset=scene.get("dataset",scene.get("name"))
 		assert(dataset)
 
-		url=self.getDatasetConfig(dataset)["url"]
+		dataset_config=self.getDashboardsConfig(dataset)
+		url=dataset_config["url"]
+		urls=dataset_config.get("urls",{})
 
 		# viewmode is only a thingy for the parent
 		if not self.parent:
-			self.setViewMode(d.get("view-mode","1"))
+			self.setViewMode(scene.get("view-mode","1"))
 
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
-		if "urls" in d and "--prefer" in sys.argv:
+		if "urls" in scene and "--prefer" in sys.argv:
 			prefer = sys.argv[sys.argv.index("--prefer") + 1]
-			urls=self.getDatasetConfig(dataset).get("urls",{})
 			v=[it for it in urls if it["id"] == prefer]
 			if v:
 				logger.info(f"Overriding url from {v[0]}")
 				url = v[0]["url"]
 
-		if True:
-			logger.info(f"Loading dataset url={url}")
-			self.db=LoadDataset(url=url) if not self.parent else self.parent.db
-			self.access = self.db.createAccess()
-			self.widgets.dataset.value = dataset
+		logger.info(f"Loading dataset url={url}")
+		self.db=LoadDataset(url=url) if not self.parent else self.parent.db
+		self.access = self.db.createAccess()
+		self.widgets.dataset.value = dataset
 
-		# self.doc.title = f"ViSUS {d['dataset']}"
+		# self.doc.title = f"ViSUS {scene['dataset']}"
 
 		# assuming all children will have the same dataset, if not later I am rewritingt it
 		# for the below calls I need the sub dataset to be ready
@@ -479,108 +484,89 @@ class Slice:
 			it.db=self.db
 			it.access=it.db.createAccess()
 
-		# automatic from dataset
-		if True:
-			self.setTimesteps(self.db.getTimesteps())
-			self.setFields(self.db.getFields())
+		timesteps=self.db.getTimesteps()
+		self.setTimesteps(timesteps)
 
-			pdim = self.getPointDim()
-			physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
-			physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
-			self.setPhysicBox(physic_box)
+		fields=self.db.getFields()
+		self.setFields(fields)
 
-			directions = self.db.inner.idxfile.axis.strip().split()
-			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
-			self.setDirections(directions)
+		pdim = self.getPointDim()
+		physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+		physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
+		self.setPhysicBox(physic_box)
+
+		directions = self.db.inner.idxfile.axis.strip().split()
+		directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
+		self.setDirections(directions)
+
+		timestep_delta = scene["timestep-delta" ] = int(scene.get("timestep-delta", 1))
+		self.setTimestepDelta(timestep_delta)
+
+		timestep = scene["timestep"] = int(scene.get("timestep", self.db.getTimesteps()[0]))
+		self.setTimestep(timestep)
+
+		viewdep=scene['view-dep'] = bool(scene.get('view-dep', True))
+		self.setViewDependent(viewdep)
+
+		resolution=scene['resolution'] = int(scene.get("resolution", self.db.getMaxResolution() - 6))
+		self.setResolution(resolution)
+
+		field=scene["field"] = scene.get("field", self.db.getField().name)
+		self.setField(field)
+
+		num_refinements=scene['num-refinements'] = int(scene.get("num-refinements", 2))
+		self.setNumberOfRefinements(num_refinements)
+
+		direction=scene['direction'] = int(scene.get("direction", 2))
+		self.setDirection(direction)
+
+		default_offset, offset_range=self.guessOffset(int(scene['direction']))
+		offset=scene["offset"] = float(scene.get("offset",default_offset))
+		self.setOffsetRange(offset_range) 
+		self.setOffset(scene["offset"])	
+
+		scene['play']={
+			"sec": scene.get("play", {}).get("sec","0.01")
+		}
+		self.setPlaySec(float(scene['play']["sec"]))
+
+		field = self.db.getField(scene["field"])
+		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
+		scene['palette']={
+			"name"           : scene.get("palette", {}).get("name",DEFAULT_PALETTE) ,
+			"metadata-range" : [low, high],
+			"range-mode"    : scene.get("palette", {}).get("range-mode","dynamic-acc"),
+			"range"         : scene.get("palette", {}).get("range",[low, high]),
+			"log"           : scene.get("palette", {}).get("log", False)
+		}
+		self.setPalette(scene['palette']["name"])
+		self.setMetadataPaletteRange(scene["palette"]["metadata-range"])
+		self.setPaletteRangeMode(scene["palette"]["range-mode"])
+		if self.getPaletteRangeMode()=="user":
+			palette_range=scene["palette"]["range"]
+			if isinstance(palette_range,str): palette_range=eval(palette_range)
+			self.setPaletteRange(palette_range)
+		self.setLogPalette(bool(scene["palette"]["log"]))	
+
+		scene['query']={
+			"domain":  scene.get("query", {}).get("domain","logic"),
+			"box"   :  scene.get("query", {}).get("box"   ,None),
+		}
+		
+		if scene["query"]["box"]:
+			assert(scene["query"]["domain"]=="logic")
+			box=eval(scene["query"]["box"])
+			self.setQueryLogicBox(box)
 
 
-		# read the configuration and guess values if needed
-		if True:
-			d["timestep-delta" ] = d.get("timestep-delta", 1)
-			d["timestep"       ] = d.get("timestep", self.db.getTimesteps()[0])
-			d['view-dep'       ] = d.get('view-dep', True)
-			d['resolution'     ] = d.get("resolution", self.db.getMaxResolution() - 6)
-			d["field"          ] = d.get("field", self.db.getField().name)
-			d['num-refinements'] = d.get("num-refinements", 2)
-			d['direction']       = d.get("direction", 2)
-
-			default_offset, offset_range=self.guessOffset(int(d['direction']))
-			d["offset"         ] = d.get("offset",default_offset)
-
-			d['play']={
-				"sec": d.get("play", {}).get("sec","0.01")
-			}
-			field = self.db.getField(d["field"])
-			low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
-
-			d['palette']={
-				"name"           : d.get("palette", {}).get("name",DEFAULT_PALETTE) ,
-				"metadata-range" : [low, high],
-				"range-mode"    : d.get("palette", {}).get("range-mode","dynamic-acc"),
-				"range"         : d.get("palette", {}).get("range",[low, high]),
-				"log"           : d.get("palette", {}).get("log", False)
-			}
-
-			d['query']={
-				"domain":  d.get("query", {}).get("domain","logic"),
-				"box"   :  d.get("query", {}).get("box"   ,None),
-			}
-
-		if True:
-			self.setTimestepDelta(int(d["timestep-delta"]))
-			self.setTimestep(int(d["timestep"]))
-			self.setField(d["field"])
-			self.setDirection(int(d["direction"]))
-			self.setOffsetRange(offset_range) 
-			self.setOffset(float(d["offset"]))
-			self.setViewDependent(bool(d['view-dep']))
-			self.setResolution(int(d['resolution']))
-			self.setPlaySec(float(d['play']["sec"]))
-			self.setPalette(d['palette']["name"])
-			self.setMetadataPaletteRange(d["palette"]["metadata-range"])
-			self.setPaletteRangeMode(d["palette"]["range-mode"])
-
-			if self.getPaletteRangeMode()=="user":
-				palette_range=d["palette"]["range"]
-				if isinstance(palette_range,str): 
-					palette_range=eval(palette_range)
-				self.setPaletteRange(palette_range)
-			
-			self.setLogPalette(bool(d["palette"]["log"]))
-			self.setNumberOfRefinements(int(d['num-refinements']))
-
-			if d["query"]["box"]:
-				assert(d["query"]["domain"]=="logic")
-				box=eval(d["query"]["box"])
-				print("---------------------------",box)
-				self.setQueryLogicBox(box)
-
-		# recursive
-		for S,it in d.get("slices",{}).items():
-
-			S=int(S)
-
-			if S>=len(self.slices): 
-				break
-
-			if it.get("dataset",dataset)==dataset:
-				sub_d=copy.deepcopy(d) # inherit values from the parent
-			else:
-				sub_d={} # do not inherit
-
-			# children values will always overwrite have precedence
-			sub_d.update(it)
+		for S,it in enumerate(self.slices):
+			sub_d=copy.deepcopy(scene)
+			sub_d.update(scene.get(str(S),{}))
 			self.slices[S].loadScene(sub_d)
 
 		# self.unhold()
 		self.refresh()
 
-	# getDatasetConfig
-	def getDatasetConfig(self, name=None):
-		name=name or self.getDataset()
-		datasets=self.dashboards_config.get("datasets",[])
-		ret=[it for it in datasets if it['name']==name]
-		return ret[0] if ret else {"name": name, "url": name}
 
 	# loadSave
 	def loadSave(self):
@@ -590,8 +576,8 @@ class Slice:
 
 		# eval
 		def onEvalClick(evt=None):
-			d=json.loads(text_area.value)
-			self.loadScene(d)
+			scene=json.loads(text_area.value)
+			self.loadScene(scene)
 			pn.state.notifications.info('Eval done')
 		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
@@ -638,7 +624,7 @@ class Slice:
 	def showMetadata(self):
 
 		logger.debug(f"Show metadata")
-		value=self.getDatasetConfig().get("metadata", [])
+		value=self.getDashboardsConfig(self.getDataset()).get("metadata", [])
 
 		cards=[]
 		for I, item in enumerate(value):

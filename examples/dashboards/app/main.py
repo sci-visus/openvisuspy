@@ -45,23 +45,21 @@ if __name__.startswith('bokeh'):
 	view = Slices()
 
 	view.setDashboardsConfig(config)
+	datasets=view.getDatasets()
 
 	# set a default dataset
 	if True:
 		if "load" in query_params:
 			decoded=base64.b64decode(query_params['load']).decode("utf-8")
-			d=json.loads(decoded)
-			logger.info("Opening from {d}")
-			view.load(d)
-
+			scene=json.loads(decoded)
 		else:
-			datasets=view.getDatasets()
-			dataset=query_params.get("dataset",None)
-			if not dataset and len(datasets): 
-				dataset=datasets[0]
+			dataset=query_params.get("dataset",datasets[0] if datasets else None)
+			if dataset:
+				scene=view.getDashboardsConfig(dataset)
 
-			if dataset is not None:
-				view.setDataset(dataset, force=True)
+	if scene is not None:
+		logger.info("Opening from {scene}")
+		view.loadScene(scene)
 
 	# show the GUI
 	if True:
