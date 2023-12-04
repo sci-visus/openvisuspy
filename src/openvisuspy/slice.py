@@ -324,6 +324,8 @@ class Slice:
 	# setDatasets
 	def setDatasets(self,value):
 		self.widgets.dataset.options = value
+		for it in self.slices:
+			it.setDatasets(value)
 
 	# getDatasets
 	def getDatasets(self):
@@ -474,6 +476,9 @@ class Slice:
 		self.widgets.dataset.value = dataset
 
 		# self.doc.title = f"ViSUS {scene['dataset']}"
+
+		datasets=self.getDatasets()
+		self.setDatasets(datasets)
 
 		# assuming all children will have the same dataset, if not later I am rewritingt it
 		# for the below calls I need the sub dataset to be ready
