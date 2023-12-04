@@ -158,21 +158,16 @@ class Slice:
 		if self.getPaletteRangeMode() == "user":
 			self.setPaletteRange(self.getPaletteRange())
 
-	# hold
-	def hold(self):
-		self.num_hold+=1
-		if self.num_hold>1: return
-
+	# stop
+	def stop(self):
 		# pn.state.curdoc.hold(policy="collect")
 		for it in [self] + self.slices:
 			if it.query_node:
 				it.aborted.setTrue()
 				it.query_node.stop()
 
-	# hold
-	def unhold(self):
-		self.num_hold-=1
-		if self.num_hold>0: return
+	# start
+	def start(self):
 
 		for it in [self] + self.slices:
 			if it.query_node:
@@ -217,7 +212,7 @@ class Slice:
 		show_linked="linked" in value
 		nviews=1 if value=="probe" else int(value[0])
 
-		self.hold()
+		self.stop()
 		
 		self.widgets.view_mode.value=value
 
@@ -278,14 +273,12 @@ class Slice:
 					sizing_mode='stretch_both' 
 				))
 
-		self.unhold()
-
-		linked="linked" in value
 		for I,slice in enumerate(self.slices):
 			slice.setDatasets(self.getDatasets())
 			slice.setDataset(self.getDataset(),force=True)
-			slice.setLinked(I==0 and linked)
+			slice.setLinked(I==0 and show_linked)
 
+		self.start()
 
 	# loadDashboardsConfig
 	def loadDashboardsConfig(self, value):
@@ -460,8 +453,7 @@ class Slice:
 	# loadScene
 	def loadScene(self, scene:dict):
 
-		# broken??? try to change the dataset...
-		# self.hold()
+		# self.stop()
 
 		assert(isinstance(scene,dict))
 		dataset=scene.get("dataset",scene.get("name"))
@@ -582,7 +574,7 @@ class Slice:
 			sub_d.update(scene.get(str(S),{}))
 			self.slices[S].loadScene(sub_d)
 
-		self.unhold()
+		self.start()
 
 
 	# loadSave
@@ -863,16 +855,12 @@ class Slice:
 	# setLogPalette
 	def setLogPalette(self, value):
 		logger.debug(f"[{self.id}] value={value}")
-
 		palette = self.getPalette()
 		self.widgets.palette_log.value = value
 		for it in self.slices:
 			it.setLogPalette(value)
-		# force refresh
 		self.color_bar=None 
-		self.refresh()
-
-		self.unhold()
+		self.start()
 
 	# getNumberOfRefinements
 	def getNumberOfRefinements(self):
