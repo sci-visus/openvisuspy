@@ -195,11 +195,11 @@ conda activate nsdf-env
 code /etc/nginx/nginx.conf
 sudo /usr/bin/systemctl restart nginx
 
-# add the group to the `index.html`
-code /var/www/html/index.html
-
 # choose any port you want which does not collide with other groups
 export BOKEH_PORT=<N>
+
+# add the group to the `index.html`
+code /var/www/html/index.html
 
 # in case you need to set who has access or not to the dashboard, use this uids separated by `;`
 # otherwise leave it emty or `*`

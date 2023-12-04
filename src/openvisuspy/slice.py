@@ -63,8 +63,12 @@ class Slice:
 
 		self.parent = parent
 		self.num_hold=0
-		self.id = f"{type(self).__name__}/{Slice.ID}"
+		self.id=[]
+		if self.parent: self.id.append(self.parent.id)
+		self.id.append(Slice.ID)
 		Slice.ID += 1
+		self.id=".".join([str(it) for it in self.id])
+		
 		self.db = None
 		self.access = None
 		self.render_id = 0 
@@ -206,7 +210,7 @@ class Slice:
 
 	# setViewMode
 	def setViewMode(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 
 		show_probe ="probe"  in value
 		show_linked="linked" in value
@@ -316,7 +320,7 @@ class Slice:
 	def setDashboardsConfig(self, value):
 		if value is None:  return
 		
-		logger.debug(f"[{self.id}] value={str(value)[0:80]}...")
+		logger.debug(f"id={self.id} value={str(value)[0:80]}...")
 
 		if not isinstance(value,dict):
 			self.dashboards_config_url=value
@@ -345,7 +349,7 @@ class Slice:
 
 	# setLogicToPhysic
 	def setLogicToPhysic(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.logic_to_physic = value
 		for it in self.slices:
 			it.setLogicToPhysic(value)
@@ -379,7 +383,7 @@ class Slice:
 	# setDataset
 	def setDataset(self, name, db=None, force=False):
 		if not name:  return
-		logger.info(f"[{self.id}] setDataset name={name} force={force}")
+		logger.info(f"id={self.id} setDataset name={name} force={force}")
 		if not force and self.getDataset() == name: return
 		scene=self.getDashboardsConfig(name)
 		self.loadScene(scene)
@@ -454,6 +458,8 @@ class Slice:
 	def loadScene(self, scene:dict):
 
 		# self.stop()
+
+		logger.info(f"id={self.id} START {scene}")
 
 		assert(isinstance(scene,dict))
 		dataset=scene.get("dataset",scene.get("name"))
@@ -568,14 +574,15 @@ class Slice:
 			box=eval(scene["query"]["box"])
 			self.setQueryLogicBox(box)
 
-
 		for S,it in enumerate(self.slices):
-			sub_d=copy.deepcopy(scene)
-			sub_d.update(scene.get(str(S),{}))
-			self.slices[S].loadScene(sub_d)
+			sub_scene=copy.deepcopy(scene)
+			sub_scene.update(scene.get("slices",{}).get(str(S),{}))
+			if "slices" in sub_scene:
+				del sub_scene["slices"] 
+			self.slices[S].loadScene(sub_scene)
 
 		self.start()
-
+		logger.info(f"id={self.id,self.parent} END")
 
 	# loadSave
 	def loadSave(self):
@@ -583,10 +590,20 @@ class Slice:
 		# text
 		text_area=pn.widgets.TextAreaInput(name='Current',value=json.dumps(self.saveScene(),indent=2),sizing_mode="stretch_width",height=450)
 
+		copy_url_value=pn.widgets.TextAreaInput(sizing_mode="stretch_width",height=200)
+
+		from urllib.parse import urlparse, urlencode
+		current_url=pn.state.location.href
+		o=urlparse(current_url)
+		load_s=base64.b64encode(text_area.value.encode('utf-8')).decode('ascii')
+		copy_url_value.value=o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})
+
 		# eval
 		def onEvalClick(evt=None):
 			scene=json.loads(text_area.value)
 			self.loadScene(scene)
+			load_s=base64.b64encode(text_area.value.encode('utf-8')).decode('ascii')
+			copy_url_value.value = o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})
 			pn.state.notifications.info('Eval done')
 		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
@@ -606,24 +623,19 @@ class Slice:
 		save_button=pn.widgets.FileDownload(label="Save", callback=onSaveClick, embed=True, filename='nsdf.json', align="end")
 
 		# copy url
-		copy_url_value=pn.widgets.TextAreaInput(visible=False)
 		def onCopyUrlClick(evt=None):
-			from urllib.parse import urlparse, urlencode
-			current_url=pn.state.location.href
-			o=urlparse(current_url)
-			encoded=base64.b64encode(text_area.value.encode('utf-8')).decode('ascii')
-			copy_url_value.value = o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': encoded})
-			print(copy_url_value.value)
 			pn.state.notifications.info('Copy url done')
 			# after this the javascript code will be executed
+
 		copy_url_button = Widgets.Button(name="Copy URL", callback=onCopyUrlClick, align='end')
 		copy_url_button.js_on_click( args={"copy_url_value": copy_url_value}, code="navigator.clipboard.writeText(copy_url_value.value);")
 
 		self.showDialog(
 			pn.Column(
 				text_area,
-				pn.Row(eval_button,load_button, copy_url_button, copy_url_value,align='end'),
-				pn.Row(pn.pane.HTML("Save"),save_button,align='end'),
+				pn.Row(eval_button,load_button, align='end'),
+				pn.Row(save_button,align='end'),
+				pn.Column(copy_url_value,copy_url_button),
 				sizing_mode="stretch_width",align="end"
 			), 
 			name="Load/Save")
@@ -694,7 +706,7 @@ class Slice:
 
 	# setTimesteps
 	def setTimesteps(self, value):
-		logger.debug(f"[{self.id}] start={value[0]} end={value[-1]}")
+		logger.debug(f"id={self.id} start={value[0]} end={value[-1]}")
 		self.widgets.timestep.start = value[0]
 		self.widgets.timestep.end = value[-1]
 		self.widgets.timestep.step = 1
@@ -725,7 +737,7 @@ class Slice:
 
 	# setTimestepDelta
 	def setTimestepDelta(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.timestep_delta.value = self.optionFromSpeed(value)
 		self.widgets.timestep.step = value
 		A = self.widgets.timestep.start
@@ -746,7 +758,7 @@ class Slice:
 
 	# setTimestep
 	def setTimestep(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.timestep.value = value
 		for it in self.slices:
 			it.setTimestep(value)
@@ -758,7 +770,7 @@ class Slice:
 
 	# setFields
 	def setFields(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.field.options = list(value)
 		for it in self.slices:
 			it.setFields(value)
@@ -769,7 +781,7 @@ class Slice:
 
 	# setField
 	def setField(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		if value is None: return
 		self.widgets.field.value = value
 		for it in self.slices:
@@ -782,7 +794,7 @@ class Slice:
 
 	# setPalette
 	def setPalette(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.palette.value_name = value
 		self.color_bar=None
 		for it in self.slices:
@@ -808,7 +820,7 @@ class Slice:
 
 	# setPaletteRangeMode
 	def setPaletteRangeMode(self, mode):
-		logger.debug(f"[{self.id}] mode={mode} ")
+		logger.debug(f"id={self.id} mode={mode} ")
 		self.widgets.palette_range_mode.value = mode
 
 		wmin = self.widgets.palette_range_vmin
@@ -854,7 +866,7 @@ class Slice:
 
 	# setLogPalette
 	def setLogPalette(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		palette = self.getPalette()
 		self.widgets.palette_log.value = value
 		for it in self.slices:
@@ -868,7 +880,7 @@ class Slice:
 
 	# setNumberOfRefinements
 	def setNumberOfRefinements(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.num_refinements.value = value
 		for it in self.slices:
 			it.setNumberOfRefinements(value)
@@ -884,7 +896,7 @@ class Slice:
 
 	# setResolution
 	def setResolution(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.resolution.start = self.start_resolution
 		self.widgets.resolution.end   = self.db.getMaxResolution()
 		value = Clamp(value, 0, self.widgets.resolution.end)
@@ -899,7 +911,7 @@ class Slice:
 
 	# setViewDependent
 	def setViewDependent(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.view_dep.value = value
 		self.widgets.resolution.name = "Max Res" if value else "Res"
 		for it in self.slices:
@@ -912,7 +924,7 @@ class Slice:
 
 	# setDirections
 	def setDirections(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.direction.options = value
 		for it in self.slices:
 			it.setDirections(value)
@@ -923,7 +935,7 @@ class Slice:
 
 	# setDirection
 	def setDirection(self, value):
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		pdim = self.getPointDim()
 		if pdim == 2: value = 2
 		dims = [int(it) for it in self.db.getLogicSize()]
@@ -972,7 +984,7 @@ class Slice:
 	# setOffsetRange
 	def setOffsetRange(self, value):
 		A, B, step = value
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		self.widgets.offset.start, self.widgets.offset.end, self.widgets.offset.step = A, B, step
 		for it in self.slices:
 			it.setOffsetRange(value)
@@ -983,7 +995,7 @@ class Slice:
 
 	# setOffset (3d only) (in physic domain)
 	def setOffset(self, value):
-		logger.debug(f"[{self.id}] new-value={value} old-value={self.getOffset()}")
+		logger.debug(f"id={self.id} new-value={value} old-value={self.getOffset()}")
 
 		# do not send float offset if it's all integer
 		if all([int(it) == it for it in self.getOffsetRange()]):
@@ -992,7 +1004,7 @@ class Slice:
 		self.widgets.offset.value = value
 		assert (self.widgets.offset.value == value)
 		for it in self.slices:
-			logger.debug(f"[{self.id}] recursively calling setOffset({value}) for slice={it.id}")
+			logger.debug(f"id={self.id} recursively calling setOffset({value}) for slice={it.id}")
 			it.setOffset(value)
 
 		self.triggerOnChange('offset', None, value)
@@ -1007,7 +1019,7 @@ class Slice:
 		if pdim == 2:
 			assert dir == 2
 			value = 0
-			logger.debug(f"[{self.id}] pdim==2 calling setOffset({value})")
+			logger.debug(f"id={self.id} pdim==2 calling setOffset({value})")
 			return value,[0, 0, 1]
 		else:
 			vt = [self.logic_to_physic[I][0] for I in range(pdim)]
@@ -1095,7 +1107,7 @@ class Slice:
 
 	# startPlay
 	def startPlay(self):
-		logger.info(f"[{self.id}]::startPlay")
+		logger.info(f"id={self.id}::startPlay")
 		self.play.is_playing = True
 		self.play.t1 = time.time()
 		self.play.wait_render_id = None
@@ -1107,7 +1119,7 @@ class Slice:
 
 	# stopPlay
 	def stopPlay(self):
-		logger.info(f"[{self.id}]::stopPlay")
+		logger.info(f"id={self.id}::stopPlay")
 		self.play.is_playing = False
 		self.play.wait_render_id = None
 		self.setNumberOfRefinements(self.play.num_refinements)
@@ -1140,7 +1152,7 @@ class Slice:
 		if T >= self.widgets.timestep.end:
 			T = self.timesteps.widgets.timestep.start
 
-		logger.info(f"[{self.id}]::playing timestep={T}")
+		logger.info(f"id={self.id}::playing timestep={T}")
 
 		# I will wait for the resolution to be displayed
 		self.play.wait_render_id = [(it + 1) if it is not None else None for it in render_id]
@@ -1190,7 +1202,7 @@ class Slice:
 	# onCanvasResize
 	def onCanvasResize(self):
 		if not self.db: return
-		logger.info(f"[{self.id}] onCanvasResize")
+		logger.info(f"id={self.id} onCanvasResize")
 		if False:
 			(x1,x2),(y1,y2)=self.canvas.getViewport()
 			x,y,w,h=0.5*(x1+x2), 0.5*(y1+y2), (x2-x1), (y2-y1)
@@ -1222,7 +1234,7 @@ class Slice:
 	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
 	def setQueryLogicBox(self,value,):
 		assert(self.canvas)
-		logger.debug(f"[{self.id}] value={value}")
+		logger.debug(f"id={self.id} value={value}")
 		proj=self.toPhysic(value) 
 		x1,y1=proj[0]
 		x2,y2=proj[1]
@@ -1251,7 +1263,7 @@ class Slice:
   # gotoPoint
 	def gotoPoint(self,point):
 		assert(False) # not sure if point is in physic or logic corrdinates (I think physic)
-		logger.debug(f"[{self.id}] point={point}")
+		logger.debug(f"id={self.id} point={point}")
 		pdim=self.getPointDim()
 		for it in self.slices:
 			# go to the slice
@@ -1270,7 +1282,7 @@ class Slice:
 	def gotNewData(self, result):
 
 		assert(self.parent)
-		logger.debug(f"[{self.id}] gotNewData ENTER")
+		logger.debug(f"id={self.id} gotNewData ENTER")
 
 		data=result['data']
 		try:
@@ -1333,7 +1345,7 @@ class Slice:
 				LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
 			)
 
-		logger.debug(f"[{self.id}]::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
+		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
 
 		# update the image
 		(x1,y1),(x2,y2)=self.toPhysic(logic_box)
@@ -1358,7 +1370,7 @@ class Slice:
 		self.render_id+=1 
 
 		self.triggerOnChange("data", None, data)
-		logger.debug(f"[{self.id}] gotNewData EXIT")
+		logger.debug(f"id={self.id} gotNewData EXIT")
   
 	# pushJobIfNeeded
 	def pushJobIfNeeded(self):
@@ -1370,7 +1382,7 @@ class Slice:
 		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
 			return
 
-		logger.debug(f"[{self.id}] pushing new job query_logic_box={query_logic_box}...")
+		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box}...")
 
 		# abort the last one
 		self.aborted.setTrue()
@@ -1417,7 +1429,7 @@ class Slice:
 		self.last_query_logic_box=query_logic_box
 		self.new_job=False
 
-		logger.debug(f"[{self.id}] pushed new job query_logic_box={query_logic_box}")
+		logger.debug(f"id={self.id} pushed new job query_logic_box={query_logic_box}")
 
 		# link views
 		if self.isLinked() and self.parent:
