@@ -195,62 +195,58 @@ class Slice:
 
 	# setViewMode
 	def setViewMode(self, value):
-		value=str(value).lower().strip()
 		logger.debug(f"[{self.id}] value={value}")
 
-		# "2 probe linked"
-		v=self.getViewMode().split()
-		if v==["probe"]: v=["1","probe"]
-		show_probe ="probe"  in v
-		show_linked="linked" in v
-		nviews=int(v[0])
+		show_probe ="probe"  in value
+		show_linked="linked" in value
+		nviews=1 if value=="probe" else int(value[0])
 
 		self.stop()
+		
+		self.widgets.view_mode.value=value
 
-		# rebuild Gui
-		if True:
-			
-			self.main_layout[:]=[]
+		# rebuild the Gui
+		self.main_layout[:]=[]
 
-			for it in self.slices:  del it
-			self.slices=[]
+		for it in self.slices:  del it
+		self.slices=[]
 
-			self_show_options=self.dashboards_config.get("show-options",DEFAULT_SHOW_OPTIONS)
+		self_show_options=self.dashboards_config.get("show-options",DEFAULT_SHOW_OPTIONS)
 
-			for I in range(nviews):
+		for I in range(nviews):
 
-				if nviews==1:
-					slice_show_options=[it for it in self_show_options[1] if it not in self_show_options[0]]
-				else:
-					slice_show_options=self_show_options[1]
+			if nviews==1:
+				slice_show_options=[it for it in self_show_options[1] if it not in self_show_options[0]]
+			else:
+				slice_show_options=self_show_options[1]
 
-				slice = Slice(parent=self)
-				self.slices.append(slice)
+			slice = Slice(parent=self)
+			self.slices.append(slice)
 
-				from .probe import ProbeTool
-				slice.tool = ProbeTool(slice)
-				slice.tool.main_layout.visible=show_probe
+			from .probe import ProbeTool
+			slice.tool = ProbeTool(slice)
+			slice.tool.main_layout.visible=show_probe
 
-				# slice.widgets.show_probe = Widgets.Button(name="Probe", callback=lambda: slice.tool.setVisible(not slice.tool.isVisible()))
+			# slice.widgets.show_probe = Widgets.Button(name="Probe", callback=lambda: slice.tool.setVisible(not slice.tool.isVisible()))
 
-				slice.main_layout=pn.Row(
-					pn.Column(
-						pn.Row(
-							*[getattr(slice.widgets,it.replace("-","_")) for it in slice_show_options], # child
-								sizing_mode="stretch_width"),
-						pn.Row(
-							slice.canvas.main_layout, 
-							sizing_mode='stretch_both'),
-						pn.Row(
-							slice.widgets.status_bar["request"],
-							slice.widgets.status_bar["response"], 
-							sizing_mode='stretch_width'
-						),
-						sizing_mode="stretch_both"
+			slice.main_layout=pn.Row(
+				pn.Column(
+					pn.Row(
+						*[getattr(slice.widgets,it.replace("-","_")) for it in slice_show_options], # child
+							sizing_mode="stretch_width"),
+					pn.Row(
+						slice.canvas.main_layout, 
+						sizing_mode='stretch_both'),
+					pn.Row(
+						slice.widgets.status_bar["request"],
+						slice.widgets.status_bar["response"], 
+						sizing_mode='stretch_width'
 					),
-					slice.tool.main_layout,
 					sizing_mode="stretch_both"
-				)
+				),
+				slice.tool.main_layout,
+				sizing_mode="stretch_both"
+			)
 
 			self.main_layout.append(
 				pn.Column(
@@ -445,7 +441,7 @@ class Slice:
 
 
 	# loadScene
-	def loadScene(self, scene):
+	def loadScene(self, scene:dict):
 
 		# broken??? try to change the dataset...
 		# self.hold()
@@ -460,7 +456,9 @@ class Slice:
 
 		# viewmode is only a thingy for the parent
 		if not self.parent:
-			self.setViewMode(scene.get("view-mode","1"))
+			viewmode=scene.get("view-mode","1")
+			if len(self.slices)==0 or viewmode!=self.getViewMode():
+				self.setViewMode(viewmode)
 
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
 		if "urls" in scene and "--prefer" in sys.argv:
