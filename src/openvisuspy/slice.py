@@ -117,13 +117,13 @@ class Slice:
 		def onMenuClick(evt):
 			try:
 				__hidden.value=evt.new
-				if evt.new=="Import/Export"    : return self.importExport()
+				if evt.new=="Load/Save"    : return self.loadSave()
 				if evt.new=="Show Metadata": return self.showMetadata()
 			except:
 				logger.info(traceback.format_exc())
 				raise		
 
-		self.widgets.menu = pn.widgets.MenuButton(name='File', items=[['Import/Export']*2, ['Show Metadata']*2, None, ['Logout']*2], button_type='primary',width=120)
+		self.widgets.menu = pn.widgets.MenuButton(name='File', items=[['Load/Save']*2, ['Show Metadata']*2, None, ['Logout']*2], button_type='primary',width=120)
 		self.widgets.menu.on_click(onMenuClick)
 		self.widgets.menu=pn.Row(self.widgets.menu,__hidden)
 
@@ -371,11 +371,11 @@ class Slice:
 		logger.info(f"[{self.id}] setDataset name={name} force={force}")
 		if not force and self.getDataset() == name: return
 		d=self.getDatasetConfig(name)
-		self.load(d)
+		self.loadScene(d)
 		self.triggerOnChange('dataset', None, name)
 
-	# save
-	def save(self):
+	# saveScene
+	def saveScene(self):
 
 		ret={
 			# must connect to the same dashboard to make it working...
@@ -422,7 +422,7 @@ class Slice:
 
 			ret["slices"]={}
 			for I,it in enumerate(self.slices):
-				sub=it.save()
+				sub=it.saveScene()
 
 				# do not repeat same value in child since they will be inherited
 				if self.getDataset()==it.getDataset():
@@ -439,8 +439,8 @@ class Slice:
 		return ret
 
 
-	# load
-	def load(self, d):
+	# loadScene
+	def loadScene(self, d):
 
 		# broken??? try to change the dataset...
 		# self.hold()
@@ -464,7 +464,6 @@ class Slice:
 				logger.info(f"Overriding url from {v[0]}")
 				url = v[0]["url"]
 
-		# # load dataset
 		if True:
 			logger.info(f"Loading dataset url={url}")
 			self.db=LoadDataset(url=url) if not self.parent else self.parent.db
@@ -571,7 +570,7 @@ class Slice:
 
 			# children values will always overwrite have precedence
 			sub_d.update(it)
-			self.slices[S].load(sub_d)
+			self.slices[S].loadScene(sub_d)
 
 		# self.unhold()
 		self.refresh()
@@ -583,33 +582,33 @@ class Slice:
 		ret=[it for it in datasets if it['name']==name]
 		return ret[0] if ret else {"name": name, "url": name}
 
-	# importExport
-	def importExport(self):
+	# loadSave
+	def loadSave(self):
 
 		# text
-		text_area=pn.widgets.TextAreaInput(name='Current',value=json.dumps(self.save(),indent=2),sizing_mode="stretch_width",height=450)
+		text_area=pn.widgets.TextAreaInput(name='Current',value=json.dumps(self.saveScene(),indent=2),sizing_mode="stretch_width",height=450)
 
 		# eval
 		def onEvalClick(evt=None):
 			d=json.loads(text_area.value)
-			self.load(d)
+			self.loadScene(d)
 			pn.state.notifications.info('Eval done')
 		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
-		# import
-		import_button = pn.widgets.FileInput(name="Import", description="Import", accept=".json")
-		def onImportClick(evt=None):
-			text_area.value=import_button.value.decode('ascii')
-			pn.state.notifications.info('Import done')
-		import_button.param.watch(Widgets.OnChange(onImportClick),"value")
+		# load
+		load_button = pn.widgets.FileInput(name="Load", description="Load", accept=".json")
+		def onLoadClick(evt=None):
+			text_area.value=load_button.value.decode('ascii')
+			pn.state.notifications.info('Load done')
+		load_button.param.watch(Widgets.OnChange(onLoadClick),"value")
 
-		# export
-		def onExportClick(evt=None):
+		# save
+		def onSaveClick(evt=None):
 			sio = io.StringIO(text_area.value)
 			sio.seek(0)
-			pn.state.notifications.info('Export done')
+			pn.state.notifications.info('Save done')
 			return sio
-		export_button=pn.widgets.FileDownload(label="Export", callback=onExportClick, embed=True, filename='nsdf.json', align="end")
+		save_button=pn.widgets.FileDownload(label="Save", callback=onSaveClick, embed=True, filename='nsdf.json', align="end")
 
 		# copy url
 		copy_url_value=pn.widgets.TextAreaInput(visible=False)
@@ -628,11 +627,11 @@ class Slice:
 		self.showDialog(
 			pn.Column(
 				text_area,
-				pn.Row(eval_button,export_button, copy_url_button, copy_url_value,align='end'),
-				pn.Row(pn.pane.HTML("Import"),import_button,align='end'),
+				pn.Row(eval_button,load_button, copy_url_button, copy_url_value,align='end'),
+				pn.Row(pn.pane.HTML("Save"),save_button,align='end'),
 				sizing_mode="stretch_width",align="end"
 			), 
-			name="Import/Export")
+			name="Load/Save")
 
 
 	# showMetadata
@@ -1201,7 +1200,7 @@ class Slice:
 	def onCanvasResize(self):
 		if not self.db: return
 		logger.info(f"[{self.id}] onCanvasResize")
-		if True:
+		if False:
 			(x1,x2),(y1,y2)=self.canvas.getViewport()
 			x,y,w,h=0.5*(x1+x2), 0.5*(y1+y2), (x2-x1), (y2-y1)
 			ratio=self.canvas.getWidth()/self.canvas.getHeight()
@@ -1212,8 +1211,7 @@ class Slice:
 			self.setQueryLogicBox(logic_box)
 
 		else:
-			dir=self.getDirection()
-			offset=self.getOffset()
+			dir,offset=self.getDirection(),self.getOffset()
 			self.setDirection(dir)
 			self.setOffset(offset)
 
@@ -1238,7 +1236,6 @@ class Slice:
 		x1,y1=proj[0]
 		x2,y2=proj[1]
 		self.canvas.setViewport([(x1,x2),(y1,y2)])
-		print("!!!!!!!!!!!!!!!!!!!!!!",value, (x1,y1,x2,y2))
 		self.refresh()
   
 	# getLogicCenter
