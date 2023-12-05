@@ -83,7 +83,6 @@ class Slice:
 		self.dialogs={}
 		self.dialogs_placeholder=pn.Column(height=0, width=0)
 
-
 		self.createGui()
 		logger.info(f"Created Slice id={self.id} parent={self.parent}")
 
@@ -101,7 +100,7 @@ class Slice:
 			if self.getPaletteRangeMode() == "user":
 				self.setPaletteRange(self.getPaletteRange())
 
-		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2 link", "4", "4 link"],width=80, callback=onViewModeChange)
+		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],width=80, callback=onViewModeChange)
 		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new))
 		self.widgets.palette               = Widgets.ColorMap (options=PALETTES, value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette)
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode)
@@ -161,6 +160,7 @@ class Slice:
 			self.new_job       = False
 			self.current_img   = None
 			self.last_query_logic_box = NotImplemented	
+			self.last_job_pushed =time.time()
 			self.query_node=QueryNode()
 			self.canvas = Canvas(self.id)
 
@@ -265,7 +265,7 @@ class Slice:
 		datasets=self.getDatasets()
 
 		show_probe ="probe"  in value
-		show_linked="link" in value
+		show_linked="linked" in value
 		nviews=1 if value=="probe" else int(value[0])
 
 		self.stop()
@@ -1431,7 +1431,9 @@ class Slice:
 			num_refinements=3 if pdim==2 else 4
 		self.aborted=Aborted()
 
-		resolution=self.getResolution()
+		# do not push too many jobs
+		if (time.time()-self.last_job_pushed)<0.2:
+			return
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
 		if self.isViewDependent():
@@ -1443,6 +1445,7 @@ class Slice:
 				return
 			
 			max_pixels=canvas_w*canvas_h
+			resolution=self.getResolution()
 			delta=resolution-self.getMaxResolution()
 			if resolution<self.getMaxResolution():
 				max_pixels=int(max_pixels/pow(1.3,abs(delta))) # decrease 
@@ -1473,9 +1476,10 @@ class Slice:
 			endh=endh, 
 			aborted=self.aborted
 		)
+		
+		self.last_job_pushed=time.time()
 		self.last_query_logic_box=query_logic_box
 		self.new_job=False
-
 
 		# link views
 		if self.isLinked() and self.parent:
