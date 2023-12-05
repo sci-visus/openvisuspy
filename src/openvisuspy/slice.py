@@ -93,7 +93,12 @@ class Slice:
 
 		self.widgets = types.SimpleNamespace()
 
-		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2 link", "4", "4 link"],width=80, callback=self.setViewMode)
+		def onViewModeChange(value):
+			scene=self.saveScene()
+			self.setViewMode(value)
+			self.loadScene(scene)
+
+		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2 link", "4", "4 link"],width=80, callback=onViewModeChange)
 		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new))
 		self.widgets.palette               = Widgets.ColorMap (options=PALETTES, value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette)
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode)
@@ -239,10 +244,6 @@ class Slice:
 	# getMainLayout
 	def getMainLayout(self):
 		return self.main_layout
-
-	# setNumberOfViews (backward compatible)
-	def setNumberOfViews(self, value):
-		self.setViewMode(str(value))
 
 	# getViewMode
 	def getViewMode(self):
