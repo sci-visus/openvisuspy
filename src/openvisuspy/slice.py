@@ -40,7 +40,6 @@ for name in sorted(colorcet.palette):
 		if len(name)>12: continue
 		PALETTES[name]=value
 
-
 DEFAULT_PALETTE="Viridis256"
 
 logger = logging.getLogger(__name__)
@@ -98,12 +97,16 @@ class Slice:
 			self.setViewMode(value)
 			self.loadScene(scene)
 
+		def onPaletteRangeChange(evt=None):
+			if self.getPaletteRangeMode() == "user":
+				self.setPaletteRange(self.getPaletteRange())
+
 		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2 link", "4", "4 link"],width=80, callback=onViewModeChange)
 		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new))
 		self.widgets.palette               = Widgets.ColorMap (options=PALETTES, value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette)
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode)
-		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=self.onPaletteRangeChange,width=80)
-		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=self.onPaletteRangeChange,width=80)
+		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=onPaletteRangeChange,width=80)
+		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.palette_log           = Widgets.CheckBox (name="Log", value=False, callback=self.setPaletteLog)
 		self.widgets.timestep              = Widgets.Slider   (name='Time', type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,width=120)
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
@@ -118,6 +121,18 @@ class Slice:
 		self.widgets.status_bar = {}
 		self.widgets.status_bar["request" ] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
 		self.widgets.status_bar["response"] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
+
+		self.widgets.scene=Widgets.TextAreaInput(
+			name='Current',
+			sizing_mode="stretch_width",
+			height=520,
+			stylesheets=["""
+				.bk-input {
+					background-color: rgb(48, 48, 64);
+					color: white;
+					font-size: medium;
+				}
+				"""])
 
 		self.widgets.copy_url = pn.widgets.TextInput(visible=False)
 
@@ -190,14 +205,6 @@ class Slice:
 	def onCanvasDoubleTap(self, evt):
 		pass # what to do?
 
-	# onPaletteRangeChange
-	def onPaletteRangeChange(self, evt=None):
-		mode=self.getPaletteRangeMode()
-		if mode == "user":
-			range=self.getPaletteRange()
-			logger.debug(f"id={self.id} palette_range_mode={mode} range={range}")
-			self.setPaletteRange(range)
-
 	# stop
 	def stop(self):
 		# pn.state.curdoc.hold(policy="collect")
@@ -252,13 +259,16 @@ class Slice:
 	# setViewMode
 	def setViewMode(self, value):
 
+		if self.parent:
+			return
+
 		show_probe ="probe"  in value
 		show_linked="linked" in value
 		nviews=1 if value=="probe" else int(value[0])
 		logger.debug(f"id={self.id} value={value} nviews={nviews}")
 
 		self.stop()
-		
+
 		with self.widgets.view_mode.disable_callbacks():
 			self.widgets.view_mode.value=value
 
@@ -361,22 +371,22 @@ class Slice:
 		
 		logger.debug(f"id={self.id} value={str(value)[0:80]}...")
 
+		# it is an URL
 		if not isinstance(value,dict):
 			self.dashboards_config_url=value
 			value=self.loadDashboardsConfig(value)
 	
-		assert(isinstance(value,dict))
-		self.dashboards_config = value
-		self.setDatasets([it["name"] for it in value.get("datasets",[])])
-
-		for it in self.slices:
-			it.setDashboardsConfig(value)
+		for it in [self] + self.slices:
+			it.dashboards_config = value
+			
+		datasets=[it["name"] for it in value.get("datasets",[])]
+		self.setDatasets(datasets)
 
 	# setDatasets
 	def setDatasets(self,value):
-		self.widgets.dataset.options = value
-		for it in self.slices:
-			it.setDatasets(value)
+		for it in [self] + self.slices:
+			with it.widgets.dataset.disable_callbacks():
+				it.widgets.dataset.options = value
 
 	# getDatasets
 	def getDatasets(self):
@@ -389,9 +399,8 @@ class Slice:
 	# setLogicToPhysic
 	def setLogicToPhysic(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		self.logic_to_physic = value
-		for it in self.slices:
-			it.setLogicToPhysic(value)
+		for it in [self] + self.slices:
+			it.logic_to_physic = value
 		self.refresh()
 
 	# getPhysicBox
@@ -407,19 +416,13 @@ class Slice:
 	# setPhysicBox
 	def setPhysicBox(self, value):
 		dims = self.db.getLogicSize()
-
 		def LinearMapping(a, b, A, B):
 			vs = (B - A) / (b - a)
 			vt = A - a * vs
 			return vt, vs
-
 		T = [LinearMapping(0, dims[I], *value[I]) for I in range(len(dims))]
 		self.setLogicToPhysic(T)
 		
-	# getDataset
-	def getDataset(self):
-		return self.widgets.dataset.value
-	
 	# saveScene
 	def saveScene(self):
 
@@ -484,7 +487,6 @@ class Slice:
 
 		return ret
 
-
 	# loadScene
 	def loadScene(self, scene:dict):
 
@@ -525,9 +527,6 @@ class Slice:
 		for it in [self] + self.slices:
 			it.db    =db
 			it.access=db.createAccess()
-
-		# self.setDataset
-		for it in [self] + self.slices:
 			with it.widgets.view_mode.disable_callbacks():
 				it.widgets.dataset.value=dataset
 
@@ -627,6 +626,10 @@ class Slice:
 
 		logger.info(f"id={self.id} END")
 
+	# getDataset
+	def getDataset(self):
+		return self.widgets.dataset.value
+
 	# setDataset (shortcut for loadScene)
 	def setDataset(self, name, db=None, caller=None):
 		if not name : return
@@ -638,24 +641,8 @@ class Slice:
 	# showLoadSave
 	def showLoadSave(self):
 
-		# text
-		text_area=Widgets.TextAreaInput(
-			name='Current',
-			value=json.dumps(self.saveScene(),indent=2),
-			sizing_mode="stretch_width",
-			height=520,
-			stylesheets=["""
-				.bk-input {
-					background-color: rgb(48, 48, 64);
-					color: white;
-					font-size: medium;
-				}
-				"""])
-
-		load_s=base64.b64encode(text_area.value.encode('utf-8')).decode('ascii')
-
 		def onEvalClick(evt=None):
-			self.loadScene(json.loads(text_area.value))
+			self.loadScene(json.loads(self.widgets.scene.value))
 			pn.state.notifications.info('Eval done')
 
 		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
@@ -663,7 +650,7 @@ class Slice:
 		# load
 		def onLoadClick(value):
 			value=value.decode('ascii')
-			text_area.value=value
+			self.widgets.scene.value.value=value
 			self.loadScene(json.loads(value))
 			pn.state.notifications.info('Load done')
 
@@ -671,22 +658,20 @@ class Slice:
 
 		# save
 		def onSaveClick(evt=None):
-			sio = io.StringIO(text_area.value)
+			sio = io.StringIO(self.widgets.scene.value)
 			sio.seek(0)
 			pn.state.notifications.info('Save done')
 			return sio
-		save_button=Widgets.FileDownload(label="Save", embed=True, filename='nsdf.json', align="end", callback=onSaveClick)
+		save_button=Widgets.FileDownload(label="Save", filename='nsdf.json', align="end", callback=onSaveClick)
 
 		self.showDialog(
 			pn.Column(
-				text_area,
-				pn.Row(eval_button, save_button, align='end'),
-				pn.Row(pn.pane.HTML("Load"),load_button,align='end'),
-				sizing_mode="stretch_width",align="end"
+				self.widgets.scene,
+				pn.Row(eval_button, save_button,pn.pane.HTML("Load"),load_button, align='end'),
+				sizing_mode="stretch_both",align="end"
 			), 
 			height=700,
 			name="Load/Save")
-
 
 	# showMetadata
 	def showMetadata(self):
@@ -754,11 +739,12 @@ class Slice:
 	# setTimesteps
 	def setTimesteps(self, value):
 		logger.debug(f"id={self.id} start={value[0]} end={value[-1]}")
-		self.widgets.timestep.start = value[0]
-		self.widgets.timestep.end = value[-1]
-		self.widgets.timestep.step = 1
-		for it in self.slices:
-			it.setTimesteps(value)
+		for it in [self] + self.slices:
+			widget=it.widgets.timestep
+			with widget.disable_callbacks():
+				widget.start = value[0]
+				widget.end   = value[-1]
+				widget.step  = 1
 
 	# speedFromOption
 	def speedFromOption(self, option):
@@ -774,9 +760,10 @@ class Slice:
 
 	# setPlaySec
 	def setPlaySec(self,value):
-		self.widgets.play_sec.value=value
-		for it in self.slices:
-			it.setPlaySec(value)
+		logger.debug(f"id={self.id} value={value}")
+		for it in [self] + self.slices:
+			with it.widgets.play_sec.disable_callbacks():
+				it.widgets.play_sec.value=value
 
 	# getTimestepDelta
 	def getTimestepDelta(self):
@@ -786,21 +773,20 @@ class Slice:
 	def setTimestepDelta(self, value):
 		logger.debug(f"id={self.id} value={value}")
 
-		with self.widgets.timestep_delta.disable_callbacks():
-			self.widgets.timestep_delta.value = self.optionFromSpeed(value)
-		
-		self.widgets.timestep.step = value
+		option=self.optionFromSpeed(value)
+
 		A = self.widgets.timestep.start
 		B = self.widgets.timestep.end
 		T = self.getTimestep()
 		T = A + value * int((T - A) / value)
 		T = min(B, max(A, T))
+		
+		for it in [self] + self.slices:
+			with it.widgets.timestep_delta.disable_callbacks():
+				it.widgets.timestep.step = value
+				it.widgets.timestep_delta.value = option
+
 		self.setTimestep(T)
-
-		for it in self.slices:
-			it.setTimestepDelta(value)
-
-		self.refresh()
 
 	# getTimestep
 	def getTimestep(self):
@@ -809,11 +795,10 @@ class Slice:
 	# setTimestep
 	def setTimestep(self, value):
 		logger.debug(f"id={self.id} value={value}")
+		for it in [self] + self.slices:
+			with it.widgets.timestep.disable_callbacks():
+				it.widgets.timestep.value = value
 
-		with self.widgets.timestep.disable_callbacks():
-			self.widgets.timestep.value = value
-		for it in self.slices:
-			it.setTimestep(value)
 		self.refresh()
 
 	# getFields
@@ -822,10 +807,11 @@ class Slice:
 
 	# setFields
 	def setFields(self, value):
+		value=list(value)
 		logger.debug(f"id={self.id} value={value}")
-		self.widgets.field.options = list(value)
-		for it in self.slices:
-			it.setFields(value)
+		for it in [self] + self.slices:
+			with it.widgets.field.disable_callbacks():
+				it.widgets.field.options = value
 
 	# getField
 	def getField(self):
@@ -835,12 +821,9 @@ class Slice:
 	def setField(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		if value is None: return
-
-		with self.widgets.field.disable_callbacks():
-			self.widgets.field.value = value
-
-		for it in self.slices:
-			it.setField(value)
+		for it in [self] + self.slices:
+			with it.widgets.field.disable_callbacks():
+				it.widgets.field.value = value
 		self.refresh()
 
 	# getPalette
@@ -850,12 +833,11 @@ class Slice:
 	# setPalette
 	def setPalette(self, value):
 		logger.debug(f"id={self.id} value={value}")
-
-		with self.widgets.palette.disable_callbacks():
-			self.widgets.palette.value_name = value
-		self.color_bar=None
-		for it in self.slices:
-			it.setPalette(value)
+		for it in [self] + self.slices:
+			widget=it.widgets.palette
+			with widget.disable_callbacks():
+				widget.value_name = value
+				it.color_bar=None
 		self.refresh()
 
 	# getMetadataPaletteRange
@@ -865,10 +847,9 @@ class Slice:
 	# setMetadataPaletteRange
 	def setMetadataPaletteRange(self, value):
 		vmin, vmax = value
-		self.metadata_palette_range = [vmin, vmax]
-		for it in self.slices:
-			it.setMetadataPaletteRange(value)
-		self.color_map=None
+		for it in [self] + self.slices:
+			it.metadata_palette_range = [vmin, vmax]
+			it.color_map=None
 		self.refresh()
 
 	# getPaletteRangeMode
@@ -879,27 +860,25 @@ class Slice:
 	def setPaletteRangeMode(self, mode):
 		logger.debug(f"id={self.id} mode={mode} ")
 
-		with self.widgets.palette_range_mode.disable_callbacks():
-			self.widgets.palette_range_mode.value = mode
+		for it in [self] + self.slices:
+			
+			widget=it.widgets.palette_range_mode
+			with widget.disable_callbacks():
+				widget.value = mode
+				it.color_map=None
 
-		wmin = self.widgets.palette_range_vmin
-		wmax = self.widgets.palette_range_vmax
+			widget = it.widgets.palette_range_vmin
+			with widget.disable_callbacks():
+				if mode == "metadata":   widget.value = it.metadata_palette_range[0]
+				if mode == "dynamic-acc":widget.value = 0.0
+				widget.disabled = False if mode == "user" else True
 
-		if mode == "metadata":
-			wmin.value = self.metadata_palette_range[0]
-			wmax.value = self.metadata_palette_range[1]
+			widget = it.widgets.palette_range_vmax
+			with widget.disable_callbacks():
+				if mode == "metadata":   widget.value = it.metadata_palette_range[1]
+				if mode == "dynamic-acc":widget.value = 0.0
+				widget.disabled = False if mode == "user" else True
 
-		if mode == "dynamic-acc":
-			wmin.value = 0.0
-			wmax.value = 0.0
-
-		wmin.disabled = False if mode == "user" else True
-		wmax.disabled = False if mode == "user" else True
-
-		for it in self.slices:
-			it.setPaletteRangeMode(mode)
-
-		self.color_map=None
 		self.refresh()
 
 	# getPaletteRange
@@ -912,16 +891,12 @@ class Slice:
 	# setPaletteRange (backward compatible)
 	def setPaletteRange(self, value):
 		vmin, vmax = value
+		for it in [self] + self.slices:
+			vmin,vmax=it.widgets.palette_range_vmin, it.widgets.palette_range_vmax
+			with vmin.disable_callbacks(): vmin.value = vmin
+			with vmax.disable_callbacks(): vmax.value = vmax
+			it.color_map=None
 
-		with self.widgets.palette_range_vmin.disable_callbacks():
-			self.widgets.palette_range_vmin.value = vmin
-
-		with self.widgets.palette_range_vmax.disable_callbacks():
-			self.widgets.palette_range_vmax.value = vmax
-
-		for it in self.slices:
-			it.setPaletteRange(value)
-		self.color_map=None
 		self.refresh()
 
 	# isPaletteLog
@@ -932,12 +907,11 @@ class Slice:
 	def setPaletteLog(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		palette = self.getPalette()
-
-		with self.widgets.palette_log.disable_callbacks():
-			self.widgets.palette_log.value = value
-		for it in self.slices:
-			it.setPaletteLog(value)
-		self.color_bar=None 
+		for it in [self] + self.slices:
+			widget=it.widgets.palette_log
+			with widget.disable_callbacks():
+				widget.value = value
+			it.color_bar=None 
 		self.start()
 
 	# getNumberOfRefinements
@@ -947,11 +921,10 @@ class Slice:
 	# setNumberOfRefinements
 	def setNumberOfRefinements(self, value):
 		logger.debug(f"id={self.id} value={value}")
-
-		with self.widgets.num_refinements.disable_callbacks():
-			self.widgets.num_refinements.value = value
-		for it in self.slices:
-			it.setNumberOfRefinements(value)
+		for it in [self] + self.slices:
+			widget=it.widgets.num_refinements
+			with widget.disable_callbacks():
+				widget.value = value
 		self.refresh()
 
 	# getResolution
@@ -966,14 +939,12 @@ class Slice:
 	def setResolution(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		value = Clamp(value, 0, self.db.getMaxResolution())
-
-		with self.widgets.resolution.disable_callbacks():
-			self.widgets.resolution.start = self.start_resolution
-			self.widgets.resolution.end   = self.db.getMaxResolution()
-			self.widgets.resolution.value = value
-
-		for it in self.slices:
-			it.setResolution(value)
+		for it in [self]+self.slices:
+			widget=it.widgets.resolution
+			with widget.disable_callbacks():
+				widget.start = self.start_resolution
+				widget.end   = self.db.getMaxResolution()
+				widget.value = value
 		self.refresh()
 
 	# isViewDependent
@@ -983,13 +954,11 @@ class Slice:
 	# setViewDependent
 	def setViewDependent(self, value):
 		logger.debug(f"id={self.id} value={value}")
-
-		with self.widgets.view_dep.disable_callbacks():
-			self.widgets.view_dep.value = value
-
-		self.widgets.resolution.name = "Max Res" if value else "Res"
-		for it in self.slices:
-			it.setViewDependent(value)
+		for it in [self] + self.slices:
+			widget=it.widgets.view_dep
+			with widget.disable_callbacks():
+				widget.value = value
+				it.widgets.resolution.name = "Max Res" if value else "Res"
 		self.refresh()
 
 	# getDirections
@@ -999,9 +968,8 @@ class Slice:
 	# setDirections
 	def setDirections(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		self.widgets.direction.options = value
-		for it in self.slices:
-			it.setDirections(value)
+		for it in [self] + self.slices:
+			it.widgets.direction.options = value
 
 	# getDirection
 	def getDirection(self):
@@ -1014,42 +982,36 @@ class Slice:
 		if pdim == 2: value = 2
 		dims = [int(it) for it in self.db.getLogicSize()]
 
-		with self.widgets.direction.disable_callbacks():
-			self.widgets.direction.value = value
+		for it in [self] + self.slices:
+			widget=it.widgets.direction
+			with widget.disable_callbacks():
+				widget.value = value
+			it.triggerOnChange('direction', None, value)
 
 		# default behaviour is to guess the offset
-		_value,_range=self.guessOffset(self.getDirection())
-		self.setOffsetRange(_range)  # both extrema included
-		self.setOffset(_value)
-		
-		if self.canvas:
-			dims=[int(it) for it in self.db.getLogicSize()]
-			self.setQueryLogicBox(([0]*self.getPointDim(),dims))
+		offset_value,offset_range=self.guessOffset(value)
+		self.setOffsetRange(offset_range)  # both extrema included
+		self.setOffset(offset_value)
 
-		# recursive
-		for it in self.slices:
-			it.setDirection(value)
+		for it in [self] + self.slices:
+			if it.canvas:
+				it.setQueryLogicBox(([0]*pdim,dims))
 
-		self.triggerOnChange('direction', None, dir)
 		self.refresh()
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
 	def getLogicAxis(self):
 		dir  = self.getDirection()
 		directions = self.getDirections()
-		
 		# this is the projected slice
 		XY = list(directions.values())
-
 		if len(XY) == 3:
 			del XY[dir]
 		else:
 			assert (len(XY) == 2)
 		X, Y = XY
-
 		# this is the cross dimension
 		Z = dir if len(directions) == 3 else 2
-
 		titles = list(directions.keys())
 		return (X, Y, Z), (titles[X], titles[Y], titles[Z] if len(titles) == 3 else 'Z')
 
@@ -1061,9 +1023,12 @@ class Slice:
 	def setOffsetRange(self, value):
 		A, B, step = value
 		logger.debug(f"id={self.id} value={value}")
-		self.widgets.offset.start, self.widgets.offset.end, self.widgets.offset.step = A, B, step
-		for it in self.slices:
-			it.setOffsetRange(value)
+		for it in [self] +  self.slices:
+			widget=it.widgets.offset
+			with widget.disable_callbacks():
+				widget.start=A
+				widget.end=B
+				widget.step=step
 
 	# getOffset (in physic domain)
 	def getOffset(self):
@@ -1077,15 +1042,12 @@ class Slice:
 		if all([int(it) == it for it in self.getOffsetRange()]):
 			value = int(value)
 
-		with self.widgets.offset.disable_callbacks():
-			self.widgets.offset.value = value
-
-		assert (self.widgets.offset.value == value)
-		for it in self.slices:
-			logger.debug(f"id={self.id} recursively calling setOffset({value}) for slice={it.id}")
-			it.setOffset(value)
-
-		self.triggerOnChange('offset', None, value)
+		for it in [self] + self.slices:
+			widget=it.widgets.offset
+			with widget.disable_callbacks():
+				widget.value = value
+				assert(widget.value == value)
+			it.triggerOnChange('offset', None, value)
 		self.refresh()
 
 	# guessOffset
@@ -1168,7 +1130,6 @@ class Slice:
 			raise
 
 		# unproject
-
 		if pdim == 3:
 			offset = self.getOffset()  # this is in physic coordinates
 			ret[dir] = int((offset - vt[dir]) / vs[dir])
@@ -1249,32 +1210,36 @@ class Slice:
 	def onShowMetadataClick(self):
 		self.widgets.metadata.visible = not self.widgets.metadata.visible
 
-
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self, value):
-		self.widgets.dataset.disabled = value
-		self.widgets.palette.disabled = value
-		self.widgets.timestep.disabled = value
-		self.widgets.timestep_delta.disabled = value
-		self.widgets.field.disabled = value
-		self.widgets.direction.disabled = value
-		self.widgets.offset.disabled = value
-		self.widgets.num_refinements.disabled = value
-		self.widgets.resolution.disabled = value
-		self.widgets.view_dep.disabled = value
-		self.widgets.status_bar["request"].disabled = value
-		self.widgets.status_bar["response"].disabled = value
-		self.widgets.play_button.disabled = value
-		self.widgets.play_sec.disabled = value
-
-		for it in self.slices:
-			it.setWidgetsDisabled(value)
-
-		# refresh (to override if needed)
+		for it in [self] + self.slices:
+			it.widgets.dataset.disabled = value
+			it.widgets.palette.disabled = value
+			it.widgets.timestep.disabled = value
+			it.widgets.timestep_delta.disabled = value
+			it.widgets.field.disabled = value
+			it.widgets.direction.disabled = value
+			it.widgets.offset.disabled = value
+			it.widgets.num_refinements.disabled = value
+			it.widgets.resolution.disabled = value
+			it.widgets.view_dep.disabled = value
+			it.widgets.status_bar["request"].disabled = value
+			it.widgets.status_bar["response"].disabled = value
+			it.widgets.play_button.disabled = value
+			it.widgets.play_sec.disabled = value
 
 	# getPointDim
 	def getPointDim(self):
 		return self.db.getPointDim() if self.db else 2
+
+	# updateSceneText
+	def updateSceneText(self):
+		widget=(self.parent.widgets.scene if self.parent else self.widgets.scene) 
+		if widget.visible:
+			scene=self.saveScene()
+			body=json.dumps(scene,indent=2)
+			widget.value=body
+
 
 	# refresh
 	def refresh(self):
@@ -1282,6 +1247,8 @@ class Slice:
 			if it.query_node:
 				it.aborted.setTrue()
 				it.new_job=True
+
+		self.updateSceneText()
 
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
@@ -1313,21 +1280,18 @@ class Slice:
 		assert(len(p1)==pdim and len(p2)==pdim)
 		return [(p2[I]-p1[I]) for I in range(pdim)]
 
-	# setAccess
-	def setAccess(self, value):
-		self.access=value
-		self.refresh()
-
   # gotoPoint
 	def gotoPoint(self,point):
-		assert(False) # not sure if point is in physic or logic corrdinates (I think physic)
 		logger.debug(f"id={self.id} point={point}")
 		pdim=self.getPointDim()
-		for it in self.slices:
-			# go to the slice
+		for it in [self] + self.slices:
+			# TODO
+			continue
+
 			if pdim==3:
 				dir=it.getDirection()
 				it.setOffset(point[dir])
+			
 			# the point should be centered in p3d
 			(p1,p2),dims=it.getQueryLogicBox(),it.getLogicSize()
 			p1,p2=list(p1),list(p2)
@@ -1339,7 +1303,7 @@ class Slice:
 	# gotNewData
 	def gotNewData(self, result):
 
-		assert(self.parent)
+		assert(self.parent and self.canvas)
 
 		data=result['data']
 		try:
@@ -1442,7 +1406,6 @@ class Slice:
 		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
 			return
 
-
 		# abort the last one
 		self.aborted.setTrue()
 		self.query_node.waitIdle()
@@ -1473,9 +1436,9 @@ class Slice:
 			max_pixels=None
 			endh=resolution
 		
-
-
+		self.updateSceneText()
 		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
+
 		timestep=self.getTimestep()
 		field=self.getField()
 		box_i=[[int(it) for it in jt] for jt in query_logic_box]
@@ -1509,17 +1472,19 @@ class Slice:
 	# onIdle
 	def onIdle(self):
 
-		if self.db and self.canvas and  self.canvas.getWidth()>0 and self.canvas.getHeight()>0:
-			self.playNextIfNeeded()
+		for it in [self] + self.slices:
 
-		if self.db and self.query_node:
-			result=self.query_node.popResult(last_only=True) 
-			if result is not None: 
-				self.gotNewData(result)
-			self.pushJobIfNeeded()
+			if not it.db:
+				continue
 
-		for it in self.slices:
-			it.onIdle()
+			if it.canvas and  it.canvas.getWidth()>0 and it.canvas.getHeight()>0:
+				it.playNextIfNeeded()
+
+			if it.query_node:
+				result=it.query_node.popResult(last_only=True) 
+				if result is not None: 
+					it.gotNewData(result)
+				it.pushJobIfNeeded()
 
 Slices=Slice
 

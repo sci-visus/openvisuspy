@@ -80,8 +80,7 @@ class Widgets:
 	@staticmethod
 	def ColorMap(callback=None, **kwargs):
 		ret = pn.widgets.ColorMap(**kwargs) 
-		return Widgets.AddCallback(ret, callback, "value")
-
+		return Widgets.AddCallback(ret, callback, "value_name")
 
 	@staticmethod
 	def FileInput(callback=None, **kwargs):
