@@ -7,6 +7,7 @@ import io
 
 import requests
 import os,sys,io,threading,time
+from urllib.parse import urlparse, urlencode
 
 import numpy as np
 from requests.auth import HTTPBasicAuth
@@ -113,31 +114,21 @@ class Slice:
 		self.widgets.status_bar["request" ] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
 		self.widgets.status_bar["response"] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
 
-		# I cannot find a way to access MenuButton `clicked` on the javascript side, so I am using this trick
-		__hidden = pn.widgets.StaticText(visible=False)
-		__hidden.jscallback(args={'widget': __hidden}, value="""if(widget.text=="Logout") window.location=window.location.href + "/logout";""")
+		self.widgets.copy_url = pn.widgets.TextInput(visible=False)
 
-		# menu
-		def onMenuClick(evt):
-			try:
-				__hidden.value=evt.new
-				if evt.new=="Load/Save"    : return self.loadSave()
-				if evt.new=="Show Metadata": return self.showMetadata()
-			except:
-				logger.info(traceback.format_exc())
-				raise		
-
-		self.widgets.menu = pn.widgets.MenuButton(name='File', items=[['Load/Save']*2, ['Show Metadata']*2, None, ['Logout']*2], button_type='primary',width=120)
-		self.widgets.menu.on_click(onMenuClick)
-		self.widgets.menu=pn.Row(self.widgets.menu,__hidden)
-
+		self.widgets.menu = Widgets.MenuButton(name='File', 
+																				 items=[['Load/Save']*2, ['Show Metadata']*2, ['Copy Url']*2, None, ['Logout']*2 ], 
+																				 button_type='primary',
+																				 width=120, 
+																				 callback={'Load/Save':self.loadSave, 'Show Metadata': self.showMetadata, 'Copy Url': self.copyUrl}, 
+																				 jsargs={"copy_url": self.widgets.copy_url},
+																				 jscallback="""function myFunction(){ if (menu.value=="Logout") {logout_url=window.location.href + "/logout";window.location=logout_url;console.log("logout_url=" + logout_url);}   if (menu.value=="Copy Url") {navigator.clipboard.writeText(copy_url.value);console.log("copy_url.value=" + copy_url.value);}   } setTimeout(myFunction, 300);""")
 
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
 		self.widgets.play_button            = Widgets.Button(name="Play", width=8, callback=self.togglePlay)
 		self.widgets.play_sec               = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
-
 
 		self.idle_callback = None
 		self.color_bar     = None
@@ -157,6 +148,19 @@ class Slice:
 
 		# placeholder
 		self.main_layout=pn.Column(sizing_mode='stretch_both')
+
+	# copyUrl
+	def copyUrl(self, evt=None):
+		self.widgets.copy_url.value=self.getSceneUrl()
+		pn.state.notifications.info('Copy url done')
+
+	# getSceneUrl
+	def getSceneUrl(self):
+		scene=self.saveScene()
+		load_s=base64.b64encode(json.dumps(scene).encode('utf-8')).decode('ascii')
+		current_url=pn.state.location.href
+		o=urlparse(current_url)
+		return o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})		
 
 	# onCanvasResize
 	def onCanvasResize(self, attr, old, new):
@@ -297,17 +301,13 @@ class Slice:
 				sizing_mode="stretch_both"
 			)
 
+			parent_first_row_widgets=[getattr(self.widgets, it.replace("-", "_")) for it in self_show_options[0]] + [self.widgets.copy_url]
+			slices_main_layout=[it.main_layout for it in self.slices ]
+
 			self.main_layout.append(
 				pn.Column(
-					pn.Row(
-						*[getattr(self.widgets, it.replace("-", "_")) for it in self_show_options[0]], # parent
-						sizing_mode="stretch_width"
-					), 
-					pn.GridBox(
-						*[it.main_layout for it in self.slices ], 
-						ncols=2 if nviews>=2 else 1, 
-						sizing_mode="stretch_both"
-					),
+					pn.Row(*parent_first_row_widgets, sizing_mode="stretch_width"), 
+					pn.GridBox(*slices_main_layout, ncols=2 if nviews>=2 else 1, sizing_mode="stretch_both"),
 					self.dialogs_placeholder,  
 					sizing_mode='stretch_both' 
 				))
@@ -631,38 +631,44 @@ class Slice:
 				del sub_scene["slices"] 
 			self.slices[S].loadScene(sub_scene)
 
-		self.start()
+		if not self.parent:
+			self.start()
+
 		logger.info(f"id={self.id} END")
 
 	# loadSave
 	def loadSave(self):
 
 		# text
-		text_area=pn.widgets.TextAreaInput(name='Current',value=json.dumps(self.saveScene(),indent=2),sizing_mode="stretch_width",height=450)
+		text_area=Widgets.TextAreaInput(
+			name='Current',
+			value=json.dumps(self.saveScene(),indent=2),
+			sizing_mode="stretch_width",
+			height=520,
+			stylesheets=["""
+				.bk-input {
+					background-color: rgb(48, 48, 64);
+					color: white;
+					font-size: medium;
+				}
+				"""])
 
-		copy_url_value=pn.widgets.TextAreaInput(sizing_mode="stretch_width",height=200)
-
-		from urllib.parse import urlparse, urlencode
-		current_url=pn.state.location.href
-		o=urlparse(current_url)
 		load_s=base64.b64encode(text_area.value.encode('utf-8')).decode('ascii')
-		copy_url_value.value=o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})
 
-		# eval
 		def onEvalClick(evt=None):
-			scene=json.loads(text_area.value)
-			self.loadScene(scene)
-			load_s=base64.b64encode(text_area.value.encode('utf-8')).decode('ascii')
-			copy_url_value.value = o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})
+			self.loadScene(json.loads(text_area.value))
 			pn.state.notifications.info('Eval done')
+
 		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
 		# load
-		load_button = pn.widgets.FileInput(name="Load", description="Load", accept=".json")
-		def onLoadClick(evt=None):
-			text_area.value=load_button.value.decode('ascii')
+		def onLoadClick(value):
+			value=value.decode('ascii')
+			text_area.value=value
+			self.loadScene(json.loads(value))
 			pn.state.notifications.info('Load done')
-		load_button.param.watch(Widgets.OnChange(onLoadClick),"value")
+
+		load_button = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
 
 		# save
 		def onSaveClick(evt=None):
@@ -670,24 +676,16 @@ class Slice:
 			sio.seek(0)
 			pn.state.notifications.info('Save done')
 			return sio
-		save_button=pn.widgets.FileDownload(label="Save", callback=onSaveClick, embed=True, filename='nsdf.json', align="end")
-
-		# copy url
-		def onCopyUrlClick(evt=None):
-			pn.state.notifications.info('Copy url done')
-			# after this the javascript code will be executed
-
-		copy_url_button = Widgets.Button(name="Copy URL", callback=onCopyUrlClick, align='end')
-		copy_url_button.js_on_click( args={"copy_url_value": copy_url_value}, code="navigator.clipboard.writeText(copy_url_value.value);")
+		save_button=Widgets.FileDownload(label="Save", embed=True, filename='nsdf.json', align="end", callback=onSaveClick)
 
 		self.showDialog(
 			pn.Column(
 				text_area,
-				pn.Row(eval_button,load_button, align='end'),
-				pn.Row(save_button,align='end'),
-				pn.Column(copy_url_value,copy_url_button),
+				pn.Row(eval_button, save_button, align='end'),
+				pn.Row(pn.pane.HTML("Load"),load_button,align='end'),
 				sizing_mode="stretch_width",align="end"
 			), 
+			height=700,
 			name="Load/Save")
 
 
@@ -708,18 +706,18 @@ class Slice:
 				body = base64.b64decode(item["encoded"]).decode("utf-8")
 				body = io.StringIO(body)
 				body.seek(0)
-				internal_panel=pn.pane.HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width",height=600)
+				internal_panel=pn.pane.HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width",height=400)
 			elif type=="json-object":
 				obj=item["object"]
 				file = io.StringIO(json.dumps(obj))
 				file.seek(0)
-				internal_panel=pn.pane.JSON(obj,name="Object",depth=3, sizing_mode="stretch_width",height=600) 
+				internal_panel=pn.pane.JSON(obj,name="Object",depth=3, sizing_mode="stretch_width",height=400) 
 			else:
 				continue
 
 			cards.append(pn.Card(
 					internal_panel,
-					pn.widgets.FileDownload(file, embed=True, filename=filename,align="end"),
+					Widgets.FileDownload(file, embed=True, filename=filename,align="end"),
 					title=filename,
 					collapsed=(I>0),
 					sizing_mode="stretch_width"
@@ -736,7 +734,7 @@ class Slice:
 			kwargs["position"]="center"
 
 		if not "width" in kwargs:
-			kwargs["width"]=800
+			kwargs["width"]=1024
 
 		if not "height" in kwargs:
 			kwargs["height"]=600

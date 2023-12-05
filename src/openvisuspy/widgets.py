@@ -58,6 +58,12 @@ class Widgets:
 
 
 	@staticmethod
+	def TextAreaInput(callback=None, type="text", **kwargs):
+		ret = pn.widgets.TextAreaInput(**kwargs)
+		ret.param.watch(Widgets.OnChange(callback),"value")
+		return ret
+
+	@staticmethod
 	def Select(callback=None, **kwargs):
 		ret = pn.widgets.Select(**kwargs) 
 		ret.param.watch(Widgets.OnChange(callback),"value")
@@ -68,6 +74,17 @@ class Widgets:
 		ret = pn.widgets.ColorMap(**kwargs) 
 		ret.param.watch(Widgets.OnChange(callback),"value_name")
 		return ret
+
+
+	@staticmethod
+	def FileInput(callback=None, **kwargs):
+		ret = pn.widgets.FileInput(**kwargs)
+		ret.param.watch(Widgets.OnChange(callback),"value")
+		return ret
+
+	@staticmethod
+	def FileDownload(*args, **kwargs):
+		return pn.widgets.FileDownload(*args, **kwargs)
 
 	@staticmethod
 	def Slider(callback=None, type="int", parameter_name="value", editable=False, format="0.001",**kwargs):
@@ -99,3 +116,27 @@ class Widgets:
 
 		ret.param.watch(Widgets.OnChange(callback),parameter_name)
 		return ret
+
+
+	@staticmethod
+	def MenuButton(callback=None, jsargs={}, jscallback=None, **kwargs):
+		menu_value_js = pn.widgets.TextInput(visible=False)
+		jsargs['menu']=menu_value_js
+
+		def onMenuClick(evt):
+				try:
+					menu_value_js.value=evt.new
+					fn=callback.get(evt.new,None) if callback else None
+					if fn:
+						logger.info(f"Executing {fn}")
+						fn()
+				except:
+					logger.info(traceback.format_exc())
+					raise
+		ret = pn.widgets.MenuButton(**kwargs)
+		ret.on_click(onMenuClick)
+
+		if jscallback:
+			ret.js_on_click(args=jsargs, code=jscallback)
+		
+		return pn.Row(ret, menu_value_js)
