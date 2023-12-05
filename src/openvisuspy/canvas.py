@@ -6,7 +6,6 @@ import numpy as np
 from . utils import *
 
 import bokeh
-from bokeh.events import DoubleTap
 
 import panel as pn
 
@@ -18,14 +17,23 @@ class Canvas:
 	# constructor
 	def __init__(self, id):
 		self.id=id
-		self.on_event_callbacks = []
 		self.on_resize=None
+		self.on_double_tab=None
 		self.fig=None
 		self.main_layout=pn.Row(sizing_mode="stretch_both")	
 		self.createFigure() 
 		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
 		
+	# onResize
+	def onResize(self, attr, old, new):
+		if self.on_resize: self.on_resize(attr, old, new)
+
+	# onDoubleTap
+	def onDoubleTap(self,evt):
+		if self.on_double_tab:
+			self.on_double_tap(evt)
+
 	# createFigure
 	def createFigure(self):
 		old=self.fig
@@ -37,8 +45,16 @@ class Canvas:
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
-		for event,callback in self.on_event_callbacks:
-			self.fig.on_event(event, callback)
+
+		from bokeh.events import DoubleTap
+
+		if old: old.remove_on_change('inner_width'  , self.onResize)
+		if old: old.remove_on_change('inner_height' , self.onResize)
+		# if old: old_remove_on_event(bokeh.events.DoubleTap, self.onDoubleTap) cannot find old_remove_on_event
+
+		self.fig.on_change('inner_width' , self.onResize)
+		self.fig.on_change('inner_height', self.onResize) 
+		self.fig.on_event(bokeh.events.DoubleTap, self.onDoubleTap)
 
 		# TODO: keep the renderers but not the
 		if old is not None:
@@ -51,81 +67,29 @@ class Canvas:
 		self.main_layout[:]=[]
 		self.main_layout.append(pn.pane.Bokeh(self.fig))
 		
-		self.last_fig_width =0
-		self.last_fig_height=0
 		self.last_dtype   = None
 		self.last_cb      = None
 		self.last_renderer= None
-
-
-	# getFigure
-	def getFigure(self):
-		return self.fig
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
 		self.fig.xaxis.axis_label  = x
 		self.fig.yaxis.axis_label  = y		
 
-	# checkFigureResize
-	def checkFigureResize(self):
-
-		# huge problems with inner_ thingy ... HTML does not reflect real values
-		# problems here, not getting real-time resizes
-		# https://github.com/bokeh/bokeh/issues/9136
-		# https://github.com/bokeh/bokeh/pull/9308
-		# self.fig.on_change('inner_width' , self.onResize)
-		# self.fig.on_change('inner_height', self.onResize)
-
-		try:
-			w=self.fig.inner_width
-			h=self.fig.inner_height
-		except Exception as ex:
-			return
-		
-		if not w or not h: 
-			return
-		
-		if w==self.last_fig_width and h==self.last_fig_height: 
-			return
-
-		# getting spurious events with marginal changes (in particular with jupyter notebook)
-		# is change too marginal?
-		if True:
-			from .utils import IsJupyter
-			max_x=self.last_fig_width *0.05 # 5% variation
-			max_y=self.last_fig_height*0.05
-			if all([
-				# IsJupyter(),
-				self.last_fig_width>0,
-				self.last_fig_height>0,
-				abs(w-self.last_fig_width )<=max_x,
-				abs(h-self.last_fig_height)<=max_y
-			]):
-				return
-
-		# logger.info("!!! RESIZE",self.last_width,self.last_fig_height,w,h)
-		self.last_fig_width =w
-		self.last_fig_height=h
-		self.onResize()
-
-	# onResize
-	def onResize(self):
-		if self.on_resize is not None:
-			self.on_resize()
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
-		return self.last_fig_width
+		try:
+			return self.fig.inner_width
+		except:
+			return 0
 
 	# getHeight (this is number of pixels along Y  for the canvas)
 	def getHeight(self):
-		return self.last_fig_height
-
-	# on_event
-	def on_event(self,event, callback):
-		self.on_event_callbacks.append([event,callback])
-		self.fig.on_event(event, callback)
+		try:
+			return self.fig.inner_height
+		except:
+			return 0
 
 	  # getViewport [[x1,x2],[y1,y2])
 	def getViewport(self):

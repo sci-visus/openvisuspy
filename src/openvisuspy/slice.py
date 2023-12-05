@@ -63,11 +63,11 @@ class Slice:
 
 		self.parent = parent
 		self.num_hold=0
-		self.id=[]
-		if self.parent: self.id.append(self.parent.id)
-		self.id.append(Slice.ID)
+		if self.parent:  
+			self.id=self.parent.id + "/"  + str(Slice.ID)
+		else:
+			self.id="/" + str(Slice.ID)
 		Slice.ID += 1
-		self.id=".".join([str(it) for it in self.id])
 		
 		self.db = None
 		self.access = None
@@ -98,7 +98,7 @@ class Slice:
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode,)
 		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=self.onPaletteRangeChange,width=80)
 		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=self.onPaletteRangeChange,width=80)
-		self.widgets.palette_log           = Widgets.CheckBox (name="Log", value=False, callback=self.setLogPalette)
+		self.widgets.palette_log           = Widgets.CheckBox (name="Log", value=False, callback=self.setPaletteLog)
 		self.widgets.timestep              = Widgets.Slider   (name='Time', type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,width=120)
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField)
@@ -153,14 +153,41 @@ class Slice:
 			self.query_node=QueryNode()
 			self.canvas = Canvas(self.id)
 			self.canvas.on_resize=self.onCanvasResize
+			self.canvas.on_double_tab=self.onCanvasDoubleTap
 
 		# placeholder
 		self.main_layout=pn.Column(sizing_mode='stretch_both')
 
+	# onCanvasResize
+	def onCanvasResize(self, attr, old, new):
+		if not self.db: return
+		logger.info(f"id={self.id} width={self.canvas.getWidth()} height={self.canvas.getWidth()}")
+		if False:
+			(x1,x2),(y1,y2)=self.canvas.getViewport()
+			x,y,w,h=0.5*(x1+x2), 0.5*(y1+y2), (x2-x1), (y2-y1)
+			ratio=self.canvas.getWidth()/self.canvas.getHeight()
+			w,h=(w,w/ratio) if w>h else (ratio*h,h)
+			x1,x2=x-w/2,y+w/2
+			y1,y2=x-h/2,y+h/2
+			logic_box=self.toLogic([(x1,y1),(x2,y2)])
+			self.setQueryLogicBox(logic_box)
+
+		else:
+			dir,offset=self.getDirection(),self.getOffset()
+			self.setDirection(dir)
+			self.setOffset(offset)
+
+	# onCanvasDoubleTap
+	def onCanvasDoubleTap(self, evt):
+		pass # what to do?
+
 	# onPaletteRangeChange
 	def onPaletteRangeChange(self, evt=None):
-		if self.getPaletteRangeMode() == "user":
-			self.setPaletteRange(self.getPaletteRange())
+		mode=self.getPaletteRangeMode()
+		if mode == "user":
+			range=self.getPaletteRange()
+			logger.debug(f"id={self.id} palette_range_mode={mode} range={range}")
+			self.setPaletteRange(range)
 
 	# stop
 	def stop(self):
@@ -178,10 +205,19 @@ class Slice:
 				it.query_node.start()
 
 		if not self.parent and not self.idle_callback:
+
+			def onIdleHandleExceptions():
+				try:
+					self.onIdle()
+				except Exception as ex:
+					logger.info(f"ERROR {ex}\n{traceback.format_exc()}\n\n\n\n\n\n") 
+					raise 
+
+			period=1000 // 30
 			if IsPyodide():
-				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", self.onIdle, 1000 // 30)  
+				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", onIdleHandleExceptions,period )  
 			else:
-				self.idle_callback = pn.state.add_periodic_callback(self.onIdle, period=1000 // 30)
+				self.idle_callback = pn.state.add_periodic_callback(onIdleHandleExceptions, period=period)
 
 		self.refresh()
 
@@ -210,11 +246,11 @@ class Slice:
 
 	# setViewMode
 	def setViewMode(self, value):
-		logger.debug(f"id={self.id} value={value}")
 
 		show_probe ="probe"  in value
 		show_linked="linked" in value
 		nviews=1 if value=="probe" else int(value[0])
+		logger.debug(f"id={self.id} value={value} nviews={nviews}")
 
 		self.stop()
 		
@@ -242,8 +278,6 @@ class Slice:
 			slice.tool = ProbeTool(slice)
 			slice.tool.main_layout.visible=show_probe
 
-			# slice.widgets.show_probe = Widgets.Button(name="Probe", callback=lambda: slice.tool.setVisible(not slice.tool.isVisible()))
-
 			slice.main_layout=pn.Row(
 				pn.Column(
 					pn.Row(
@@ -270,7 +304,8 @@ class Slice:
 						sizing_mode="stretch_width"
 					), 
 					pn.GridBox(
-						*[it.main_layout for it in self.slices ], ncols=2 if nviews>1 else 1, 
+						*[it.main_layout for it in self.slices ], 
+						ncols=2 if nviews>=2 else 1, 
 						sizing_mode="stretch_both"
 					),
 					self.dialogs_placeholder,  
@@ -376,19 +411,28 @@ class Slice:
 
 		T = [LinearMapping(0, dims[I], *value[I]) for I in range(len(dims))]
 		self.setLogicToPhysic(T)
+		
 	# getDataset
 	def getDataset(self):
 		return self.widgets.dataset.value
 
 	# setDataset
-	def setDataset(self, name, db=None, force=False):
-		if not name:  return
-		logger.info(f"id={self.id} setDataset name={name} force={force}")
-		if not force and self.getDataset() == name: return
-		scene=self.getDashboardsConfig(name)
-		self.loadScene(scene)
-		self.triggerOnChange('dataset', None, name)
+	def setDataset(self, name, db=None, force=False, caller=None):
+		if hasattr(self,"running/setDataset"): return
+		setattr(self,"running/setDataset",True)
+		logger.info(f"_________________________________ id={self.id} setDataset name={name} force={force}")
+		
+		if caller:
+			for it in [self] + self.slices:
+				it.widgets.dataset.value=name
+		else:
+			if not name or (not force and self.getDataset() == name): return
+			scene=self.getDashboardsConfig(name)
+			self.loadScene(scene)
+			self.triggerOnChange('dataset', None, name)
 
+		delattr(self,"running/setDataset")
+	
 	# saveScene
 	def saveScene(self):
 
@@ -421,7 +465,7 @@ class Slice:
 				"range": str(self.getPaletteRange() if self.getPaletteRangeMode()=="user" else [0.0,1.0]),
 				# "metadata-range": str(self.getMetadataPaletteRange()), NOT NEEDED
 				"range-mode": self.getPaletteRangeMode(),
-				"log": self.isLogPalette(),
+				"log": self.isPaletteLog(),
 			}
 		}
 
@@ -459,11 +503,13 @@ class Slice:
 
 		# self.stop()
 
-		logger.info(f"id={self.id} START {scene}")
+		logger.info(f"id={self.id} START")
 
 		assert(isinstance(scene,dict))
 		dataset=scene.get("dataset",scene.get("name"))
 		assert(dataset)
+
+		# self.doc.title = f"ViSUS dataset"
 
 		dataset_config=self.getDashboardsConfig(dataset)
 		url=dataset_config["url"]
@@ -480,18 +526,20 @@ class Slice:
 			prefer = sys.argv[sys.argv.index("--prefer") + 1]
 			v=[it for it in urls if it["id"] == prefer]
 			if v:
-				logger.info(f"Overriding url from {v[0]}")
+				logger.info(f"id={self.id} Overriding url from {v[0]}")
 				url = v[0]["url"]
-
-		logger.info(f"Loading dataset url={url}")
-		self.db=LoadDataset(url=url) if not self.parent else self.parent.db
-		self.access = self.db.createAccess()
-		self.widgets.dataset.value = dataset
-
-		# self.doc.title = f"ViSUS {scene['dataset']}"
 
 		datasets=self.getDatasets()
 		self.setDatasets(datasets)
+
+		logger.info(f"id={self.id} Loading dataset url={url}")
+		db=LoadDataset(url=url) if not self.parent else self.parent.db
+
+		for it in [self] + self.slices:
+			it.db    =db
+			it.access=db.createAccess()
+
+		self.setDataset(dataset, caller=self)
 
 		# assuming all children will have the same dataset, if not later I am rewritingt it
 		# for the below calls I need the sub dataset to be ready
@@ -558,11 +606,13 @@ class Slice:
 		self.setPalette(scene['palette']["name"])
 		self.setMetadataPaletteRange(scene["palette"]["metadata-range"])
 		self.setPaletteRangeMode(scene["palette"]["range-mode"])
+
 		if self.getPaletteRangeMode()=="user":
 			palette_range=scene["palette"]["range"]
 			if isinstance(palette_range,str): palette_range=eval(palette_range)
 			self.setPaletteRange(palette_range)
-		self.setLogPalette(bool(scene["palette"]["log"]))	
+
+		self.setPaletteLog(bool(scene["palette"]["log"]))	
 
 		scene['query']={
 			"domain":  scene.get("query", {}).get("domain","logic"),
@@ -582,7 +632,7 @@ class Slice:
 			self.slices[S].loadScene(sub_scene)
 
 		self.start()
-		logger.info(f"id={self.id,self.parent} END")
+		logger.info(f"id={self.id} END")
 
 	# loadSave
 	def loadSave(self):
@@ -831,8 +881,8 @@ class Slice:
 			wmax.value = self.metadata_palette_range[1]
 
 		if mode == "dynamic-acc":
-			wmin.value = float('+inf')
-			wmax.value = float('-inf')
+			wmin.value = 0.0
+			wmax.value = 0.0
 
 		wmin.disabled = False if mode == "user" else True
 		wmax.disabled = False if mode == "user" else True
@@ -860,17 +910,17 @@ class Slice:
 		self.color_map=None
 		self.refresh()
 
-	# isLogPalette
-	def isLogPalette(self):
+	# isPaletteLog
+	def isPaletteLog(self):
 		return self.widgets.palette_log.value
 
-	# setLogPalette
-	def setLogPalette(self, value):
+	# setPaletteLog
+	def setPaletteLog(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		palette = self.getPalette()
 		self.widgets.palette_log.value = value
 		for it in self.slices:
-			it.setLogPalette(value)
+			it.setPaletteLog(value)
 		self.color_bar=None 
 		self.start()
 
@@ -1198,32 +1248,12 @@ class Slice:
 	def getPointDim(self):
 		return self.db.getPointDim() if self.db else 2
 
-
-	# onCanvasResize
-	def onCanvasResize(self):
-		if not self.db: return
-		logger.info(f"id={self.id} onCanvasResize")
-		if False:
-			(x1,x2),(y1,y2)=self.canvas.getViewport()
-			x,y,w,h=0.5*(x1+x2), 0.5*(y1+y2), (x2-x1), (y2-y1)
-			ratio=self.canvas.getWidth()/self.canvas.getHeight()
-			w,h=(w,w/ratio) if w>h else (ratio*h,h)
-			x1,x2=x-w/2,y+w/2
-			y1,y2=x-h/2,y+h/2
-			logic_box=self.toLogic([(x1,y1),(x2,y2)])
-			self.setQueryLogicBox(logic_box)
-
-		else:
-			dir,offset=self.getDirection(),self.getOffset()
-			self.setDirection(dir)
-			self.setOffset(offset)
-
 	# refresh
 	def refresh(self):
-
-		for it in self.slices:
-			it.aborted.setTrue()
-			it.new_job=True
+		for it in [self] + self.slices:
+			if it.query_node:
+				it.aborted.setTrue()
+				it.new_job=True
 
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
@@ -1282,7 +1312,6 @@ class Slice:
 	def gotNewData(self, result):
 
 		assert(self.parent)
-		logger.debug(f"id={self.id} gotNewData ENTER")
 
 		data=result['data']
 		try:
@@ -1325,8 +1354,12 @@ class Slice:
 				
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
-				self.widgets.palette_range_vmin.value = min(self.widgets.palette_range_vmin.value, data_range[0])
-				self.widgets.palette_range_vmax.value = max(self.widgets.palette_range_vmax.value, data_range[1])
+				if self.widgets.palette_range_vmin.value==self.widgets.palette_range_vmax.value:
+					self.widgets.palette_range_vmin.value=data_range[0]
+					self.widgets.palette_range_vmax.value=data_range[1]
+				else:
+					self.widgets.palette_range_vmin.value = min(self.widgets.palette_range_vmin.value, data_range[0])
+					self.widgets.palette_range_vmax.value = max(self.widgets.palette_range_vmax.value, data_range[1])
 
 			# update the color bar
 			low =cdouble(self.widgets.palette_range_vmin.value)
@@ -1334,7 +1367,7 @@ class Slice:
 
 		# regenerate colormap
 		if self.color_bar is None:
-			is_log=self.isLogPalette()
+			is_log=self.isPaletteLog()
 			palette=self.widgets.palette.value
 			mapper_low =max(self.epsilon, low ) if is_log else low
 			mapper_high=max(self.epsilon, high) if is_log else high
@@ -1370,7 +1403,6 @@ class Slice:
 		self.render_id+=1 
 
 		self.triggerOnChange("data", None, data)
-		logger.debug(f"id={self.id} gotNewData EXIT")
   
 	# pushJobIfNeeded
 	def pushJobIfNeeded(self):
@@ -1382,7 +1414,6 @@ class Slice:
 		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
 			return
 
-		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box}...")
 
 		# abort the last one
 		self.aborted.setTrue()
@@ -1398,6 +1429,11 @@ class Slice:
 		if self.isViewDependent():
 			endh=None 
 			canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
+
+			# probably the UI is not ready yet
+			if not canvas_w or not canvas_h:
+				return
+			
 			max_pixels=canvas_w*canvas_h
 			delta=resolution-self.getMaxResolution()
 			if resolution<self.getMaxResolution():
@@ -1409,6 +1445,9 @@ class Slice:
 			max_pixels=None
 			endh=resolution
 		
+
+
+		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
 		timestep=self.getTimestep()
 		field=self.getField()
 		box_i=[[int(it) for it in jt] for jt in query_logic_box]
@@ -1442,24 +1481,17 @@ class Slice:
 	# onIdle
 	def onIdle(self):
 
-		# not ready for jobs
-		if not self.db:
-			return
+		if self.db and self.canvas and  self.canvas.getWidth()>0 and self.canvas.getHeight()>0:
+			self.playNextIfNeeded()
 
-		try:
-			for it in self.slices:
-				# problem in pyodide, I will not get pixel size until I resize the window (remember)
-				it.canvas.checkFigureResize()
-				if it.canvas.getWidth()>0 and it.canvas.getHeight()>0:
-					it.playNextIfNeeded()
-					result=it.query_node.popResult(last_only=True) 
-					if result is not None: 
-						it.gotNewData(result)
-					it.pushJobIfNeeded()
+		if self.db and self.query_node:
+			result=self.query_node.popResult(last_only=True) 
+			if result is not None: 
+				self.gotNewData(result)
+			self.pushJobIfNeeded()
 
-		except Exception as ex:
-			logger.info(f"ERROR {ex}\n{traceback.format_exc()}\n\n\n\n\n\n") 
-			raise 
+		for it in self.slices:
+			it.onIdle()
 
 Slices=Slice
 

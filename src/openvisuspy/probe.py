@@ -58,7 +58,7 @@ class ProbeTool:
 
 		self.fig=bokeh.plotting.figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
 				x_axis_label="Z", x_range=[x1,x2],x_axis_type="linear",
-				y_axis_label="f", y_range=[y2,y2],y_axis_type="log" if self.owner.isLogPalette() else "linear")
+				y_axis_label="f", y_range=[y2,y2],y_axis_type="log" if self.owner.isPaletteLog() else "linear")
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		self.fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
@@ -108,8 +108,6 @@ class ProbeTool:
 			self.fig_placeholder,
 			sizing_mode="stretch_both"
 		)
-		
-		self.owner.canvas.on_event(DoubleTap, self.onDoubleTap)
 
 	# isVisible
 	def isVisible(self):
@@ -269,7 +267,7 @@ class ProbeTool:
 			y1, y2 = min(ys), max(ys);
 			cy = (y1 + y2) / 2.0
 
-			fig = self.owner.canvas.getFigure()
+			fig = self.owner.canvas.fig
 			self.renderers[probe]["canvas"] = [
 				fig.scatter(xs, ys, color=color),
 				fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color=color),
@@ -325,7 +323,7 @@ class ProbeTool:
 				ys = [it for it in ys]
 
 			for it in ys:
-				if self.owner.isLogPalette():
+				if self.owner.isPaletteLog():
 					it = [max(self.owner.epsilon, value) for value in it]
 				self.renderers[probe]["fig"].append(
 					self.fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
@@ -334,7 +332,7 @@ class ProbeTool:
 
 	# removeProbe
 	def removeProbe(self, probe):
-		fig = self.owner.canvas.getFigure()
+		fig = self.owner.canvas.fig
 		for r in self.renderers[probe]["canvas"]:
 			self.removeRenderer(fig, r)
 		self.renderers[probe]["canvas"] = []
@@ -352,9 +350,9 @@ class ProbeTool:
 		if not self.main_layout.visible:
 			return
 
-		# self.fig.y_scale=bokeh.models.LogScale() if self.owner.isLogPalette() else bokeh.models.LinearScale()
+		# self.fig.y_scale=bokeh.models.LogScale() if self.owner.isPaletteLog() else bokeh.models.LinearScale()
 		# DOES NOT WORK (!)
-		is_log=self.owner.isLogPalette()
+		is_log=self.owner.isPaletteLog()
 		fig_log=isinstance(self.fig.y_scale, bokeh.models.scales.LogScale)
 		if is_log!=fig_log:
 			self.createFigure()
