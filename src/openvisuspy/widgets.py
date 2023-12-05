@@ -10,28 +10,39 @@ logger = logging.getLogger(__name__)
 class Widgets:
 
 	@ staticmethod
-	def OnChange(callback):
+	def AddCallback(ret, callback, parameter_name):
+		
 		def fn(evt):
-			if evt.old == evt.new or not callback: 
+			if evt.old == evt.new or not callback or ret.__disable_callbacks: 
 				return
 			try:
 				callback(evt.new)
 			except:
 				logger.info(traceback.format_exc())
-				raise		
-		return fn
+				raise
+		
+		class DisableCallback:
+			def __init__(self, instance):
+				self.instance=instance
+			def __enter__(self):
+				self.instance.__disable_callbacks=True
+			def __exit__(self, type, value, traceback):
+				self.instance.__disable_callbacks=False
+			
+		ret.disable_callbacks=lambda: DisableCallback(ret)
+		ret.param.watch(fn,parameter_name)
+		ret.__disable_callbacks=False
+		return ret
 
 	@staticmethod
 	def CheckBox(callback=None,**kwargs):
 		ret=pn.widgets.Checkbox(**kwargs)
-		ret.param.watch(Widgets.OnChange(callback),"value")
-		return ret
+		return Widgets.AddCallback(ret, callback, "value")
 
 	@staticmethod
 	def RadioButtonGroup(callback=None,**kwargs):
 		ret=pn.widgets.RadioButtonGroup(**kwargs)
-		ret.param.watch(Widgets.OnChange(callback),"value")
-		return ret
+		return Widgets.AddCallback(ret, callback, "value")
 
 	@staticmethod
 	def Button(callback=None,**kwargs):
@@ -53,34 +64,29 @@ class Widgets:
 			"int": pn.widgets.IntInput,
 			"float": pn.widgets.FloatInput
 		}[type](**kwargs)
-		ret.param.watch(Widgets.OnChange(callback),"value")
-		return ret
+		return Widgets.AddCallback(ret, callback, "value")
 
 
 	@staticmethod
 	def TextAreaInput(callback=None, type="text", **kwargs):
 		ret = pn.widgets.TextAreaInput(**kwargs)
-		ret.param.watch(Widgets.OnChange(callback),"value")
-		return ret
+		return Widgets.AddCallback(ret, callback, "value")
 
 	@staticmethod
 	def Select(callback=None, **kwargs):
 		ret = pn.widgets.Select(**kwargs) 
-		ret.param.watch(Widgets.OnChange(callback),"value")
-		return ret
+		return Widgets.AddCallback(ret, callback, "value")
 
 	@staticmethod
 	def ColorMap(callback=None, **kwargs):
 		ret = pn.widgets.ColorMap(**kwargs) 
-		ret.param.watch(Widgets.OnChange(callback),"value_name")
-		return ret
+		return Widgets.AddCallback(ret, callback, "value")
 
 
 	@staticmethod
 	def FileInput(callback=None, **kwargs):
 		ret = pn.widgets.FileInput(**kwargs)
-		ret.param.watch(Widgets.OnChange(callback),"value")
-		return ret
+		return Widgets.AddCallback(ret, callback, "value")
 
 	@staticmethod
 	def FileDownload(*args, **kwargs):
@@ -102,8 +108,7 @@ class Widgets:
 			"discrte": pn.widgets.DiscreteSlider
 		}[type](**kwargs) 
 
-		ret.param.watch(Widgets.OnChange(callback),parameter_name)
-		return ret
+		return Widgets.AddCallback(ret, callback, parameter_name)
 	
 	@staticmethod
 	def RangeSlider(editable=False, type="float", format="0.001", callback=None, parameter_name="value", **kwargs):
@@ -114,8 +119,7 @@ class Widgets:
 			"int":   pn.widgets.EditableIntSlider   if editable else pn.widgets.IntRangeSlider
 		}[type](**kwargs)
 
-		ret.param.watch(Widgets.OnChange(callback),parameter_name)
-		return ret
+		return Widgets.AddCallback(ret, callback, parameter_name)
 
 
 	@staticmethod
