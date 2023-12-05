@@ -44,6 +44,9 @@ class ProbeTool:
 				}
 
 		self.createGui()
+		
+		# to add probes
+		owner.canvas.on_double_tap=self.onCanvasDoubleTap
 
 		self.owner.on_change('offset'   , lambda attr,old, new: self.refresh()) # display the offset
 		self.owner.on_change('data'     , lambda attr,old, new: self.refresh()) # new data, important for the range
@@ -133,8 +136,8 @@ class ProbeTool:
 		probe.pos = (self.slider_x_pos.value, self.slider_y_pos.value)
 		self.addProbe(probe)
 
-	# onDoubleTap
-	def onDoubleTap(self, evt):
+	# onCanvasDoubleTap
+	def onCanvasDoubleTap(self, evt):
 		x,y=evt.x,evt.y
 		logger.info(f"[{self.owner.id}] x={x} y={y}")
 		dir = self.owner.getDirection()

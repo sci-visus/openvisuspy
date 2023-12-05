@@ -17,8 +17,7 @@ class Canvas:
 	# constructor
 	def __init__(self, id):
 		self.id=id
-		self.on_resize=None
-		self.on_double_tab=None
+
 		self.fig=None
 		self.main_layout=pn.Row(sizing_mode="stretch_both")	
 		self.createFigure() 
@@ -27,12 +26,11 @@ class Canvas:
 		
 	# onResize
 	def onResize(self, attr, old, new):
-		if self.on_resize: self.on_resize(attr, old, new)
+		pass
 
 	# onDoubleTap
 	def onDoubleTap(self,evt):
-		if self.on_double_tab:
-			self.on_double_tap(evt)
+		pass
 
 	# createFigure
 	def createFigure(self):

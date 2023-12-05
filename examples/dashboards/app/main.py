@@ -58,7 +58,7 @@ if __name__.startswith('bokeh'):
 				scene=view.getDashboardsConfig(dataset)
 
 	if scene is not None:
-		logger.info("Opening from {scene}")
+		#logger.info(f"Opening from {scene}")
 		view.loadScene(scene)
 
 	# show the GUI

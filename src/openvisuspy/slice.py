@@ -64,7 +64,7 @@ class Slice:
 		self.parent = parent
 		self.num_hold=0
 		if self.parent:  
-			self.id=self.parent.id + "/"  + str(Slice.ID)
+			self.id=self.parent.id + "."  + str(Slice.ID)
 		else:
 			self.id="/" + str(Slice.ID)
 		Slice.ID += 1
@@ -163,8 +163,9 @@ class Slice:
 			self.last_query_logic_box = NotImplemented	
 			self.query_node=QueryNode()
 			self.canvas = Canvas(self.id)
+
+			# redirecting resize events
 			self.canvas.on_resize=self.onCanvasResize
-			self.canvas.on_double_tab=self.onCanvasDoubleTap
 
 		# placeholder
 		self.main_layout=pn.Column(sizing_mode='stretch_both')
@@ -200,10 +201,6 @@ class Slice:
 			dir,offset=self.getDirection(),self.getOffset()
 			self.setDirection(dir)
 			self.setOffset(offset)
-
-	# onCanvasDoubleTap
-	def onCanvasDoubleTap(self, evt):
-		pass # what to do?
 
 	# stop
 	def stop(self):
@@ -262,19 +259,22 @@ class Slice:
 		if self.parent:
 			return
 
+		
+		logger.debug(f"id={self.id} START")
+
+		datasets=self.getDatasets()
+
 		show_probe ="probe"  in value
-		show_linked="linked" in value
+		show_linked="link" in value
 		nviews=1 if value=="probe" else int(value[0])
-		logger.debug(f"id={self.id} value={value} nviews={nviews}")
 
 		self.stop()
 
-		with self.widgets.view_mode.disable_callbacks():
-			self.widgets.view_mode.value=value
+		widget=self.widgets.view_mode
+		with widget.disable_callbacks():
+			widget.value=value
 
-		# rebuild the Gui
 		self.main_layout[:]=[]
-
 		for it in self.slices:  del it
 		self.slices=[]
 
@@ -288,11 +288,14 @@ class Slice:
 				slice_show_options=self_show_options[1]
 
 			slice = Slice(parent=self)
+			slice.widgets.dataset.name=f"{slice.widgets.dataset.name}.{slice.id}"
 			self.slices.append(slice)
 
 			from .probe import ProbeTool
 			slice.tool = ProbeTool(slice)
 			slice.tool.main_layout.visible=show_probe
+			slice.widgets.dataset.options=datasets
+			slice.linked=I==0 and show_linked
 
 			slice.main_layout=pn.Row(
 				pn.Column(
@@ -313,25 +316,22 @@ class Slice:
 				sizing_mode="stretch_both"
 			)
 
-			parent_first_row_widgets=[getattr(self.widgets, it.replace("-", "_")) for it in self_show_options[0]] + [self.widgets.copy_url]
-			slices_main_layout=[it.main_layout for it in self.slices ]
+		# create parent layout
+		parent_first_row_widgets=[getattr(self.widgets, it.replace("-", "_")) for it in self_show_options[0]] + [self.widgets.copy_url]
+		slices_main_layout=[it.main_layout for it in self.slices ]
 
-			self.main_layout.append(
-				pn.Column(
-					pn.Row(*parent_first_row_widgets, sizing_mode="stretch_width"), 
-					pn.GridBox(*slices_main_layout, ncols=2 if nviews>=2 else 1, sizing_mode="stretch_both"),
-					self.dialogs_placeholder,  
-					sizing_mode='stretch_both' 
-				))
-
-		datasets=self.getDatasets()
-		for I,slice in enumerate(self.slices):
-			for it in self.slices:
-				with it.widgets.view_mode.disable_callbacks():
-					it.widgets.dataset.options=datasets
-					# it.widgets.dataset.value=name
+		self.main_layout.append(
+			pn.Column(
+				pn.Row(*parent_first_row_widgets, sizing_mode="stretch_width"), 
+				pn.GridBox(*slices_main_layout, ncols=2 if nviews>=2 else 1, sizing_mode="stretch_both"),
+				self.dialogs_placeholder,  
+				sizing_mode='stretch_both' 
+			))
 
 		self.start()
+
+		
+		logger.debug(f"id={self.id} END")
 
 	# loadDashboardsConfig
 	def loadDashboardsConfig(self, value):
@@ -385,8 +385,9 @@ class Slice:
 	# setDatasets
 	def setDatasets(self,value):
 		for it in [self] + self.slices:
-			with it.widgets.dataset.disable_callbacks():
-				it.widgets.dataset.options = value
+			widget=it.widgets.dataset
+			with widget.disable_callbacks():
+				widget.options = value
 
 	# getDatasets
 	def getDatasets(self):
@@ -521,21 +522,20 @@ class Slice:
 		datasets=self.getDatasets()
 		self.setDatasets(datasets)
 
-		logger.info(f"id={self.id} Loading dataset url={url}")
+		logger.info(f"id={self.id} Loading dataset url={url}...")
 		db=LoadDataset(url=url) if not self.parent else self.parent.db
 
 		for it in [self] + self.slices:
 			it.db    =db
 			it.access=db.createAccess()
-			with it.widgets.view_mode.disable_callbacks():
-				it.widgets.dataset.value=dataset
 
-		# assuming all children will have the same dataset, if not later I am rewritingt it
-		# for the below calls I need the sub dataset to be ready
-		for it in self.slices:
-			it.widgets.dataset.value = dataset
-			it.db=self.db
-			it.access=it.db.createAccess()
+			widget=it.widgets.dataset
+			#print("HERE1",it.widgets.dataset.name,id(it.widgets.dataset),widget.__disable_callbacks)
+			with widget.disable_callbacks():
+				#print("HERE2",it.widgets.dataset.name,id(it.widgets.dataset),widget.__disable_callbacks)
+				widget.value=dataset
+				#print("HERE3",it.widgets.dataset.name,id(it.widgets.dataset),widget.__disable_callbacks)
+			#print("HERE4",it.widgets.dataset.name,id(it.widgets.dataset),widget.__disable_callbacks)
 
 		timesteps=self.db.getTimesteps()
 		self.setTimesteps(timesteps)
@@ -762,8 +762,9 @@ class Slice:
 	def setPlaySec(self,value):
 		logger.debug(f"id={self.id} value={value}")
 		for it in [self] + self.slices:
-			with it.widgets.play_sec.disable_callbacks():
-				it.widgets.play_sec.value=value
+			widget=it.widgets.play_sec
+			with widget.disable_callbacks():
+				widget.value=value
 
 	# getTimestepDelta
 	def getTimestepDelta(self):
@@ -782,9 +783,13 @@ class Slice:
 		T = min(B, max(A, T))
 		
 		for it in [self] + self.slices:
-			with it.widgets.timestep_delta.disable_callbacks():
-				it.widgets.timestep.step = value
-				it.widgets.timestep_delta.value = option
+			widget=it.widgets.timestep_delta
+			with widget.disable_callbacks():
+				widget.value = option
+
+			widget=it.widgets.timestep
+			with widget.disable_callbacks():
+				widget.step = value
 
 		self.setTimestep(T)
 
@@ -796,8 +801,9 @@ class Slice:
 	def setTimestep(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		for it in [self] + self.slices:
-			with it.widgets.timestep.disable_callbacks():
-				it.widgets.timestep.value = value
+			widget=it.widgets.timestep
+			with widget.disable_callbacks():
+				widget.value = value
 
 		self.refresh()
 
@@ -810,8 +816,9 @@ class Slice:
 		value=list(value)
 		logger.debug(f"id={self.id} value={value}")
 		for it in [self] + self.slices:
-			with it.widgets.field.disable_callbacks():
-				it.widgets.field.options = value
+			widget=it.widgets.field
+			with widget.disable_callbacks():
+				widget.options = value
 
 	# getField
 	def getField(self):
@@ -822,8 +829,9 @@ class Slice:
 		logger.debug(f"id={self.id} value={value}")
 		if value is None: return
 		for it in [self] + self.slices:
-			with it.widgets.field.disable_callbacks():
-				it.widgets.field.value = value
+			widget=it.widgets.field
+			with widget.disable_callbacks():
+				widget.value = value
 		self.refresh()
 
 	# getPalette
@@ -865,7 +873,8 @@ class Slice:
 			widget=it.widgets.palette_range_mode
 			with widget.disable_callbacks():
 				widget.value = mode
-				it.color_map=None
+			
+			it.color_map=None
 
 			widget = it.widgets.palette_range_vmin
 			with widget.disable_callbacks():
@@ -892,9 +901,15 @@ class Slice:
 	def setPaletteRange(self, value):
 		vmin, vmax = value
 		for it in [self] + self.slices:
-			vmin,vmax=it.widgets.palette_range_vmin, it.widgets.palette_range_vmax
-			with vmin.disable_callbacks(): vmin.value = vmin
-			with vmax.disable_callbacks(): vmax.value = vmax
+			
+			widget=it.widgets.palette_range_vmin
+			with widget.disable_callbacks(): 
+				widget.value = vmin
+
+			widget=it.widgets.palette_range_vmax
+			with widget.disable_callbacks(): 
+				widget.value = vmax
+			
 			it.color_map=None
 
 		self.refresh()
@@ -1459,15 +1474,16 @@ class Slice:
 		self.last_query_logic_box=query_logic_box
 		self.new_job=False
 
-		logger.debug(f"id={self.id} pushed new job query_logic_box={query_logic_box}")
 
 		# link views
 		if self.isLinked() and self.parent:
 			idx=self.parent.slices.index(self)
 			for it in self.parent.slices:
-				if it==self: continue
-				it.setQueryLogicBox(query_logic_box)
-				it.setOffset(offset)
+				if it!=self: 
+					it.setOffset(offset)
+					it.setQueryLogicBox(query_logic_box)
+
+		logger.debug(f"id={self.id} pushed new job query_logic_box={query_logic_box}")
 
 	# onIdle
 	def onIdle(self):
