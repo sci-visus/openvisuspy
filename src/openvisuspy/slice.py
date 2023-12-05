@@ -1249,12 +1249,14 @@ class Slice:
 
 	# updateSceneText
 	def updateSceneText(self):
-		widget=(self.parent.widgets.scene if self.parent else self.widgets.scene) 
+		if self.parent:
+			return self.parent.updateSceneText()
+
+		widget=self.widgets.scene
 		if widget.visible:
 			scene=self.saveScene()
 			body=json.dumps(scene,indent=2)
 			widget.value=body
-
 
 	# refresh
 	def refresh(self):
