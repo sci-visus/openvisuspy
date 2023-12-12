@@ -9,13 +9,19 @@ class Streamable:
 	compression="zip"
 	arco="4mb"
 
-	def __init__(self, src_file:h5py.File, dst_file:h5py.File, local_url_template=None, remote_url_template=None, compression=None, arco=None):
+	def __init__(self, src_file:h5py.File, dst_file:h5py.File, idx_urls:dict=None, compression=None, arco=None):
 		self.src_file=src_file
 		self.dst_file=dst_file
-		assert(local_url_template)
-		assert(remote_url_template)
-		self.local_url_template=local_url_template
-		self.remote_url_template=remote_url_template 
+		assert(idx_urls and "local" in idx_urls) # I need to create local files
+
+		# if not specified the first one will be the default
+		if not "default" in idx_urls:
+			idx_urls["default"]=idx_urls.keys()[0]
+
+		# default it's just an alias/key
+		assert(idx_urls["default"] in idx_urls)
+
+		self.idx_urls=idx_urls 
 		self.idx_datasets={}
 		self.compression=compression or self.compression
 		self.arco=arco or self.arco
@@ -103,19 +109,17 @@ class Streamable:
 					print(f"Found already converted dataset, using the link {src.name}->{dst.name}")
 				else:
 					dst=self.dst_file.create_dataset(src.name, shape=shape, dtype=dtype, data=None)
-					urls={
-						"local" : self.local_url_template .replace("\\","/").replace("{name}",dst.name.lstrip("/")),
-						"remote": self.remote_url_template.replace("\\","/").replace("{name}",dst.name.lstrip("/"))
-					}
-
+					urls={k:v.replace("\\","/").replace("{name}",dst.name.lstrip("/")) for k,v in self.idx_urls.items()}
 					self.idx_datasets[src]=(dst,urls)
-					self.createIdx(urls["local"],src)
+					# need "local" to generate local datasets
+					self.createIdx(urls["local"],src) 
 
 				self.copyAttribues(src, dst)
-
 				# I am setting the idx_url at the parent level
 				dst.parent.attrs["idx_urls"] =str(urls)
-				dst.parent.attrs["idx_url" ] =str(urls["remote"])
+
+				idx_url=urls[urls["default"]]
+				dst.parent.attrs["idx_url" ] =str(idx_url)
 				
 			else:
 				# just copy the dataset
