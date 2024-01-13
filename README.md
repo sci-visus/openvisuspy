@@ -6,7 +6,8 @@ The official OpenVisus C++ GitHub repository is [here](https://github.com/sci-vi
 
 Create a virtual environment. This step is optional, but best to avoid conflicts:
 
-- for windows users you can do `doskey python3=python $*` and `.venv/Scripts/activate.bat`
+for Linux/OS users
+
 
 ```bash
 python3 -m venv .venv
@@ -14,28 +15,37 @@ source .venv/bin/activate
 python3 -m pip install --upgrade pip
 ```
 
+For windows users
+
+```bat
+doskey python3=python $*
+python3 -m venv .venv
+.venv\Scripts\activate.bat
+python3 -m pip install --upgrade pip
+```
+
 Install python packages, technically only `numpy` is stricly needed, but to access cloud storage and show dashboards/notebooks, you need additional packages too.
 
 ```bash
-python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh panel itkwidgets[all] pyvista vtk jupyter
+python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.1.1 panel==1.3.6 itkwidgets[all] pyvista vtk jupyter
 ```
 
 Next, install Openvisus packages. 
 
 
-If you **do not need the OpenVisus viewer** (or if you are in Windows WSL):
+If you **DO NOT NEED the OpenVisus viewer** (or if you are in Windows WSL):
 
 ```bash
-python3 -m pip install --upgrade OpenVisusNoGui
-python3 -m pip install --upgrade openvisuspy 
+python3 -m pip install --upgrade OpenVisusNoGui==2.2.128
+python3 -m pip install --upgrade openvisuspy==1.0.28
 ```
 
-if **you do need the OpenVisus viewer**:
+if you ** DO NEED the OpenVisus viewer**:
 
 ```bash
-python3 -m pip install --upgrade OpenVisus
+python3 -m pip install --upgrade OpenVisus==2.2.128
 python3 -m OpenVisus configure 
-python3 -m pip install --upgrade openvisuspy 
+python3 -m pip install --upgrade openvisuspy==1.0.28
 ```
 
 ## Bokeh Dashboards 
