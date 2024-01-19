@@ -472,12 +472,12 @@ class Widgets:
 	# hold
 	def hold(self):
 		self.num_hold=getattr(self,"num_hold",0) + 1
-		if self.num_hold==1: self.doc.hold()
+		# if self.num_hold==1: self.doc.hold()
 
 	# unhold
 	def unhold(self):
 		self.num_hold-=1
-		if self.num_hold==0: self.doc.unhold()
+		# if self.num_hold==0: self.doc.unhold()
 
 	# loadDataset
 	def loadDataset(self, url, config={}):
