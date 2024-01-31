@@ -212,7 +212,7 @@ def ConvertData(specs):
 			data=np.load(src)
 
 		# ___________________________________________
-		elif ext == ".h5":
+		elif ext in (".h5", ".hdf5"):
 			expression  = specs.get("expression","/imageseries/images") # how to reach the field
 			logger.info(f"expression={expression}")
 
