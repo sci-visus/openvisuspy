@@ -6,8 +6,22 @@ if __name__.startswith('bokeh'):
 
 	from openvisuspy import SetupLogger, IsPanelServe, GetBackend, Slices
 
-	logger=SetupLogger(stream=True, log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log"))
+	import bokeh
+	doc = bokeh.io.curdoc()
+	args=doc.session_context.request.arguments
+	print("request.arguments",args)
+
+	group=args["group"][0].decode('ascii')
+	assert(group)
+
+	log_filename=f"/mnt/data1/nsdf/workflow/{group}/dashboards.log" if group else "/tmp/openvisuspy-dashboards.log"
+	config=f"/mnt/data1/nsdf/workflow/{group}/dashboards.json"
+
+	logger=SetupLogger(stream=True, log_filename=log_filename)
 	logger.info(f"GetBackend()={GetBackend()}")
+
+	logger.info(f"log_filename={log_filename}")
+	logger.info(f"config={config}")
 
 	if "--dataset" in sys.argv:
 		parser = argparse.ArgumentParser(description="Dashboard")
@@ -29,11 +43,6 @@ if __name__.startswith('bokeh'):
 			config["palette-range"]=eval(args.palette_range)
 
 		config={"datasets" : [config]}
-
-	else:
-		# assuming is a json file
-		config=sys.argv[1]
-
 
 
 	is_panel = IsPanelServe()

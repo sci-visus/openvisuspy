@@ -72,26 +72,14 @@ export BOKEH_PORT=<replace-with-group-port>
 In case you need to set who has access or not to the dashboard, use this uids separated by `;` otherwise leave it emty or `*`
 
 ```bash
-export NSDF_ALLOWED_GROUPS="*"
-```
 
+```
 [OPTIONAL] add the group to the `index.html`
 
 ```bash
 code /var/www/html/index.html
 ```
 
-Setup an env variable which points to the JSON dashboard file:
-
-```bash
-export DASHBOARDS_CONFIG=/mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json
-```
-
-Set where to store dashboards log:
-
-```bash
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=/mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.log
-```
 
 Create a cooking for bokeh encrypted communications:
 
@@ -109,7 +97,7 @@ python -m bokeh serve examples/dashboards/app \
    --allow-websocket-origin='*.classe.cornell.edu' \
    --dev \
    --auth-module=./examples/chess/auth.py \
-   --args "${DASHBOARDS_CONFIG}" \
+   --args 
    --prefer local
 done
 ```

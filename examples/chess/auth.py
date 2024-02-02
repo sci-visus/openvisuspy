@@ -11,9 +11,9 @@ import easyad
 from tornado.escape import json_decode, url_escape, json_encode
 from tornado.web import RequestHandler
 
-APP_URL    = "/app"
-login_url  = f"{APP_URL}/login"
-logout_url = f"{APP_URL}/logout"
+
+login_url  = "/app/login"
+logout_url = "/app/logout"
 
 # //////////////////////////////////////////////////////
 def get_user(request_handler):
@@ -44,9 +44,6 @@ class LoginHandler(RequestHandler):
 		username = self.get_argument("username", "")
 		password = self.get_argument("password", "")
 
-		# in case you want to limit the dashboards to some particular users
-		allowed_groups=os.environ.get("NSDF_ALLOWED_GROUPS","*")
-
 		# need to authenticate anyway
 		self.ad = easyad.EasyAD({
 			'AD_SERVER': os.environ["AD_SERVER"],
@@ -56,16 +53,40 @@ class LoginHandler(RequestHandler):
 		})		
 		user  = self.ad.authenticate_user(username, password, json_safe=True)
 
-		# check if is inside allowed group
-		is_authorised=True if user else False
-
-		if is_authorised and allowed_groups!="*":
-			groups=[it for it in allowed_groups.split(";") if it]
-			is_authorised = is_authorised and any([self.ad.user_is_member_of_group(user,group) for group in groups]) 
-
-		if is_authorised:
-			self.set_secure_cookie("user", json_encode(username))
-			self.redirect(APP_URL)
-		else:
-			self.redirect(login_url + "?error=" + url_escape("Login incorrect."))
+		if not user:
+			self.redirect(f"{login_url}?error={url_escape('Login incorrect')}&next={next}")
 			self.clear_cookie("user")
+			return
+
+		# I am going to a specific group
+		next = self.get_argument("next", "")
+		from urllib.parse import unquote, urlparse, parse_qs
+		group=parse_qs(urlparse(unquote(next)).query).get('group',['nsdf-group'])[0]
+
+		# -----------------------------------------------------------
+		# TODO: security must be outside
+		# group  -> AD groups
+		permissions={
+			"pegan-3579-c"    : ["nsdf", "pagan-3579-c",     "id4bstaff"],
+			"lee-3565-c"      : ["nsdf", "lee-3565-c",       "id4bstaff"],
+			"capolungo-3850-a": ["nsdf", "capolungo-3850-a", "chexsfast"],
+			"umich"           : ["nsdf", "berman-3804-a",    "chexsfast"],
+			"nsdf-group"      : ["nsdf"]
+		}
+		# -----------------------------------------------------------
+
+		allowed=False
+		for ad_group in permissions.get(group,"*"):
+			if ad_group=="*" or self.ad.user_is_member_of_group(user, ad_group):
+				allowed=True
+				break
+
+		if not allowed:
+			self.redirect(f"{login_url}?error={url_escape('No allowed AD group')}&next={next}")
+			self.clear_cookie("user")
+			return
+	
+		# all ok
+		self.set_secure_cookie("user", json_encode(username))
+		self.redirect(next) # this way I am keeping the group
+

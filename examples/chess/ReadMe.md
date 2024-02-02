@@ -185,48 +185,33 @@ In a second terminal, setup the dashboards
 
 ```bash
 
-# use the env of the previous section
-export NSDF_GROUP="nsdf-group"
-screen -S ${NSDF_GROUP}-dashboards
+# this is the screen to run all dashboards
+# screen -S all-dashboards
 
 conda activate nsdf-env
 
-# edit configuration file, and add the group app for the bokeh port
-code /etc/nginx/nginx.conf
-sudo /usr/bin/systemctl restart nginx
+# NOT NEEDED ANYMORE
+# code /etc/nginx/nginx.conf
+# sudo /usr/bin/systemctl restart nginx
 
 # add the group to the `index.html`
-code /var/www/html/index.html
-
-# choose any port you want which does not collide with other groups
-export BOKEH_PORT=<N>
-
-# in case you need to set who has access or not to the dashboard, use this uids separated by `;`
-# otherwise leave it emty or `*`
-export NSDF_ALLOWED_GROUPS="*"
-
-# json dashboards file
-export DASHBOARDS_CONFIG=/mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json
-
-# where to store the logs
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${DASHBOARDS_CONFIG/.json/.log}
+code /var/www/html/index.html 
 
 # needed for AD security
 export BOKEH_COOKIE_SECRET=$(echo $RANDOM | md5sum | head -c 32)
 
 while [[ "1" == "1" ]] ; do
 python -m bokeh serve examples/dashboards/app \
-   --port ${BOKEH_PORT} \
+   --port 6011 \
    --use-xheaders \
    --allow-websocket-origin='*.classe.cornell.edu' \
    --dev \
    --auth-module=./examples/chess/auth.py \
-   --args "${DASHBOARDS_CONFIG}" \
-   --prefer local
+   --args --prefer local
 done
 
 # From a browser open the following URL (change group name as needed)
-# https://nsdf01.classe.cornell.edu/dashboards/nsdf-group/app
+# https://nsdf01.classe.cornell.edu/dashboards/app?group=nsdf-group
 ```
 
 if you want statistics:
@@ -416,7 +401,6 @@ export VISUS_CACHE="/tmp/visus-cache"
 export BOKEH_RESOURCES="cdn"
 export BOKEH_ALLOW_WS_ORIGIN="*"
 export BOKEH_LOG_LEVEL="debug"
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME"/tmp/openvisuspy/logs.dashboards.log"
 export WWW=/var/www/html
 source .venv/bin/activate
 EOF
