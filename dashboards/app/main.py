@@ -66,7 +66,7 @@ if __name__.startswith('bokeh'):
 		main_layout = view.getMainLayout()
 		use_template = False
 		if use_template:
-			template = pn.template.MaterialTemplate(title='NSDF Dashboard')
+			template = pn.template.MaterialTemplate(title='NSDF Dashboard',theme="dark")
 			template.main.append(main_layout)
 			template.servable()
 		else:

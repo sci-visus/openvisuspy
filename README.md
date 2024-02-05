@@ -70,14 +70,15 @@ python -c "import openvisuspy as ovy"
 Change as needed:
 
 ```bash
-set BOKEH_ALLOW_WS_ORIGIN="*"
+set BOKEH_ALLOW_WS_ORIGIN=*
 set BOKEH_LOG_LEVEL=debug
 set VISUS_CPP_VERBOSE=1
 set VISUS_NETSERVICE_VERBOSE=1
 # set VISUS_CACHE=c:/tmp/visus-cache
 
 # example with a single file
-python -m panel serve dashboards/app --dev --args --dataset D:\visus-datasets\2kbit1\zip\hzorder\visus.idx
+python -m panel serve dashboards/app --dev --args --dataset D:\visus-datasets\david_subsampled\visus.idx 
+python -m panel serve dashboards/app --dev --args --dataset D:\visus-datasets\2kbit1\zip\hzorder\visus.idx 
 
 python -m panel serve dashboards/app --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=arco" 
 

@@ -102,7 +102,7 @@ class Slice:
 
 		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],width=80, callback=onViewModeChange)
 		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new))
-		self.widgets.palette               = Widgets.ColorMap (options=PALETTES, value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette)
+		self.widgets.palette               = Widgets.ColorMap (name="Palette", options=PALETTES, value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette)
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode)
 		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=onPaletteRangeChange,width=80)
@@ -1519,6 +1519,8 @@ class Slice:
 					it.gotNewData(result)
 				it.pushJobIfNeeded()
 
+
+# an alias for backward compatibility
 Slices=Slice
 
 
