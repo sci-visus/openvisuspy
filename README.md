@@ -4,67 +4,87 @@ The official OpenVisus C++ GitHub repository is [here](https://github.com/sci-vi
 
 ## Install openvisuspy
 
-Create a virtual environment. This step is optional, but best to avoid conflicts:
+Create a virtual environment. 
+
+his step is optional, but it is best to avoid conflicts:
 
 for Linux/OS users
 
-
 ```bash
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
-python3 -m pip install --upgrade pip
+python -m pip install --upgrade pip
 ```
 
-For windows users
+For Windows users
 
 ```bat
-doskey python3=python $*
-python3 -m venv .venv
+
+python -m venv .venv
 .venv\Scripts\activate.bat
-python3 -m pip install --upgrade pip
+python -m pip install --upgrade pip
 ```
 
-Install python packages, technically only `numpy` is stricly needed, but to access cloud storage and show dashboards/notebooks, you need additional packages too.
+Install minimal dependencies:
 
 ```bash
-python3 -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.1.1 panel==1.3.6 itkwidgets[all] pyvista vtk jupyter
+python -m pip install numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh panel jupyter
 ```
 
-Next, install Openvisus packages. 
+Next, install Openvisus and openvisuspy packages. 
 
 
 If you **DO NOT NEED the OpenVisus viewer** (or if you are in Windows WSL):
 
 ```bash
-python3 -m pip install --upgrade OpenVisusNoGui==2.2.128
-python3 -m pip install --upgrade openvisuspy==1.0.28
+python -m pip install --upgrade OpenVisusNoGui
+python -m pip install --upgrade openvisuspy
 ```
 
-if you ** DO NEED the OpenVisus viewer**:
+if you **DO NEED the OpenVisus viewer**:
 
 ```bash
-python3 -m pip install --upgrade OpenVisus==2.2.128
-python3 -m OpenVisus configure 
-python3 -m pip install --upgrade openvisuspy==1.0.28
+python -m pip install --upgrade OpenVisus
+python -m OpenVisus configure 
+python -m pip install --upgrade openvisuspy
 ```
 
-## Bokeh Dashboards 
+if you **DO need OpenVisus debugging** you can use your binaries/local python code:
 
+```
+set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;.\src
+
+```
+
+check the two packages import fine:
 
 ```bash
-# export BOKEH_ALLOW_WS_ORIGIN=*
-# export BOKEH_LOG_LEVEL=debug
-# export VISUS_CPP_VERBOSE=0
-# export VISUS_NETSERVICE_VERBOSE=0
-# export PYTHONPATH=./src;/projects/OpenVisus/build/RelWithDebInfo
+python -c "import OpenVisus   as ov"
+python -c "import openvisuspy as ovy"
+```
 
-python -m bokeh serve "examples/dashboards/app"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=arco" 
 
-python -m bokeh serve "examples/dashboards/app"  --dev --args --dataset  "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=arco"
+## Dashboards 
+
+
+Change as needed:
+
+```bash
+set BOKEH_ALLOW_WS_ORIGIN="*"
+set BOKEH_LOG_LEVEL=debug
+set VISUS_CPP_VERBOSE=1
+set VISUS_NETSERVICE_VERBOSE=1
+# set VISUS_CACHE=c:/tmp/visus-cache
+
+# example with a single file
+python -m panel serve dashboards/app --dev --args --dataset D:\visus-datasets\2kbit1\zip\hzorder\visus.idx
+
+python -m panel serve dashboards/app --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=arco" 
+
+python -m panel serve dashboards/app --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=arco"
 ```
 
 ## Developers only
-
 
 Deploy new binaries
 
@@ -76,7 +96,7 @@ Deploy new binaries
 ```
 
 
-## (EXPERIMENTAL) Pure Python Backend
+## (EXPERIMENTAL and DEPRECATED) Use Pure Python Backend
 
 This version may be used for cpython too in case you cannot install C++ OpenVisus (e.g., WebAssembly).
 
@@ -85,15 +105,15 @@ It **will not work with S3 cloud-storage blocks**.
 Bokeh dashboards:
 
 ```
-python3 -m bokeh serve "examples/dashboards/app"  --dev --address localhost --port 8888 --args --py  --single
-python3 -m bokeh serve "examples/dashboards/app"  --dev --address localhost --port 8888 --args --py  --multi
+python3 -m bokeh serve "dashboards/app"  --dev --address localhost --port 8888 --args --py  --single
+python3 -m bokeh serve "dashboards/app"  --dev --address localhost --port 8888 --args --py  --multi
 ```
 
 Panel dashboards:
 
 ```
-python -m panel serve "examples/dashboards/app"  --dev --address localhost --port 8888 --args --py --single
-python -m panel serve "examples/dashboards/app"  --dev --address localhost --port 8888 --args --py --multi
+python -m panel serve "dashboards/app"  --dev --address localhost --port 8888 --args --py --single
+python -m panel serve "dashboards/app"  --dev --address localhost --port 8888 --args --py --multi
 ```
 
 Jupyter notebooks:
@@ -103,7 +123,7 @@ export VISUS_BACKEND=py
 python3 -m jupyter notebook ./examples/notebooks
 ```
 
-## Demos
+### Demos
 
 REMEMBER to resize the browswe  window, **otherwise it will not work**:
 

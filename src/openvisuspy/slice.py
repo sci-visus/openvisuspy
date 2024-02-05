@@ -434,7 +434,7 @@ class Slice:
 			"view-mode": self.getViewMode(),
 			"dataset": self.getDataset(), 
 			
-			# NOT needed
+			# NOT needed.. they should come automatically from the dataset?
 			#   "timesteps": self.getTimesteps(),
 			#   "physic_box": self.getPhysicBox(),
 			#   "fields": self.getFields(),
