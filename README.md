@@ -77,12 +77,12 @@ set VISUS_NETSERVICE_VERBOSE=1
 # set VISUS_CACHE=c:/tmp/visus-cache
 
 # example with a single file
-python -m panel serve dashboards/app --dev --args --dataset D:\visus-datasets\david_subsampled\visus.idx 
-python -m panel serve dashboards/app --dev --args --dataset D:\visus-datasets\2kbit1\zip\hzorder\visus.idx 
+python -m panel serve dashboards --dev --args --dataset D:\visus-datasets\david_subsampled\visus.idx 
+python -m panel serve dashboards --dev --args --dataset D:\visus-datasets\2kbit1\zip\hzorder\visus.idx 
 
-python -m panel serve dashboards/app --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=arco" 
+python -m panel serve dashboards --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=arco" 
 
-python -m panel serve dashboards/app --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=arco"
+python -m panel serve dashboards --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=arco"
 ```
 
 ## Developers only
@@ -106,15 +106,15 @@ It **will not work with S3 cloud-storage blocks**.
 Bokeh dashboards:
 
 ```
-python3 -m bokeh serve "dashboards/app"  --dev --address localhost --port 8888 --args --py  --single
-python3 -m bokeh serve "dashboards/app"  --dev --address localhost --port 8888 --args --py  --multi
+python3 -m bokeh serve "dashboards"  --dev --address localhost --port 8888 --args --py  --single
+python3 -m bokeh serve "dashboards"  --dev --address localhost --port 8888 --args --py  --multi
 ```
 
 Panel dashboards:
 
 ```
-python -m panel serve "dashboards/app"  --dev --address localhost --port 8888 --args --py --single
-python -m panel serve "dashboards/app"  --dev --address localhost --port 8888 --args --py --multi
+python -m panel serve "dashboards"  --dev --address localhost --port 8888 --args --py --single
+python -m panel serve "dashboards"  --dev --address localhost --port 8888 --args --py --multi
 ```
 
 Jupyter notebooks:
