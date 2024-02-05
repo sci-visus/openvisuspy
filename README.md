@@ -1,3 +1,100 @@
+# Instructions
+
+**Panel problems under Chrome**
+
+
+- `notebooks/vtkvolume.ipynb`  does NOT work in chrome
+- `notebooks/vtk_slicer.ipynb` does NOT work in chrome
+  - see https://github.com/holoviz/panel/issues/6171
+
+Removed `itkwidgets`, at the end pyvista seems to be better maintained
+- see https://github.com/imjoy-team/imjoy-jupyterlab-extension/issues/6#issuecomment-1898703563
+- this is needed for itkwidgets on jupyterlab
+
+Using `python3.10`
+- maybe python3.11 too? To test
+- **DO NOT** use `python312` does not have a good match for libzmq 
+
+Using JupyterLab3 (vs 4) because some (itkwidgets|bokeh) extensions do not yet work
+- jupyter_bokeh (needed by bokeh inside jupyter lab) is not working in JupyterLab 4.x.y
+  - https://github.com/bokeh/jupyter_bokeh/issues/197
+
+
+for JupyterLab extensions see:
+- [Jupyter 4 extensions](https://github.com/jupyterlab/jupyterlab/issues/14590)  
+- [Jupyter 3 extensions](https://github.com/jupyterlab/jupyterlab/issues/9461) 
+
+
+## PIP
+
+Remove old installations:
+
+```bash
+.venv\Scripts\deactivate
+rmdir /s /q  .venv
+rmdir /s /q  "%USERPROFILE%\.jupyter"
+```
+
+```bat
+c:\Python310\python.exe -m venv .venv
+.venv\Scripts\activate
+where python
+
+# maybe *dangerous* to update pip
+python.exe -m pip install --upgrade pip
+
+python -m pip install --verbose --no-cache --no-warn-script-location boto3 colorcet fsspec numpy imageio urllib3 pillow xarray xmltodict  plotly requests scikit-image scipy seaborn tifffile pandas tqdm matplotlib  zarr altair cartopy dash fastparquet folium geodatasets geopandas geoviews lxml numexpr scikit-learn sqlalchemy statsmodels vega_datasets xlrd yfinance pyarrow pydeck h5py hdf5plugin netcdf4 nexpy nexusformat nbgitpuller intake ipysheet ipywidgets bokeh ipywidgets-bokeh panel holoviews hvplot datashader vtk pyvista trame trame-vtk trame-vuetify  notebook "jupyterlab==3.6.6" jupyter_bokeh jupyter-server-proxy  jupyterlab-system-monitor "pyviz_comms>=2.0.0,<3.0.0" "jupyterlab-pygments>=0.2.0,<0.3.0" OpenVisusNoGui openvisuspy
+
+# save for the future
+pip freeze 
+ 
+python python/test-pyvista.py
+python python/test-vtkvolume.py 
+
+.venv\Scripts\deactivate
+```
+
+## Jupyter 
+
+Trust notebooks
+
+```bash
+python scripts/trust_notebooks.py "examples/notebooks/**/*.ipynb"
+```
+
+check the python kernel:
+
+```bash
+where jupyter
+jupyter kernelspec list
+```
+
+Check extensions:
+- **all extensions should show `enabled ok...`**
+- @bokeh/jupyter_bokeh    for bokeh   (installed by `jupyter_bokeh``)
+- @pyviz/jupyterlab_pyviz for panel (installed by `pyviz_comms``)
+- avoid any message `is not compatible with the current JupyterLab` message at the bottom
+
+```bash
+jupyter labextension list
+pip install nodejs-bin[cmd]
+jupyter lab clean --all
+jupyter lab build 
+# rmdir /s /q   C:\Users\scrgi\AppData\Local\Yarn 
+```
+
+Look also for additional extensions loaded from here
+
+```bash
+dir .venv\share\jupyter\lab\extensions\*
+```
+
+Run:
+
+```bash
+jupyter lab .
+```
+
 # OpenViSUS Visualization project
 
 The official OpenVisus C++ GitHub repository is [here](https://github.com/sci-visus/OpenVisus).
@@ -94,92 +191,5 @@ Deploy new binaries
 ```bash
 # source .venv/bin/activate
 ./scripts/new_tag.sh
-```
-
-
-## (EXPERIMENTAL and DEPRECATED) Use Pure Python Backend
-
-This version may be used for cpython too in case you cannot install C++ OpenVisus (e.g., WebAssembly).
-
-It **will not work with S3 cloud-storage blocks**.
-
-Bokeh dashboards:
-
-```
-python3 -m bokeh serve "dashboards"  --dev --address localhost --port 8888 --args --py  --single
-python3 -m bokeh serve "dashboards"  --dev --address localhost --port 8888 --args --py  --multi
-```
-
-Panel dashboards:
-
-```
-python -m panel serve "dashboards"  --dev --address localhost --port 8888 --args --py --single
-python -m panel serve "dashboards"  --dev --address localhost --port 8888 --args --py --multi
-```
-
-Jupyter notebooks:
-
-```
-export VISUS_BACKEND=py
-python3 -m jupyter notebook ./examples/notebooks
-```
-
-### Demos
-
-REMEMBER to resize the browswe  window, **otherwise it will not work**:
-
-- https://scrgiorgio.it/david_subsampled.html
-- https://scrgiorgio.it/2kbit1.html
-- https://scrgiorgio.it/chess_zip.html
-
-DEVELOPERS notes:
-- grep for `openvisuspy==` and **change the version consistently**.
-
-### PyScript
-
-Serve local directory
-
-```
-export VISUS_BACKEND=py
-python3 examples/server.py --directory ./
-```
-
-Open the urls in your Google Chrome browser:
-
-- http://localhost:8000/examples/pyscript/index.html 
-- http://localhost:8000/examples/pyscript/2kbit1.html 
-- http://localhost:8000/examples/pyscript/chess_zip.html 
-- http://localhost:8000/examples/pyscript/david_subsampled.html
-
-### JupyterLite
-
-```
-export VISUS_BACKEND=py
-ENV=/tmp/openvisuspy-lite-last
-python3 -m venv ${ENV}
-source ${ENV}/bin/activate
-
-# Right now jupyter lite seems to build the output based on installed packages. 
-# There should be other ways (e.g., JSON file or command line) for specifying packages, but for now creating a virtual env is good enough\
-# you need to have exactly the same package version inside your jupyter notebook (see `12-jupyterlite.ipynb`)
-python3 -m pip install \
-    jupyterlite==0.1.0b20 pyviz_comms numpy pandas requests xmltodict xyzservices pyodide-http colorcet \
-    https://cdn.holoviz.org/panel/0.14.3/dist/wheels/bokeh-2.4.3-py3-none-any.whl \
-    panel==0.14.2 \
-    openvisuspy==1.0.100 \
-    jupyter_server 
-
-rm -Rf ${ENV}/_output 
-jupyter lite build --contents /mnt/c/projects/openvisuspy/examples/notebooks --output-dir ${ENV}/_output
-
-# change port to avoid caching
-PORT=14445
-python3 -m http.server --directory ${ENV}/_output --bind localhost ${PORT}
-
-# or serve
-jupyter lite serve --contents ./examples/notebooks --output-dir ${ENV}/_output --port ${PORT} 
-
-# copy the files somewhere for testing purpouse
-rsync -arv ${ENV}/_output/* <username>@<hostname>:jupyterlite-demos/
 ```
 
