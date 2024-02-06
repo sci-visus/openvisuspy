@@ -44,9 +44,49 @@ DEFAULT_PALETTE="Viridis256"
 
 logger = logging.getLogger(__name__)
 
+
+ALL_OPTIONS=[
+	"menu",
+	"view_mode",
+	"dataset",
+	"palette",
+	"palette_range_mode",
+	"palette_range_vmin",
+	"palette_range_vmax",
+	"color_mapper_type",
+	"timestep",
+	"timestep_delta",
+	"field",
+	"direction",
+	"offset",
+	"num_refinements",
+	"resolution",
+	"view_dep",
+]
+
 DEFAULT_SHOW_OPTIONS=[
-	["menu", "view_mode","dataset", "palette", "color_mapper_type", "resolution", "view_dep", "num_refinements"],
-	["dataset", "direction", "offset", "color_mapper_type", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
+	[
+		"menu", 
+		"view_mode",
+		"dataset", 
+		"timestep",
+		"timestep_delta",		
+		"field",
+		"palette", 
+		"color_mapper_type", 
+		"resolution", 
+		"view_dep", 
+		"num_refinements"
+		],
+		[
+			"dataset", 
+			"direction", 
+			"offset", 
+			"color_mapper_type", 
+			"palette_range_mode", 
+			"palette_range_vmin",  
+			"palette_range_vmax"
+		]
 ]
 
 # ////////////////////////////////////////////////////////////////////////////////////
@@ -107,9 +147,9 @@ class Slice:
 		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.color_mapper_type     = Widgets.Select   (name="Mapper", options=["linear", "log", ], callback=self.setColorMapperType,width=80)
-		self.widgets.timestep              = Widgets.Slider   (name='Time', type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,width=120)
-		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
-		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField)
+		self.widgets.timestep              = Widgets.Slider   (name='Time', type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep)
+		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
+		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
 		self.widgets.direction             = Widgets.Select   (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80, callback=lambda new: self.setDirection(new))
 		self.widgets.offset                = Widgets.Slider   (name="Offset", type="float", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  sizing_mode="stretch_width", callback=self.setOffset)
 		self.widgets.num_refinements       = Widgets.Slider   (name='#Ref', type="int", value=0, start=0, end=4, editable=False, width=80, callback=self.setNumberOfRefinements)
@@ -269,6 +309,7 @@ class Slice:
 
 		self_show_options=self.dashboards_config.get("show-options",DEFAULT_SHOW_OPTIONS)
 
+		# child show options
 		for I in range(nviews):
 
 			if nviews==1:
