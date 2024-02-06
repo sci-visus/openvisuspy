@@ -3,12 +3,8 @@
 import os,sys,logging,copy
 import numpy as np
 
-from . utils import *
-
-import panel as pn
-
-import bokeh
-from bokeh.events import DoubleTap
+from .utils import *
+from .widgets import *
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +15,24 @@ class Canvas:
 	def __init__(self, id):
 		self.id=id
 		self.fig=None
-		self.main_layout=pn.Row(sizing_mode="stretch_both")	
+		self.main_layout=Row(sizing_mode="stretch_both")	
 		self.createFigure() 
-		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
+		self.source_image = ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
 		self.on_resize=None
+
+		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
+		self.last_resize_width=0
+		self.last_resize_height=0
+
+		def CheckResize():
+			W,H=self.getWidth(),self.getHeight()
+			if W==0 or H==0: return
+			if [W,H]==[self.last_resize_width,self.last_resize_height]: return
+			self.last_resize_width,self.last_resize_height=[W,H]
+			self.on_resize()
+		AddPeriodicCallback(CheckResize,1000//30)
 		
-	# forwardResize
-	def forwardResize(self, attr, old, new):
-		W,H=self.getWidth(),self.getHeight()
-		if self.on_resize and W>0 and H>0: self.on_resize()
 
 	# onDoubleTap
 	def onDoubleTap(self,evt):
@@ -37,21 +41,17 @@ class Canvas:
 	# createFigure
 	def createFigure(self):
 		old=self.fig
-		self.fig=bokeh.plotting.figure(active_scroll = "wheel_zoom") 
-		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
-		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
+		self.fig=Figure(active_scroll = "wheel_zoom") 
+		self.fig.x_range = Range1d(0,512) if old is None else old.x_range
+		self.fig.y_range = Range1d(0,512) if old is None else old.y_range
 		self.fig.toolbar_location=None                 if old is None else old.toolbar_location
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
-		if old: old.remove_on_change('inner_width'  , self.forwardResize)
-		if old: old.remove_on_change('inner_height' , self.forwardResize)
-		# if old: old_remove_on_event(bokeh.events.DoubleTap, self.onDoubleTap) cannot find old_remove_on_event
+		# if old: old_remove_on_event(DoubleTap, self.onDoubleTap) cannot find old_remove_on_event
 
-		self.fig.on_change('inner_width' , self.forwardResize)
-		self.fig.on_change('inner_height', self.forwardResize) 
-		self.fig.on_event(bokeh.events.DoubleTap, self.onDoubleTap)
+		self.fig.on_event(DoubleTap, self.onDoubleTap)
 
 		# TODO: keep the renderers but not the
 		if old is not None:
@@ -62,7 +62,7 @@ class Canvas:
 					self.fig.renderers.append(it)
 
 		self.main_layout[:]=[]
-		self.main_layout.append(pn.pane.Bokeh(self.fig))
+		self.main_layout.append(Bokeh(self.fig))
 		
 		self.last_dtype   = None
 		self.last_cb      = None
@@ -102,13 +102,6 @@ class Canvas:
 		self.fig.x_range.start,self.fig.x_range.end=x1,x2
 		self.fig.y_range.start,self.fig.y_range.end=y1,y2
 
-	# renderPoints
-	#def renderPoints(self, points, size=20, color="red", marker="cross"):
-	#	if self.points is not None: 
-	#		self.fig.renderers.remove(self.points)
-	#	self.points = self.fig.scatter(x=[p[0] for p in points], y=[p[1] for p in points], size=size, color=color, marker=marker)   
-	#	assert self.points in self.fig.renderers
-
 	# setImage
 	def setImage(self, data, x1, y1, x2, y2, color_bar):
 		img=ConvertDataForRendering(data)
@@ -118,7 +111,7 @@ class Canvas:
 			self.source_image.data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]}
 		else:
 			self.createFigure()
-			self.source_image = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]})
+			self.source_image = ColumnDataSource(data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]})
 			if img.dtype==np.uint32:	
 				self.last_renderer=self.fig.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
 			else:

@@ -1,22 +1,16 @@
-import os,sys
-import numpy as np
-import logging
-from statistics import mean, median
-
-from .slice import Slice, Widgets
-from .backend import ExecuteBoxQuery
-
-import bokeh
-from bokeh.events import DoubleTap
-from bokeh.plotting import figure
-
-import panel as pn
+import os,sys,logging
 
 logger = logging.getLogger(__name__)
 
-COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
+import numpy as np
+from statistics import mean, median
 
-# //s////////////////////////////////////////////////////////////////////////////////////
+from .slice  import  Slice, Widgets
+from .backend import ExecuteBoxQuery
+from .widgets import *
+from .utils   import COLORS
+
+# //////////////////////////////////////////////////////////////////////////////////////
 class Probe:
 
 	def __init__(self):
@@ -59,7 +53,7 @@ class ProbeTool:
 		x1, x2 = self.slider_z_range.value
 		y1, y2 = (self.owner.color_bar.color_mapper.low, self.owner.color_bar.color_mapper.high) if self.owner.color_bar else (0.0,1.0)
 
-		self.fig=bokeh.plotting.figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
+		self.fig=Figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
 				x_axis_label="Z", x_range=[x1,x2],x_axis_type="linear",
 				y_axis_label="f", y_range=[y2,y2],y_axis_type=self.owner.getColorMapperType())
 
@@ -74,7 +68,7 @@ class ProbeTool:
 
 		self.slot = None
 		self.button_css = [None] * len(COLORS)
-		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
+		self.fig_placeholder = Column(sizing_mode='stretch_both')
 
 		# create buttons
 		self.buttons = []
@@ -93,8 +87,8 @@ class ProbeTool:
 
 		self.createFigure()
 
-		self.main_layout = pn.Column(
-			pn.Row(
+		self.main_layout = Column(
+			Row(
 				self.slider_x_pos,
 				self.slider_y_pos,
 				self.slider_z_range,
@@ -104,7 +98,7 @@ class ProbeTool:
 				self.slider_num_points_y,
 				sizing_mode="stretch_width"
 			),
-			pn.Row(
+			Row(
 				*[button for button in self.buttons], 
 				sizing_mode="stretch_width"
 			),
@@ -353,10 +347,11 @@ class ProbeTool:
 		if not self.main_layout.visible:
 			return
 
-		# self.fig.y_scale=bokeh.models.LogScale() if self.owner.isPaletteLog() else bokeh.models.LinearScale()
-		# DOES NOT WORK (!)
+		# changing y_scale DOES NOT WORK (!!!)
+		# self.fig.y_scale=LogScale() if self.owner.getColorMapperType()=="log" else LinearScale()
+		
 		is_log=self.owner.getColorMapperType()=="log"
-		fig_log=isinstance(self.fig.y_scale, bokeh.models.scales.LogScale)
+		fig_log=isinstance(self.fig.y_scale, LogScale)
 		if is_log!=fig_log:
 			self.createFigure()
 

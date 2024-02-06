@@ -4,46 +4,22 @@ import logging
 import copy
 import traceback
 import io 
-
-import requests
-import os,sys,io,threading,time
+import threading
+import time
 from urllib.parse import urlparse, urlencode
 
 import numpy as np
-from requests.auth import HTTPBasicAuth
 
-import bokeh
-from bokeh.events import DoubleTap
-from bokeh.plotting import figure
 
-import panel as pn
-pn.extension('floatpanel')
-pn.extension(notifications=True)
 
-from .utils import *
+from .utils   import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
-from .canvas import Canvas
-from .widgets import Widgets
+from .canvas  import Canvas
+from .widgets import *
 
-import colorcet
-PALETTES = {}
 
-for name in bokeh.palettes.__palettes__:
-	value=getattr(bokeh.palettes,name,None)
-	if value and len(value)>=256:
-		PALETTES[name]=value
-
-for name in sorted(colorcet.palette):
-	value=getattr(colorcet.palette,name,None)
-	if value and len(value)>=256:
-		# stupid criteria but otherwise I am getting too much palettes
-		if len(name)>12: continue
-		PALETTES[name]=value
-
-DEFAULT_PALETTE="Viridis256"
 
 logger = logging.getLogger(__name__)
-
 
 ALL_OPTIONS=[
 	"menu",
@@ -121,7 +97,7 @@ class Slice:
 		self.dashboards_config_url  = parent.dashboards_config_url  if parent else None		
 
 		self.dialogs={}
-		self.dialogs_placeholder=pn.Column(height=0, width=0)
+		self.dialogs_placeholder=Column(height=0, width=0)
 
 		self.createGui()
 		logger.info(f"Created Slice id={self.id} parent={self.parent}")
@@ -140,22 +116,35 @@ class Slice:
 			if self.getPaletteRangeMode() == "user":
 				self.setPaletteRange(self.getPaletteRange())
 
+		self.widgets.copy_url = Widgets.Input(visible=False)
+
+		self.widgets.menu = Widgets.MenuButton(name='File', 
+																				 items=[['Load/Save']*2, ['Show Metadata']*2, ['Copy Url']*2, None, ['Logout']*2 ], 
+																				 button_type='primary',
+																				 width=120, 
+																				 callback={'Load/Save':self.showLoadSave, 'Show Metadata': self.showMetadata, 'Copy Url': self.copyUrl}, 
+																				 jsargs={"copy_url": self.widgets.copy_url},
+																				 jscallback="""function myFunction(){ if (menu.value=="Logout") {logout_url=window.location.href + "/logout";window.location=logout_url;console.log("logout_url=" + logout_url);}   if (menu.value=="Copy Url") {navigator.clipboard.writeText(copy_url.value);console.log("copy_url.value=" + copy_url.value);}   } setTimeout(myFunction, 300);""")
+
 		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],width=80, callback=onViewModeChange)
 		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new))
-		self.widgets.palette               = Widgets.ColorMap (name="Palette", options=PALETTES, value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette)
+		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
+		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
+		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
+
+		self.widgets.palette               = Widgets.ColorMap (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette,  sizing_mode="stretch_width")
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode)
 		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.color_mapper_type     = Widgets.Select   (name="Mapper", options=["linear", "log", ], callback=self.setColorMapperType,width=80)
-		self.widgets.timestep              = Widgets.Slider   (name='Time', type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep)
-		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
-		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
+		
+		self.widgets.resolution            = Widgets.Slider   (name='Res', type="int", value=21, start=self.start_resolution, editable=False, end=99, callback=self.setResolution,  sizing_mode="stretch_width")
+		self.widgets.view_dep              = Widgets.CheckBox (name="Auto Res", value=True, callback=lambda new: self.setViewDependent(new))
+		self.widgets.num_refinements       = Widgets.Slider   (name='#Ref', type="int", value=0, start=0, end=4, editable=False, width=80, callback=self.setNumberOfRefinements)
+
 		self.widgets.direction             = Widgets.Select   (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80, callback=lambda new: self.setDirection(new))
 		self.widgets.offset                = Widgets.Slider   (name="Offset", type="float", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  sizing_mode="stretch_width", callback=self.setOffset)
-		self.widgets.num_refinements       = Widgets.Slider   (name='#Ref', type="int", value=0, start=0, end=4, editable=False, width=80, callback=self.setNumberOfRefinements)
-		self.widgets.resolution            = Widgets.Slider   (name='Res', type="int", value=21, start=self.start_resolution, editable=False, end=99, callback=self.setResolution,width=80)
-		self.widgets.view_dep              = Widgets.CheckBox (name="Auto Res", value=True, callback=lambda new: self.setViewDependent(new))
-
+		
 		# status_bar
 		self.widgets.status_bar = {}
 		self.widgets.status_bar["request" ] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
@@ -173,16 +162,7 @@ class Slice:
 				}
 				"""])
 
-		self.widgets.copy_url = pn.widgets.TextInput(visible=False)
-
-		self.widgets.menu = Widgets.MenuButton(name='File', 
-																				 items=[['Load/Save']*2, ['Show Metadata']*2, ['Copy Url']*2, None, ['Logout']*2 ], 
-																				 button_type='primary',
-																				 width=120, 
-																				 callback={'Load/Save':self.showLoadSave, 'Show Metadata': self.showMetadata, 'Copy Url': self.copyUrl}, 
-																				 jsargs={"copy_url": self.widgets.copy_url},
-																				 jscallback="""function myFunction(){ if (menu.value=="Logout") {logout_url=window.location.href + "/logout";window.location=logout_url;console.log("logout_url=" + logout_url);}   if (menu.value=="Copy Url") {navigator.clipboard.writeText(copy_url.value);console.log("copy_url.value=" + copy_url.value);}   } setTimeout(myFunction, 300);""")
-
+		
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
@@ -208,18 +188,18 @@ class Slice:
 			self.canvas.on_resize=self.onCanvasResize
 
 		# placeholder
-		self.main_layout=pn.Column(sizing_mode='stretch_both')
+		self.main_layout=Column(sizing_mode='stretch_both')
 
 	# copyUrl
 	def copyUrl(self, evt=None):
 		self.widgets.copy_url.value=self.getSceneUrl()
-		pn.state.notifications.info('Copy url done')
+		ShowInfoNotification('Copy url done')
 
 	# getSceneUrl
 	def getSceneUrl(self):
 		scene=self.saveScene()
 		load_s=base64.b64encode(json.dumps(scene).encode('utf-8')).decode('ascii')
-		current_url=pn.state.location.href
+		current_url=GetCurrentUrl()
 		o=urlparse(current_url)
 		return o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})		
 
@@ -233,7 +213,6 @@ class Slice:
 
 	# stop
 	def stop(self):
-		# pn.state.curdoc.hold(policy="collect")
 		for it in [self] + self.slices:
 			if it.query_node:
 				it.aborted.setTrue()
@@ -255,11 +234,7 @@ class Slice:
 					logger.info(f"ERROR {ex}\n{traceback.format_exc()}\n\n\n\n\n\n") 
 					raise 
 
-			period=1000 // 30
-			if IsPyodide():
-				self.idle_callback = AddAsyncLoop(f"{self}::idle_callback", onIdleHandleExceptions,period )  
-			else:
-				self.idle_callback = pn.state.add_periodic_callback(onIdleHandleExceptions, period=period)
+			self.idle_callback = AddPeriodicCallback(onIdleHandleExceptions, 1000 // 30)
 
 		self.refresh()
 
@@ -327,15 +302,15 @@ class Slice:
 			slice.widgets.dataset.options=datasets
 			slice.linked=I==0 and show_linked
 
-			slice.main_layout=pn.Row(
-				pn.Column(
-					pn.Row(
+			slice.main_layout=Row(
+				Column(
+					Row(
 						*[getattr(slice.widgets,it.replace("-","_")) for it in slice_show_options], # child
 							sizing_mode="stretch_width"),
-					pn.Row(
+					Row(
 						slice.canvas.main_layout, 
 						sizing_mode='stretch_both'),
-					pn.Row(
+					Row(
 						slice.widgets.status_bar["request"],
 						slice.widgets.status_bar["response"], 
 						sizing_mode='stretch_width'
@@ -351,9 +326,9 @@ class Slice:
 		slices_main_layout=[it.main_layout for it in self.slices ]
 
 		self.main_layout.append(
-			pn.Column(
-				pn.Row(*parent_first_row_widgets, sizing_mode="stretch_width"), 
-				pn.GridBox(*slices_main_layout, ncols=2 if nviews>=2 else 1, sizing_mode="stretch_both"),
+			Column(
+				Row(*parent_first_row_widgets, sizing_mode="stretch_width"), 
+				GridBox(*slices_main_layout, ncols=2 if nviews>=2 else 1, sizing_mode="stretch_both"),
 				self.dialogs_placeholder,  
 				sizing_mode='stretch_both' 
 			))
@@ -363,52 +338,29 @@ class Slice:
 		
 		logger.debug(f"id={self.id} END")
 
-	# loadDashboardsConfig
-	def loadDashboardsConfig(self, value):
-
-		assert(isinstance(value,str) ) 
-		url=value
-
-		# remote file (maybe I need to setup credentials)
-		if value.startswith("http"):
-			url=value
-			username = os.environ.get("MODVISUS_USERNAME", "")
-			password = os.environ.get("MODVISUS_PASSWORD", "")
-			auth = None
-			if username and password: auth = HTTPBasicAuth(username, password) if username else None
-			response = requests.get(url, auth=auth)
-			body = response.body.decode('utf-8') 
-		elif os.path.isfile(value):
-			url=value
-			with open(url, "r") as f: body=f.read()
-		else:
-			body=value
-
-		return json.loads(body) if body else {}
 		 
 	# getDashboardsConfig
 	def getDashboardsConfig(self, name=None):
 		if name is None:
 			return self.dashboards_config
-		else:
-			datasets=self.dashboards_config.get("datasets",[])
-			ret=[it for it in datasets if it['name']==name]
-			return ret[-1] if ret else None
+
+		datasets=self.dashboards_config.get("datasets",[])
+		ret=[it for it in datasets if it['name']==name]
+		if ret: return ret[-1]
+
+		if os.path.isfile(name) or name.startswith("http"):
+			return {"name":name, "url":name}	
+		
+		return None
 
 	# setDashboardsConfig
 	def setDashboardsConfig(self, value):
 		if value is None:  return
-		
 		logger.debug(f"id={self.id} value={str(value)[0:80]}...")
-
-		# it is an URL
-		if not isinstance(value,dict):
-			self.dashboards_config_url=value
-			value=self.loadDashboardsConfig(value)
-	
+		value=LoadJSON(value)
+		self.dashboards_config_url=value
 		for it in [self] + self.slices:
 			it.dashboards_config = value
-			
 		datasets=[it["name"] for it in value.get("datasets",[])]
 		self.setDatasets(datasets)
 
@@ -528,9 +480,38 @@ class Slice:
 		self.num_hold-=1
 		# if self.num_hold==0: self.doc.unhold()
 
+	# load
+	def load(self, value, params:dict={}):
+
+		if isinstance(value,str):
+			ext=os.path.splitext(value)[1].split("?")[0]
+			if ext==".json":
+				config=LoadJSON(value)
+			else:
+				config={"datasets": [{"name": os.path.basename(value), "url":value}]}
+
+		# from dictionary
+		elif isinstance(value,dict):
+			config=value
+		else:
+			raise Exception(f"{value} not supported")
+
+		assert(isinstance(config,dict))
+		self.setDashboardsConfig(config)
+
+		if "load" in params:
+			decoded=base64.b64decode(params['load']).decode("utf-8")
+			scene=LoadJSON(decoded)
+			self.loadScene(scene)
+		else:
+			datasets=self.getDatasets()
+			dataset=params.get("dataset",datasets[0] if datasets else None)
+			self.setDataset(dataset)
 
 	# loadScene
-	def loadScene(self, scene:dict):
+	def loadScene(self, scene):
+
+		if not scene: return
 
 		# self.stop()
 
@@ -553,12 +534,20 @@ class Slice:
 				self.setViewMode(viewmode)
 
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
-		if "urls" in scene and "--prefer" in sys.argv:
-			prefer = sys.argv[sys.argv.index("--prefer") + 1]
-			v=[it for it in urls if it["id"] == prefer]
-			if v:
-				logger.info(f"id={self.id} Overriding url from {v[0]}")
-				url = v[0]["url"]
+		if "urls" in scene:
+
+			if "--prefer" in sys.argv:
+				prefer = sys.argv[sys.argv.index("--prefer") + 1]
+				prefers = [it for it in urls if it['id']==prefer]
+				if prefers:
+					logger.info(f"id={self.id} Overriding url from {prefers[0]['url']} since selected from --select command line")
+					url = prefers[0]['url']
+					
+			else:
+				locals=[it for it in urls if it['id']=="local"]
+				if locals and os.path.isfile(locals[0]["url"]):
+					logger.info(f"id={self.id} Overriding url from {locals[0]['url']} since it exists and is a local path")
+					url = locals[0]["url"]
 
 		datasets=self.getDatasets()
 		self.setDatasets(datasets)
@@ -685,7 +674,7 @@ class Slice:
 
 		def onEvalClick(evt=None):
 			self.loadScene(json.loads(self.widgets.scene.value))
-			pn.state.notifications.info('Eval done')
+			ShowInfoNotification('Eval done')
 
 		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
@@ -694,7 +683,7 @@ class Slice:
 			value=value.decode('ascii')
 			self.widgets.scene.value.value=value
 			self.loadScene(json.loads(value))
-			pn.state.notifications.info('Load done')
+			ShowInfoNotification('Load done')
 
 		load_button = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
 
@@ -702,14 +691,14 @@ class Slice:
 		def onSaveClick(evt=None):
 			sio = io.StringIO(self.widgets.scene.value)
 			sio.seek(0)
-			pn.state.notifications.info('Save done')
+			ShowInfoNotification('Save done')
 			return sio
 		save_button=Widgets.FileDownload(label="Save", filename='nsdf.json', align="end", callback=onSaveClick)
 
 		self.showDialog(
-			pn.Column(
+			Column(
 				self.widgets.scene,
-				pn.Row(eval_button, save_button,pn.pane.HTML("Load"),load_button, align='end'),
+				Row(eval_button, save_button,HTML("Load"),load_button, align='end'),
 				sizing_mode="stretch_both",align="end"
 			), 
 			height=700,
@@ -732,16 +721,16 @@ class Slice:
 				body = base64.b64decode(item["encoded"]).decode("utf-8")
 				body = io.StringIO(body)
 				body.seek(0)
-				internal_panel=pn.pane.HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width",height=400)
+				internal_panel=HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width",height=400)
 			elif type=="json-object":
 				obj=item["object"]
 				file = io.StringIO(json.dumps(obj))
 				file.seek(0)
-				internal_panel=pn.pane.JSON(obj,name="Object",depth=3, sizing_mode="stretch_width",height=400) 
+				internal_panel=JSON(obj,name="Object",depth=3, sizing_mode="stretch_width",height=400) 
 			else:
 				continue
 
-			cards.append(pn.Card(
+			cards.append(Card(
 					internal_panel,
 					Widgets.FileDownload(file, embed=True, filename=filename,align="end"),
 					title=filename,
@@ -768,7 +757,7 @@ class Slice:
 		if not "contained" in kwargs:
 			kwargs["contained"]=False
 
-		self.dialogs["Metadata"]=pn.layout.FloatPanel(*args, **kwargs)
+		self.dialogs["Metadata"]=FloatPanel(*args, **kwargs)
 		self.dialogs_placeholder[:]=[v for k,v in self.dialogs.items()]
 
 	# getTimesteps
@@ -1441,7 +1430,7 @@ class Slice:
 			palette=self.widgets.palette.value
 			mapper_low =max(self.epsilon, low ) if is_log else low
 			mapper_high=max(self.epsilon, high) if is_log else high
-			from bokeh.models import LinearColorMapper, LogColorMapper, ColorBar
+			
 
 			self.color_bar = ColorBar(color_mapper = 
 				LogColorMapper   (palette=palette, low=mapper_low, high=mapper_high) if is_log else 
@@ -1481,8 +1470,11 @@ class Slice:
 		query_logic_box=self.getQueryLogicBox()
 		offset=self.getOffset()
 		pdim=self.getPointDim()
+
+		
 		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
 			return
+
 
 		# abort the last one
 		self.aborted.setTrue()
@@ -1495,6 +1487,7 @@ class Slice:
 		# do not push too many jobs
 		if (time.time()-self.last_job_pushed)<0.2:
 			return
+		
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
 		if self.isViewDependent():
@@ -1519,6 +1512,7 @@ class Slice:
 			endh=resolution
 		
 		self.updateSceneText()
+		
 		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
 
 		timestep=self.getTimestep()
@@ -1555,6 +1549,8 @@ class Slice:
 
 	# onIdle
 	def onIdle(self):
+
+		
 
 		for it in [self] + self.slices:
 

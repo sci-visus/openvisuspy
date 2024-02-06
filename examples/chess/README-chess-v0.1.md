@@ -109,8 +109,7 @@ python -m bokeh serve src/openvisuspy/dashboards \
    --allow-websocket-origin='*.classe.cornell.edu' \
    --dev \
    --auth-module=./examples/chess/auth.py \
-   --args "${DASHBOARDS_CONFIG}" \
-   --prefer local
+   --args "${DASHBOARDS_CONFIG}" 
 done
 ```
 

@@ -1,10 +1,125 @@
 import os,sys
 import logging
 import traceback
-
-import panel as pn
+import colorcet
 
 logger = logging.getLogger(__name__)
+
+import bokeh
+import bokeh.models
+import bokeh.events
+
+from bokeh.models import LinearColorMapper,LogColorMapper,ColorBar,ColumnDataSource,Range1d
+from bokeh.events import DoubleTap
+from bokeh.plotting import figure as Figure
+from bokeh.models.scales import LinearScale,LogScale
+
+bokeh.core.validation.silence(bokeh.core.validation.warnings.EMPTY_LAYOUT, True)
+bokeh.core.validation.silence(bokeh.core.validation.warnings.FIXED_SIZING_MODE,True)
+
+
+# //////////////////////////////////////////////////////////////////////////////////////
+# DEPRECATED
+"""
+def ShowBokehApp(app):
+	
+	# in JypyterLab/JupyterHub we need to tell what is the proxy url
+	# see https://docs.bokeh.org/en/3.0.3/docs/user_guide/output/jupyter.html
+	# example: 
+	VISUS_USE_PUBLIC_IP=cbool(os.environ.get("VISUS_USE_PUBLIC_IP",False))
+
+	# change this if you need ssh-tunneling
+	# see https://github.com/sci-visus/OpenVisus/blob/master/docs/ssh-tunnels.md
+	VISUS_SSH_TUNNELS=str(os.environ.get("VISUS_SSH_TUNNELS",""))
+	
+	logger.info(f"ShowBokehApp VISUS_USE_PUBLIC_IP={VISUS_USE_PUBLIC_IP} VISUS_SSH_TUNNELS={VISUS_SSH_TUNNELS}")
+	
+	if VISUS_SSH_TUNNELS:
+		# change this if you need ssh-tunneling
+		# see https://github.com/sci-visus/OpenVisus/blob/master/docs/ssh-tunnels.md    
+		notebook_port,bokeh_port=VISUS_SSH_TUNNELS
+		print(f"ShowBokehApp, enabling ssh tunnels notebook_port={notebook_port} bokeh_port={bokeh_port}")
+		bokeh.io.notebook.show_app(app, bokeh.io.notebook.curstate(), f"http://127.0.0.1:{notebook_port}", port = bokeh_port) 
+		
+	elif VISUS_USE_PUBLIC_IP:
+		# in JypyterLab/JupyterHub we may tell what is the proxy url
+		# see https://docs.bokeh.org/en/3.0.3/docs/user_guide/output/jupyter.html         
+		
+		# retrieve public IP (this is needed for front-end browser to reach bokeh server)
+		public_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
+		print(f"public_ip={public_ip}")    
+		
+		if "JUPYTERHUB_SERVICE_PREFIX" in os.environ:
+
+			def GetJupyterHubNotebookUrl(port):
+				if port is None:
+					ret=public_ip
+					print(f"GetJupyterHubNotebookUrl port={port} returning {ret}")
+					return ret
+				else:
+					ret=f"https://{public_ip}{os.environ['JUPYTERHUB_SERVICE_PREFIX']}proxy/{port}"
+					print(f"GetJupyterHubNotebookUrl port={port} returning {ret}")
+					return ret     
+
+			bokeh.io.show(app, notebook_url=GetJupyterHubNotebookUrl)
+			
+		else:
+			# need the port (TODO: test), I assume I will get a non-ambiguos/unique port
+			import notebook.notebookapp
+			ports=list(set([it['port'] for it in notebook.notebookapp.list_running_servers()]))
+			assert(len(ports)==1)
+			port=ports[0]
+			notebook_url=f"{public_ip}:{port}" 
+			print(f"bokeh.io.show(app, notebook_url='{notebook_url}')")
+			bokeh.io.show(app, notebook_url=notebook_url)
+	else:
+		bokeh.io.show(app) 
+	  
+"""
+
+import panel as pn
+from panel import Column,Row,GridBox,Card
+from panel.layout import FloatPanel
+from panel.pane import HTML,JSON,Bokeh
+
+from .utils import IsPyodide
+
+# ///////////////////////////////////////////////////
+def GetPalettes():
+	ret = {}
+	for name in bokeh.palettes.__palettes__:
+		value=getattr(bokeh.palettes,name,None)
+		if value and len(value)>=256:
+			ret[name]=value
+
+	for name in sorted(colorcet.palette):
+		value=getattr(colorcet.palette,name,None)
+		if value and len(value)>=256:
+			# stupid criteria but otherwise I am getting too much palettes
+			if len(name)>12: continue
+			ret[name]=value
+
+	return ret
+
+# ////////////////////////////////////////////////////////
+def ShowInfoNotification(msg):
+	pn.state.notifications.info('Copy url done')
+
+# ////////////////////////////////////////////////////////
+def GetCurrentUrl():
+	return pn.state.location.href
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def GetQueryParams():
+	return {k: v for k,v in pn.state.location.query_params.items()}
+
+
+# ////////////////////////////////////////////////////////
+def AddPeriodicCallback(fn, period, name="AddPeriodicCallback"):
+	#if IsPyodide():
+	#	return AddAsyncLoop(name, fn,period )  
+	#else:
+	return pn.state.add_periodic_callback(fn, period=period)
 
 # ////////////////////////////////////////////////////////
 class DisableCallbacks:

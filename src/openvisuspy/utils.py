@@ -1,8 +1,20 @@
 
 import numpy as np
-import os,sys,logging,asyncio,time,json,xmltodict
+import os,sys,logging,asyncio,time,json,xmltodict,urllib
+import urllib.request
+
+
+import requests
+from requests.auth import HTTPBasicAuth
+
+
+from pprint import pprint
 
 logger = logging.getLogger(__name__)
+
+COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
+
+DEFAULT_PALETTE="Viridis256"
 
 # ///////////////////////////////////////////////
 def IsPyodide():
@@ -28,10 +40,37 @@ def Touch(filename):
 	Path(filename).touch(exist_ok=True)
 
 # ///////////////////////////////////////////////////////////////////
-def LoadJSON(filename):
-	with open(filename,"rt") as f:
-		body=f.read()
-	return json.loads(body) if body else {}	
+def LoadJSON(value):
+
+	if isinstance(value,dict):
+		return value
+
+	# remote file (maybe I need to setup credentials)
+	if value.startswith("http"):
+		url=value
+		username = os.environ.get("MODVISUS_USERNAME", "")
+		password = os.environ.get("MODVISUS_PASSWORD", "")
+		auth = None
+		if username and password: 
+			auth = HTTPBasicAuth(username, password) if username else None
+		response = requests.get(url, auth=auth)
+		body = response.body.decode('utf-8') 
+	
+	elif os.path.isfile(value):
+		url=value
+		with open(url, "r") as f:  body=f.read()
+		
+	elif issintance(value,str):
+		body=value
+
+	else:
+		raise Exception(f"{value} not supported")
+
+	return json.loads(body) if body else {}
+
+
+
+
 
 # ///////////////////////////////////////////////////////////////////
 def SaveJSON(filename,d):
@@ -167,10 +206,13 @@ class JupyterLoggingHandler(logging.Handler):
 			msg = msg.replace('"',"'")
 			stream = self.stream
 			stream.write(msg + "\n")
-			from IPython import get_ipython
-			msg=msg.replace("\n"," ") # weird, otherwise javascript fails
-			get_ipython().run_cell(f""" %%javascript\nconsole.log("{msg}");""")
-			self.flush()
+
+			# it's producing some output to jupyter lab ... to solve
+			if False:
+				from IPython import get_ipython
+				msg=msg.replace("\n"," ") # weird, otherwise javascript fails
+				get_ipython().run_cell(f""" %%javascript\nconsole.log("{msg}");""")
+				self.flush()
 		except :
 			# self.handleError(record)
 			pass # just ignore
@@ -182,7 +224,6 @@ class JupyterLoggingHandler(logging.Handler):
 # ////////////////////////////////////////////////////////////////
 def SetupLogger(
 	logger=None, 
-	stream=None, 
 	log_filename:str=None, 
 	logging_level=logging.INFO,
 	fmt="%(asctime)s %(levelname)s %(filename)s:%(lineno)d:%(funcName)s %(message)s",
@@ -196,15 +237,10 @@ def SetupLogger(
 	logger.propagate=False
 
 	logger.setLevel(logging_level)
-
-	if stream != False:
-		if stream is None or stream == True:
-			handler=JupyterLoggingHandler() if IsJupyter() else logging.StreamHandler(stream=sys.stderr)
-		else:
-			handler=logging.StreamHandler(stream=stream)
-		handler.setLevel(logging_level)
-		handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
-		logger.addHandler(handler)	
+	handler=logging.StreamHandler(stream=sys.stderr)
+	handler.setLevel(logging_level)
+	handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
+	logger.addHandler(handler)	
 	
 	# file
 	if log_filename:
@@ -214,6 +250,30 @@ def SetupLogger(
 		handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
 		logger.addHandler(handler)
 
+	return logger
+
+
+
+# ////////////////////////////////////////////////////////////////
+def SetupJupyterLogger(
+	logger=None, 
+	logging_level=logging.INFO,
+	fmt="%(asctime)s %(levelname)s %(filename)s:%(lineno)d:%(funcName)s %(message)s",
+	datefmt="%Y-%M-%d- %H:%M:%S"
+	):
+
+	if logger is None:
+		logger=logging.getLogger("openvisuspy")
+
+	logger.handlers.clear()
+	logger.propagate=False
+
+	logger.setLevel(logging_level)
+	handler=JupyterLoggingHandler()
+	handler.setLevel(logging_level)
+	handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
+	logger.addHandler(handler)	
+	
 	return logger
 
 
@@ -311,97 +371,4 @@ def ConvertDataForRendering(data, normalize_float=True):
 	raise Exception(f"Wrong dtype={data.dtype} shape={data.shape}") 
 
 
-import os,sys,logging, urllib
-import urllib.request
-from pprint import pprint
 
-import bokeh
-import bokeh.io 
-import bokeh.io.notebook 
-import bokeh.models.widgets  
-import bokeh.core.validation
-import bokeh.plotting
-import bokeh.core.validation.warnings
-import bokeh.layouts
-
-from .utils import cbool
-
-bokeh.core.validation.silence(bokeh.core.validation.warnings.EMPTY_LAYOUT, True)
-bokeh.core.validation.silence(bokeh.core.validation.warnings.FIXED_SIZING_MODE,True)
-
-logger = logging.getLogger(__name__)
-
-# //////////////////////////////////////////////////////////////////////////////////////
-def ShowBokehApp(app):
-	
-	# in JypyterLab/JupyterHub we need to tell what is the proxy url
-	# see https://docs.bokeh.org/en/3.0.3/docs/user_guide/output/jupyter.html
-	# example: 
-	VISUS_USE_PUBLIC_IP=cbool(os.environ.get("VISUS_USE_PUBLIC_IP",False))
-
-	# change this if you need ssh-tunneling
-	# see https://github.com/sci-visus/OpenVisus/blob/master/docs/ssh-tunnels.md
-	VISUS_SSH_TUNNELS=str(os.environ.get("VISUS_SSH_TUNNELS",""))
-	
-	logger.info(f"ShowBokehApp VISUS_USE_PUBLIC_IP={VISUS_USE_PUBLIC_IP} VISUS_SSH_TUNNELS={VISUS_SSH_TUNNELS}")
-	
-	if VISUS_SSH_TUNNELS:
-		# change this if you need ssh-tunneling
-		# see https://github.com/sci-visus/OpenVisus/blob/master/docs/ssh-tunnels.md    
-		notebook_port,bokeh_port=VISUS_SSH_TUNNELS
-		print(f"ShowBokehApp, enabling ssh tunnels notebook_port={notebook_port} bokeh_port={bokeh_port}")
-		bokeh.io.notebook.show_app(app, bokeh.io.notebook.curstate(), f"http://127.0.0.1:{notebook_port}", port = bokeh_port) 
-		
-	elif VISUS_USE_PUBLIC_IP:
-		# in JypyterLab/JupyterHub we may tell what is the proxy url
-		# see https://docs.bokeh.org/en/3.0.3/docs/user_guide/output/jupyter.html         
-		
-		# retrieve public IP (this is needed for front-end browser to reach bokeh server)
-		public_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
-		print(f"public_ip={public_ip}")    
-		
-		if "JUPYTERHUB_SERVICE_PREFIX" in os.environ:
-
-			def GetJupyterHubNotebookUrl(port):
-				if port is None:
-					ret=public_ip
-					print(f"GetJupyterHubNotebookUrl port={port} returning {ret}")
-					return ret
-				else:
-					ret=f"https://{public_ip}{os.environ['JUPYTERHUB_SERVICE_PREFIX']}proxy/{port}"
-					print(f"GetJupyterHubNotebookUrl port={port} returning {ret}")
-					return ret     
-
-			bokeh.io.show(app, notebook_url=GetJupyterHubNotebookUrl)
-			
-		else:
-			# need the port (TODO: test), I assume I will get a non-ambiguos/unique port
-			import notebook.notebookapp
-			ports=list(set([it['port'] for it in notebook.notebookapp.list_running_servers()]))
-			assert(len(ports)==1)
-			port=ports[0]
-			notebook_url=f"{public_ip}:{port}" 
-			print(f"bokeh.io.show(app, notebook_url='{notebook_url}')")
-			bokeh.io.show(app, notebook_url=notebook_url)
-	else:
-		bokeh.io.show(app) 
-	  
-# //////////////////////////////////////////////////////////////////////////////////////
-def TestBokehApp(doc):
-	button = bokeh.models.widgets.Button(label="Bokeh is working? Push...", sizing_mode='stretch_width')
-	def OnClick(evt=None): button.label="YES!"
-	button.on_click(OnClick)     
-	doc.add_root(bokeh.layouts.column(button,sizing_mode='stretch_width') )  
-
-# //////////////////////////////////////////////////////////////////////////////////////
-def GetPanelApp(main_layout):
-	import panel as pn
-	from panel.template import DarkTheme
-	ret  = pn.template.MaterialTemplate(
-		title='Openvisus-Panel',
-		site_url ="https://nationalsciencedatafabric.org/", 
-		header_background="#303050", 
-		theme=DarkTheme,
-		logo ="https://www.sci.utah.edu/~pascucci/public/NSDF-smaller.PNG") 
-	ret.main.append(main_layout) 
-	return ret

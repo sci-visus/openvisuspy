@@ -222,8 +222,7 @@ python -m panel serve src/openvisuspy/dashboards    \
    --allow-websocket-origin='*.classe.cornell.edu' \
    --dev \
    --auth-module=./examples/chess/auth.py \
-   --args "${DASHBOARDS_CONFIG}" \
-   --prefer local
+   --args "${DASHBOARDS_CONFIG}" 
 done
 
 # From a browser open the following URL (change group name as needed)
@@ -433,7 +432,7 @@ curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell
 curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=nsdf-group/nexus&cached=arco"
 
 # this is for local debugging access
-python -m bokeh serve src/openvisuspy/dashboards --dev --args "${WWW}/nsdf-group.json" --prefer local
+python -m bokeh serve src/openvisuspy/dashboards --dev --args "${WWW}/nsdf-group.json" 
 python -m bokeh serve src/openvisuspy/dashboards --dev --args "https://nsdf01.classe.cornell.edu/nsdf-group.json"
 
 # this is for public access
@@ -448,8 +447,7 @@ python3 -m bokeh serve "dashboards" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port 10334 \
-   --args ./test-group-bitmask.json \
-   --prefer local
+   --args ./test-group-bitmask.json
 
 ```
 

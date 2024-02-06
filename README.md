@@ -64,15 +64,19 @@ set BOKEH_ALLOW_WS_ORIGIN=*
 set BOKEH_LOG_LEVEL=debug
 set VISUS_CPP_VERBOSE=1
 set VISUS_NETSERVICE_VERBOSE=1
-# set VISUS_CACHE=c:/tmp/visus-cache
+set VISUS_VERBOSE_DISKACCESS=1
+set VISUS_CACHE=c:/tmp/visus-cache
 
-# example with a single file
-python -m panel serve src/openvisuspy/dashboards --dev --args --dataset D:\visus-datasets\david_subsampled\visus.idx 
-python -m panel serve src/openvisuspy/dashboards --dev --args --dataset D:\visus-datasets\2kbit1\zip\hzorder\visus.idx 
 
-python -m panel serve src/openvisuspy/dashboards --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=arco" 
+python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/david_subsampled/visus.idx"
+python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/2kbit1/zip/hzorder/visus.idx"
 
-python -m panel serve src/openvisuspy/dashboards --dev --args --dataset "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=arco"
+python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/chess/nsdf-group/dashboards.json"
+
+# not sure why I cannot cache in arco an IDX that is NON arco
+python -m panel serve src/openvisuspy/dashboards --dev --args "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=idx" 
+python -m panel serve src/openvisuspy/dashboards --dev --args "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=idx"
+
 ```
 
 ## Run notebooks
