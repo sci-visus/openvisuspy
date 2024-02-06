@@ -109,7 +109,10 @@ jupyter labextension list
 
 ```bash
 
-python scripts/trust_notebooks.py "examples/**/*.ipynb"
+# is this avoiding any caching/security problem? not sure
+python scripts/run_command.py "jupyter nbconvert --clear-output --inplace {notebook}" "examples/notebooks/*.ipynb"
+python scripts/run_command.py "jupyter trust {notebook}"                              "examples/notebooks/*.ipynb"
+
 jupyter lab .
 ```
 

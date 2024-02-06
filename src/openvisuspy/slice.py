@@ -263,7 +263,6 @@ class Slice:
 		if self.parent:
 			return
 
-		
 		logger.debug(f"id={self.id} START")
 
 		datasets=self.getDatasets()
@@ -339,18 +338,13 @@ class Slice:
 		logger.debug(f"id={self.id} END")
 
 		 
-	# getDashboardsConfig
-	def getDashboardsConfig(self, name=None):
-		if name is None:
-			return self.dashboards_config
-
-		datasets=self.dashboards_config.get("datasets",[])
+	# getDatasetConfig
+	def getDatasetConfig(self, name):
+		datasets=self.dashboards_config.get("datasets",[]) if self.dashboards_config else []
 		ret=[it for it in datasets if it['name']==name]
 		if ret: return ret[-1]
-
 		if os.path.isfile(name) or name.startswith("http"):
 			return {"name":name, "url":name}	
-		
 		return None
 
 	# setDashboardsConfig
@@ -514,7 +508,6 @@ class Slice:
 		if not scene: return
 
 		# self.stop()
-
 		logger.info(f"id={self.id} START")
 
 		assert(isinstance(scene,dict))
@@ -523,8 +516,8 @@ class Slice:
 
 		# self.doc.title = f"ViSUS dataset"
 
-		dataset_config=self.getDashboardsConfig(dataset)
-		url=dataset_config["url"]
+		dataset_config=self.getDatasetConfig(dataset)
+		url =dataset_config["url"]
 		urls=dataset_config.get("urls",{})
 
 		# viewmode is only a thingy for the parent
@@ -662,12 +655,20 @@ class Slice:
 		return self.widgets.dataset.value
 
 	# setDataset (shortcut for loadScene)
-	def setDataset(self, name, db=None, caller=None):
-		if not name : return
+	def setDataset(self, name):
+		assert(name)
+
 		logger.info(f"id={self.id} setDataset name={name}")
-		scene=self.getDashboardsConfig(name)
-		if not scene: return
-		self.loadScene(scene)
+
+		if not self.dashboards_config:
+			self.setDashboardsConfig({
+				"datasets":[
+					{"url":name,"name":name}
+				]
+			})
+
+		dataset_config=self.getDatasetConfig(name)
+		self.loadScene(dataset_config)
 
 	# showLoadSave
 	def showLoadSave(self):
@@ -708,10 +709,10 @@ class Slice:
 	def showMetadata(self):
 
 		logger.debug(f"Show metadata")
-		value=self.getDashboardsConfig(self.getDataset()).get("metadata", [])
+		dataset_config=self.getDatasetConfig(self.getDataset()).get("metadata", [])
 
 		cards=[]
-		for I, item in enumerate(value):
+		for I, item in enumerate(dataset_config):
 
 			type = item["type"]
 			filename = item.get("filename",f"metadata_{I:02d}.bin")
