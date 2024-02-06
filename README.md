@@ -77,7 +77,7 @@ python -m panel serve src/openvisuspy/dashboards --dev --args --dataset "https:/
 
 ## Run notebooks
 
-You may need to setup your jupyter lab environment:
+### Setup Jupyter Lab
 
 ```bash
 

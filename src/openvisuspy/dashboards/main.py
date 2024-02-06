@@ -61,14 +61,17 @@ if __name__.startswith('bokeh'):
 		#logger.info(f"Opening from {scene}")
 		view.loadScene(scene)
 
-	# show the GUI
-	if True:
-		main_layout = view.getMainLayout()
-		use_template = False
-		if use_template:
-			template = pn.template.MaterialTemplate(title='NSDF Dashboard',theme="dark")
-			template.main.append(main_layout)
-			template.servable()
-		else:
-			main_layout.servable()
+	main_layout = view.getMainLayout()
+
+	if False:
+		template = pn.template.MaterialTemplate(
+			title='NSDF Dashboard',
+			theme="default", # dark
+			site_url ="https://nationalsciencedatafabric.org/",
+			header_background="#101020",
+			logo ="https://www.sci.utah.edu/~pascucci/public/NSDF-smaller.PNG",)
+		template.main.append(main_layout)
+		main_layout=template
+
+	main_layout.servable()
 
