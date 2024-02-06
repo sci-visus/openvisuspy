@@ -103,7 +103,7 @@ Run the dashboards:
 
 ```bash
 while [[ "1" == "1" ]] ; do
-python -m bokeh serve dashboards \
+python -m bokeh serve src/openvisuspy/dashboards \
    --port ${BOKEH_PORT} \
    --use-xheaders \
    --allow-websocket-origin='*.classe.cornell.edu' \

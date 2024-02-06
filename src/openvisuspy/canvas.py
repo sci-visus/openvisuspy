@@ -5,9 +5,7 @@ import numpy as np
 
 from . utils import *
 
-
 import panel as pn
-
 
 import bokeh
 from bokeh.events import DoubleTap
@@ -25,16 +23,12 @@ class Canvas:
 		self.createFigure() 
 		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
+		self.on_resize=None
 		
-	# fixViewport
-	def fixViewport(self):
-		value=self.getViewport()
-		self.setViewport(value)
-
-	# onResize
-	def onResize(self, attr, old, new):
-		logger.debug(f"Resize event attr={attr} old={old} new={new}")
-		self.fixViewport()
+	# forwardResize
+	def forwardResize(self, attr, old, new):
+		W,H=self.getWidth(),self.getHeight()
+		if self.on_resize and W>0 and H>0: self.on_resize()
 
 	# onDoubleTap
 	def onDoubleTap(self,evt):
@@ -51,12 +45,12 @@ class Canvas:
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
-		if old: old.remove_on_change('inner_width'  , self.onResize)
-		if old: old.remove_on_change('inner_height' , self.onResize)
+		if old: old.remove_on_change('inner_width'  , self.forwardResize)
+		if old: old.remove_on_change('inner_height' , self.forwardResize)
 		# if old: old_remove_on_event(bokeh.events.DoubleTap, self.onDoubleTap) cannot find old_remove_on_event
 
-		self.fig.on_change('inner_width' , self.onResize)
-		self.fig.on_change('inner_height', self.onResize) 
+		self.fig.on_change('inner_width' , self.forwardResize)
+		self.fig.on_change('inner_height', self.forwardResize) 
 		self.fig.on_event(bokeh.events.DoubleTap, self.onDoubleTap)
 
 		# TODO: keep the renderers but not the
@@ -101,28 +95,9 @@ class Canvas:
 		]
 
 	  # setViewport
-	def setViewport(self,value,fix_aspect_ratio=False):
+	def setViewport(self,value):
 		(x1,x2),(y1,y2)=value
-		if (x2<x1): x1,x2=x2,x1
-		if (y2<y1): y1,y2=y2,y1
-
 		W,H=self.getWidth(),self.getHeight()
-
-		# fix aspect ratio
-		if fix_aspect_ratio and W>0 and H>0:
-			cx=x1+0.5*(x2-x1)
-			cy=y1+0.5*(y2-y1)
-			w =(x2-x1)
-			h =(y2-y1)
-			if (w/W) > (h/H): 
-				h=(w/W)*H 
-			else: 
-				w=(h/H)*W
-			x1=cx-w/2.0
-			x2=cx+w/2.0
-			y1=cy-h/2.0
-			y2=cy+h/2.0
-
 		logger.debug(f"setViewport x1={x1} x2={x2} y1={y1} y2={y2} W={W} H={H} ")
 		self.fig.x_range.start,self.fig.x_range.end=x1,x2
 		self.fig.y_range.start,self.fig.y_range.end=y1,y2

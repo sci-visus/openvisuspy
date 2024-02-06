@@ -216,7 +216,7 @@ export BOKEH_COOKIE_SECRET=$(echo $RANDOM | md5sum | head -c 32)
 
 
 while [[ "1" == "1" ]] ; do
-python -m panel serve dashboards    \
+python -m panel serve src/openvisuspy/dashboards    \
    --port ${BOKEH_PORT} \
    --use-xheaders \
    --allow-websocket-origin='*.classe.cornell.edu' \
@@ -359,8 +359,8 @@ set MODVISUS_USERNAME=xxxxx
 set MODVISUS_PASSWORD=yyyyy
 set VISUS_CPP_VERBOSE="1"
 set VISUS_NETSERVICE_VERBOSE="1"
-python -m bokeh serve dashboards --dev --args "C:\big\visus_datasets\chess\test-group\config.json"
-python -m bokeh serve dashboards --dev --args "https://nsdf01.classe.cornell.edu/test-group.json"
+python -m bokeh serve src/openvisuspy/dashboards --dev --args "C:\big\visus_datasets\chess\test-group\config.json"
+python -m bokeh serve src/openvisuspy/dashboards --dev --args "https://nsdf01.classe.cornell.edu/test-group.json"
 ```
 
 # Linux External Dashboards
@@ -433,8 +433,8 @@ curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell
 curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=nsdf-group/nexus&cached=arco"
 
 # this is for local debugging access
-python -m bokeh serve dashboards --dev --args "${WWW}/nsdf-group.json" --prefer local
-python -m bokeh serve dashboards --dev --args "https://nsdf01.classe.cornell.edu/nsdf-group.json"
+python -m bokeh serve src/openvisuspy/dashboards --dev --args "${WWW}/nsdf-group.json" --prefer local
+python -m bokeh serve src/openvisuspy/dashboards --dev --args "https://nsdf01.classe.cornell.edu/nsdf-group.json"
 
 # this is for public access
 python3 -m bokeh serve "dashboards" \

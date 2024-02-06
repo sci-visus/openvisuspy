@@ -45,8 +45,8 @@ DEFAULT_PALETTE="Viridis256"
 logger = logging.getLogger(__name__)
 
 DEFAULT_SHOW_OPTIONS=[
-	["menu", "view_mode","dataset", "palette", "palette_log", "resolution", "view_dep", "num_refinements"],
-	["dataset", "direction", "offset", "palette_log", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
+	["menu", "view_mode","dataset", "palette", "color_mapper_type", "resolution", "view_dep", "num_refinements"],
+	["dataset", "direction", "offset", "color_mapper_type", "palette_range_mode", "palette_range_vmin",  "palette_range_vmax"]
 ]
 
 # ////////////////////////////////////////////////////////////////////////////////////
@@ -106,7 +106,7 @@ class Slice:
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode)
 		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=onPaletteRangeChange,width=80)
-		self.widgets.palette_log           = Widgets.CheckBox (name="Log", value=False, callback=self.setPaletteLog)
+		self.widgets.color_mapper_type     = Widgets.Select   (name="Mapper", options=["linear", "log", ], callback=self.setColorMapperType,width=80)
 		self.widgets.timestep              = Widgets.Slider   (name='Time', type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,width=120)
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField)
@@ -184,23 +184,12 @@ class Slice:
 		return o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})		
 
 	# onCanvasResize
-	def onCanvasResize(self, attr, old, new):
+	def onCanvasResize(self):
 		if not self.db: return
 		logger.info(f"id={self.id} width={self.canvas.getWidth()} height={self.canvas.getWidth()}")
-		if False:
-			(x1,x2),(y1,y2)=self.canvas.getViewport()
-			x,y,w,h=0.5*(x1+x2), 0.5*(y1+y2), (x2-x1), (y2-y1)
-			ratio=self.canvas.getWidth()/self.canvas.getHeight()
-			w,h=(w,w/ratio) if w>h else (ratio*h,h)
-			x1,x2=x-w/2,y+w/2
-			y1,y2=x-h/2,y+h/2
-			logic_box=self.toLogic([(x1,y1),(x2,y2)])
-			self.setQueryLogicBox(logic_box)
-
-		else:
-			dir,offset=self.getDirection(),self.getOffset()
-			self.setDirection(dir)
-			self.setOffset(offset)
+		dir,offset=self.getDirection(),self.getOffset()
+		self.setDirection(dir)
+		self.setOffset(offset)
 
 	# stop
 	def stop(self):
@@ -456,7 +445,7 @@ class Slice:
 				"range": str(self.getPaletteRange() if self.getPaletteRangeMode()=="user" else [0.0,1.0]),
 				# "metadata-range": str(self.getMetadataPaletteRange()), NOT NEEDED
 				"range-mode": self.getPaletteRangeMode(),
-				"log": self.isPaletteLog(),
+				"color-mapping-type": self.getColorMapperType(),
 			}
 		}
 
@@ -541,12 +530,8 @@ class Slice:
 			it.access=db.createAccess()
 
 			widget=it.widgets.dataset
-			#print("HERE1",it.widgets.dataset.name,id(it.widgets.dataset),widget.__disable_callbacks)
 			with widget.disable_callbacks():
-				#print("HERE2",it.widgets.dataset.name,id(it.widgets.dataset),widget.__disable_callbacks)
 				widget.value=dataset
-				#print("HERE3",it.widgets.dataset.name,id(it.widgets.dataset),widget.__disable_callbacks)
-			#print("HERE4",it.widgets.dataset.name,id(it.widgets.dataset),widget.__disable_callbacks)
 
 		timesteps=self.db.getTimesteps()
 		self.setTimesteps(timesteps)
@@ -596,23 +581,28 @@ class Slice:
 
 		field = self.db.getField(scene["field"])
 		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
-		scene['palette']={
-			"name"           : scene.get("palette", {}).get("name",DEFAULT_PALETTE) ,
-			"metadata-range" : [low, high],
-			"range-mode"    : scene.get("palette", {}).get("range-mode","dynamic-acc"),
-			"range"         : scene.get("palette", {}).get("range",[low, high]),
-			"log"           : scene.get("palette", {}).get("log", False)
+
+		palette=scene['palette']={
+			**{
+				"name": DEFAULT_PALETTE,
+				"metadata-range" : [low, high],
+				"range-mode":"dynamic-acc",
+				"range":[low, high],
+				"color-mapper-type": "linear"
+			},
+			**scene.get("palette", {}),
 		}
-		self.setPalette(scene['palette']["name"])
-		self.setMetadataPaletteRange(scene["palette"]["metadata-range"])
-		self.setPaletteRangeMode(scene["palette"]["range-mode"])
+
+		self.setPalette(palette["name"])
+		self.setMetadataPaletteRange(palette["metadata-range"])
+		self.setPaletteRangeMode(palette["range-mode"])
 
 		if self.getPaletteRangeMode()=="user":
-			palette_range=scene["palette"]["range"]
+			palette_range=palette["range"]
 			if isinstance(palette_range,str): palette_range=eval(palette_range)
 			self.setPaletteRange(palette_range)
 
-		self.setPaletteLog(bool(scene["palette"]["log"]))	
+		self.setColorMapperType(palette["color-mapper-type"])	
 
 		scene['query']={
 			"domain":  scene.get("query", {}).get("domain","logic"),
@@ -925,19 +915,19 @@ class Slice:
 
 		self.refresh()
 
-	# isPaletteLog
-	def isPaletteLog(self):
-		return self.widgets.palette_log.value
+	# getColorMapperType
+	def getColorMapperType(self):
+		return self.widgets.color_mapper_type.value
 
-	# setPaletteLog
-	def setPaletteLog(self, value):
+	# setColorMapperType
+	def setColorMapperType(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		palette = self.getPalette()
 		for it in [self] + self.slices:
-			widget=it.widgets.palette_log
+			widget=it.widgets.color_mapper_type
 			with widget.disable_callbacks():
 				widget.value = value
-			it.color_bar=None 
+			it.color_bar=None # force reneration of color_mapper
 		self.start()
 
 	# getNumberOfRefinements
@@ -1285,13 +1275,30 @@ class Slice:
 		return self.toLogic([(x1,y1),(x2,y2)])
 
 	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
-	def setQueryLogicBox(self,value,):
+	def setQueryLogicBox(self,value):
 		assert(self.canvas)
 		logger.debug(f"id={self.id} value={value}")
 		proj=self.toPhysic(value) 
 		x1,y1=proj[0]
 		x2,y2=proj[1]
-		self.canvas.setViewport([(x1,x2),(y1,y2)])
+
+		# fix aspect ratio
+		W=self.canvas.getWidth()
+		H=self.canvas.getHeight()
+
+		# fix aspect ratio: the viewport is in physic coordinates
+		if W>0 and H>0:
+
+			w,cx =(x2-x1),x1+0.5*(x2-x1)
+			h,cy =(y2-y1),y1+0.5*(y2-y1)
+			if (w/W) > (h/H): 
+				h=(w/W)*H 
+			else: 
+				w=(h/H)*W
+			x1,y1=cx-w/2,cy-h/2
+			x2,y2=cx+w/2,cy+h/2
+			self.canvas.setViewport([(x1,x2),(y1,y2)])
+
 		self.refresh()
   
 	# getLogicCenter
@@ -1387,7 +1394,9 @@ class Slice:
 
 		# regenerate colormap
 		if self.color_bar is None:
-			is_log=self.isPaletteLog()
+			color_mapper_type=self.getColorMapperType()
+			assert(color_mapper_type in ["linear","log"])
+			is_log=color_mapper_type=="log"
 			palette=self.widgets.palette.value
 			mapper_low =max(self.epsilon, low ) if is_log else low
 			mapper_high=max(self.epsilon, high) if is_log else high
@@ -1465,6 +1474,7 @@ class Slice:
 		else:
 			# I am not using the information about the pixel on screen
 			max_pixels=None
+			resolution=self.getResolution()
 			endh=resolution
 		
 		self.updateSceneText()

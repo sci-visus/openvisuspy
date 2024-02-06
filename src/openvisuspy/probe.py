@@ -61,7 +61,7 @@ class ProbeTool:
 
 		self.fig=bokeh.plotting.figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
 				x_axis_label="Z", x_range=[x1,x2],x_axis_type="linear",
-				y_axis_label="f", y_range=[y2,y2],y_axis_type="log" if self.owner.isPaletteLog() else "linear")
+				y_axis_label="f", y_range=[y2,y2],y_axis_type=self.owner.getColorMapperType())
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		self.fig.on_event(DoubleTap, lambda evt: self.owner.setOffset(evt.x))
@@ -326,7 +326,7 @@ class ProbeTool:
 				ys = [it for it in ys]
 
 			for it in ys:
-				if self.owner.isPaletteLog():
+				if self.owner.getColorMapperType()=="log":
 					it = [max(self.owner.epsilon, value) for value in it]
 				self.renderers[probe]["fig"].append(
 					self.fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
@@ -355,7 +355,7 @@ class ProbeTool:
 
 		# self.fig.y_scale=bokeh.models.LogScale() if self.owner.isPaletteLog() else bokeh.models.LinearScale()
 		# DOES NOT WORK (!)
-		is_log=self.owner.isPaletteLog()
+		is_log=self.owner.getColorMapperType()=="log"
 		fig_log=isinstance(self.fig.y_scale, bokeh.models.scales.LogScale)
 		if is_log!=fig_log:
 			self.createFigure()
