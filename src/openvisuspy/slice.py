@@ -461,8 +461,8 @@ class Slice:
 		self.num_hold-=1
 		# if self.num_hold==0: self.doc.unhold()
 
-	# setScenes
-	def setScenes(self, value, params:dict={}):
+	# load
+	def load(self, value):
 
 		if isinstance(value,str):
 			ext=os.path.splitext(value)[1].split("?")[0]
@@ -487,13 +487,9 @@ class Slice:
 		datasets=[it["name"] for it in value.get("datasets",[])]
 		self.setDatasets(datasets)
 
-		if "load" in params:
-			scene=base64.b64decode(params['load']).decode("utf-8")
-			self.setScene(scene)
-		else:
-			datasets=self.getDatasets()
-			dataset=params.get("dataset",datasets[0] if datasets else None)
-			self.setScene(dataset)
+		if datasets:
+			self.setScene(datasets[0])
+
 
 	# setScene
 	def setScene(self, scene):
@@ -570,13 +566,22 @@ class Slice:
 		self.setFields(fields)
 
 		pdim = self.getPointDim()
-		physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
-		physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
-		self.setPhysicBox(physic_box)
 
-		directions = self.db.inner.idxfile.axis.strip().split()
-		directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
-		self.setDirections(directions)
+		if "logic-to-physic" in scene:
+			logic_to_physic=scene["logic-to-physic"]
+			self.setLogicToPhysic(logic_to_physic)
+		else:
+			physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+			physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
+			self.setPhysicBox(physic_box)
+
+		if "directions" in scene:
+			directions=scene["directions"]
+			self.setDirections(directions)
+		else:
+			directions = self.db.inner.idxfile.axis.strip().split()
+			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
+			self.setDirections(directions)
 
 		timestep_delta = scene["timestep-delta"] = int(scene.get("timestep-delta", 1))
 		self.setTimestepDelta(timestep_delta)
@@ -587,7 +592,9 @@ class Slice:
 		viewdep=scene['view-dep'] = bool(scene.get('view-dep', True))
 		self.setViewDependent(viewdep)
 
-		resolution=scene['resolution'] = int(scene.get("resolution", self.db.getMaxResolution() - 6))
+		resolution=int(scene.get("resolution", -6))
+		if resolution<0: resolution=self.db.getMaxResolution()+resolution
+		scene['resolution'] = resolution
 		self.setResolution(resolution)
 
 		field=scene["field"] = scene.get("field", self.db.getField().name)

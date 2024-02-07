@@ -25,7 +25,16 @@ if __name__.startswith('bokeh'):
 	logger=SetupLogger(log_filename=log_filename,logging_level=logging.DEBUG)
 
 	view = Slice()
-	view.setScenes(sys.argv[1], params=GetQueryParams())
+	view.load(sys.argv[1])
+	
+	query_params=GetQueryParams()
+	if "load" in query_params:
+		scene=base64.b64decode(query_params['load']).decode("utf-8")
+		self.setScene(scene)
+	elif "dataset" in query_params:
+		datasets=self.getDatasets()
+		self.setScene(query_params["dataset"])
+
 	app = view.getMainLayout()
 	app.servable()
 
