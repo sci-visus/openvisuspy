@@ -29,10 +29,9 @@ if __name__.startswith('bokeh'):
 	
 	query_params=GetQueryParams()
 	if "load" in query_params:
-		scene=base64.b64decode(query_params['load']).decode("utf-8")
-		self.setScene(scene)
+		body=base64.b64decode(query_params['load']).decode("utf-8")
+		self.setSceneBody(body)
 	elif "dataset" in query_params:
-		datasets=self.getDatasets()
 		self.setScene(query_params["dataset"])
 
 	app = view.getMainLayout()
