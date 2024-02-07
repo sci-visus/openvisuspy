@@ -226,7 +226,7 @@ class Widgets:
 		ret = {
 			"int":   pn.widgets.EditableIntSlider   if editable else pn.widgets.IntSlider,
 			"float": pn.widgets.EditableFloatSlider if editable else pn.widgets.FloatSlider,
-			"discrte": pn.widgets.DiscreteSlider
+			"discrete": pn.widgets.DiscreteSlider
 		}[type](**kwargs) 
 
 		return AddCallback(ret, callback, parameter_name)

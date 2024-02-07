@@ -72,6 +72,9 @@ python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets
 
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/chess/nsdf-group/dashboards.json"
 
+
+python -m panel serve src/openvisuspy/dashboards --dev --args "D:\visus-datasets\chess\nsdf-group\datasets\near-field-nexus\visus.idx"
+
 # not sure why I cannot cache in arco an IDX that is NON arco
 python -m panel serve src/openvisuspy/dashboards --dev --args "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=idx" 
 python -m panel serve src/openvisuspy/dashboards --dev --args "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=idx"

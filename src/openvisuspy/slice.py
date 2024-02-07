@@ -121,28 +121,32 @@ class Slice:
 		self.widgets.menu = Widgets.MenuButton(name='File', 
 																				 items=[['Load/Save']*2, ['Show Metadata']*2, ['Copy Url']*2, None, ['Logout']*2 ], 
 																				 button_type='primary',
-																				 width=120, 
 																				 callback={'Load/Save':self.showLoadSave, 'Show Metadata': self.showMetadata, 'Copy Url': self.copyUrl}, 
 																				 jsargs={"copy_url": self.widgets.copy_url},
 																				 jscallback="""function myFunction(){ if (menu.value=="Logout") {logout_url=window.location.href + "/logout";window.location=logout_url;console.log("logout_url=" + logout_url);}   if (menu.value=="Copy Url") {navigator.clipboard.writeText(copy_url.value);console.log("copy_url.value=" + copy_url.value);}   } setTimeout(myFunction, 300);""")
 
-		self.widgets.view_mode             = Widgets.Select(name="view Mode", value="1",options=["1", "probe", "2", "2-linked", "4", "4-linked"],width=80, callback=onViewModeChange)
-		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new: self.setDataset(new))
+
+		self.widgets.menu=Column(
+			pn.Spacer(height=18),
+			self.widgets.menu, width=120)
+
+		self.widgets.view_mode             = Widgets.Select   (name="view Mode", value="1",options=["1", "2", "probe", "2-linked", "4", "4-linked"],width=80, callback=onViewModeChange)
+		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new_value: self.setDataset(new_value))
 		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
-		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new: self.setTimestepDelta(self.speedFromOption(new)))
+		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new_value: self.setTimestepDelta(self.speedFromOption(new_value)))
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
 
-		self.widgets.palette               = Widgets.ColorMap (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette,  sizing_mode="stretch_width")
+		self.widgets.palette               = Widgets.ColorMap (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette,  width=220)
 		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode)
 		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=onPaletteRangeChange,width=80)
 		self.widgets.color_mapper_type     = Widgets.Select   (name="Mapper", options=["linear", "log", ], callback=self.setColorMapperType,width=80)
 		
 		self.widgets.resolution            = Widgets.Slider   (name='Res', type="int", value=21, start=self.start_resolution, editable=False, end=99, callback=self.setResolution,  sizing_mode="stretch_width")
-		self.widgets.view_dep              = Widgets.CheckBox (name="Auto Res", value=True, callback=lambda new: self.setViewDependent(new))
+		self.widgets.view_dep              = Widgets.Select   (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80, callback=lambda new_value: self.setViewDependent(new_value))
 		self.widgets.num_refinements       = Widgets.Slider   (name='#Ref', type="int", value=0, start=0, end=4, editable=False, width=80, callback=self.setNumberOfRefinements)
 
-		self.widgets.direction             = Widgets.Select   (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80, callback=lambda new: self.setDirection(new))
+		self.widgets.direction             = Widgets.Select   (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80, callback=lambda new_value: self.setDirection(new_value))
 		self.widgets.offset                = Widgets.Slider   (name="Offset", type="float", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  sizing_mode="stretch_width", callback=self.setOffset)
 		
 		# status_bar
@@ -245,9 +249,9 @@ class Slice:
 		self.on_change_callbacks[attr].append(callback)
 
 	# triggerOnChange
-	def triggerOnChange(self, attr, old,new):
+	def triggerOnChange(self, attr, old,new_value):
 		for fn in self.on_change_callbacks.get(attr,[]):
-			fn(attr,old,new)
+			fn(attr,old,new_value)
 
 	# getMainLayout
 	def getMainLayout(self):
@@ -305,10 +309,12 @@ class Slice:
 				Column(
 					Row(
 						*[getattr(slice.widgets,it.replace("-","_")) for it in slice_show_options], # child
-							sizing_mode="stretch_width"),
+							sizing_mode="stretch_width"
+						),
 					Row(
 						slice.canvas.main_layout, 
-						sizing_mode='stretch_both'),
+						sizing_mode='stretch_both'
+					),
 					Row(
 						slice.widgets.status_bar["request"],
 						slice.widgets.status_bar["response"], 
@@ -329,7 +335,7 @@ class Slice:
 				Row(*parent_first_row_widgets, sizing_mode="stretch_width"), 
 				GridBox(*slices_main_layout, ncols=2 if nviews>=2 else 1, sizing_mode="stretch_both"),
 				self.dialogs_placeholder,  
-				sizing_mode='stretch_both' 
+				sizing_mode='stretch_both'
 			))
 
 		self.start()
@@ -1005,7 +1011,6 @@ class Slice:
 			widget=it.widgets.view_dep
 			with widget.disable_callbacks():
 				widget.value = value
-				it.widgets.resolution.name = "Max Res" if value else "Res"
 		self.refresh()
 
 	# getDirections
