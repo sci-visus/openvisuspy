@@ -1069,18 +1069,24 @@ class Slice:
 
 	# getOffsetRange
 	def getOffsetRange(self):
-		return self.widgets.offset.start, self.widgets.offset.end, self.widgets.offset.step
+		widget=self.widgets.offset
+		start,end,step=widget.start, widget.end, widget.step
+		if widget.editable and step==1e-16: step=0.0 # problem with editable slider and step==0
+		return start,end,step
 
 	# setOffsetRange
 	def setOffsetRange(self, value):
-		A, B, step = value
 		logger.debug(f"id={self.id} value={value}")
+		A, B, step = value
 		for it in [self] +  self.slices:
 			widget=it.widgets.offset
 			with widget.disable_callbacks():
 				widget.start=A
 				widget.end=B
-				widget.step=step
+				if widget.editable and step==0.0:
+					widget.step=1e-16 #  problem with editable slider and step==0
+				else:
+					widget.step=step
 
 	# getOffset (in physic domain)
 	def getOffset(self):
