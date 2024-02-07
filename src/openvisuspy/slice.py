@@ -26,9 +26,9 @@ ALL_OPTIONS=[
 	"view_mode",
 	"dataset",
 	"palette",
-	"palette_range_mode",
-	"palette_range_vmin",
-	"palette_range_vmax",
+	"range_mode",
+	"range_min",
+	"range_max",
 	"color_mapper_type",
 	"timestep",
 	"timestep_delta",
@@ -59,9 +59,9 @@ DEFAULT_SHOW_OPTIONS=[
 			"direction", 
 			"offset", 
 			"color_mapper_type", 
-			"palette_range_mode", 
-			"palette_range_vmin",  
-			"palette_range_vmax"
+			"range_mode", 
+			"range_min",  
+			"range_max"
 		]
 ]
 
@@ -92,7 +92,7 @@ class Slice:
 		self.linked = False
 
 		self.logic_to_physic        = parent.logic_to_physic        if parent else [(0.0, 1.0)] * 3
-		self.metadata_palette_range = parent.metadata_palette_range if parent else [0.0, 255.0]
+		self.metadata_range         = parent.metadata_range         if parent else [0.0, 255.0]
 		self.dashboards_config      = parent.dashboards_config      if parent else None
 		self.dashboards_config_url  = parent.dashboards_config_url  if parent else None		
 
@@ -111,10 +111,6 @@ class Slice:
 			scene=self.saveScene()
 			self.setViewMode(value)
 			self.loadScene(scene)
-
-		def onPaletteRangeChange(evt=None):
-			if self.getPaletteRangeMode() == "user":
-				self.setPaletteRange(self.getPaletteRange())
 
 		self.widgets.copy_url = Widgets.Input(visible=False)
 
@@ -137,9 +133,9 @@ class Slice:
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
 
 		self.widgets.palette               = Widgets.ColorMap (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette,  width=220)
-		self.widgets.palette_range_mode    = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setPaletteRangeMode)
-		self.widgets.palette_range_vmin    = Widgets.Input    (name="Min", type="float", callback=onPaletteRangeChange,width=80)
-		self.widgets.palette_range_vmax    = Widgets.Input    (name="Max", type="float", callback=onPaletteRangeChange,width=80)
+		self.widgets.range_mode            = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setRangeMode)
+		self.widgets.range_min             = Widgets.Input    (name="Min", type="float", callback=lambda new_value: self.setRangeMin(new_value) if self.getRangeMode() == "user" else None,width=80)
+		self.widgets.range_max             = Widgets.Input    (name="Max", type="float", callback=lambda new_value: self.setRangeMax(new_value) if self.getRangeMode() == "user" else None,width=80)
 		self.widgets.color_mapper_type     = Widgets.Select   (name="Mapper", options=["linear", "log", ], callback=self.setColorMapperType,width=80)
 		
 		self.widgets.resolution            = Widgets.Slider   (name='Res', type="int", value=21, start=self.start_resolution, editable=False, end=99, callback=self.setResolution,  sizing_mode="stretch_width")
@@ -430,29 +426,28 @@ class Slice:
 			"view-dep": self.isViewDependent(),
 			"resolution": self.getResolution(),
 			"num-refinements": self.getNumberOfRefinements(),
-			"play":{
-				"sec": self.getPlaySec()
-			},
-			"palette": {
-				"name": self.getPalette(),
-				"range": str(self.getPaletteRange() if self.getPaletteRangeMode()=="user" else [0.0,1.0]),
-				# "metadata-range": str(self.getMetadataPaletteRange()), NOT NEEDED
-				"range-mode": self.getPaletteRangeMode(),
-				"color-mapping-type": self.getColorMapperType(),
-			}
+			"play-sec":self.getPlaySec(),
+			"palette": self.getPalette(),
+			# "metadata-range": self.getMetadataRange(),
+			"color-mapper-type": self.getColorMapperType(),
+			"range-mode": self.getRangeMode(),
 		}
+
+		if self.getRangeMode()=="user" :
+			ret=ret.update({
+				"range-min": self.getRangeMin(),
+				"range-max": self.getRangeMax(),
+			} )
 
 		# query
 		if self.canvas:
-			ret['query']={
-				"domain":"logic",
-				"box": str(self.getQueryLogicBox())
-			}
+			(x1,x2),(y1,y2)=self.canvas.getViewport()
+			ret.update({"x1":x1,"x2":x2,"y1":y1,"y2":y2})
 
 		# children
 		else:
 
-			ret["slices"]={}
+			ret["slices"]=[]
 			for I,it in enumerate(self.slices):
 				sub=it.saveScene()
 
@@ -465,8 +460,7 @@ class Slice:
 				else:
 					"""otherwise to need to dump the full status since they are two different datasets"""
 				
-				if sub:
-					ret["slices"][I]=sub
+				ret["slices"].append(sub)
 
 		return ret
 
@@ -577,7 +571,7 @@ class Slice:
 		directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
 		self.setDirections(directions)
 
-		timestep_delta = scene["timestep-delta" ] = int(scene.get("timestep-delta", 1))
+		timestep_delta = scene["timestep-delta"] = int(scene.get("timestep-delta", 1))
 		self.setTimestepDelta(timestep_delta)
 
 		timestep = scene["timestep"] = int(scene.get("timestep", self.db.getTimesteps()[0]))
@@ -601,53 +595,44 @@ class Slice:
 		default_offset, offset_range=self.guessOffset(int(scene['direction']))
 		offset=scene["offset"] = float(scene.get("offset",default_offset))
 		self.setOffsetRange(offset_range) 
-		self.setOffset(scene["offset"])	
+		self.setOffset(offset)	
 
-		scene['play']={
-			"sec": scene.get("play", {}).get("sec","0.01")
-		}
-		self.setPlaySec(float(scene['play']["sec"]))
+		play_sec=scene["play-sec"]=float(scene.get("play-sec",0.01))
+		self.setPlaySec(play_sec)
 
 		field = self.db.getField(scene["field"])
 		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
 
-		palette=scene['palette']={
-			**{
-				"name": DEFAULT_PALETTE,
-				"metadata-range" : [low, high],
-				"range-mode":"dynamic-acc",
-				"range":[low, high],
-				"color-mapper-type": "linear"
-			},
-			**scene.get("palette", {}),
-		}
+		palette=scene["palette"]=scene.get("palette",DEFAULT_PALETTE)
+		self.setPalette(palette)
 
-		self.setPalette(palette["name"])
-		self.setMetadataPaletteRange(palette["metadata-range"])
-		self.setPaletteRangeMode(palette["range-mode"])
+		palette_metadata_range=scene["metadata-range"]=scene.get("metadata-range",[low, high])
+		self.setMetadataRange(palette_metadata_range)
 
-		if self.getPaletteRangeMode()=="user":
-			palette_range=palette["range"]
-			if isinstance(palette_range,str): palette_range=eval(palette_range)
-			self.setPaletteRange(palette_range)
+		range_mode=scene["range-mode"]=scene.get("range-mode","dynamic-acc")
+		self.setRangeMode(range_mode)
 
-		self.setColorMapperType(palette["color-mapper-type"])	
+		if self.getRangeMode()=="user":
+			range_min=scene["range-min"]=scene.get("range-min",low)
+			self.setRangeMin(range_min)
 
-		scene['query']={
-			"domain":  scene.get("query", {}).get("domain","logic"),
-			"box"   :  scene.get("query", {}).get("box"   ,None),
-		}
-		
-		if scene["query"]["box"]:
-			assert(scene["query"]["domain"]=="logic")
-			box=eval(scene["query"]["box"])
-			self.setQueryLogicBox(box)
+			range_max=scene["range-max"]=scene.get("range-max",high)
+			self.setRangeMax(range_max)
 
+		color_mapper_type=scene["color-mapper-type"]=scene.get("color-mapper-type","linear")
+		self.setColorMapperType(color_mapper_type)	
+
+		x1,x2,y1,y2=[scene.get(it,None) for it in ("x1","x2","y1","y2")]
+
+		if x1 is not None:
+			self.setViewport((x1,x2),(y1,y2))
+
+		# children
+		sub_scenes=scene.get("slices",[]) 
 		for S,it in enumerate(self.slices):
 			sub_scene=copy.deepcopy(scene)
-			sub_scene.update(scene.get("slices",{}).get(str(S),{}))
-			if "slices" in sub_scene:
-				del sub_scene["slices"] 
+			sub_scene.update(sub_scenes[S] if S<len(sub_scenes) else {})
+			if "slices" in sub_scene: del sub_scene["slices"] 
 			self.slices[S].loadScene(sub_scene)
 
 		if not self.parent:
@@ -683,7 +668,7 @@ class Slice:
 			self.loadScene(json.loads(self.widgets.scene.value))
 			ShowInfoNotification('Eval done')
 
-		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
+		eval_button = Widgets.Button(name="Eval", callback=onEvalClick)
 
 		# load
 		def onLoadClick(value):
@@ -700,13 +685,17 @@ class Slice:
 			sio.seek(0)
 			ShowInfoNotification('Save done')
 			return sio
-		save_button=Widgets.FileDownload(label="Save", filename='nsdf.json', align="end", callback=onSaveClick)
+		save_button=Widgets.FileDownload(label="Save", filename='nsdf.json', callback=onSaveClick)
 
 		self.showDialog(
 			Column(
 				self.widgets.scene,
-				Row(eval_button, save_button,HTML("Load"),load_button, align='end'),
-				sizing_mode="stretch_both",align="end"
+				Row(
+					eval_button, 
+					save_button,
+					load_button, 
+				)
+				,sizing_mode="stretch_both"
 			), 
 			height=700,
 			name="Load/Save")
@@ -886,71 +875,76 @@ class Slice:
 				it.color_bar=None
 		self.refresh()
 
-	# getMetadataPaletteRange
-	def getMetadataPaletteRange(self):
-		return self.metadata_palette_range
+	# getMetadataRange
+	def getMetadataRange(self):
+		return self.metadata_range
 
-	# setMetadataPaletteRange
-	def setMetadataPaletteRange(self, value):
+	# setMetadataRange
+	def setMetadataRange(self, value):
 		vmin, vmax = value
 		for it in [self] + self.slices:
-			it.metadata_palette_range = [vmin, vmax]
+			it.metadata_range = [vmin, vmax]
 			it.color_map=None
 		self.refresh()
 
-	# getPaletteRangeMode
-	def getPaletteRangeMode(self):
-		return self.widgets.palette_range_mode.value
+	# getRangeMode
+	def getRangeMode(self):
+		return self.widgets.range_mode.value
 
-	# setPaletteRangeMode
-	def setPaletteRangeMode(self, mode):
+	# setRangeMode
+	def setRangeMode(self, mode):
 		logger.debug(f"id={self.id} mode={mode} ")
 
 		for it in [self] + self.slices:
 			
-			widget=it.widgets.palette_range_mode
+			widget=it.widgets.range_mode
 			with widget.disable_callbacks():
 				widget.value = mode
 			
 			it.color_map=None
 
-			widget = it.widgets.palette_range_vmin
+			widget = it.widgets.range_min
 			with widget.disable_callbacks():
-				if mode == "metadata":   widget.value = it.metadata_palette_range[0]
+				if mode == "metadata":   widget.value = it.metadata_range[0]
 				if mode == "dynamic-acc":widget.value = 0.0
 				widget.disabled = False if mode == "user" else True
 
-			widget = it.widgets.palette_range_vmax
+			widget = it.widgets.range_max
 			with widget.disable_callbacks():
-				if mode == "metadata":   widget.value = it.metadata_palette_range[1]
+				if mode == "metadata":   widget.value = it.metadata_range[1]
 				if mode == "dynamic-acc":widget.value = 0.0
 				widget.disabled = False if mode == "user" else True
 
 		self.refresh()
 
-	# getPaletteRange
-	def getPaletteRange(self):
-		return [
-			cdouble(self.widgets.palette_range_vmin.value),
-			cdouble(self.widgets.palette_range_vmax.value),
-		]
 
-	# setPaletteRange (backward compatible)
-	def setPaletteRange(self, value):
-		vmin, vmax = value
+	# getRangeMin
+	def getRangeMin(self):
+		return cdouble(self.widgets.range_min.value)
+
+	# getRangeMax
+	def getRangeMax(self):
+		return cdouble(self.widgets.range_max.value)
+
+	# setRangeMin
+	def setRangeMin(self, value):
 		for it in [self] + self.slices:
-			
-			widget=it.widgets.palette_range_vmin
+			widget=it.widgets.range_min
 			with widget.disable_callbacks(): 
 				widget.value = vmin
-
-			widget=it.widgets.palette_range_vmax
-			with widget.disable_callbacks(): 
-				widget.value = vmax
-			
 			it.color_map=None
-
 		self.refresh()
+
+	# setRangeMin
+	def setRangeMax(self, value):
+		for it in [self] + self.slices:
+			widget=it.widgets.range_max
+			with widget.disable_callbacks(): 
+				widget.value = vmin
+			it.color_map=None
+		self.refresh()			
+
+
 
 	# getColorMapperType
 	def getColorMapperType(self):
@@ -1316,13 +1310,14 @@ class Slice:
 		(x1,x2),(y1,y2)=self.canvas.getViewport()
 		return self.toLogic([(x1,y1),(x2,y2)])
 
-	# setQueryLogicBox (NOTE: it ignores the coordinates on the direction)
-	def setQueryLogicBox(self,value):
-		assert(self.canvas)
-		logger.debug(f"id={self.id} value={value}")
-		proj=self.toPhysic(value) 
-		x1,y1=proj[0]
-		x2,y2=proj[1]
+	# getViewport
+	def getViewport(self):
+		return self.canvas.getViewPort()
+
+	# setViewPort
+	def setViewPort(self,value):
+
+		(x1,x2),(y1,y2)=value
 
 		# fix aspect ratio
 		W=self.canvas.getWidth()
@@ -1330,7 +1325,6 @@ class Slice:
 
 		# fix aspect ratio: the viewport is in physic coordinates
 		if W>0 and H>0:
-
 			w,cx =(x2-x1),x1+0.5*(x2-x1)
 			h,cy =(y2-y1),y1+0.5*(y2-y1)
 			if (w/W) > (h/H): 
@@ -1340,8 +1334,16 @@ class Slice:
 			x1,y1=cx-w/2,cy-h/2
 			x2,y2=cx+w/2,cy+h/2
 			self.canvas.setViewport([(x1,x2),(y1,y2)])
-
+			
 		self.refresh()
+
+	# setQueryLogicBox
+	def setQueryLogicBox(self,value):
+		assert(self.canvas)
+		logger.debug(f"id={self.id} value={value}")
+		proj=self.toPhysic(value) 
+		(x1,y1),(x2,y2)=proj[0],proj[1]
+		self.setViewPort([(x1,x2),(y1,y2)])
   
 	# getLogicCenter
 	def getLogicCenter(self):
@@ -1391,7 +1393,7 @@ class Slice:
 		logic_box=result['logic_box'] 
 
 		# depending on the palette range mode, I need to use different color mapper low/high
-		mode=self.getPaletteRangeMode()
+		mode=self.getRangeMode()
 
 		# show the user what is the current offset
 		maxh=self.db.getMaxResolution()
@@ -1418,21 +1420,21 @@ class Slice:
 
 			# in dynamic mode, I need to use the data range
 			if mode=="dynamic":
-				self.widgets.palette_range_vmin.value = data_range[0]
-				self.widgets.palette_range_vmax.value = data_range[1]
+				self.widgets.range_min.value = data_range[0]
+				self.widgets.range_max.value = data_range[1]
 				
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
-				if self.widgets.palette_range_vmin.value==self.widgets.palette_range_vmax.value:
-					self.widgets.palette_range_vmin.value=data_range[0]
-					self.widgets.palette_range_vmax.value=data_range[1]
+				if self.widgets.range_min.value==self.widgets.range_max.value:
+					self.widgets.range_min.value=data_range[0]
+					self.widgets.range_max.value=data_range[1]
 				else:
-					self.widgets.palette_range_vmin.value = min(self.widgets.palette_range_vmin.value, data_range[0])
-					self.widgets.palette_range_vmax.value = max(self.widgets.palette_range_vmax.value, data_range[1])
+					self.widgets.range_min.value = min(self.widgets.range_min.value, data_range[0])
+					self.widgets.range_max.value = max(self.widgets.range_max.value, data_range[1])
 
 			# update the color bar
-			low =cdouble(self.widgets.palette_range_vmin.value)
-			high=cdouble(self.widgets.palette_range_vmax.value)
+			low =cdouble(self.widgets.range_min.value)
+			high=cdouble(self.widgets.range_max.value)
 
 		# regenerate colormap
 		if self.color_bar is None:
@@ -1449,7 +1451,7 @@ class Slice:
 				LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
 			)
 
-		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} palette-range={[low,high]}")
+		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} range={[low,high]}")
 
 		# update the image
 		(x1,y1),(x2,y2)=self.toPhysic(logic_box)
@@ -1483,10 +1485,8 @@ class Slice:
 		offset=self.getOffset()
 		pdim=self.getPointDim()
 
-		
 		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
 			return
-
 
 		# abort the last one
 		self.aborted.setTrue()
