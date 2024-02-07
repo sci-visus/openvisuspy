@@ -42,6 +42,7 @@ def Touch(filename):
 # ///////////////////////////////////////////////////////////////////
 def LoadJSON(value):
 
+	# already a good json
 	if isinstance(value,dict):
 		return value
 
@@ -55,18 +56,20 @@ def LoadJSON(value):
 			auth = HTTPBasicAuth(username, password) if username else None
 		response = requests.get(url, auth=auth)
 		body = response.body.decode('utf-8') 
+		return json.loads(body)
 	
-	elif os.path.isfile(value):
+	if os.path.isfile(value):
 		url=value
 		with open(url, "r") as f:  body=f.read()
+		return json.loads(body)
 		
 	elif issintance(value,str):
 		body=value
+		return json.loads(body)
 
-	else:
-		raise Exception(f"{value} not supported")
+	raise Exception(f"{value} not supported")
 
-	return json.loads(body) if body else {}
+
 
 
 

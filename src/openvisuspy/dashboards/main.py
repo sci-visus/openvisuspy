@@ -25,7 +25,7 @@ if __name__.startswith('bokeh'):
 	logger=SetupLogger(log_filename=log_filename,logging_level=logging.DEBUG)
 
 	view = Slice()
-	view.load(sys.argv[1], params=GetQueryParams())
+	view.setScenes(sys.argv[1], params=GetQueryParams())
 	app = view.getMainLayout()
 	app.servable()
 

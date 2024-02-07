@@ -10,14 +10,10 @@ from urllib.parse import urlparse, urlencode
 
 import numpy as np
 
-
-
 from .utils   import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
-from .canvas  import Canvas
 from .widgets import *
-
-
+from .widgets import Canvas as Canvas
 
 logger = logging.getLogger(__name__)
 
@@ -108,9 +104,9 @@ class Slice:
 		self.widgets = types.SimpleNamespace()
 
 		def onViewModeChange(value):
-			scene=self.saveScene()
+			scene=self.getScene()
 			self.setViewMode(value)
-			self.loadScene(scene)
+			self.setScene(scene)
 
 		self.widgets.copy_url = Widgets.Input(visible=False)
 
@@ -127,7 +123,7 @@ class Slice:
 			self.widgets.menu, width=120)
 
 		self.widgets.view_mode             = Widgets.Select   (name="view Mode", value="1",options=["1", "2", "probe", "2-linked", "4", "4-linked"],width=80, callback=onViewModeChange)
-		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new_value: self.setDataset(new_value))
+		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda new_value: self.setScene(new_value))
 		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new_value: self.setTimestepDelta(self.speedFromOption(new_value)))
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
@@ -197,7 +193,7 @@ class Slice:
 
 	# getSceneUrl
 	def getSceneUrl(self):
-		scene=self.saveScene()
+		scene=self.getScene()
 		load_s=base64.b64encode(json.dumps(scene).encode('utf-8')).decode('ascii')
 		current_url=GetCurrentUrl()
 		o=urlparse(current_url)
@@ -349,16 +345,7 @@ class Slice:
 			return {"name":name, "url":name}	
 		return None
 
-	# setDashboardsConfig
-	def setDashboardsConfig(self, value):
-		if value is None:  return
-		logger.debug(f"id={self.id} value={str(value)[0:80]}...")
-		value=LoadJSON(value)
-		self.dashboards_config_url=value
-		for it in [self] + self.slices:
-			it.dashboards_config = value
-		datasets=[it["name"] for it in value.get("datasets",[])]
-		self.setDatasets(datasets)
+
 
 	# setDatasets
 	def setDatasets(self,value):
@@ -402,8 +389,8 @@ class Slice:
 		T = [LinearMapping(0, dims[I], *value[I]) for I in range(len(dims))]
 		self.setLogicToPhysic(T)
 		
-	# saveScene
-	def saveScene(self):
+	# getScene
+	def getScene(self):
 
 		ret={
 			# must connect to the same dashboard to make it working...
@@ -441,15 +428,16 @@ class Slice:
 
 		# query
 		if self.canvas:
+			print(repr(Canvas))
 			(x1,x2),(y1,y2)=self.canvas.getViewport()
 			ret.update({"x1":x1,"x2":x2,"y1":y1,"y2":y2})
 
 		# children
 		else:
 
-			ret["slices"]=[]
+			ret["children"]=[]
 			for I,it in enumerate(self.slices):
-				sub=it.saveScene()
+				sub=it.getScene()
 
 				# do not repeat same value in child since they will be inherited
 				if self.getDataset()==it.getDataset():
@@ -460,9 +448,9 @@ class Slice:
 				else:
 					"""otherwise to need to dump the full status since they are two different datasets"""
 				
-				ret["slices"].append(sub)
+				ret["children"].append(sub)
 
-		return ret
+		return {"scenes" : [ret]}
 
 	# hold
 	def hold(self):
@@ -474,43 +462,63 @@ class Slice:
 		self.num_hold-=1
 		# if self.num_hold==0: self.doc.unhold()
 
-	# load
-	def load(self, value, params:dict={}):
+	# setScenes
+	def setScenes(self, value, params:dict={}):
 
 		if isinstance(value,str):
 			ext=os.path.splitext(value)[1].split("?")[0]
 			if ext==".json":
-				config=LoadJSON(value)
+				value=LoadJSON(value)
 			else:
-				config={"datasets": [{"name": os.path.basename(value), "url":value}]}
+				value={"datasets": [{"name": os.path.basename(value), "url":value}]}
 
 		# from dictionary
 		elif isinstance(value,dict):
-			config=value
+			pass
 		else:
 			raise Exception(f"{value} not supported")
 
-		assert(isinstance(config,dict))
-		self.setDashboardsConfig(config)
+		assert(isinstance(value,dict))
+
+		self.dashboards_config_url=value
+		for it in [self] + self.slices:
+			it.dashboards_config = value
+
+		# datasets
+		datasets=[it["name"] for it in value.get("datasets",[])]
+		self.setDatasets(datasets)
 
 		if "load" in params:
-			decoded=base64.b64decode(params['load']).decode("utf-8")
-			scene=LoadJSON(decoded)
-			self.loadScene(scene)
+			scene=base64.b64decode(params['load']).decode("utf-8")
+			self.setScene(scene)
 		else:
 			datasets=self.getDatasets()
 			dataset=params.get("dataset",datasets[0] if datasets else None)
-			self.setDataset(dataset)
+			self.setScene(dataset)
 
-	# loadScene
-	def loadScene(self, scene):
+	# setScene
+	def setScene(self, scene):
 
-		if not scene: return
+		if not scene: 
+			return
+
+		# it is a name of a default scene
+		if isinstance(scene,str) and not " " in scene:
+			scene=self.getDatasetConfig(scene)
+		else:
+			scene=LoadJSON(scene)
+		
+		assert(isinstance(scene,dict))
+
+		# example: when there is a root item called "datasets" or "scenes"
+		if len(scene.keys())==1:
+			key=scene.keys()[0]
+			if isinstance(scene[key],list) or isinstance(scene[key],tuple):
+				scene=scene[key][0]
 
 		# self.stop()
 		logger.info(f"id={self.id} START")
 
-		assert(isinstance(scene,dict))
 		dataset=scene.get("dataset",scene.get("name"))
 		assert(dataset)
 
@@ -628,12 +636,12 @@ class Slice:
 			self.setViewport((x1,x2),(y1,y2))
 
 		# children
-		sub_scenes=scene.get("slices",[]) 
+		children=scene.get("children",[]) 
 		for S,it in enumerate(self.slices):
-			sub_scene=copy.deepcopy(scene)
-			sub_scene.update(sub_scenes[S] if S<len(sub_scenes) else {})
-			if "slices" in sub_scene: del sub_scene["slices"] 
-			self.slices[S].loadScene(sub_scene)
+			child=copy.deepcopy(scene)
+			child.update(children[S] if S<len(children) else {})
+			if "children" in child: del child["children"] 
+			self.slices[S].setScene(child)
 
 		if not self.parent:
 			self.start()
@@ -645,36 +653,20 @@ class Slice:
 	def getDataset(self):
 		return self.widgets.dataset.value
 
-	# setDataset (shortcut for loadScene)
-	def setDataset(self, name):
-		assert(name)
-
-		logger.info(f"id={self.id} setDataset name={name}")
-
-		if not self.dashboards_config:
-			self.setDashboardsConfig({
-				"datasets":[
-					{"url":name,"name":name}
-				]
-			})
-
-		dataset_config=self.getDatasetConfig(name)
-		self.loadScene(dataset_config)
-
 	# showLoadSave
 	def showLoadSave(self):
 
 		def onEvalClick(evt=None):
-			self.loadScene(json.loads(self.widgets.scene.value))
+			self.setScene(self.widgets.scene.value)
 			ShowInfoNotification('Eval done')
 
-		eval_button = Widgets.Button(name="Eval", callback=onEvalClick)
+		eval_button = Widgets.Button(name="Eval", callback=onEvalClick,align='end')
 
 		# load
 		def onLoadClick(value):
 			value=value.decode('ascii')
 			self.widgets.scene.value.value=value
-			self.loadScene(json.loads(value))
+			self.setScene(value)
 			ShowInfoNotification('Load done')
 
 		load_button = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
@@ -685,17 +677,13 @@ class Slice:
 			sio.seek(0)
 			ShowInfoNotification('Save done')
 			return sio
-		save_button=Widgets.FileDownload(label="Save", filename='nsdf.json', callback=onSaveClick)
+		save_button=Widgets.FileDownload(label="Save", filename='scene.json', callback=onSaveClick)
 
 		self.showDialog(
 			Column(
 				self.widgets.scene,
-				Row(
-					eval_button, 
-					save_button,
-					load_button, 
-				)
-				,sizing_mode="stretch_both"
+				Row(eval_button, save_button,load_button, align='end'),
+				sizing_mode="stretch_both",align="end"
 			), 
 			height=700,
 			name="Load/Save")
@@ -753,7 +741,7 @@ class Slice:
 		if not "contained" in kwargs:
 			kwargs["contained"]=False
 
-		self.dialogs["Metadata"]=FloatPanel(*args, **kwargs)
+		self.dialogs[name]=FloatPanel(*args, **kwargs)
 		self.dialogs_placeholder[:]=[v for k,v in self.dialogs.items()]
 
 	# getTimesteps
@@ -1286,12 +1274,10 @@ class Slice:
 
 	# updateSceneText
 	def updateSceneText(self):
-		if self.parent:
-			return self.parent.updateSceneText()
-
+		if self.parent: return self.parent.updateSceneText()
 		widget=self.widgets.scene
 		if widget.visible:
-			scene=self.saveScene()
+			scene=self.getScene()
 			body=json.dumps(scene,indent=2)
 			widget.value=body
 
