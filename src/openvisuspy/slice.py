@@ -154,13 +154,10 @@ class Slice:
 			self.aborted       = Aborted()
 			self.new_job       = False
 			self.current_img   = None
-			self.last_query_logic_box = NotImplemented	
 			self.last_job_pushed =time.time()
 			self.query_node=QueryNode()
 			self.canvas = Canvas(self.id)
-
-			# redirecting resize events
-			self.canvas.on_resize=self.onCanvasResize
+			self.canvas.on_viewport_change=lambda: self.refresh()
 
 		# placeholder
 		self.main_layout=Column(sizing_mode='stretch_both')
@@ -177,14 +174,6 @@ class Slice:
 		current_url=GetCurrentUrl()
 		o=urlparse(current_url)
 		return o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})		
-
-	# onCanvasResize
-	def onCanvasResize(self):
-		if not self.db: return
-		logger.info(f"id={self.id} width={self.canvas.getWidth()} height={self.canvas.getWidth()}")
-		dir,offset=self.getDirection(),self.getOffset()
-		self.setDirection(dir)
-		self.setOffset(offset)
 
 	# stop
 	def stop(self):
@@ -456,6 +445,7 @@ class Slice:
 		# TODO!
 		# self.stop()
 
+
 		assert(isinstance(scene,dict))
 		assert(len(scene)==1 and list(scene.keys())==["scene"])
 
@@ -585,7 +575,7 @@ class Slice:
 		if cx is not None:
 			x1,x2=cx-w/2.0, cx+w/2.0
 			y1,y2=cy-h/2.0, cy+h/2.0
-			self.setViewport([(x1,x2),(y1,y2)])
+			self.canvas.setViewport([(x1,x2),(y1,y2)])
 
 		# children
 		children=scene.get("children",[]) 
@@ -1259,40 +1249,15 @@ class Slice:
 		(x1,x2),(y1,y2)=self.canvas.getViewport()
 		return self.toLogic([(x1,y1),(x2,y2)])
 
-	# getViewport
-	def getViewport(self):
-		return self.canvas.getViewPort()
-
-	# setViewport
-	def setViewport(self,value):
-
-		(x1,x2),(y1,y2)=value
-
-		# fix aspect ratio
-		W=self.canvas.getWidth()
-		H=self.canvas.getHeight()
-
-		# fix aspect ratio: the viewport is in physic coordinates
-		if W>0 and H>0:
-			w,cx =(x2-x1),x1+0.5*(x2-x1)
-			h,cy =(y2-y1),y1+0.5*(y2-y1)
-			if (w/W) > (h/H): 
-				h=(w/W)*H 
-			else: 
-				w=(h/H)*W
-			x1,y1=cx-w/2,cy-h/2
-			x2,y2=cx+w/2,cy+h/2
-			self.canvas.setViewport([(x1,x2),(y1,y2)])
-			
-		self.refresh()
-
 	# setQueryLogicBox
 	def setQueryLogicBox(self,value):
 		assert(self.canvas)
+		logger.debug(f"# ------------------------------------------ ")
 		logger.debug(f"id={self.id} value={value}")
 		proj=self.toPhysic(value) 
 		(x1,y1),(x2,y2)=proj[0],proj[1]
-		self.setViewport([(x1,x2),(y1,y2)])
+		self.canvas.setViewport([(x1,x2),(y1,y2)])
+		self.refresh()
   
 	# getLogicCenter
 	def getLogicCenter(self):
@@ -1426,6 +1391,7 @@ class Slice:
 
 		self.triggerOnChange("data", None, data)
   
+
 	# pushJobIfNeeded
 	def pushJobIfNeeded(self):
 		assert(self.query_node and self.canvas)
@@ -1434,7 +1400,7 @@ class Slice:
 		offset=self.getOffset()
 		pdim=self.getPointDim()
 
-		if not self.new_job and str(self.last_query_logic_box)==str(query_logic_box):
+		if not self.new_job:
 			return
 
 		# abort the last one
@@ -1495,7 +1461,6 @@ class Slice:
 		)
 		
 		self.last_job_pushed=time.time()
-		self.last_query_logic_box=query_logic_box
 		self.new_job=False
 
 		# link views

@@ -35,34 +35,50 @@ class Canvas:
 		self.createFigure() 
 		self.source_image = ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
-		self.on_resize=None
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
-		self.last_resize_width=0
-		self.last_resize_height=0
+		self.on_viewport_change=None
+		self.last_fig_viewport=None
+		self.setViewport([(0,256),(0,256)])
+		AddPeriodicCallback(self.onIdle,1000//30)
 
-		def CheckResize():
-			W,H=self.getWidth(),self.getHeight()
-			if W==0 or H==0: return
 
-			oW=self.last_resize_width
-			oH=self.last_resize_height
-			
-			if [W,H]==[oW,oH]: 
-				return
+	# onIdle
+	def onIdle(self):
+		W,H=self.getWidth(),self.getHeight()
 
-			# I am getting some small changes I want to ignore
-			if oW>256 and oH>256:
-				dx=abs(W-oW)/(oW)
-				dy=abs(H-oH)/(oH)
-				if dx<0.05 and dy<0.05: 
-					return
+		# I need to wait until I get a decent size
+		if W==0 or H==0:  
+			return
 
-			logger.debug(f"[{oW},{oH}] -> [{W},{H}] ")
-			self.last_resize_width,self.last_resize_height=[W,H]
-			self.on_resize()
-		AddPeriodicCallback(CheckResize,1000//30)
+		# note: bokeh is changing figure viewport internally without notifying any event to the outside
+		fig_viewport=self.__getFigureViewport()
+
+		# some zoom in/out or panning happened (handled by bokeh) 
+		if fig_viewport!=self.user_viewport:
+			(x1,x2),(y1,y2)=fig_viewport 
+			self.user_viewport=[(x1,x2),(y1,y2)]
+			if self.on_viewport_change:
+				self.on_viewport_change()
+			return
+
+		# I may need to fix the aspect ratio 
+		(x1,x2),(y1,y2)=self.user_viewport 
+		w,cx =(x2-x1),x1+0.5*(x2-x1)
+		h,cy =(y2-y1),y1+0.5*(y2-y1)
+		if (w/W) > (h/H): 
+			h=(w/W)*H 
+		else: 
+			w=(h/H)*W
+		x1,x2=cx-w/2,cx+w/2
+		y1,y2=cy-h/2,cy+h/2
+		value=[(x1,x2),(y1,y2)]
 		
+		if value==self.user_viewport: return
+		self.user_viewport=value
+		self.__setFigureViewport(value)
+		if self.on_viewport_change:
+			self.on_viewport_change()
 
 	# onDoubleTap
 	def onDoubleTap(self,evt):
@@ -117,23 +133,33 @@ class Canvas:
 		except:
 			return 0
 
-	  # getViewport [[x1,x2],[y1,y2])
-	def getViewport(self):
+	# __getFigureViewport
+	def __getFigureViewport(self):
 		return [
-			[self.fig.x_range.start, self.fig.x_range.end],
-			[self.fig.y_range.start, self.fig.y_range.end]
+			(self.fig.x_range.start, self.fig.x_range.end),
+			(self.fig.y_range.start, self.fig.y_range.end)
 		]
+
+	# __setFigureViewport
+	def __setFigureViewport(self,value):
+		(x1,x2),(y1,y2)=value
+		self.fig.x_range.start, self.fig.x_range.end = (x1,x2)
+		self.fig.y_range.start, self.fig.y_range.end = (y1,y2)
+
+
+	# getViewport [(x1,x2),(y1,y2)]
+	def getViewport(self):
+		return self.user_viewport
 
 	  # setViewport
 	def setViewport(self,value):
 		(x1,x2),(y1,y2)=value
-		W,H=self.getWidth(),self.getHeight()
-		logger.debug(f"setViewport x1={x1} x2={x2} y1={y1} y2={y2} W={W} H={H} ")
-		self.fig.x_range.start,self.fig.x_range.end=x1,x2
-		self.fig.y_range.start,self.fig.y_range.end=y1,y2
+		self.user_viewport=[(x1,x2),(y1,y2)]
+		self.__setFigureViewport(value)
 
 	# setImage
 	def setImage(self, data, x1, y1, x2, y2, color_bar):
+
 		img=ConvertDataForRendering(data)
 		dtype=img.dtype
 		if self.last_dtype==dtype and self.last_cb==color_bar:
@@ -242,11 +268,21 @@ def GetQueryParams():
 
 
 # ////////////////////////////////////////////////////////
+import traceback
+
+
+def CallPeriodicFunction(fn):
+	try:
+		fn()
+	except:
+		logger.error(traceback.format_exc())
+
 def AddPeriodicCallback(fn, period, name="AddPeriodicCallback"):
 	#if IsPyodide():
 	#	return AddAsyncLoop(name, fn,period )  
 	#else:
-	return pn.state.add_periodic_callback(fn, period=period)
+
+	return pn.state.add_periodic_callback(lambda fn=fn: CallPeriodicFunction(fn), period=period)
 
 # ////////////////////////////////////////////////////////
 class DisableCallbacks:
