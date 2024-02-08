@@ -64,8 +64,8 @@ class Canvas:
 
 		# I may need to fix the aspect ratio 
 		(x1,x2),(y1,y2)=self.user_viewport 
-		w,cx =(x2-x1),x1+0.5*(x2-x1)
-		h,cy =(y2-y1),y1+0.5*(y2-y1)
+		w,cx =(x2-x1),(x1+x2)/2.0
+		h,cy =(y2-y1),(y1+y2)/2.0
 		if (w/W) > (h/H): 
 			h=(w/W)*H 
 		else: 
@@ -73,7 +73,7 @@ class Canvas:
 		x1,x2=cx-w/2,cx+w/2
 		y1,y2=cy-h/2,cy+h/2
 		value=[(x1,x2),(y1,y2)]
-		
+
 		if value==self.user_viewport: return
 		self.user_viewport=value
 		self.__setFigureViewport(value)
