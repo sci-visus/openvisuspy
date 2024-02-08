@@ -92,7 +92,7 @@ class Slice:
 		self.widgets.menu = Widgets.MenuButton(name='File', 
 																				 items=[['Load/Save']*2, ['Show Metadata']*2, ['Copy Url']*2, None, ['Logout']*2 ], 
 																				 button_type='primary',
-																				 callback={'Load/Save':self.showLoadSave, 'Show Metadata': self.showMetadata, 'Copy Url': self.copyUrl}, 
+																				 callback={'Load/Save':self.showLoadSave, 'Show Metadata': self.showMetadata, 'Copy Url': self.copyUrlToClipboard}, 
 																				 jsargs={"copy_url": self.widgets.copy_url},
 																				 jscallback="""function myFunction(){ if (menu.value=="Logout") {logout_url=window.location.href + "/logout";window.location=logout_url;console.log("logout_url=" + logout_url);}   if (menu.value=="Copy Url") {navigator.clipboard.writeText(copy_url.value);console.log("copy_url.value=" + copy_url.value);}   } setTimeout(myFunction, 300);""")
 
@@ -165,13 +165,13 @@ class Slice:
 		# placeholder
 		self.main_layout=Column(sizing_mode='stretch_both')
 
-	# copyUrl
-	def copyUrl(self, evt=None):
-		self.widgets.copy_url.value=self.getSceneUrl()
+	# copyUrlToClipboard
+	def copyUrlToClipboard(self, evt=None):
+		self.widgets.copy_url.value=self.getShareableUrl()
 		ShowInfoNotification('Copy url done')
 
-	# getSceneUrl
-	def getSceneUrl(self):
+	# getShareableUrl
+	def getShareableUrl(self):
 		body=self.getSceneBody()
 		load_s=base64.b64encode(json.dumps(body).encode('utf-8')).decode('ascii')
 		current_url=GetCurrentUrl()
@@ -445,7 +445,6 @@ class Slice:
 				widget.options = list(self.scenes)
 
 		if scenes:
-			print("&&&&"*100,scenes.keys())
 			self.setScene(list(scenes)[0])
 
 	# setSceneBody
@@ -463,7 +462,6 @@ class Slice:
 		# the url should come from first load (for security reasons)
 		name=scene["name"]
 
-		print("!!!!","name",name,"keys",self.scenes.keys())
 		assert(name in self.scenes)
 		default_scene=self.scenes[name]["scene"]
 		url =default_scene["url"]
