@@ -44,7 +44,7 @@ class ProbeTool:
 
 		self.owner.on_change('offset'   , lambda attr,old, new: self.refresh()) # display the offset
 		self.owner.on_change('data'     , lambda attr,old, new: self.refresh()) # new data, important for the range
-		self.owner.on_change('dataset'  , lambda attr,old, new: self.recompute()) 
+		self.owner.on_change('scene'    , lambda attr,old, new: self.recompute()) 
 		self.owner.on_change('direction', lambda attr,old, new: self.recompute())
 
 	# createFigure

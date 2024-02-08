@@ -22,7 +22,7 @@ DEFAULT_SHOW_OPTIONS=[
 	[
 		"menu", 
 		"view_mode",
-		"dataset", 
+		"scene", 
 		"timestep",
 		"timestep_delta",		
 		"field",
@@ -33,7 +33,7 @@ DEFAULT_SHOW_OPTIONS=[
 		"num_refinements"
 		],
 		[
-			"dataset", 
+			"scene", 
 			"direction", 
 			"offset", 
 			"color_mapper_type", 
@@ -106,7 +106,7 @@ class Slice:
 			self.widgets.menu, width=120)
 
 		self.widgets.view_mode             = Widgets.Select   (name="view Mode", value="1",options=["1", "2", "probe", "2-linked", "4", "4-linked"],width=80, callback=self.onViewModeChange)
-		self.widgets.dataset               = Widgets.Select   (name="Dataset", options=[], width=180, callback=lambda name: self.setScene(name))
+		self.widgets.scene                 = Widgets.Select   (name="Scene", options=[], width=180, callback=lambda name: self.setScene(name))
 		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new_value: self.setTimestepDelta(self.speedFromOption(new_value)))
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
@@ -271,13 +271,13 @@ class Slice:
 				slice_show_options=self_show_options[1]
 
 			slice = Slice(parent=self)
-			slice.widgets.dataset.name=f"{slice.widgets.dataset.name}.{slice.id}"
+			slice.widgets.scene.name=f"{slice.widgets.scene.name}.{slice.id}"
 			self.slices.append(slice)
 
 			from .probe import ProbeTool
 			slice.tool = ProbeTool(slice)
 			slice.tool.main_layout.visible=show_probe
-			slice.widgets.dataset.options=datasets
+			slice.widgets.scene.options=datasets
 			slice.linked=I==0 and show_linked
 
 			slice.main_layout=Row(
@@ -333,13 +333,13 @@ class Slice:
 	# setDatasets
 	def setDatasets(self,value):
 		for it in [self] + self.slices:
-			widget=it.widgets.dataset
+			widget=it.widgets.scene
 			with widget.disable_callbacks():
 				widget.options = value
 
 	# getDatasets
 	def getDatasets(self):
-		return self.widgets.dataset.options
+		return self.widgets.scene.options
 
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
@@ -517,14 +517,14 @@ class Slice:
 		datasets=self.getDatasets()
 		self.setDatasets(datasets)
 
-		logger.info(f"id={self.id} Loading dataset url={url}...")
+		logger.info(f"id={self.id} LoadDataset url={url}...")
 		db=LoadDataset(url=url) if not self.parent else self.parent.db
 
 		for it in [self] + self.slices:
 			it.db    =db
 			it.access=db.createAccess()
 
-			widget=it.widgets.dataset
+			widget=it.widgets.scene
 			with widget.disable_callbacks():
 				widget.value=name
 
@@ -620,7 +620,7 @@ class Slice:
 
 		if not self.parent:
 			self.start()
-			self.triggerOnChange('dataset', None, name)
+			self.triggerOnChange('scene', None, name)
 
 		logger.info(f"id={self.id} END")
 
@@ -632,7 +632,7 @@ class Slice:
 
 	# getDataset
 	def getDataset(self):
-		return self.widgets.dataset.value
+		return self.widgets.scene.value
 
 	# onEvalClick
 	def onEvalClick(self,evt=None):
@@ -1235,7 +1235,7 @@ class Slice:
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self, value):
 		for it in [self] + self.slices:
-			it.widgets.dataset.disabled = value
+			it.widgets.scene.disabled = value
 			it.widgets.palette.disabled = value
 			it.widgets.timestep.disabled = value
 			it.widgets.timestep_delta.disabled = value
