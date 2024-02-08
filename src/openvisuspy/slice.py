@@ -129,7 +129,7 @@ class Slice:
 		self.widgets.status_bar["request" ] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
 		self.widgets.status_bar["response"] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
 
-		self.widgets.scene=Widgets.TextAreaInput(
+		self.widgets.scene_body=Widgets.TextAreaInput(
 			name='Current',
 			sizing_mode="stretch_width",
 			height=520,
@@ -636,20 +636,20 @@ class Slice:
 
 	# onEvalClick
 	def onEvalClick(self,evt=None):
-		body=self.widgets.scene.value
+		body=self.widgets.scene_body.value
 		self.setSceneBody(body)
 		ShowInfoNotification('Eval done')
 
 	# onLoadClick
 	def onLoadClick(self,value):
 		body=value.decode('ascii')
-		self.widgets.scene.value.value=body
+		self.widgets.scene_body.value.value=body
 		self.setSceneBody(body)
 		ShowInfoNotification('Load done')
 
 	# onSaveClick
 	def onSaveClick(self,evt=None):
-		sio = io.StringIO(self.widgets.scene.value)
+		sio = io.StringIO(self.widgets.scene_body.value)
 		sio.seek(0)
 		ShowInfoNotification('Save done')
 		return sio
@@ -663,7 +663,7 @@ class Slice:
 
 		self.showDialog(
 			Column(
-				self.widgets.scene,
+				self.widgets.scene_body,
 				Row(eval_button, save_button,load_button, align='end'),
 				sizing_mode="stretch_both",align="end"
 			), 
@@ -1257,7 +1257,7 @@ class Slice:
 	# updateSceneText
 	def updateSceneText(self):
 		if self.parent: return self.parent.updateSceneText()
-		widget=self.widgets.scene
+		widget=self.widgets.scene_body
 		if widget.visible:
 			body=self.getSceneBody()
 			body=json.dumps(body,indent=2)
