@@ -71,8 +71,6 @@ class Slice:
 
 		self.logic_to_physic        = parent.logic_to_physic        if parent else [(0.0, 1.0)] * 3
 		self.metadata_range         = parent.metadata_range         if parent else [0.0, 255.0]
-		self.dashboards_config      = parent.dashboards_config      if parent else None
-		self.dashboards_config_url  = parent.dashboards_config_url  if parent else None		
 
 		self.dialogs={}
 		self.dialogs_placeholder=Column(height=0, width=0)
@@ -106,7 +104,7 @@ class Slice:
 			self.widgets.menu, width=120)
 
 		self.widgets.view_mode             = Widgets.Select   (name="view Mode", value="1",options=["1", "2", "probe", "2-linked", "4", "4-linked"],width=80, callback=self.onViewModeChange)
-		self.widgets.scene                 = Widgets.Select   (name="Scene", options=[], width=180, callback=lambda name: self.setScene(name))
+		self.widgets.scene                 = Widgets.Select   (name="Scene", options={}, width=180, callback=lambda body: self.setSceneBody(body))
 		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new_value: self.setTimestepDelta(self.speedFromOption(new_value)))
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
@@ -244,7 +242,7 @@ class Slice:
 
 		logger.debug(f"id={self.id} START")
 
-		datasets=self.getDatasets()
+		scenes=self.getDatasets()
 
 		show_probe ="probe"  in value
 		show_linked="linked" in value
@@ -260,7 +258,7 @@ class Slice:
 		for it in self.slices:  del it
 		self.slices=[]
 
-		self_show_options=self.dashboards_config.get("show-options",DEFAULT_SHOW_OPTIONS)
+		self_show_options=DEFAULT_SHOW_OPTIONS
 
 		# child show options
 		for I in range(nviews):
@@ -277,7 +275,7 @@ class Slice:
 			from .probe import ProbeTool
 			slice.tool = ProbeTool(slice)
 			slice.tool.main_layout.visible=show_probe
-			slice.widgets.scene.options=datasets
+			slice.widgets.scene.options=scenes
 			slice.linked=I==0 and show_linked
 
 			slice.main_layout=Row(
@@ -321,19 +319,7 @@ class Slice:
 		 
 	# getDefaultScene
 	def getDefaultScene(self, name):
-		datasets=self.dashboards_config.get("datasets",[]) if self.dashboards_config else []
-		ret=[it for it in datasets if it['name']==name]
-		if ret: return {"scene": ret[-1]}
-		if os.path.isfile(name) or name.startswith("http"):
-			return {"scene" : {"name":name, "url":name}}
-		return None
-
-	# setDatasets
-	def setDatasets(self,value):
-		for it in [self] + self.slices:
-			widget=it.widgets.scene
-			with widget.disable_callbacks():
-				widget.options = value
+		return self.widgets.scene.options[name]
 
 	# getDatasets
 	def getDatasets(self):
@@ -374,8 +360,6 @@ class Slice:
 	def getSceneBody(self):
 
 		ret={
-			# must connect to the same dashboard to make it working...
-			# "config": self.dashboards_config_url,
 
 			"view-mode": self.getViewMode(),
 			"name": self.getScene(), 
@@ -450,7 +434,7 @@ class Slice:
 			if ext==".json":
 				value=LoadJSON(value)
 			else:
-				value={"datasets": [{"name": os.path.basename(value), "url":value}]}
+				value={"scenes": [{"name": os.path.basename(value), "url":value}]}
 
 		# from dictionary
 		elif isinstance(value,dict):
@@ -459,17 +443,20 @@ class Slice:
 			raise Exception(f"{value} not supported")
 
 		assert(isinstance(value,dict))
+		assert(len(value)==1)
+		root=list(value.keys())[0]
 
-		self.dashboards_config_url=value
+		scenes={}
+		for it in value[root]:
+			scenes[it["name"]]={"scene": it} 
+
 		for it in [self] + self.slices:
-			it.dashboards_config = value
+			widget=it.widgets.scene
+			with widget.disable_callbacks():
+				widget.options = scenes
 
-		# datasets
-		datasets=[it["name"] for it in value.get("datasets",[])]
-		self.setDatasets(datasets)
-
-		if datasets:
-			self.setScene(datasets[0])
+		if scenes:
+			self.setScene(list(scenes)[0])
 
 	# setSceneBody
 	def setSceneBody(self, scene):
@@ -511,9 +498,6 @@ class Slice:
 				if locals and os.path.isfile(locals[0]["url"]):
 					logger.info(f"id={self.id} Overriding url from {locals[0]['url']} since it exists and is a local path")
 					url = locals[0]["url"]
-
-
-		# self.setDatasets(self.getDatasets())
 
 		logger.info(f"id={self.id} LoadDataset url={url}...")
 		db=LoadDataset(url=url) if not self.parent else self.parent.db
