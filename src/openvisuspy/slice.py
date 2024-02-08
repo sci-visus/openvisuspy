@@ -328,8 +328,6 @@ class Slice:
 			return {"scene" : {"name":name, "url":name}}
 		return None
 
-
-
 	# setDatasets
 	def setDatasets(self,value):
 		for it in [self] + self.slices:
@@ -514,8 +512,8 @@ class Slice:
 					logger.info(f"id={self.id} Overriding url from {locals[0]['url']} since it exists and is a local path")
 					url = locals[0]["url"]
 
-		datasets=self.getDatasets()
-		self.setDatasets(datasets)
+
+		# self.setDatasets(self.getDatasets())
 
 		logger.info(f"id={self.id} LoadDataset url={url}...")
 		db=LoadDataset(url=url) if not self.parent else self.parent.db
@@ -636,7 +634,7 @@ class Slice:
 
 	# onEvalClick
 	def onEvalClick(self,evt=None):
-		body=self.widgets.scene_body.value
+		body=json.loads(self.widgets.scene_body.value)
 		self.setSceneBody(body)
 		ShowInfoNotification('Eval done')
 
@@ -644,7 +642,7 @@ class Slice:
 	def onLoadClick(self,value):
 		body=value.decode('ascii')
 		self.widgets.scene_body.value.value=body
-		self.setSceneBody(body)
+		self.setSceneBody(json.loads(body))
 		ShowInfoNotification('Load done')
 
 	# onSaveClick
