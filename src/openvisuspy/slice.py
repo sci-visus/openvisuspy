@@ -57,10 +57,7 @@ class Slice:
 
 		self.parent = parent
 		self.num_hold=0
-		if self.parent:  
-			self.id=self.parent.id + "."  + str(Slice.ID)
-		else:
-			self.id="/" + str(Slice.ID)
+		self.id=f"{self.parent.id}.{Slice.ID}" if self.parent else f"{Slice.ID}"
 		Slice.ID += 1
 		
 		self.db = None
@@ -71,6 +68,7 @@ class Slice:
 
 		self.logic_to_physic        = parent.logic_to_physic        if parent else [(0.0, 1.0)] * 3
 		self.metadata_range         = parent.metadata_range         if parent else [0.0, 255.0]
+		self.scenes                 = parent.scenes                 if parent else {}
 
 		self.dialogs={}
 		self.dialogs_placeholder=Column(height=0, width=0)
@@ -103,8 +101,8 @@ class Slice:
 			pn.Spacer(height=18),
 			self.widgets.menu, width=120)
 
-		self.widgets.view_mode             = Widgets.Select   (name="view Mode", value="1",options=["1", "2", "probe", "2-linked", "4", "4-linked"],width=80, callback=self.onViewModeChange)
-		self.widgets.scene                 = Widgets.Select   (name="Scene", options={}, width=180, callback=lambda body: self.setSceneBody(body))
+		self.widgets.view_mode             = Widgets.Select   (name="ViewMode", value="1",options=["1", "2", "probe", "2-linked", "4", "4-linked"],width=80, callback=self.onViewModeChange)
+		self.widgets.scene                 = Widgets.Select   (name="Scene", options=[], width=180, callback=lambda name: self.setScene(name))
 		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new_value: self.setTimestepDelta(self.speedFromOption(new_value)))
 		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
@@ -242,8 +240,6 @@ class Slice:
 
 		logger.debug(f"id={self.id} START")
 
-		scenes=self.getDatasets()
-
 		show_probe ="probe"  in value
 		show_linked="linked" in value
 		nviews=1 if value=="probe" else int(value[0])
@@ -269,13 +265,12 @@ class Slice:
 				slice_show_options=self_show_options[1]
 
 			slice = Slice(parent=self)
-			slice.widgets.scene.name=f"{slice.widgets.scene.name}.{slice.id}"
 			self.slices.append(slice)
 
 			from .probe import ProbeTool
 			slice.tool = ProbeTool(slice)
 			slice.tool.main_layout.visible=show_probe
-			slice.widgets.scene.options=scenes
+			slice.widgets.scene.options=list(self.scenes)
 			slice.linked=I==0 and show_linked
 
 			slice.main_layout=Row(
@@ -316,14 +311,6 @@ class Slice:
 		
 		logger.debug(f"id={self.id} END")
 
-		 
-	# getDefaultScene
-	def getDefaultScene(self, name):
-		return self.widgets.scene.options[name]
-
-	# getDatasets
-	def getDatasets(self):
-		return self.widgets.scene.options
 
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
@@ -448,14 +435,17 @@ class Slice:
 
 		scenes={}
 		for it in value[root]:
-			scenes[it["name"]]={"scene": it} 
+			if "name" in it:
+				scenes[it["name"]]={"scene": it}
 
 		for it in [self] + self.slices:
+			it.scenes=scenes
 			widget=it.widgets.scene
 			with widget.disable_callbacks():
-				widget.options = scenes
+				widget.options = list(self.scenes)
 
 		if scenes:
+			print("&&&&"*100,scenes.keys())
 			self.setScene(list(scenes)[0])
 
 	# setSceneBody
@@ -470,10 +460,12 @@ class Slice:
 		# self.stop()
 		logger.info(f"id={self.id} START")
 
-		name=scene.get("name")
-		assert(name)
+		# the url should come from first load (for security reasons)
+		name=scene["name"]
 
-		default_scene=self.getDefaultScene(name)["scene"]
+		print("!!!!","name",name,"keys",self.scenes.keys())
+		assert(name in self.scenes)
+		default_scene=self.scenes[name]["scene"]
 		url =default_scene["url"]
 		urls=default_scene.get("urls",{})
 
@@ -502,10 +494,10 @@ class Slice:
 		logger.info(f"id={self.id} LoadDataset url={url}...")
 		db=LoadDataset(url=url) if not self.parent else self.parent.db
 
+		# update the GUI too
 		for it in [self] + self.slices:
 			it.db    =db
 			it.access=db.createAccess()
-
 			widget=it.widgets.scene
 			with widget.disable_callbacks():
 				widget.value=name
@@ -612,8 +604,7 @@ class Slice:
 
 	# setScene
 	def setScene(self, name):
-		if not name: return
-		body=self.getDefaultScene(name)
+		body=self.scenes[name]
 		self.setSceneBody(body)
 
 	# onEvalClick
@@ -656,7 +647,8 @@ class Slice:
 	def showMetadata(self):
 
 		logger.debug(f"Show metadata")
-		metadata=self.getDefaultScene(self.getScene())["scene"].get("metadata", [])
+		body=self.scenes[self.getScene()]
+		metadata=body["scene"].get("metadata", [])
 
 		cards=[]
 		for I, item in enumerate(metadata):
@@ -1236,9 +1228,9 @@ class Slice:
 	def getPointDim(self):
 		return self.db.getPointDim() if self.db else 2
 
-	# updateSceneText
-	def updateSceneText(self):
-		if self.parent: return self.parent.updateSceneText()
+	# updateSceneBodyText
+	def updateSceneBodyText(self):
+		if self.parent: return self.parent.updateSceneBodyText()
 		widget=self.widgets.scene_body
 		if widget.visible:
 			body=self.getSceneBody()
@@ -1251,8 +1243,7 @@ class Slice:
 			if it.query_node:
 				it.aborted.setTrue()
 				it.new_job=True
-
-		self.updateSceneText()
+		self.updateSceneBodyText()
 
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
@@ -1473,7 +1464,7 @@ class Slice:
 			resolution=self.getResolution()
 			endh=resolution
 		
-		self.updateSceneText()
+		self.updateSceneBodyText()
 		
 		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
 
