@@ -18,7 +18,7 @@ if __name__.startswith('bokeh'):
 		notifications=True, 
 		sizing_mode="stretch_width",
 		template="fast",
-		#theme="default"
+		#theme="default",
 	)
 
 	log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log")
@@ -29,10 +29,10 @@ if __name__.startswith('bokeh'):
 	
 	query_params=GetQueryParams()
 	if "load" in query_params:
-		body=base64.b64decode(query_params['load']).decode("utf-8")
-		self.setSceneBody(body)
+		body=json.loads(base64.b64decode(query_params['load']).decode("utf-8"))
+		view.setSceneBody(body)
 	elif "dataset" in query_params:
-		self.setScene(query_params["dataset"])
+		view.setScene(query_params["dataset"])
 
 	app = view.getMainLayout()
 	app.servable()

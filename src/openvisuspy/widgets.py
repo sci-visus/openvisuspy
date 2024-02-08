@@ -44,7 +44,21 @@ class Canvas:
 		def CheckResize():
 			W,H=self.getWidth(),self.getHeight()
 			if W==0 or H==0: return
-			if [W,H]==[self.last_resize_width,self.last_resize_height]: return
+
+			oW=self.last_resize_width
+			oH=self.last_resize_height
+			
+			if [W,H]==[oW,oH]: 
+				return
+
+			# I am getting some small changes I want to ignore
+			if oW>256 and oH>256:
+				dx=abs(W-oW)/(oW)
+				dy=abs(H-oH)/(oH)
+				if dx<0.05 and dy<0.05: 
+					return
+
+			logger.debug(f"[{oW},{oH}] -> [{W},{H}] ")
 			self.last_resize_width,self.last_resize_height=[W,H]
 			self.on_resize()
 		AddPeriodicCallback(CheckResize,1000//30)

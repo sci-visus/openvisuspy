@@ -71,7 +71,7 @@ class Slice:
 		self.scenes                 = parent.scenes                 if parent else {}
 
 		self.dialogs={}
-		self.dialogs_placeholder=Column(height=0, width=0)
+		self.dialogs_placeholder=Column(height=0, width=0, visible=False)
 
 		self.createGui()
 		logger.info(f"Created Slice id={self.id} parent={self.parent}")
@@ -133,7 +133,7 @@ class Slice:
 				.bk-input {
 					background-color: rgb(48, 48, 64);
 					color: white;
-					font-size: medium;
+					font-size: small;
 				}
 				"""])
 
@@ -381,7 +381,8 @@ class Slice:
 		# query
 		if self.canvas:
 			(x1,x2),(y1,y2)=self.canvas.getViewport()
-			ret.update({"x1":x1,"x2":x2,"y1":y1,"y2":y2})
+			cx,cy,w,h=(x1+x2)/2.0,(y1+y2)/2.0,(x2-x1),(y2-y1)
+			ret.update({"x":cx,"y":cy,"w":w,"h":h})
 
 		# children
 		else:
@@ -450,14 +451,16 @@ class Slice:
 	# setSceneBody
 	def setSceneBody(self, scene):
 
+		logger.info(f"id={self.id} {scene} START")
+
+		# TODO!
+		# self.stop()
+
 		assert(isinstance(scene,dict))
 		assert(len(scene)==1 and list(scene.keys())==["scene"])
-		
+
 		# go one level inside
 		scene=scene["scene"]
- 
-		# self.stop()
-		logger.info(f"id={self.id} START")
 
 		# the url should come from first load (for security reasons)
 		name=scene["name"]
@@ -577,10 +580,12 @@ class Slice:
 		color_mapper_type=scene["color-mapper-type"]=scene.get("color-mapper-type","linear")
 		self.setColorMapperType(color_mapper_type)	
 
-		x1,x2,y1,y2=[scene.get(it,None) for it in ("x1","x2","y1","y2")]
+		cx,cy,w,h=[scene.get(it,None) for it in ("x","y","w","h")]
 
-		if x1 is not None:
-			self.setViewport((x1,x2),(y1,y2))
+		if cx is not None:
+			x1,x2=cx-w/2.0, cx+w/2.0
+			y1,y2=cy-h/2.0, cy+h/2.0
+			self.setViewport([(x1,x2),(y1,y2)])
 
 		# children
 		children=scene.get("children",[]) 
@@ -614,16 +619,19 @@ class Slice:
 	# onLoadClick
 	def onLoadClick(self,value):
 		body=value.decode('ascii')
-		self.widgets.scene_body.value.value=body
+
+		with self.widgets.scene_body.disable_callbacks():
+			self.widgets.scene_body.value.value=body
+
 		self.setSceneBody(json.loads(body))
 		ShowInfoNotification('Load done')
 
 	# onSaveClick
 	def onSaveClick(self,evt=None):
-		sio = io.StringIO(self.widgets.scene_body.value)
-		sio.seek(0)
+		ret = io.StringIO(self.widgets.scene_body.value)
+		ret.seek(0)
 		ShowInfoNotification('Save done')
-		return sio
+		return ret
 
 	# showLoadSave
 	def showLoadSave(self):
@@ -638,6 +646,7 @@ class Slice:
 				Row(eval_button, save_button,load_button, align='end'),
 				sizing_mode="stretch_both",align="end"
 			), 
+			width=600,
 			height=700,
 			name="Load/Save")
 
@@ -697,6 +706,8 @@ class Slice:
 
 		self.dialogs[name]=FloatPanel(*args, **kwargs)
 		self.dialogs_placeholder[:]=[v for k,v in self.dialogs.items()]
+
+		# self.xxx=pn.layout.FloatPanel("Try dragging me around.", name="Free Floating FloatPanel", contained=False, position='center')
 
 	# getTimesteps
 	def getTimesteps(self):
@@ -1229,11 +1240,10 @@ class Slice:
 	# updateSceneBodyText
 	def updateSceneBodyText(self):
 		if self.parent: return self.parent.updateSceneBodyText()
-		widget=self.widgets.scene_body
-		if widget.visible:
-			body=self.getSceneBody()
-			body=json.dumps(body,indent=2)
-			widget.value=body
+		body=self.getSceneBody()
+		body=json.dumps(body,indent=2)
+		with self.widgets.scene_body.disable_callbacks():
+			self.widgets.scene_body.value=body
 
 	# refresh
 	def refresh(self):
@@ -1253,8 +1263,8 @@ class Slice:
 	def getViewport(self):
 		return self.canvas.getViewPort()
 
-	# setViewPort
-	def setViewPort(self,value):
+	# setViewport
+	def setViewport(self,value):
 
 		(x1,x2),(y1,y2)=value
 
@@ -1282,7 +1292,7 @@ class Slice:
 		logger.debug(f"id={self.id} value={value}")
 		proj=self.toPhysic(value) 
 		(x1,y1),(x2,y2)=proj[0],proj[1]
-		self.setViewPort([(x1,x2),(y1,y2)])
+		self.setViewport([(x1,x2),(y1,y2)])
   
 	# getLogicCenter
 	def getLogicCenter(self):
