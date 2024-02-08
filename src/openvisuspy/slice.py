@@ -380,7 +380,7 @@ class Slice:
 			# "config": self.dashboards_config_url,
 
 			"view-mode": self.getViewMode(),
-			"name": self.getDataset(), 
+			"name": self.getScene(), 
 			
 			# NOT needed.. they should come automatically from the dataset?
 			#   "timesteps": self.getTimesteps(),
@@ -422,7 +422,7 @@ class Slice:
 				sub=it.getSceneBody()["scene"]
 
 				# do not repeat same value in child since they will be inherited
-				if self.getDataset()==it.getDataset():
+				if self.getScene()==it.getScene():
 					for k in copy.copy(sub):
 						v=sub[k]
 						if v==ret.get(k,None):
@@ -624,15 +624,15 @@ class Slice:
 
 		logger.info(f"id={self.id} END")
 
+	# getScene
+	def getScene(self):
+		return self.widgets.scene.value
+
 	# setScene
 	def setScene(self, name):
 		if not name: return
 		body=self.getDefaultScene(name)
 		self.setSceneBody(body)
-
-	# getDataset
-	def getDataset(self):
-		return self.widgets.scene.value
 
 	# onEvalClick
 	def onEvalClick(self,evt=None):
@@ -674,7 +674,7 @@ class Slice:
 	def showMetadata(self):
 
 		logger.debug(f"Show metadata")
-		metadata=self.getDefaultScene(self.getDataset())["scene"].get("metadata", [])
+		metadata=self.getDefaultScene(self.getScene())["scene"].get("metadata", [])
 
 		cards=[]
 		for I, item in enumerate(metadata):
