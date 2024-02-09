@@ -422,8 +422,8 @@ class Widgets:
 						logger.info(f"Executing {fn}")
 						fn()
 				except:
-					logger.info(traceback.format_exc())
-					raise
+					logger.info(f"ERROR {ex}\n{traceback.format_exc()}\n\n\n\n\n\n") 
+					raise 
 		ret = pn.widgets.MenuButton(**kwargs)
 		ret.on_click(onMenuClick)
 

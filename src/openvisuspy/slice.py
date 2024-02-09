@@ -18,30 +18,7 @@ from .widgets import Canvas as Canvas
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_SHOW_OPTIONS=[
-	[
-		"menu", 
-		"view_mode",
-		"scene", 
-		"timestep",
-		"timestep_delta",		
-		"field",
-		"palette", 
-		"color_mapper_type", 
-		"resolution", 
-		"view_dep", 
-		"num_refinements"
-		],
-		[
-			"scene", 
-			"direction", 
-			"offset", 
-			"color_mapper_type", 
-			"range_mode", 
-			"range_min",  
-			"range_max"
-		]
-]
+
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice:
@@ -51,36 +28,32 @@ class Slice:
 	start_resolution = 20
 
 	# constructor
-	def __init__(self, parent=None):
+	def __init__(self):
 
 		self.on_change_callbacks={}
 
-		self.parent = parent
 		self.num_hold=0
-		self.id=f"{self.parent.id}.{Slice.ID}" if self.parent else f"{Slice.ID}"
+		self.id=Slice.ID
 		Slice.ID += 1
 		
 		self.db = None
 		self.access = None
 		self.render_id = 0 
-		self.slices = []
-		self.linked = False
 
-		self.logic_to_physic        = parent.logic_to_physic        if parent else [(0.0, 1.0)] * 3
-		self.metadata_range         = parent.metadata_range         if parent else [0.0, 255.0]
-		self.scenes                 = parent.scenes                 if parent else {}
+		self.logic_to_physic        = [(0.0, 1.0)] * 3
+		self.metadata_range         = [0.0, 255.0]
+		self.scenes                 = {}
 
 		self.dialogs={}
 		self.dialogs_placeholder=Column(height=0, width=0, visible=False)
 
+		self.show_options=[
+			["menu", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
+			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+		]
 		self.createGui()
-		logger.info(f"Created Slice id={self.id} parent={self.parent}")
+		self.start()
 
-	# onViewModeChange
-	def onViewModeChange(self,value):
-		body=self.getSceneBody()
-		self.setViewMode(value)
-		self.setSceneBody(body)
 
 	# createGui
 	def createGui(self):
@@ -124,7 +97,6 @@ setTimeout(myFunction, 300);
 			pn.Spacer(height=18),
 			self.widgets.menu, width=120)
 
-		self.widgets.view_mode             = Widgets.Select   (name="ViewMode", value="1",options=["1", "2", "probe", "2-linked", "4", "4-linked"],width=80, callback=self.onViewModeChange)
 		self.widgets.scene                 = Widgets.Select   (name="Scene", options=[], width=180, callback=lambda name: self.setScene(name))
 		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
 		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new_value: self.setTimestepDelta(self.speedFromOption(new_value)))
@@ -172,18 +144,46 @@ setTimeout(myFunction, 300);
 		self.query_node    = None
 		self.canvas        = None
 
-		if self.parent:
-			self.t1=time.time()
-			self.aborted       = Aborted()
-			self.new_job       = False
-			self.current_img   = None
-			self.last_job_pushed =time.time()
-			self.query_node=QueryNode()
-			self.canvas = Canvas(self.id)
-			self.canvas.on_viewport_change=lambda: self.refresh()
+		self.t1=time.time()
+		self.aborted       = Aborted()
+		self.new_job       = False
+		self.current_img   = None
+		self.last_job_pushed =time.time()
+		self.query_node=QueryNode()
+		self.canvas = Canvas(self.id)
+		self.canvas.on_viewport_change=lambda: self.refresh()
 
-		# placeholder
-		self.main_layout=Column(sizing_mode='stretch_both')
+		# create the main  layout
+		top=[
+			Row(
+				*[getattr(self.widgets,widget_name.replace("-","_")) for widget_name in single_row],
+				sizing_mode="stretch_width"
+			)
+			for single_row in self.show_options
+		]
+
+		middle=[
+			Row(self.canvas.main_layout, sizing_mode='stretch_both')
+		]
+
+		bottom=[
+			Row(self.widgets.status_bar["request"],
+					self.widgets.status_bar["response"],
+					sizing_mode='stretch_width'
+				)
+		]
+
+		self.main_layout=Column(*top,*middle,*bottom, 
+				self.dialogs_placeholder,
+				sizing_mode="stretch_both")
+
+		
+
+
+	# getShowOptions
+	def getShowOptions(self):
+		return self.show_options
+
 
 	# copyUrlToClipboard
 	def copyUrlToClipboard(self, evt=None):
@@ -200,29 +200,14 @@ setTimeout(myFunction, 300);
 
 	# stop
 	def stop(self):
-		for it in [self] + self.slices:
-			if it.query_node:
-				it.aborted.setTrue()
-				it.query_node.stop()
+		self.aborted.setTrue()
+		self.query_node.stop()
 
 	# start
 	def start(self):
-
-		for it in [self] + self.slices:
-			if it.query_node:
-				it.query_node.start()
-
-		if not self.parent and not self.idle_callback:
-
-			def onIdleHandleExceptions():
-				try:
-					self.onIdle()
-				except Exception as ex:
-					logger.info(f"ERROR {ex}\n{traceback.format_exc()}\n\n\n\n\n\n") 
-					raise 
-
-			self.idle_callback = AddPeriodicCallback(onIdleHandleExceptions, 1000 // 30)
-
+		self.query_node.start()
+		if not self.idle_callback:
+			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 30)
 		self.refresh()
 
 	# on_change
@@ -240,90 +225,6 @@ setTimeout(myFunction, 300);
 	def getMainLayout(self):
 		return self.main_layout
 
-	# getViewMode
-	def getViewMode(self):
-		return self.widgets.view_mode.value
-
-	# setViewMode
-	def setViewMode(self, value):
-
-		if self.parent:
-			return
-
-		logger.debug(f"id={self.id} START")
-
-		show_probe ="probe"  in value
-		show_linked="linked" in value
-		nviews=1 if value=="probe" else int(value[0])
-
-		self.stop()
-
-		widget=self.widgets.view_mode
-		with widget.disable_callbacks():
-			widget.value=value
-
-		self.main_layout[:]=[]
-		for it in self.slices:  del it
-		self.slices=[]
-
-		self_show_options=DEFAULT_SHOW_OPTIONS
-
-		# child show options
-		for I in range(nviews):
-
-			if nviews==1:
-				slice_show_options=[it for it in self_show_options[1] if it not in self_show_options[0]]
-			else:
-				slice_show_options=self_show_options[1]
-
-			slice = Slice(parent=self)
-			self.slices.append(slice)
-
-			from .probe import ProbeTool
-			slice.tool = ProbeTool(slice)
-			slice.tool.main_layout.visible=show_probe
-			slice.widgets.scene.options=list(self.scenes)
-			slice.linked=I==0 and show_linked
-
-			slice.main_layout=Row(
-				Column(
-					Row(
-						*[getattr(slice.widgets,it.replace("-","_")) for it in slice_show_options], # child
-							sizing_mode="stretch_width"
-						),
-					Row(
-						slice.canvas.main_layout, 
-						sizing_mode='stretch_both'
-					),
-					Row(
-						slice.widgets.status_bar["request"],
-						slice.widgets.status_bar["response"], 
-						sizing_mode='stretch_width'
-					),
-					sizing_mode="stretch_both"
-				),
-				slice.tool.main_layout,
-				sizing_mode="stretch_both"
-			)
-
-		# create parent layout
-		parent_first_row_widgets=[getattr(self.widgets, it.replace("-", "_")) for it in self_show_options[0]] + [self.widgets.copy_url]
-		slices_main_layout=[it.main_layout for it in self.slices ]
-
-		self.main_layout.append(
-			Column(
-				Row(*parent_first_row_widgets, sizing_mode="stretch_width"), 
-				GridBox(*slices_main_layout, ncols=2 if nviews>=2 else 1, sizing_mode="stretch_both"),
-				self.dialogs_placeholder,  
-				sizing_mode='stretch_both'
-			))
-
-		self.start()
-
-		
-		logger.debug(f"id={self.id} END")
-
-
 	# getLogicToPhysic
 	def getLogicToPhysic(self):
 		return self.logic_to_physic
@@ -331,8 +232,7 @@ setTimeout(myFunction, 300);
 	# setLogicToPhysic
 	def setLogicToPhysic(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		for it in [self] + self.slices:
-			it.logic_to_physic = value
+		self.logic_to_physic = value
 		self.refresh()
 
 	# getPhysicBox
@@ -357,64 +257,37 @@ setTimeout(myFunction, 300);
 		
 	# getSceneBody
 	def getSceneBody(self):
-
-		ret={
-
-			"view-mode": self.getViewMode(),
-			"name": self.getScene(), 
-			
-			# NOT needed.. they should come automatically from the dataset?
-			#   "timesteps": self.getTimesteps(),
-			#   "physic_box": self.getPhysicBox(),
-			#   "fields": self.getFields(),
-			#   "directions" : self.getDirections(),
-
-			"timestep-delta": self.getTimestepDelta(),
-			"timestep": self.getTimestep(),
-			"direction": self.getDirection(),
-			"offset": self.getOffset(), 
-			"field": self.getField(),
-			"view-dep": self.isViewDependent(),
-			"resolution": self.getResolution(),
-			"num-refinements": self.getNumberOfRefinements(),
-			"play-sec":self.getPlaySec(),
-			"palette": self.getPalette(),
-			# "metadata-range": self.getMetadataRange(),
-			"color-mapper-type": self.getColorMapperType(),
-			"range-mode": self.getRangeMode(),
-		}
-
-		if self.getRangeMode()=="user" :
-			ret=ret.update({
-				"range-min": self.getRangeMin(),
-				"range-max": self.getRangeMax(),
-			} )
-
-		# query
-		if self.canvas:
-			(x1,x2),(y1,y2)=self.canvas.getViewport()
-			cx,cy,w,h=(x1+x2)/2.0,(y1+y2)/2.0,(x2-x1),(y2-y1)
-			ret.update({"x":cx,"y":cy,"w":w,"h":h})
-
-		# children
-		else:
-
-			ret["children"]=[]
-			for I,it in enumerate(self.slices):
-				sub=it.getSceneBody()["scene"]
-
-				# do not repeat same value in child since they will be inherited
-				if self.getScene()==it.getScene():
-					for k in copy.copy(sub):
-						v=sub[k]
-						if v==ret.get(k,None):
-							del sub[k]
-				else:
-					"""otherwise to need to dump the full status since they are two different datasets"""
+		(x1,x2),(y1,y2)=self.canvas.getViewport()
+		return {
+			"scene" : {
+				"name": self.getScene(), 
 				
-				ret["children"].append(sub)
+				# NOT needed.. they should come automatically from the dataset?
+				#   "timesteps": self.getTimesteps(),
+				#   "physic_box": self.getPhysicBox(),
+				#   "fields": self.getFields(),
+				#   "directions" : self.getDirections(),
 
-		return {"scene" : ret}
+				"timestep-delta": self.getTimestepDelta(),
+				"timestep": self.getTimestep(),
+				"direction": self.getDirection(),
+				"offset": self.getOffset(), 
+				"field": self.getField(),
+				"view-dep": self.isViewDependent(),
+				"resolution": self.getResolution(),
+				"num-refinements": self.getNumberOfRefinements(),
+				"play-sec":self.getPlaySec(),
+				"palette": self.getPalette(),
+				# "metadata-range": self.getMetadataRange(),
+				"color-mapper-type": self.getColorMapperType(),
+				"range-mode": self.getRangeMode(),
+				"range-min": self.getRangeMin(),
+				"x":(x1+x2)/2.0,
+				"y":(y1+y2)/2.0,
+				"w":x2-x1,
+				"h":y2-y1	
+			}
+		}
 
 	# hold
 	def hold(self):
@@ -446,28 +319,25 @@ setTimeout(myFunction, 300);
 		assert(len(value)==1)
 		root=list(value.keys())[0]
 
-		scenes={}
+		self.scenes={}
 		for it in value[root]:
 			if "name" in it:
-				scenes[it["name"]]={"scene": it}
+				self.scenes[it["name"]]={"scene": it}
 
-		for it in [self] + self.slices:
-			it.scenes=scenes
-			widget=it.widgets.scene
-			with widget.disable_callbacks():
-				widget.options = list(self.scenes)
+		with self.widgets.scene.disable_callbacks():
+			self.widgets.scene.options = list(self.scenes)
 
-		if scenes:
-			self.setScene(list(scenes)[0])
+		if self.scenes:
+			self.setScene(list(self.scenes)[0])
 
 	# setSceneBody
 	def setSceneBody(self, scene):
 
+		logger.info(f"# //////////////////////////////////////////#")
 		logger.info(f"id={self.id} {scene} START")
 
 		# TODO!
 		# self.stop()
-
 
 		assert(isinstance(scene,dict))
 		assert(len(scene)==1 and list(scene.keys())==["scene"])
@@ -483,11 +353,10 @@ setTimeout(myFunction, 300);
 		url =default_scene["url"]
 		urls=default_scene.get("urls",{})
 
-		# viewmode is only a thingy for the parent
-		if not self.parent:
-			viewmode=scene.get("view-mode","1")
-			if len(self.slices)==0 or viewmode!=self.getViewMode():
-				self.setViewMode(viewmode)
+		# TODO: read show-options
+		#show_options=scene.get("show-options",self.show_options)
+		#if show_options!=self.show_options:
+		#	self.setShowOptions(show_options)
 
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
 		if "urls" in scene:
@@ -506,15 +375,13 @@ setTimeout(myFunction, 300);
 					url = locals[0]["url"]
 
 		logger.info(f"id={self.id} LoadDataset url={url}...")
-		db=LoadDataset(url=url) if not self.parent else self.parent.db
+		db=LoadDataset(url=url) 
 
 		# update the GUI too
-		for it in [self] + self.slices:
-			it.db    =db
-			it.access=db.createAccess()
-			widget=it.widgets.scene
-			with widget.disable_callbacks():
-				widget.value=name
+		self.db    =db
+		self.access=db.createAccess()
+		with self.widgets.scene.disable_callbacks():
+			self.widgets.scene.value=name
 
 		timesteps=self.db.getTimesteps()
 		self.setTimesteps(timesteps)
@@ -540,79 +407,70 @@ setTimeout(myFunction, 300);
 			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
 			self.setDirections(directions)
 
-		timestep_delta = scene["timestep-delta"] = int(scene.get("timestep-delta", 1))
+		timestep_delta = int(scene.get("timestep-delta", 1))
 		self.setTimestepDelta(timestep_delta)
 
-		timestep = scene["timestep"] = int(scene.get("timestep", self.db.getTimesteps()[0]))
+		timestep = int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.setTimestep(timestep)
 
-		viewdep=scene['view-dep'] = bool(scene.get('view-dep', True))
+		viewdep=bool(scene.get('view-dep', True))
 		self.setViewDependent(viewdep)
 
 		resolution=int(scene.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
-		scene['resolution'] = resolution
 		self.setResolution(resolution)
 
-		field=scene["field"] = scene.get("field", self.db.getField().name)
+		field=scene.get("field", self.db.getField().name)
 		self.setField(field)
 
-		num_refinements=scene['num-refinements'] = int(scene.get("num-refinements", 2))
+		num_refinements=int(scene.get("num-refinements", 2))
 		self.setNumberOfRefinements(num_refinements)
 
-		direction=scene['direction'] = int(scene.get("direction", 2))
+		direction=int(scene.get("direction", 2))
 		self.setDirection(direction)
 
-		default_offset, offset_range=self.guessOffset(int(scene['direction']))
-		offset=scene["offset"] = float(scene.get("offset",default_offset))
+		default_offset, offset_range=self.guessOffset(direction)
+		offset=float(scene.get("offset",default_offset))
 		self.setOffsetRange(offset_range) 
 		self.setOffset(offset)	
 
-		play_sec=scene["play-sec"]=float(scene.get("play-sec",0.01))
+		play_sec=float(scene.get("play-sec",0.01))
 		self.setPlaySec(play_sec)
 
-		field = self.db.getField(scene["field"])
-		low, high = [field.getDTypeRange().From, field.getDTypeRange().To]
-
-		palette=scene["palette"]=scene.get("palette",DEFAULT_PALETTE)
+		palette=scene.get("palette",DEFAULT_PALETTE)
 		self.setPalette(palette)
 
-		palette_metadata_range=scene["metadata-range"]=scene.get("metadata-range",[low, high])
+		db_field = self.db.getField(field)
+		palette_metadata_range=scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To])
 		self.setMetadataRange(palette_metadata_range)
 
-		range_mode=scene["range-mode"]=scene.get("range-mode","dynamic-acc")
+		range_mode=scene.get("range-mode","dynamic-acc")
 		self.setRangeMode(range_mode)
 
 		if self.getRangeMode()=="user":
-			range_min=scene["range-min"]=scene.get("range-min",low)
+			range_min=scene.get("range-min",low)
 			self.setRangeMin(range_min)
 
-			range_max=scene["range-max"]=scene.get("range-max",high)
+			range_max=scene.get("range-max",high)
 			self.setRangeMax(range_max)
 
-		color_mapper_type=scene["color-mapper-type"]=scene.get("color-mapper-type","linear")
+		color_mapper_type=scene.get("color-mapper-type","linear")
 		self.setColorMapperType(color_mapper_type)	
 
-		cx,cy,w,h=[scene.get(it,None) for it in ("x","y","w","h")]
+		x=scene.get("x",None)
+		y=scene.get("y",None)
+		w=scene.get("w",None)
+		h=scene.get("h",None)
 
-		if cx is not None:
-			x1,x2=cx-w/2.0, cx+w/2.0
-			y1,y2=cy-h/2.0, cy+h/2.0
+		if x is not None:
+			x1,x2=x-w/2.0, x+w/2.0
+			y1,y2=y-h/2.0, y+h/2.0
 			self.canvas.setViewport([(x1,x2),(y1,y2)])
 
-		# children
-		children=scene.get("children",[]) 
-		for S,it in enumerate(self.slices):
-			child=copy.deepcopy(scene)
-			child.update(children[S] if S<len(children) else {})
-			if "children" in child: del child["children"] 
-			self.slices[S].setSceneBody({"scene" : child})
+		self.start()
+		self.triggerOnChange('scene', None, name)
 
-		if not self.parent:
-			self.start()
-			self.triggerOnChange('scene', None, name)
-
-		logger.info(f"id={self.id} END")
+		logger.info(f"id={self.id} END\n")
 
 	# getScene
 	def getScene(self):
@@ -732,12 +590,10 @@ setTimeout(myFunction, 300);
 	# setTimesteps
 	def setTimesteps(self, value):
 		logger.debug(f"id={self.id} start={value[0]} end={value[-1]}")
-		for it in [self] + self.slices:
-			widget=it.widgets.timestep
-			with widget.disable_callbacks():
-				widget.start = value[0]
-				widget.end   = value[-1]
-				widget.step  = 1
+		with self.widgets.timestep.disable_callbacks():
+			self.widgets.timestep.start = value[0]
+			self.widgets.timestep.end   = value[-1]
+			self.widgets.timestep.step  = 1
 
 	# speedFromOption
 	def speedFromOption(self, option):
@@ -754,10 +610,8 @@ setTimeout(myFunction, 300);
 	# setPlaySec
 	def setPlaySec(self,value):
 		logger.debug(f"id={self.id} value={value}")
-		for it in [self] + self.slices:
-			widget=it.widgets.play_sec
-			with widget.disable_callbacks():
-				widget.value=value
+		with self.widgets.play_sec.disable_callbacks():
+			self.widgets.play_sec.value=value
 
 	# getTimestepDelta
 	def getTimestepDelta(self):
@@ -775,14 +629,11 @@ setTimeout(myFunction, 300);
 		T = A + value * int((T - A) / value)
 		T = min(B, max(A, T))
 		
-		for it in [self] + self.slices:
-			widget=it.widgets.timestep_delta
-			with widget.disable_callbacks():
-				widget.value = option
+		with self.widgets.timestep_delta.disable_callbacks():
+			self.widgets.timestep_delta.value = option
 
-			widget=it.widgets.timestep
-			with widget.disable_callbacks():
-				widget.step = value
+		with self.widgets.timestep.disable_callbacks():
+			self.widgets.timestep.step = value
 
 		self.setTimestep(T)
 
@@ -793,11 +644,8 @@ setTimeout(myFunction, 300);
 	# setTimestep
 	def setTimestep(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		for it in [self] + self.slices:
-			widget=it.widgets.timestep
-			with widget.disable_callbacks():
-				widget.value = value
-
+		with self.widgets.timestep.disable_callbacks():
+			self.widgets.timestep.value = value
 		self.refresh()
 
 	# getFields
@@ -808,10 +656,8 @@ setTimeout(myFunction, 300);
 	def setFields(self, value):
 		value=list(value)
 		logger.debug(f"id={self.id} value={value}")
-		for it in [self] + self.slices:
-			widget=it.widgets.field
-			with widget.disable_callbacks():
-				widget.options = value
+		with self.widgets.field.disable_callbacks():
+			self.widgets.field.options = value
 
 	# getField
 	def getField(self):
@@ -821,10 +667,8 @@ setTimeout(myFunction, 300);
 	def setField(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		if value is None: return
-		for it in [self] + self.slices:
-			widget=it.widgets.field
-			with widget.disable_callbacks():
-				widget.value = value
+		with self.widgets.field.disable_callbacks():
+			self.widgets.field.value = value
 		self.refresh()
 
 	# getPalette
@@ -834,11 +678,9 @@ setTimeout(myFunction, 300);
 	# setPalette
 	def setPalette(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		for it in [self] + self.slices:
-			widget=it.widgets.palette
-			with widget.disable_callbacks():
-				widget.value_name = value
-				it.color_bar=None
+		with self.widgets.palette.disable_callbacks():
+			self.widgets.palette.value_name = value
+			self.color_bar=None
 		self.refresh()
 
 	# getMetadataRange
@@ -848,9 +690,8 @@ setTimeout(myFunction, 300);
 	# setMetadataRange
 	def setMetadataRange(self, value):
 		vmin, vmax = value
-		for it in [self] + self.slices:
-			it.metadata_range = [vmin, vmax]
-			it.color_map=None
+		self.metadata_range = [vmin, vmax]
+		self.color_map=None
 		self.refresh()
 
 	# getRangeMode
@@ -861,25 +702,19 @@ setTimeout(myFunction, 300);
 	def setRangeMode(self, mode):
 		logger.debug(f"id={self.id} mode={mode} ")
 
-		for it in [self] + self.slices:
-			
-			widget=it.widgets.range_mode
-			with widget.disable_callbacks():
-				widget.value = mode
-			
-			it.color_map=None
+		with self.widgets.range_mode.disable_callbacks():
+			self.widgets.range_mode.value = mode
+		self.color_map=None
 
-			widget = it.widgets.range_min
-			with widget.disable_callbacks():
-				if mode == "metadata":   widget.value = it.metadata_range[0]
-				if mode == "dynamic-acc":widget.value = 0.0
-				widget.disabled = False if mode == "user" else True
+		with self.widgets.range_min.disable_callbacks():
+			if mode == "metadata":   self.widgets.range_min.value = it.metadata_range[0]
+			if mode == "dynamic-acc":self.widgets.range_min.value = 0.0
+			self.widgets.range_min.disabled = False if mode == "user" else True
 
-			widget = it.widgets.range_max
-			with widget.disable_callbacks():
-				if mode == "metadata":   widget.value = it.metadata_range[1]
-				if mode == "dynamic-acc":widget.value = 0.0
-				widget.disabled = False if mode == "user" else True
+		with self.widgets.range_max.disable_callbacks():
+			if mode == "metadata":   self.widgets.range_max.value = it.metadata_range[1]
+			if mode == "dynamic-acc":self.widgets.range_max.value = 0.0
+			self.widgets.range_max.disabled = False if mode == "user" else True
 
 		self.refresh()
 
@@ -894,23 +729,17 @@ setTimeout(myFunction, 300);
 
 	# setRangeMin
 	def setRangeMin(self, value):
-		for it in [self] + self.slices:
-			widget=it.widgets.range_min
-			with widget.disable_callbacks(): 
-				widget.value = vmin
-			it.color_map=None
+		with self.widgets.range_min.disable_callbacks(): 
+			self.widgets.range_min.value = vmin
+		self.color_map=None
 		self.refresh()
 
 	# setRangeMin
 	def setRangeMax(self, value):
-		for it in [self] + self.slices:
-			widget=it.widgets.range_max
-			with widget.disable_callbacks(): 
-				widget.value = vmin
-			it.color_map=None
-		self.refresh()			
-
-
+		with self.widgets.range_max.disable_callbacks(): 
+			self.widgets.range_max.value = vmin
+		self.color_map=None
+		self.refresh()
 
 	# getColorMapperType
 	def getColorMapperType(self):
@@ -920,11 +749,9 @@ setTimeout(myFunction, 300);
 	def setColorMapperType(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		palette = self.getPalette()
-		for it in [self] + self.slices:
-			widget=it.widgets.color_mapper_type
-			with widget.disable_callbacks():
-				widget.value = value
-			it.color_bar=None # force reneration of color_mapper
+		with self.widgets.color_mapper_type.disable_callbacks():
+			self.widgets.color_mapper_type.value = value
+		self.color_bar=None # force reneration of color_mapper
 		self.start()
 
 	# getNumberOfRefinements
@@ -934,10 +761,8 @@ setTimeout(myFunction, 300);
 	# setNumberOfRefinements
 	def setNumberOfRefinements(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		for it in [self] + self.slices:
-			widget=it.widgets.num_refinements
-			with widget.disable_callbacks():
-				widget.value = value
+		with self.widgets.num_refinements.disable_callbacks():
+			self.widgets.num_refinements.value = value
 		self.refresh()
 
 	# getResolution
@@ -952,12 +777,10 @@ setTimeout(myFunction, 300);
 	def setResolution(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		value = Clamp(value, 0, self.db.getMaxResolution())
-		for it in [self]+self.slices:
-			widget=it.widgets.resolution
-			with widget.disable_callbacks():
-				widget.start = self.start_resolution
-				widget.end   = self.db.getMaxResolution()
-				widget.value = value
+		with self.widgets.resolution.disable_callbacks():
+			self.widgets.resolution.start = self.start_resolution
+			self.widgets.resolution.end   = self.db.getMaxResolution()
+			self.widgets.resolution.value = value
 		self.refresh()
 
 	# isViewDependent
@@ -967,10 +790,8 @@ setTimeout(myFunction, 300);
 	# setViewDependent
 	def setViewDependent(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		for it in [self] + self.slices:
-			widget=it.widgets.view_dep
-			with widget.disable_callbacks():
-				widget.value = value
+		with self.widgets.view_dep.disable_callbacks():
+			self.widgets.view_dep.value = value
 		self.refresh()
 
 	# getDirections
@@ -980,8 +801,8 @@ setTimeout(myFunction, 300);
 	# setDirections
 	def setDirections(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		for it in [self] + self.slices:
-			it.widgets.direction.options = value
+		with self.widgets.direction.disable_callbacks():
+			self.widgets.direction.options = value
 
 	# getDirection
 	def getDirection(self):
@@ -993,21 +814,16 @@ setTimeout(myFunction, 300);
 		pdim = self.getPointDim()
 		if pdim == 2: value = 2
 		dims = [int(it) for it in self.db.getLogicSize()]
-
-		for it in [self] + self.slices:
-			widget=it.widgets.direction
-			with widget.disable_callbacks():
-				widget.value = value
-			it.triggerOnChange('direction', None, value)
+		with self.widgets.direction.disable_callbacks():
+			self.widgets.direction.value = value
+		self.triggerOnChange('direction', None, value)
 
 		# default behaviour is to guess the offset
 		offset_value,offset_range=self.guessOffset(value)
 		self.setOffsetRange(offset_range)  # both extrema included
 		self.setOffset(offset_value)
 
-		for it in [self] + self.slices:
-			if it.canvas:
-				it.setQueryLogicBox(([0]*pdim,dims))
+		self.setQueryLogicBox(([0]*pdim,dims))
 
 		self.refresh()
 
@@ -1038,15 +854,13 @@ setTimeout(myFunction, 300);
 	def setOffsetRange(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		A, B, step = value
-		for it in [self] +  self.slices:
-			widget=it.widgets.offset
-			with widget.disable_callbacks():
-				widget.start=A
-				widget.end=B
-				if widget.editable and step==0.0:
-					widget.step=1e-16 #  problem with editable slider and step==0
-				else:
-					widget.step=step
+		with self.widgets.offset.disable_callbacks():
+			self.widgets.offset.start=A
+			self.widgets.offset.end=B
+			if self.widgets.offset.editable and step==0.0:
+				self.widgets.offset.step=1e-16 #  problem with editable slider and step==0
+			else:
+				self.widgets.offset.step=step
 
 	# getOffset (in physic domain)
 	def getOffset(self):
@@ -1060,12 +874,10 @@ setTimeout(myFunction, 300);
 		if all([int(it) == it for it in self.getOffsetRange()]):
 			value = int(value)
 
-		for it in [self] + self.slices:
-			widget=it.widgets.offset
-			with widget.disable_callbacks():
-				widget.value = value
-				assert(widget.value == value)
-			it.triggerOnChange('offset', None, value)
+		with self.widgets.offset.disable_callbacks():
+			self.widgets.offset.value = value
+			assert(self.widgets.offset.value == value)
+		self.triggerOnChange('offset', None, value)
 		self.refresh()
 
 	# guessOffset
@@ -1195,12 +1007,9 @@ setTimeout(myFunction, 300);
 		if (t2 - self.play.t1) < float(self.getPlaySec()):
 			return
 
-		render_id = [self.render_id] + [it.render_id for it in self.slices]
-
-		if self.play.wait_render_id is not None:
-			if any([a < b for (a, b) in zip(render_id, self.play.wait_render_id) if a is not None and b is not None]):
-				# logger.debug(f"Waiting render {render_id} {self.play.wait_render_id}")
-				return
+		# wait
+		if self.play.wait_render_id is not None and self.render_id<self.play.wait_render_id:
+			return
 
 		# advance
 		T = self.getTimestep() + self.getTimestepDelta()
@@ -1212,17 +1021,9 @@ setTimeout(myFunction, 300);
 		logger.info(f"id={self.id}::playing timestep={T}")
 
 		# I will wait for the resolution to be displayed
-		self.play.wait_render_id = [(it + 1) if it is not None else None for it in render_id]
+		self.play.wait_render_id = self.render_id+1
 		self.play.t1 = time.time()
 		self.setTimestep(T)
-
-	# isLinked
-	def isLinked(self):
-		return self.linked
-
-	# setLinked
-	def setLinked(self, value):
-		self.linked = value
 
 	# onShowMetadataClick
 	def onShowMetadataClick(self):
@@ -1230,21 +1031,20 @@ setTimeout(myFunction, 300);
 
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self, value):
-		for it in [self] + self.slices:
-			it.widgets.scene.disabled = value
-			it.widgets.palette.disabled = value
-			it.widgets.timestep.disabled = value
-			it.widgets.timestep_delta.disabled = value
-			it.widgets.field.disabled = value
-			it.widgets.direction.disabled = value
-			it.widgets.offset.disabled = value
-			it.widgets.num_refinements.disabled = value
-			it.widgets.resolution.disabled = value
-			it.widgets.view_dep.disabled = value
-			it.widgets.status_bar["request"].disabled = value
-			it.widgets.status_bar["response"].disabled = value
-			it.widgets.play_button.disabled = value
-			it.widgets.play_sec.disabled = value
+		self.widgets.scene.disabled = value
+		self.widgets.palette.disabled = value
+		self.widgets.timestep.disabled = value
+		self.widgets.timestep_delta.disabled = value
+		self.widgets.field.disabled = value
+		self.widgets.direction.disabled = value
+		self.widgets.offset.disabled = value
+		self.widgets.num_refinements.disabled = value
+		self.widgets.resolution.disabled = value
+		self.widgets.view_dep.disabled = value
+		self.widgets.status_bar["request"].disabled = value
+		self.widgets.status_bar["response"].disabled = value
+		self.widgets.play_button.disabled = value
+		self.widgets.play_sec.disabled = value
 
 	# getPointDim
 	def getPointDim(self):
@@ -1252,7 +1052,6 @@ setTimeout(myFunction, 300);
 
 	# updateSceneBodyText
 	def updateSceneBodyText(self):
-		if self.parent: return self.parent.updateSceneBodyText()
 		body=self.getSceneBody()
 		body=json.dumps(body,indent=2)
 		with self.widgets.scene_body.disable_callbacks():
@@ -1260,10 +1059,8 @@ setTimeout(myFunction, 300);
 
 	# refresh
 	def refresh(self):
-		for it in [self] + self.slices:
-			if it.query_node:
-				it.aborted.setTrue()
-				it.new_job=True
+		self.aborted.setTrue()
+		self.new_job=True
 		self.updateSceneBodyText()
 
 	# getQueryLogicBox
@@ -1275,7 +1072,6 @@ setTimeout(myFunction, 300);
 	# setQueryLogicBox
 	def setQueryLogicBox(self,value):
 		assert(self.canvas)
-		logger.debug(f"# ------------------------------------------ ")
 		logger.debug(f"id={self.id} value={value}")
 		proj=self.toPhysic(value) 
 		(x1,y1),(x2,y2)=proj[0],proj[1]
@@ -1298,28 +1094,24 @@ setTimeout(myFunction, 300);
 
   # gotoPoint
 	def gotoPoint(self,point):
+		return 
 		logger.debug(f"id={self.id} point={point}")
 		pdim=self.getPointDim()
-		for it in [self] + self.slices:
-			# TODO
-			continue
 
-			if pdim==3:
-				dir=it.getDirection()
-				it.setOffset(point[dir])
-			
-			# the point should be centered in p3d
-			(p1,p2),dims=it.getQueryLogicBox(),it.getLogicSize()
-			p1,p2=list(p1),list(p2)
-			for I in range(pdim):
-				p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
-			it.setQueryLogicBox([p1,p2])
-			it.canvas.renderPoints([it.toPhysic(point)]) # COMMENTED OUT
+		if pdim==3:
+			dir=self.getDirection()
+			self.setOffset(point[dir])
+		
+		# the point should be centered in p3d
+		(p1,p2),dims=self.getQueryLogicBox(),self.getLogicSize()
+		p1,p2=list(p1),list(p2)
+		for I in range(pdim):
+			p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
+		self.setQueryLogicBox([p1,p2])
+		self.canvas.renderPoints([self.toPhysic(point)]) # COMMENTED OUT
   
 	# gotNewData
 	def gotNewData(self, result):
-
-		assert(self.parent and self.canvas)
 
 		data=result['data']
 		try:
@@ -1485,39 +1277,24 @@ setTimeout(myFunction, 300);
 		
 		self.last_job_pushed=time.time()
 		self.new_job=False
-
-		# link views
-		if self.isLinked() and self.parent:
-			idx=self.parent.slices.index(self)
-			for it in self.parent.slices:
-				if it!=self: 
-					it.setOffset(offset)
-					it.setQueryLogicBox(query_logic_box)
-
 		logger.debug(f"id={self.id} pushed new job query_logic_box={query_logic_box}")
 
 	# onIdle
 	def onIdle(self):
 
-		
+		if not self.db:
+			return
 
-		for it in [self] + self.slices:
+		if self.canvas and  self.canvas.getWidth()>0 and self.canvas.getHeight()>0:
+			self.playNextIfNeeded()
 
-			if not it.db:
-				continue
-
-			if it.canvas and  it.canvas.getWidth()>0 and it.canvas.getHeight()>0:
-				it.playNextIfNeeded()
-
-			if it.query_node:
-				result=it.query_node.popResult(last_only=True) 
-				if result is not None: 
-					it.gotNewData(result)
-				it.pushJobIfNeeded()
+		if self.query_node:
+			result=self.query_node.popResult(last_only=True) 
+			if result is not None: 
+				self.gotNewData(result)
+			self.pushJobIfNeeded()
 
 
-# an alias for backward compatibility
-Slices=Slice
 
 
 
