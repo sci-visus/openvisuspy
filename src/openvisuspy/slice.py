@@ -55,47 +55,11 @@ class Slice:
 		self.start()
 
 
+
 	# createGui
 	def createGui(self):
 
 		self.widgets = types.SimpleNamespace()
-
-		self.widgets.copy_url = Widgets.Input(visible=False)
-
-		self.widgets.menu = Widgets.MenuButton(name="File", 
-																				 items=[
-																					['Load/Save']*2, 
-																					['Show Metadata']*2, 
-																					['Copy Url']*2, None, 
-																					['Logout']*2 
-																				], 
-																				 button_type='primary',
-																				 callback={
-																					'Load/Save':self.showLoadSave, 
-																					'Show Metadata': self.showMetadata, 
-																					'Copy Url': self.copyUrlToClipboard
-																				 }, 
-																				 jsargs={"copy_url": self.widgets.copy_url},
-																				 jscallback="""
-function myFunction(){ 
-	if (menu.value=="Logout") {
-		logout_url=window.location.href + "/logout";
-		window.location=logout_url;
-		console.log("logout_url=" + logout_url);
-	}   
-
-	if (menu.value=="Copy Url") {
-		navigator.clipboard.writeText(copy_url.value);
-		console.log("copy_url.value=" + copy_url.value);
-	}   
-} 
-setTimeout(myFunction, 300);
-""")
-
-
-		self.widgets.menu=Column(
-			pn.Spacer(height=18),
-			self.widgets.menu, width=120)
 
 		self.widgets.scene                 = Widgets.Select   (name="Scene", options=[], width=180, callback=lambda name: self.setScene(name))
 		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
@@ -132,7 +96,94 @@ setTimeout(myFunction, 300);
 				}
 				"""])
 
-		
+		# open
+		def showOpen():
+
+			def onLoadClick(evt=None):
+				body=value.decode('ascii')
+				with self.widgets.scene_body.disable_callbacks():
+					self.widgets.scene_body.value=body
+				# self.setSceneBody(json.loads(body)) NOT SURE I WANT THIS
+				ShowInfoNotification('Load done')
+
+			file_input = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
+
+			# onEvalClick
+			def onEvalClick(evt=None):
+				body=json.loads(self.widgets.scene_body.value)
+				self.setSceneBody(body)
+				ShowInfoNotification('Eval done')
+
+			eval_button = Widgets.Button(name="Eval", callback=onEvalClick, align='end')
+			self.showDialog(
+				Column(
+					self.widgets.scene_body,
+					Row(file_input, eval_button, align='end'),
+					sizing_mode="stretch_both",align="end"
+				), 
+				width=600, height=700, name="Open")
+		self.widgets.open_button = Widgets.Button(icon="upload", callback=showOpen)
+
+
+		# save
+		def onSaveClick(evt=None):
+			body=json.dumps(self.getSceneBody(),indent=2)
+			self.widgets.save_button_proxy.value=body
+			ShowInfoNotification('Save done')
+			print(body)
+		self.widgets.save_button_proxy = Widgets.Input(visible=False)
+		self.widgets.save_button = Widgets.Button(icon="download", callback=onSaveClick)
+		self.widgets.save_button.js_on_click(args={"source": self.widgets.save_button_proxy}, code="""
+			function jsSave() {
+				console.log(source.value);
+				const link = document.createElement("a");
+				const file = new Blob([source.value], { type: 'text/plain' });
+				link.href = URL.createObjectURL(file);
+				link.download = "sample.txt";
+				link.click();
+				URL.revokeObjectURL(link.href);
+			}
+			setTimeout(jsSave,300);
+		""")
+
+
+		# copy url
+		def onCopyUrl(evt=None):
+			self.widgets.copy_url_button_proxy.value=self.getShareableUrl()
+			ShowInfoNotification('Copy url done')
+		self.widgets.copy_url_button_proxy = Widgets.Input(visible=False)
+		self.widgets.copy_url_button = Widgets.Button(icon="copy", callback=onCopyUrl)
+		self.widgets.copy_url_button.js_on_click(args={"source": self.widgets.copy_url_button_proxy}, code="""
+			function jsCopyUrl() {
+				console.log(source.value);
+				navigator.clipboard.writeText(source.value);
+			} 
+			setTimeout(jsCopyUrl,300);
+		""")
+
+		self.widgets.logout_button = Widgets.Button(icon="logout")
+		self.widgets.logout_button.js_on_click(args={"source": self.widgets.logout_button}, code="""
+			console.log("logging out...")
+			window.location=window.location.href + "/logout";
+		""")
+
+
+		# info
+		self.widgets.info_button = Widgets.Button(icon="info-circle",callback=self.showInfo)
+
+		# for icons see https://tabler.io/icons
+
+		self.widgets.menu=Column(
+			pn.Spacer(height=18),
+			Row(
+				self.widgets.open_button,
+				self.widgets.save_button,self.widgets.save_button_proxy,
+				self.widgets.info_button,
+				self.widgets.copy_url_button,self.widgets.copy_url_button_proxy,
+				self.widgets.logout_button,
+			),
+		)
+
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
@@ -178,17 +229,10 @@ setTimeout(myFunction, 300);
 				sizing_mode="stretch_both")
 
 		
-
-
 	# getShowOptions
 	def getShowOptions(self):
 		return self.show_options
 
-
-	# copyUrlToClipboard
-	def copyUrlToClipboard(self, evt=None):
-		self.widgets.copy_url.value=self.getShareableUrl()
-		ShowInfoNotification('Copy url done')
 
 	# getShareableUrl
 	def getShareableUrl(self):
@@ -481,50 +525,10 @@ setTimeout(myFunction, 300);
 		body=self.scenes[name]
 		self.setSceneBody(body)
 
-	# onEvalClick
-	def onEvalClick(self,evt=None):
-		body=json.loads(self.widgets.scene_body.value)
-		self.setSceneBody(body)
-		ShowInfoNotification('Eval done')
+	# showInfo
+	def showInfo(self):
 
-	# onLoadClick
-	def onLoadClick(self,value):
-		body=value.decode('ascii')
-
-		with self.widgets.scene_body.disable_callbacks():
-			self.widgets.scene_body.value=body
-
-		self.setSceneBody(json.loads(body))
-		ShowInfoNotification('Load done')
-
-	# onSaveClick
-	def onSaveClick(self,evt=None):
-		ret = io.StringIO(self.widgets.scene_body.value)
-		ret.seek(0)
-		ShowInfoNotification('Save done')
-		return ret
-
-	# showLoadSave
-	def showLoadSave(self):
-
-		eval_button = Widgets.Button(name="Eval", callback=self.onEvalClick, align='end')
-		load_button = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=self.onLoadClick)
-		save_button=Widgets.FileDownload(label="Save", filename='scene.json', callback=self.onSaveClick)
-
-		self.showDialog(
-			Column(
-				self.widgets.scene_body,
-				Row(eval_button, save_button,load_button, align='end'),
-				sizing_mode="stretch_both",align="end"
-			), 
-			width=600,
-			height=700,
-			name="Load/Save")
-
-	# showMetadata
-	def showMetadata(self):
-
-		logger.debug(f"Show metadata")
+		logger.debug(f"Show info")
 		body=self.scenes[self.getScene()]
 		metadata=body["scene"].get("metadata", [])
 
@@ -1052,8 +1056,7 @@ setTimeout(myFunction, 300);
 
 	# updateSceneBodyText
 	def updateSceneBodyText(self):
-		body=self.getSceneBody()
-		body=json.dumps(body,indent=2)
+		body=json.dumps(self.getSceneBody(),indent=2)
 		with self.widgets.scene_body.disable_callbacks():
 			self.widgets.scene_body.value=body
 

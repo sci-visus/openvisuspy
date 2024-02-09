@@ -1,9 +1,10 @@
 
+
+Todo
+- [DONE] remove `viewmode` and parent/child
 - copy url does not work
 - File menu in  jupyter lab does not show dialogs
 - add show-options
-- remove `viewmode` and parent/child
-- togliere viewmode
 - holoviews "param" tracking
 - pick di un range sul rettangolo
 - probe as a tool on top of Slice
