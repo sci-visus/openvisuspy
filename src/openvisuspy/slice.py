@@ -44,17 +44,14 @@ class Slice:
 		self.metadata_range         = [0.0, 255.0]
 		self.scenes                 = {}
 
-		self.dialogs={}
-		self.dialogs_placeholder=Column(height=0, width=0, visible=False)
-
-		self.show_options=[
-			["menu", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
-			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
-		]
 		self.createGui()
+
+		self.setShowOptions([ 
+			["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
+			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+		])
+
 		self.start()
-
-
 
 	# createGui
 	def createGui(self):
@@ -96,6 +93,9 @@ class Slice:
 				}
 				"""])
 
+		# info
+		self.widgets.info_button = Widgets.Button(icon="info-circle",callback=self.showInfo,width=20)
+
 		# open
 		def showOpen():
 
@@ -122,18 +122,18 @@ class Slice:
 					sizing_mode="stretch_both",align="end"
 				), 
 				width=600, height=700, name="Open")
-		self.widgets.open_button = Widgets.Button(icon="upload", callback=showOpen)
+		self.widgets.open_button = Widgets.Button(icon="file-upload", callback=showOpen,width=20)
 
 
 		# save
 		def onSaveClick(evt=None):
 			body=json.dumps(self.getSceneBody(),indent=2)
-			self.widgets.save_button_proxy.value=body
+			self.widgets.save_button_helper.value=body
 			ShowInfoNotification('Save done')
 			print(body)
-		self.widgets.save_button_proxy = Widgets.Input(visible=False)
-		self.widgets.save_button = Widgets.Button(icon="download", callback=onSaveClick)
-		self.widgets.save_button.js_on_click(args={"source": self.widgets.save_button_proxy}, code="""
+		self.widgets.save_button_helper = Widgets.Input(visible=False)
+		self.widgets.save_button = Widgets.Button(icon="file-download", callback=onSaveClick,width=20)
+		self.widgets.save_button.js_on_click(args={"source": self.widgets.save_button_helper}, code="""
 			function jsSave() {
 				console.log(source.value);
 				const link = document.createElement("a");
@@ -146,14 +146,13 @@ class Slice:
 			setTimeout(jsSave,300);
 		""")
 
-
 		# copy url
 		def onCopyUrl(evt=None):
-			self.widgets.copy_url_button_proxy.value=self.getShareableUrl()
+			self.widgets.copy_url_button_helper.value=self.getShareableUrl()
 			ShowInfoNotification('Copy url done')
-		self.widgets.copy_url_button_proxy = Widgets.Input(visible=False)
-		self.widgets.copy_url_button = Widgets.Button(icon="copy", callback=onCopyUrl)
-		self.widgets.copy_url_button.js_on_click(args={"source": self.widgets.copy_url_button_proxy}, code="""
+		self.widgets.copy_url_button_helper = Widgets.Input(visible=False)
+		self.widgets.copy_url_button = Widgets.Button(icon="copy", callback=onCopyUrl,width=20)
+		self.widgets.copy_url_button.js_on_click(args={"source": self.widgets.copy_url_button_helper}, code="""
 			function jsCopyUrl() {
 				console.log(source.value);
 				navigator.clipboard.writeText(source.value);
@@ -161,34 +160,19 @@ class Slice:
 			setTimeout(jsCopyUrl,300);
 		""")
 
-		self.widgets.logout_button = Widgets.Button(icon="logout")
+		self.widgets.logout_button = Widgets.Button(icon="logout",width=20)
 		self.widgets.logout_button.js_on_click(args={"source": self.widgets.logout_button}, code="""
 			console.log("logging out...")
 			window.location=window.location.href + "/logout";
 		""")
 
-
-		# info
-		self.widgets.info_button = Widgets.Button(icon="info-circle",callback=self.showInfo)
-
 		# for icons see https://tabler.io/icons
-
-		self.widgets.menu=Column(
-			pn.Spacer(height=18),
-			Row(
-				self.widgets.open_button,
-				self.widgets.save_button,self.widgets.save_button_proxy,
-				self.widgets.info_button,
-				self.widgets.copy_url_button,self.widgets.copy_url_button_proxy,
-				self.widgets.logout_button,
-			),
-		)
 
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
-		self.widgets.play_button            = Widgets.Button(name="Play", width=8, callback=self.togglePlay)
-		self.widgets.play_sec               = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
+		self.widgets.play_button = Widgets.Button(name="Play", width=8, callback=self.togglePlay)
+		self.widgets.play_sec    = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
 
 		self.idle_callback = None
 		self.color_bar     = None
@@ -204,35 +188,53 @@ class Slice:
 		self.canvas = Canvas(self.id)
 		self.canvas.on_viewport_change=lambda: self.refresh()
 
-		# create the main  layout
-		top=[
+		self.top_layout=Column(sizing_mode="stretch_width")
+
+		self.middle_layout=Column(
+			Row(self.canvas.main_layout, sizing_mode='stretch_both'),
+			sizing_mode='stretch_both'
+		)
+
+		self.bottom_layout=Column(
 			Row(
-				*[getattr(self.widgets,widget_name.replace("-","_")) for widget_name in single_row],
-				sizing_mode="stretch_width"
-			)
-			for single_row in self.show_options
-		]
-
-		middle=[
-			Row(self.canvas.main_layout, sizing_mode='stretch_both')
-		]
-
-		bottom=[
-			Row(self.widgets.status_bar["request"],
+					self.widgets.status_bar["request"],
 					self.widgets.status_bar["response"],
 					sizing_mode='stretch_width'
 				)
-		]
+			,sizing_mode="stretch_width"
+		)
 
-		self.main_layout=Column(*top,*middle,*bottom, 
-				self.dialogs_placeholder,
-				sizing_mode="stretch_both")
+		self.dialogs={}
+		self.dialogs_placeholder=Column(height=0, width=0, visible=False)
+
+		self.main_layout=Column(
+			self.top_layout,
+			self.middle_layout,
+			self.bottom_layout, 
+
+			self.dialogs_placeholder,
+			self.widgets.copy_url_button_helper,
+			self.widgets.save_button_helper,
+
+			sizing_mode="stretch_both"
+		)
 
 		
 	# getShowOptions
 	def getShowOptions(self):
 		return self.show_options
 
+	# setShowOptions
+	def setShowOptions(self, value):
+		self.show_options=value
+		self.top_layout.clear()
+		for row in value:
+			widgets=[]
+			for widget in row:
+				if isinstance(widget,str):
+					widget=getattr(self.widgets, widget.replace("-","_"))
+				widgets.append(widget)
+			self.top_layout.append(Row(*widgets,sizing_mode="stretch_width"))
 
 	# getShareableUrl
 	def getShareableUrl(self):
