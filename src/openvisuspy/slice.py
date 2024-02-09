@@ -46,10 +46,12 @@ class Slice:
 
 		self.createGui()
 
-		self.setShowOptions([ 
+		self.default_show_options=[ 
 			["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
 			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
-		])
+		]
+
+		self.setShowOptions(self.default_show_options)
 
 		self.start()
 
@@ -234,7 +236,8 @@ class Slice:
 				if isinstance(widget,str):
 					widget=getattr(self.widgets, widget.replace("-","_"))
 				widgets.append(widget)
-			self.top_layout.append(Row(*widgets,sizing_mode="stretch_width"))
+			if widgets:
+				self.top_layout.append(Row(*widgets,sizing_mode="stretch_width"))
 
 	# getShareableUrl
 	def getShareableUrl(self):
@@ -512,6 +515,9 @@ class Slice:
 			x1,x2=x-w/2.0, x+w/2.0
 			y1,y2=y-h/2.0, y+h/2.0
 			self.canvas.setViewport([(x1,x2),(y1,y2)])
+
+		show_options=scene.get("show-options",self.default_show_options)
+		self.setShowOptions(show_options)
 
 		self.start()
 		self.triggerOnChange('scene', None, name)
