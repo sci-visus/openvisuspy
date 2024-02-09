@@ -46,10 +46,15 @@ class Slice:
 
 		self.createGui()
 
-		self.default_show_options=[ 
-			["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
-			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
-		]
+		self.default_show_options={
+			"top": [
+				["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
+				["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+			],
+			"bottom": [
+				["request","response"]
+			]
+		}
 
 		self.setShowOptions(self.default_show_options)
 
@@ -78,10 +83,8 @@ class Slice:
 		self.widgets.direction             = Widgets.Select   (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80, callback=lambda new_value: self.setDirection(new_value))
 		self.widgets.offset                = Widgets.Slider   (name="Offset", type="float", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  sizing_mode="stretch_width", callback=self.setOffset)
 		
-		# status_bar
-		self.widgets.status_bar = {}
-		self.widgets.status_bar["request" ] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
-		self.widgets.status_bar["response"] = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
+		self.widgets.request               = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
+		self.widgets.response              = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
 
 		self.widgets.scene_body=Widgets.TextAreaInput(
 			name='Current',
@@ -197,14 +200,7 @@ class Slice:
 			sizing_mode='stretch_both'
 		)
 
-		self.bottom_layout=Column(
-			Row(
-					self.widgets.status_bar["request"],
-					self.widgets.status_bar["response"],
-					sizing_mode='stretch_width'
-				)
-			,sizing_mode="stretch_width"
-		)
+		self.bottom_layout=Column(sizing_mode="stretch_width")
 
 		self.dialogs={}
 		self.dialogs_placeholder=Column(height=0, width=0, visible=False)
@@ -229,15 +225,17 @@ class Slice:
 	# setShowOptions
 	def setShowOptions(self, value):
 		self.show_options=value
-		self.top_layout.clear()
-		for row in value:
-			widgets=[]
-			for widget in row:
-				if isinstance(widget,str):
-					widget=getattr(self.widgets, widget.replace("-","_"))
-				widgets.append(widget)
-			if widgets:
-				self.top_layout.append(Row(*widgets,sizing_mode="stretch_width"))
+		for layout, position in ((self.top_layout,"top"),(self.bottom_layout,"bottom")):
+			layout.clear()
+			for row in value.get(position,[[]]):
+				v=[]
+				for widget in row:
+					if isinstance(widget,str):
+						widget=getattr(self.widgets, widget.replace("-","_"))
+					v.append(widget)
+				if v: layout.append(Row(*v,sizing_mode="stretch_width"))
+
+		# bottom
 
 	# getShareableUrl
 	def getShareableUrl(self):
@@ -401,11 +399,6 @@ class Slice:
 		default_scene=self.scenes[name]["scene"]
 		url =default_scene["url"]
 		urls=default_scene.get("urls",{})
-
-		# TODO: read show-options
-		#show_options=scene.get("show-options",self.show_options)
-		#if show_options!=self.show_options:
-		#	self.setShowOptions(show_options)
 
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
 		if "urls" in scene:
@@ -1053,8 +1046,8 @@ class Slice:
 		self.widgets.num_refinements.disabled = value
 		self.widgets.resolution.disabled = value
 		self.widgets.view_dep.disabled = value
-		self.widgets.status_bar["request"].disabled = value
-		self.widgets.status_bar["response"].disabled = value
+		self.widgets.request.disabled = value
+		self.widgets.response.disabled = value
 		self.widgets.play_button.disabled = value
 		self.widgets.play_sec.disabled = value
 
@@ -1205,7 +1198,7 @@ class Slice:
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
 		self.H=result['H']
 		query_status="running" if result['running'] else "FINISHED"
-		self.widgets.status_bar["response"].value=" ".join([
+		self.widgets.response.value=" ".join([
 			f"#{result['I']+1}",
 			f"{str(logic_box).replace(' ','')}",
 			f"{data.shape[0]}x{data.shape[1]}",
@@ -1271,8 +1264,8 @@ class Slice:
 		timestep=self.getTimestep()
 		field=self.getField()
 		box_i=[[int(it) for it in jt] for jt in query_logic_box]
-		self.widgets.status_bar["request"].value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
-		self.widgets.status_bar["response"].value="Running..."
+		self.widgets.request.value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
+		self.widgets.response.value="Running..."
 
 		self.query_node.pushJob(
 			self.db, 
