@@ -17,7 +17,7 @@ if __name__.startswith('bokeh'):
 		log_level ="DEBUG",
 		notifications=True, 
 		sizing_mode="stretch_width",
-		template="fast",
+		# template="fast",
 		#theme="default",
 	)
 

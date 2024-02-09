@@ -89,12 +89,35 @@ class Slice:
 
 		self.widgets.copy_url = Widgets.Input(visible=False)
 
-		self.widgets.menu = Widgets.MenuButton(name='File', 
-																				 items=[['Load/Save']*2, ['Show Metadata']*2, ['Copy Url']*2, None, ['Logout']*2 ], 
+		self.widgets.menu = Widgets.MenuButton(name="File", 
+																				 items=[
+																					['Load/Save']*2, 
+																					['Show Metadata']*2, 
+																					['Copy Url']*2, None, 
+																					['Logout']*2 
+																				], 
 																				 button_type='primary',
-																				 callback={'Load/Save':self.showLoadSave, 'Show Metadata': self.showMetadata, 'Copy Url': self.copyUrlToClipboard}, 
+																				 callback={
+																					'Load/Save':self.showLoadSave, 
+																					'Show Metadata': self.showMetadata, 
+																					'Copy Url': self.copyUrlToClipboard
+																				 }, 
 																				 jsargs={"copy_url": self.widgets.copy_url},
-																				 jscallback="""function myFunction(){ if (menu.value=="Logout") {logout_url=window.location.href + "/logout";window.location=logout_url;console.log("logout_url=" + logout_url);}   if (menu.value=="Copy Url") {navigator.clipboard.writeText(copy_url.value);console.log("copy_url.value=" + copy_url.value);}   } setTimeout(myFunction, 300);""")
+																				 jscallback="""
+function myFunction(){ 
+	if (menu.value=="Logout") {
+		logout_url=window.location.href + "/logout";
+		window.location=logout_url;
+		console.log("logout_url=" + logout_url);
+	}   
+
+	if (menu.value=="Copy Url") {
+		navigator.clipboard.writeText(copy_url.value);
+		console.log("copy_url.value=" + copy_url.value);
+	}   
+} 
+setTimeout(myFunction, 300);
+""")
 
 
 		self.widgets.menu=Column(
@@ -611,7 +634,7 @@ class Slice:
 		body=value.decode('ascii')
 
 		with self.widgets.scene_body.disable_callbacks():
-			self.widgets.scene_body.value.value=body
+			self.widgets.scene_body.value=body
 
 		self.setSceneBody(json.loads(body))
 		ShowInfoNotification('Load done')
@@ -626,7 +649,7 @@ class Slice:
 	# showLoadSave
 	def showLoadSave(self):
 
-		eval_button = Widgets.Button(name="Eval", callback=self.onEvalClick,align='end')
+		eval_button = Widgets.Button(name="Eval", callback=self.onEvalClick, align='end')
 		load_button = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=self.onLoadClick)
 		save_button=Widgets.FileDownload(label="Save", filename='scene.json', callback=self.onSaveClick)
 

@@ -38,7 +38,6 @@ class Canvas:
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
 		self.on_viewport_change=None
-		self.last_fig_viewport=None
 		self.setViewport([(0,256),(0,256)])
 		AddPeriodicCallback(self.onIdle,1000//30)
 
@@ -51,10 +50,9 @@ class Canvas:
 		if W==0 or H==0:  
 			return
 
-		# note: bokeh is changing figure viewport internally without notifying any event to the outside
-		fig_viewport=self.__getFigureViewport()
-
 		# some zoom in/out or panning happened (handled by bokeh) 
+		# note: no need to fix the aspect ratio in this case
+		fig_viewport=self.__getFigureViewport()
 		if fig_viewport!=self.user_viewport:
 			(x1,x2),(y1,y2)=fig_viewport 
 			self.user_viewport=[(x1,x2),(y1,y2)]
@@ -62,19 +60,24 @@ class Canvas:
 				self.on_viewport_change()
 			return
 
-		# I may need to fix the aspect ratio 
-		(x1,x2),(y1,y2)=self.user_viewport 
-		w,cx =(x2-x1),(x1+x2)/2.0
-		h,cy =(y2-y1),(y1+y2)/2.0
-		if (w/W) > (h/H): 
-			h=(w/W)*H 
-		else: 
-			w=(h/H)*W
-		x1,x2=cx-w/2,cx+w/2
-		y1,y2=cy-h/2,cy+h/2
-		value=[(x1,x2),(y1,y2)]
+		# I need to fix the aspect ratio , since only now I may have got the real canvas dimension
+		if True:
+			(x1,x2),(y1,y2)=self.user_viewport # using the last value set by the user
+			w,cx =(x2-x1),(x1+x2)/2.0
+			h,cy =(y2-y1),(y1+y2)/2.0
+			if (w/W) > (h/H): 
+				h=(w/W)*H 
+			else: 
+				w=(h/H)*W
+			x1,x2=cx-w/2,cx+w/2
+			y1,y2=cy-h/2,cy+h/2
+			value=[(x1,x2),(y1,y2)]
 
-		if value==self.user_viewport: return
+		# nothing changed
+		if value==self.user_viewport: 
+			return
+
+		# viewport changed, notify to the external too
 		self.user_viewport=value
 		self.__setFigureViewport(value)
 		if self.on_viewport_change:
@@ -256,7 +259,7 @@ def GetPalettes():
 
 # ////////////////////////////////////////////////////////
 def ShowInfoNotification(msg):
-	pn.state.notifications.info('Copy url done')
+	pn.state.notifications.info(msg)
 
 # ////////////////////////////////////////////////////////
 def GetCurrentUrl():
