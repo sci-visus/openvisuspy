@@ -202,15 +202,15 @@ class Slice:
 
 		self.bottom_layout=Column(sizing_mode="stretch_width")
 
-		self.dialogs={}
-		self.dialogs_placeholder=Column(height=0, width=0, visible=False)
+		self.dialogs=Column()
+		self.dialogs.visible=False
 
 		self.main_layout=Column(
 			self.top_layout,
 			self.middle_layout,
 			self.bottom_layout, 
 
-			self.dialogs_placeholder,
+			self.dialogs,
 			self.widgets.copy_url_button_helper,
 			self.widgets.save_button_helper,
 
@@ -580,10 +580,8 @@ class Slice:
 		if not "contained" in kwargs:
 			kwargs["contained"]=False
 
-		self.dialogs[name]=FloatPanel(*args, **kwargs)
-		self.dialogs_placeholder[:]=[v for k,v in self.dialogs.items()]
-
-		# self.xxx=pn.layout.FloatPanel("Try dragging me around.", name="Free Floating FloatPanel", contained=False, position='center')
+		float_panel=FloatPanel(*args, **kwargs)
+		self.dialogs.append(float_panel)
 
 	# getTimesteps
 	def getTimesteps(self):
