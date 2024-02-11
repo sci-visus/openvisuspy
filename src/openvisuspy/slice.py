@@ -34,11 +34,13 @@ DEFAULT_SHOW_OPTIONS={
 }
 
 
+
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
 
-	# widgets
+	render_id               = Widgets.Slider   (name="RenderId", type="int", value=0)
 
+	# widgets
 	scene                  = Widgets.Select   (name="Scene", options=[], width=180, )
 	timestep               = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True,  sizing_mode="stretch_width")
 	timestep_delta         = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60)
@@ -78,6 +80,8 @@ class Slice(param.Parameterized):
 			}
 			"""])
 
+	
+
 	# constructor
 	def __init__(self):
 
@@ -90,7 +94,6 @@ class Slice(param.Parameterized):
 		
 		self.db = None
 		self.access = None
-		self.render_id = 0 
 
 		# translate and scale for each dimension
 		self.logic_to_physic        = [(0.0, 1.0)] * 3
@@ -125,6 +128,8 @@ class Slice(param.Parameterized):
 		self.setShowOptions(DEFAULT_SHOW_OPTIONS)
 
 		self.start()
+
+
 
 	# open
 	def showOpen(self):
@@ -992,7 +997,7 @@ class Slice(param.Parameterized):
 			return
 
 		# wait
-		if self.play.wait_render_id is not None and self.render_id<self.play.wait_render_id:
+		if self.play.wait_render_id is not None and self.render_id.value<self.play.wait_render_id:
 			return
 
 		# advance
@@ -1005,7 +1010,7 @@ class Slice(param.Parameterized):
 		logger.info(f"id={self.id}::playing timestep={T}")
 
 		# I will wait for the resolution to be displayed
-		self.play.wait_render_id = self.render_id+1
+		self.play.wait_render_id = self.render_id.value+1
 		self.play.t1 = time.time()
 		self.setTimestep(T)
 
@@ -1156,7 +1161,6 @@ class Slice(param.Parameterized):
 			mapper_low =max(EPSILON, low ) if is_log else low
 			mapper_high=max(EPSILON, high) if is_log else high
 			
-
 			self.color_bar = ColorBar(color_mapper = 
 				LogColorMapper   (palette=palette, low=mapper_low, high=mapper_high) if is_log else 
 				LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
@@ -1184,9 +1188,8 @@ class Slice(param.Parameterized):
 			f"{result['msec']}msec",
 			str(query_status)
 		])
-		self.render_id+=1 
 
-		# self.triggerOnChange("data", None, data)
+		self.render_id.value=self.render_id.value+1 
   
 
 	# pushJobIfNeeded

@@ -4,8 +4,8 @@ Todo
 - [DONE] remove `viewmode` and parent/child
 - [DONE] copy url does not work
 - [DONE] add show-options
-- File menu in  jupyter lab does not show floating panels
-- holoviews "param" tracking
+- [DONE] File menu in  jupyter lab does not show floating panels
+- [DONE] holoviews "param" tracking
 - pick of a range with a rectable (or even for a point)... at full res
 - probe as a tool on top of Slice
 - helper - with all query parameters
