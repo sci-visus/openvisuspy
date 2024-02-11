@@ -32,6 +32,7 @@ class Canvas:
 		self.id=id
 		self.fig=None
 		self.on_double_tab=[]
+		self.on_selection_geometry=[]
 		self.main_layout=Row(sizing_mode="stretch_both")	
 		self.createFigure() 
 		self.source_image = ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
@@ -86,8 +87,12 @@ class Canvas:
 
 	# on_event
 	def on_event(self, evt, callback):
-		assert(evt==DoubleTap)
-		self.on_double_tab.append(callback)
+		if evt==DoubleTap:
+			self.on_double_tab.append(callback)
+		elif evt==SelectionGeometry:
+			self.on_selection_geometry.append(callback)
+		else:
+			raise Exception("error")
 
 	# createFigure
 	def createFigure(self):
@@ -132,12 +137,13 @@ class Canvas:
 			self.fig.on_event(SelectionGeometry, lambda s: print("JHERE"))
 		else:
 
-			def MyCallback(attr,old,new):
-				j=json.loads(new)
-				print("MyCallback",j)
+			def emitSelectionGeometry(attr,old,new):
+				evt=json.loads(new)
+				logger.info(f"emitSelectionGeometry {evt}")
+				for fn in self.on_selection_geometry: fn(evt)
 
 			tool_helper=bokeh.models.TextInput()
-			tool_helper.on_change('value', MyCallback)
+			tool_helper.on_change('value', emitSelectionGeometry)
 
 			self.fig.js_on_event(SelectionGeometry, CustomJS(
 				args=dict(tool_helper=tool_helper), 
