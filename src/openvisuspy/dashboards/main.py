@@ -39,7 +39,6 @@ if __name__.startswith('bokeh'):
 		app = probe.getMainLayout()
 	else:
 		app = slice.getMainLayout()
-
 	
 	app.servable()
 

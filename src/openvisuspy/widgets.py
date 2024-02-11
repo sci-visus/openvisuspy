@@ -31,6 +31,7 @@ class Canvas:
 	def __init__(self, id):
 		self.id=id
 		self.fig=None
+		self.on_double_tab=[]
 		self.main_layout=Row(sizing_mode="stretch_both")	
 		self.createFigure() 
 		self.source_image = ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
@@ -83,9 +84,10 @@ class Canvas:
 		if self.on_viewport_change:
 			self.on_viewport_change()
 
-	# onDoubleTap
-	def onDoubleTap(self,evt):
-		pass
+	# on_event
+	def on_event(self, evt, callback):
+		assert(evt==DoubleTap)
+		self.on_double_tab.append(callback)
 
 	# createFigure
 	def createFigure(self):
@@ -99,8 +101,9 @@ class Canvas:
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
 		# if old: old_remove_on_event(DoubleTap, self.onDoubleTap) cannot find old_remove_on_event
-
-		self.fig.on_event(DoubleTap, self.onDoubleTap)
+		def onDoubleTap(evt):
+			for callback in self.on_double_tab: callback(evt)
+		self.fig.on_event(DoubleTap, onDoubleTap)
 
 		# TODO: keep the renderers but not the
 		if old is not None:
