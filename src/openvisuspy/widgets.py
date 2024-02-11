@@ -9,9 +9,10 @@ import bokeh.models
 import bokeh.events
 
 from bokeh.models import LinearColorMapper,LogColorMapper,ColorBar,ColumnDataSource,Range1d
-from bokeh.events import DoubleTap
+from bokeh.events import DoubleTap,SelectionGeometry
 from bokeh.plotting import figure as Figure
 from bokeh.models.scales import LinearScale,LogScale
+
 
 import panel as pn
 from panel import Column,Row,GridBox,Card
