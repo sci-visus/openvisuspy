@@ -17,15 +17,72 @@ from .widgets import Canvas as Canvas
 
 logger = logging.getLogger(__name__)
 
+import param
 
+DEFAULT_START_RESOLUTION = 20
+SLICE_ID=0
+EPSILON = 0.001
 
+DEFAULT_SHOW_OPTIONS={
+	"top": [
+		["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
+		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+	],
+	"bottom": [
+		["request","response"]
+	]
+}
+
+import inspect
+
+def fname():
+    # get the frame object of the function
+    frame = inspect.currentframe()
+    return frame.f_code.co_name
 
 # ////////////////////////////////////////////////////////////////////////////////////
-class Slice:
+class Slice(param.Parameterized):
 
-	ID = 0
-	epsilon = 0.001
-	start_resolution = 20
+	# widgets
+
+	scene                  = Widgets.Select   (name="Scene", options=[], width=180, )
+	timestep               = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True,  sizing_mode="stretch_width")
+	timestep_delta         = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60)
+	field                  = Widgets.Select   (name='Field', options=[], value='data', width=80)
+	palette                = Widgets.ColorMap (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=220)
+	range_mode             = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120)
+	range_min              = Widgets.Input    (name="Min", type="float",width=80)
+	range_max              = Widgets.Input    (name="Max", type="float",width=80)
+	color_mapper_type      = Widgets.Select   (name="Mapper", options=["linear", "log", ],width=80)
+	resolution             = Widgets.Slider   (name='Res', type="int", value=21, start=DEFAULT_START_RESOLUTION, editable=False, end=99,  sizing_mode="stretch_width")
+	view_dep               = Widgets.Select   (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
+	num_refinements        = Widgets.Slider   (name='#Ref', type="int", value=0, start=0, end=4, editable=False, width=80)
+	direction              = Widgets.Select   (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
+	offset                 = Widgets.Slider   (name="Offset", type="float", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  sizing_mode="stretch_width")
+	play_button            = Widgets.Button   (name="Play", width=8)
+	play_sec               = Widgets.Select   (name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
+	request                = Widgets.Input    (name="", type="text", sizing_mode='stretch_width', disabled=False)
+	response               = Widgets.Input    (name="", type="text", sizing_mode='stretch_width', disabled=False)
+	info_button            = Widgets.Button   (icon="info-circle",width=20)
+	open_button            = Widgets.Button   (icon="file-upload",width=20)
+	save_button_helper     = Widgets.Input    (visible=False)
+	save_button            = Widgets.Button   (icon="file-download",width=20)
+	copy_url_button_helper = Widgets.Input    (visible=False)
+	copy_url_button        = Widgets.Button   (icon="copy",width=20)
+	logout_button          = Widgets.Button   (icon="logout",width=20)
+
+
+	scene_body=Widgets.TextAreaInput(
+		name='Current',
+		sizing_mode="stretch_width",
+		height=520,
+		stylesheets=["""
+			.bk-input {
+				background-color: rgb(48, 48, 64);
+				color: white;
+				font-size: small;
+			}
+			"""])
 
 	# constructor
 	def __init__(self):
@@ -33,8 +90,9 @@ class Slice:
 		self.on_change_callbacks={}
 
 		self.num_hold=0
-		self.id=Slice.ID
-		Slice.ID += 1
+		global SLICE_ID
+		self.id=SLICE_ID
+		SLICE_ID += 1
 		
 		self.db = None
 		self.access = None
@@ -46,99 +104,77 @@ class Slice:
 
 		self.createGui()
 
-		self.default_show_options={
-			"top": [
-				["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
-				["field","direction", "offset", "range_mode", "range_min",  "range_max"]
-			],
-			"bottom": [
-				["request","response"]
-			]
-		}
+		self.scene.param.watch(lambda evt: self.setScene(evt.new),"value")
+		self.timestep.param.watch(lambda evt:self.setTimestep(evt.new), "value")
+		self.timestep_delta.param.watch(lambda evt: self.setTimestepDelta(self.speedFromOption(evt.new)),"value")
+		self.field.param.watch(lambda evt: self.setField(evt.new),"value")
 
-		self.setShowOptions(self.default_show_options)
+		self.palette.param.watch(lambda evt: self.setPalette(evt.new),"value_name")
+		self.range_mode.param.watch(lambda evt: self.setRangeMode(evt.new),"value")
+		self.range_min.param.watch(lambda evt: self.setRangeMin(evt.new) if self.getRangeMode() == "user" else None,"value")
+		self.range_max.param.watch(lambda evt: self.setRangeMax(evt.new) if self.getRangeMode() == "user" else None,"value")
+		self.color_mapper_type.param.watch(lambda evt: self.setColorMapperType(evt.new),"value")
+		
+		self.resolution.param.watch(lambda evt: self.setResolution(evt.new),"value")
+		self.view_dep.param.watch(lambda evt: self.setViewDependent(evt.new),"value")
+		self.num_refinements.param.watch(lambda evt: self.setNumberOfRefinements(evt.new),"value")
+		self.direction.param.watch(lambda evt: self.setDirection(evt.new),"value")
+		self.offset.param.watch(lambda evt: self.setOffset(evt.new),"value")
+
+		self.info_button.param.watch(lambda evt=None:self.showInfo(),"value")
+		self.open_button.param.watch(lambda evt=None:self.showOpen(),"value")
+		self.save_button.param.watch(lambda evt=None:self.save(),"value")
+		self.copy_url_button.param.watch(lambda evt=None: copyUrl(evt),"value")
+		self.play_button.param.watch(lambda evt=None: self.togglePlay(),"value")
+
+		self.setShowOptions(DEFAULT_SHOW_OPTIONS)
 
 		self.start()
+
+	# open
+	def showOpen():
+
+		def onLoadClick(evt=None):
+			body=value.decode('ascii')
+			self.scene_body.value=body
+			# self.setSceneBody(json.loads(body)) NOT SURE I WANT THIS
+			ShowInfoNotification('Load done')
+
+		file_input = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
+
+		# onEvalClick
+		def onEvalClick(evt=None):
+			body=json.loads(self.scene_body.value)
+			self.setSceneBody(body)
+			ShowInfoNotification('Eval done')
+
+		eval_button = Widgets.Button(name="Eval", callback=onEvalClick, align='end')
+		self.showDialog(
+			Column(
+				self.scene_body,
+				Row(file_input, eval_button, align='end'),
+				sizing_mode="stretch_both",align="end"
+			), 
+			width=600, height=700, name="Open")
+	
+
+	# save
+	def save(evt=None):
+		body=json.dumps(self.getSceneBody(),indent=2)
+		self.save_button_helper.value=body
+		ShowInfoNotification('Save done')
+		print(body)
+
+	# copy url
+	def copyUrl(evt=None):
+		self.copy_url_button_helper.value=self.getShareableUrl()
+		ShowInfoNotification('Copy url done')
+
 
 	# createGui
 	def createGui(self):
 
-		self.widgets = types.SimpleNamespace()
-
-		self.widgets.scene                 = Widgets.Select   (name="Scene", options=[], width=180, callback=lambda name: self.setScene(name))
-		self.widgets.timestep              = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True, callback=self.setTimestep,  sizing_mode="stretch_width")
-		self.widgets.timestep_delta        = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60, callback=lambda new_value: self.setTimestepDelta(self.speedFromOption(new_value)))
-		self.widgets.field                 = Widgets.Select   (name='Field', options=[], value='data', callback=self.setField, width=80)
-
-		self.widgets.palette               = Widgets.ColorMap (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5, callback=self.setPalette,  width=220)
-		self.widgets.range_mode            = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120,callback=self.setRangeMode)
-		self.widgets.range_min             = Widgets.Input    (name="Min", type="float", callback=lambda new_value: self.setRangeMin(new_value) if self.getRangeMode() == "user" else None,width=80)
-		self.widgets.range_max             = Widgets.Input    (name="Max", type="float", callback=lambda new_value: self.setRangeMax(new_value) if self.getRangeMode() == "user" else None,width=80)
-		self.widgets.color_mapper_type     = Widgets.Select   (name="Mapper", options=["linear", "log", ], callback=self.setColorMapperType,width=80)
-		
-		self.widgets.resolution            = Widgets.Slider   (name='Res', type="int", value=21, start=self.start_resolution, editable=False, end=99, callback=self.setResolution,  sizing_mode="stretch_width")
-		self.widgets.view_dep              = Widgets.Select   (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80, callback=lambda new_value: self.setViewDependent(new_value))
-		self.widgets.num_refinements       = Widgets.Slider   (name='#Ref', type="int", value=0, start=0, end=4, editable=False, width=80, callback=self.setNumberOfRefinements)
-
-		self.widgets.direction             = Widgets.Select   (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80, callback=lambda new_value: self.setDirection(new_value))
-		self.widgets.offset                = Widgets.Slider   (name="Offset", type="float", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  sizing_mode="stretch_width", callback=self.setOffset)
-		
-		self.widgets.request               = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
-		self.widgets.response              = Widgets.Input(name="", type="text", sizing_mode='stretch_width', disabled=False)
-
-		self.widgets.scene_body=Widgets.TextAreaInput(
-			name='Current',
-			sizing_mode="stretch_width",
-			height=520,
-			stylesheets=["""
-				.bk-input {
-					background-color: rgb(48, 48, 64);
-					color: white;
-					font-size: small;
-				}
-				"""])
-
-		# info
-		self.widgets.info_button = Widgets.Button(icon="info-circle",callback=self.showInfo,width=20)
-
-		# open
-		def showOpen():
-
-			def onLoadClick(evt=None):
-				body=value.decode('ascii')
-				with self.widgets.scene_body.disable_callbacks():
-					self.widgets.scene_body.value=body
-				# self.setSceneBody(json.loads(body)) NOT SURE I WANT THIS
-				ShowInfoNotification('Load done')
-
-			file_input = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
-
-			# onEvalClick
-			def onEvalClick(evt=None):
-				body=json.loads(self.widgets.scene_body.value)
-				self.setSceneBody(body)
-				ShowInfoNotification('Eval done')
-
-			eval_button = Widgets.Button(name="Eval", callback=onEvalClick, align='end')
-			self.showDialog(
-				Column(
-					self.widgets.scene_body,
-					Row(file_input, eval_button, align='end'),
-					sizing_mode="stretch_both",align="end"
-				), 
-				width=600, height=700, name="Open")
-		self.widgets.open_button = Widgets.Button(icon="file-upload", callback=showOpen,width=20)
-
-
-		# save
-		def onSaveClick(evt=None):
-			body=json.dumps(self.getSceneBody(),indent=2)
-			self.widgets.save_button_helper.value=body
-			ShowInfoNotification('Save done')
-			print(body)
-		self.widgets.save_button_helper = Widgets.Input(visible=False)
-		self.widgets.save_button = Widgets.Button(icon="file-download", callback=onSaveClick,width=20)
-		self.widgets.save_button.js_on_click(args={"source": self.widgets.save_button_helper}, code="""
+		self.save_button.js_on_click(args={"source": self.save_button_helper}, code="""
 			function jsSave() {
 				console.log(source.value);
 				const link = document.createElement("a");
@@ -151,13 +187,8 @@ class Slice:
 			setTimeout(jsSave,300);
 		""")
 
-		# copy url
-		def onCopyUrl(evt=None):
-			self.widgets.copy_url_button_helper.value=self.getShareableUrl()
-			ShowInfoNotification('Copy url done')
-		self.widgets.copy_url_button_helper = Widgets.Input(visible=False)
-		self.widgets.copy_url_button = Widgets.Button(icon="copy", callback=onCopyUrl,width=20)
-		self.widgets.copy_url_button.js_on_click(args={"source": self.widgets.copy_url_button_helper}, code="""
+
+		self.copy_url_button.js_on_click(args={"source": self.copy_url_button_helper}, code="""
 			function jsCopyUrl() {
 				console.log(source.value);
 				navigator.clipboard.writeText(source.value);
@@ -165,8 +196,8 @@ class Slice:
 			setTimeout(jsCopyUrl,300);
 		""")
 
-		self.widgets.logout_button = Widgets.Button(icon="logout",width=20)
-		self.widgets.logout_button.js_on_click(args={"source": self.widgets.logout_button}, code="""
+		self.logout_button = Widgets.Button(icon="logout",width=20)
+		self.logout_button.js_on_click(args={"source": self.logout_button}, code="""
 			console.log("logging out...")
 			window.location=window.location.href + "/logout";
 		""")
@@ -176,8 +207,6 @@ class Slice:
 		# play time
 		self.play = types.SimpleNamespace()
 		self.play.is_playing = False
-		self.widgets.play_button = Widgets.Button(name="Play", width=8, callback=self.togglePlay)
-		self.widgets.play_sec    = Widgets.Select(name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
 
 		self.idle_callback = None
 		self.color_bar     = None
@@ -211,13 +240,12 @@ class Slice:
 			self.bottom_layout, 
 
 			self.dialogs,
-			self.widgets.copy_url_button_helper,
-			self.widgets.save_button_helper,
+			self.copy_url_button_helper,
+			self.save_button_helper,
 
 			sizing_mode="stretch_both"
 		)
 
-		
 	# getShowOptions
 	def getShowOptions(self):
 		return self.show_options
@@ -231,8 +259,9 @@ class Slice:
 				v=[]
 				for widget in row:
 					if isinstance(widget,str):
-						widget=getattr(self.widgets, widget.replace("-","_"))
-					v.append(widget)
+						widget=getattr(self, widget.replace("-","_"),None)
+					if widget:
+						v.append(widget)
 				if v: layout.append(Row(*v,sizing_mode="stretch_width"))
 
 		# bottom
@@ -371,8 +400,7 @@ class Slice:
 			if "name" in it:
 				self.scenes[it["name"]]={"scene": it}
 
-		with self.widgets.scene.disable_callbacks():
-			self.widgets.scene.options = list(self.scenes)
+		self.scene.options = list(self.scenes)
 
 		if self.scenes:
 			self.setScene(list(self.scenes)[0])
@@ -422,8 +450,7 @@ class Slice:
 		# update the GUI too
 		self.db    =db
 		self.access=db.createAccess()
-		with self.widgets.scene.disable_callbacks():
-			self.widgets.scene.value=name
+		self.scene.value=name
 
 		timesteps=self.db.getTimesteps()
 		self.setTimesteps(timesteps)
@@ -509,7 +536,7 @@ class Slice:
 			y1,y2=y-h/2.0, y+h/2.0
 			self.canvas.setViewport([(x1,x2),(y1,y2)])
 
-		show_options=scene.get("show-options",self.default_show_options)
+		show_options=scene.get("show-options",DEFAULT_SHOW_OPTIONS)
 		self.setShowOptions(show_options)
 
 		self.start()
@@ -519,12 +546,11 @@ class Slice:
 
 	# getScene
 	def getScene(self):
-		return self.widgets.scene.value
+		return self.scene.value
 
 	# setScene
 	def setScene(self, name):
-		body=self.scenes[name]
-		self.setSceneBody(body)
+		self.setSceneBody(self.scenes[name])
 
 	# showInfo
 	def showInfo(self):
@@ -593,10 +619,9 @@ class Slice:
 	# setTimesteps
 	def setTimesteps(self, value):
 		logger.debug(f"id={self.id} start={value[0]} end={value[-1]}")
-		with self.widgets.timestep.disable_callbacks():
-			self.widgets.timestep.start = value[0]
-			self.widgets.timestep.end   = value[-1]
-			self.widgets.timestep.step  = 1
+		self.timestep.start = value[0]
+		self.timestep.end   = value[-1]
+		self.timestep.step  = 1
 
 	# speedFromOption
 	def speedFromOption(self, option):
@@ -608,82 +633,73 @@ class Slice:
 
 	# getPlaySec
 	def getPlaySec(self):
-		return self.widgets.play_sec.value
+		return self.play_sec.value
 
 	# setPlaySec
 	def setPlaySec(self,value):
 		logger.debug(f"id={self.id} value={value}")
-		with self.widgets.play_sec.disable_callbacks():
-			self.widgets.play_sec.value=value
+		self.play_sec.value=value
 
 	# getTimestepDelta
 	def getTimestepDelta(self):
-		return self.speedFromOption(self.widgets.timestep_delta.value)
+		return self.speedFromOption(self.timestep_delta.value)
 
 	# setTimestepDelta
 	def setTimestepDelta(self, value):
 		logger.debug(f"id={self.id} value={value}")
-
 		option=self.optionFromSpeed(value)
 
-		A = self.widgets.timestep.start
-		B = self.widgets.timestep.end
+		A = self.timestep.start
+		B = self.timestep.end
 		T = self.getTimestep()
 		T = A + value * int((T - A) / value)
 		T = min(B, max(A, T))
 		
-		with self.widgets.timestep_delta.disable_callbacks():
-			self.widgets.timestep_delta.value = option
-
-		with self.widgets.timestep.disable_callbacks():
-			self.widgets.timestep.step = value
+		self.timestep_delta.value = option
+		self.timestep.step = value
 
 		self.setTimestep(T)
 
 	# getTimestep
 	def getTimestep(self):
-		return int(self.widgets.timestep.value)
+		return int(self.timestep.value)
 
 	# setTimestep
 	def setTimestep(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		with self.widgets.timestep.disable_callbacks():
-			self.widgets.timestep.value = value
+		self.timestep.value = value
 		self.refresh()
 
 	# getFields
 	def getFields(self):
-		return self.widgets.field.options
+		return self.field.options
 
 	# setFields
 	def setFields(self, value):
 		value=list(value)
 		logger.debug(f"id={self.id} value={value}")
-		with self.widgets.field.disable_callbacks():
-			self.widgets.field.options = value
+		self.field.options = value
 
 	# getField
 	def getField(self):
-		return str(self.widgets.field.value)
+		return str(self.field.value)
 
 	# setField
 	def setField(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		if value is None: return
-		with self.widgets.field.disable_callbacks():
-			self.widgets.field.value = value
+		self.field.value = value
 		self.refresh()
 
 	# getPalette
 	def getPalette(self):
-		return self.widgets.palette.value_name 
+		return self.palette.value_name 
 
 	# setPalette
 	def setPalette(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		with self.widgets.palette.disable_callbacks():
-			self.widgets.palette.value_name = value
-			self.color_bar=None
+		self.palette.value_name = value
+		self.color_bar=None
 		self.refresh()
 
 	# getMetadataRange
@@ -699,78 +715,71 @@ class Slice:
 
 	# getRangeMode
 	def getRangeMode(self):
-		return self.widgets.range_mode.value
+		return self.range_mode.value
 
 	# setRangeMode
 	def setRangeMode(self, mode):
 		logger.debug(f"id={self.id} mode={mode} ")
 
-		with self.widgets.range_mode.disable_callbacks():
-			self.widgets.range_mode.value = mode
+		self.range_mode.value = mode
 		self.color_map=None
 
-		with self.widgets.range_min.disable_callbacks():
-			if mode == "metadata":   self.widgets.range_min.value = it.metadata_range[0]
-			if mode == "dynamic-acc":self.widgets.range_min.value = 0.0
-			self.widgets.range_min.disabled = False if mode == "user" else True
+		if mode == "metadata":   self.range_min.value = it.metadata_range[0]
+		if mode == "dynamic-acc":self.range_min.value = 0.0
+		self.range_min.disabled = False if mode == "user" else True
 
-		with self.widgets.range_max.disable_callbacks():
-			if mode == "metadata":   self.widgets.range_max.value = it.metadata_range[1]
-			if mode == "dynamic-acc":self.widgets.range_max.value = 0.0
-			self.widgets.range_max.disabled = False if mode == "user" else True
+		if mode == "metadata":   self.range_max.value = it.metadata_range[1]
+		if mode == "dynamic-acc":self.range_max.value = 0.0
+		self.range_max.disabled = False if mode == "user" else True
 
 		self.refresh()
 
 
 	# getRangeMin
 	def getRangeMin(self):
-		return cdouble(self.widgets.range_min.value)
+		return cdouble(self.range_min.value)
 
 	# getRangeMax
 	def getRangeMax(self):
-		return cdouble(self.widgets.range_max.value)
+		return cdouble(self.range_max.value)
 
 	# setRangeMin
 	def setRangeMin(self, value):
-		with self.widgets.range_min.disable_callbacks(): 
-			self.widgets.range_min.value = vmin
+		self.range_min.value = vmin
 		self.color_map=None
 		self.refresh()
 
 	# setRangeMin
 	def setRangeMax(self, value):
-		with self.widgets.range_max.disable_callbacks(): 
-			self.widgets.range_max.value = vmin
+		self.range_max.value = vmin
 		self.color_map=None
 		self.refresh()
 
 	# getColorMapperType
 	def getColorMapperType(self):
-		return self.widgets.color_mapper_type.value
+		return self.color_mapper_type.value
 
 	# setColorMapperType
 	def setColorMapperType(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		palette = self.getPalette()
-		with self.widgets.color_mapper_type.disable_callbacks():
-			self.widgets.color_mapper_type.value = value
+		self.color_mapper_type.value = value
 		self.color_bar=None # force reneration of color_mapper
 		self.start()
 
 	# getNumberOfRefinements
 	def getNumberOfRefinements(self):
-		return self.widgets.num_refinements.value
+		return self.num_refinements.value
 
 	# setNumberOfRefinements
 	def setNumberOfRefinements(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		with self.widgets.num_refinements.disable_callbacks():
-			self.widgets.num_refinements.value = value
+		self.num_refinements.value = value
 		self.refresh()
 
 	# getResolution
 	def getResolution(self):
-		return self.widgets.resolution.value
+		return self.resolution.value
 
 	# getMaxResolution
 	def getMaxResolution(self):
@@ -780,36 +789,33 @@ class Slice:
 	def setResolution(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		value = Clamp(value, 0, self.db.getMaxResolution())
-		with self.widgets.resolution.disable_callbacks():
-			self.widgets.resolution.start = self.start_resolution
-			self.widgets.resolution.end   = self.db.getMaxResolution()
-			self.widgets.resolution.value = value
+		self.resolution.start = DEFAULT_START_RESOLUTION
+		self.resolution.end   = self.db.getMaxResolution()
+		self.resolution.value = value
 		self.refresh()
 
 	# isViewDependent
 	def isViewDependent(self):
-		return self.widgets.view_dep.value
+		return self.view_dep.value
 
 	# setViewDependent
 	def setViewDependent(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		with self.widgets.view_dep.disable_callbacks():
-			self.widgets.view_dep.value = value
+		self.view_dep.value = value
 		self.refresh()
 
 	# getDirections
 	def getDirections(self):
-		return self.widgets.direction.options
+		return self.direction.options
 
 	# setDirections
 	def setDirections(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		with self.widgets.direction.disable_callbacks():
-			self.widgets.direction.options = value
+		self.direction.options = value
 
 	# getDirection
 	def getDirection(self):
-		return int(self.widgets.direction.value)
+		return int(self.direction.value)
 
 	# setDirection
 	def setDirection(self, value):
@@ -817,8 +823,7 @@ class Slice:
 		pdim = self.getPointDim()
 		if pdim == 2: value = 2
 		dims = [int(it) for it in self.db.getLogicSize()]
-		with self.widgets.direction.disable_callbacks():
-			self.widgets.direction.value = value
+		self.direction.value = value
 		self.triggerOnChange('direction', None, value)
 
 		# default behaviour is to guess the offset
@@ -848,7 +853,7 @@ class Slice:
 
 	# getOffsetRange
 	def getOffsetRange(self):
-		widget=self.widgets.offset
+		widget=self.offset
 		start,end,step=widget.start, widget.end, widget.step
 		if widget.editable and step==1e-16: step=0.0 # problem with editable slider and step==0
 		return start,end,step
@@ -857,29 +862,25 @@ class Slice:
 	def setOffsetRange(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		A, B, step = value
-		with self.widgets.offset.disable_callbacks():
-			self.widgets.offset.start=A
-			self.widgets.offset.end=B
-			if self.widgets.offset.editable and step==0.0:
-				self.widgets.offset.step=1e-16 #  problem with editable slider and step==0
-			else:
-				self.widgets.offset.step=step
+		self.offset.start=A
+		self.offset.end=B
+		if self.offset.editable and step==0.0:
+			self.offset.step=1e-16 #  problem with editable slider and step==0
+		else:
+			self.offset.step=step
 
 	# getOffset (in physic domain)
 	def getOffset(self):
-		return self.widgets.offset.value
+		return self.offset.value
 
 	# setOffset (3d only) (in physic domain)
 	def setOffset(self, value):
 		logger.debug(f"id={self.id} new-value={value} old-value={self.getOffset()}")
 
 		# do not send float offset if it's all integer
-		if all([int(it) == it for it in self.getOffsetRange()]):
-			value = int(value)
-
-		with self.widgets.offset.disable_callbacks():
-			self.widgets.offset.value = value
-			assert(self.widgets.offset.value == value)
+		if all([int(it) == it for it in self.getOffsetRange()]): value = int(value)
+		self.offset.value = value
+		assert(self.offset.value == value)
 		self.triggerOnChange('offset', None, value)
 		self.refresh()
 
@@ -986,8 +987,8 @@ class Slice:
 		self.play.num_refinements = self.getNumberOfRefinements()
 		self.setNumberOfRefinements(1)
 		self.setWidgetsDisabled(True)
-		self.widgets.play_button.disabled = False
-		self.widgets.play_button.label = "Stop"
+		self.play_button.disabled = False
+		self.play_button.label = "Stop"
 
 	# stopPlay
 	def stopPlay(self):
@@ -996,8 +997,8 @@ class Slice:
 		self.play.wait_render_id = None
 		self.setNumberOfRefinements(self.play.num_refinements)
 		self.setWidgetsDisabled(False)
-		self.widgets.play_button.disabled = False
-		self.widgets.play_button.label = "Play"
+		self.play_button.disabled = False
+		self.play_button.label = "Play"
 
 	# playNextIfNeeded
 	def playNextIfNeeded(self):
@@ -1018,8 +1019,8 @@ class Slice:
 		T = self.getTimestep() + self.getTimestepDelta()
 
 		# reached the end -> go to the beginning?
-		if T >= self.widgets.timestep.end:
-			T = self.timesteps.widgets.timestep.start
+		if T >= self.timestep.end:
+			T = self.timesteps.timestep.start
 
 		logger.info(f"id={self.id}::playing timestep={T}")
 
@@ -1030,24 +1031,24 @@ class Slice:
 
 	# onShowMetadataClick
 	def onShowMetadataClick(self):
-		self.widgets.metadata.visible = not self.widgets.metadata.visible
+		self.metadata.visible = not self.metadata.visible
 
 	# setWidgetsDisabled
 	def setWidgetsDisabled(self, value):
-		self.widgets.scene.disabled = value
-		self.widgets.palette.disabled = value
-		self.widgets.timestep.disabled = value
-		self.widgets.timestep_delta.disabled = value
-		self.widgets.field.disabled = value
-		self.widgets.direction.disabled = value
-		self.widgets.offset.disabled = value
-		self.widgets.num_refinements.disabled = value
-		self.widgets.resolution.disabled = value
-		self.widgets.view_dep.disabled = value
-		self.widgets.request.disabled = value
-		self.widgets.response.disabled = value
-		self.widgets.play_button.disabled = value
-		self.widgets.play_sec.disabled = value
+		self.scene.disabled = value
+		self.palette.disabled = value
+		self.timestep.disabled = value
+		self.timestep_delta.disabled = value
+		self.field.disabled = value
+		self.direction.disabled = value
+		self.offset.disabled = value
+		self.num_refinements.disabled = value
+		self.resolution.disabled = value
+		self.view_dep.disabled = value
+		self.request.disabled = value
+		self.response.disabled = value
+		self.play_button.disabled = value
+		self.play_sec.disabled = value
 
 	# getPointDim
 	def getPointDim(self):
@@ -1056,8 +1057,7 @@ class Slice:
 	# updateSceneBodyText
 	def updateSceneBodyText(self):
 		body=json.dumps(self.getSceneBody(),indent=2)
-		with self.widgets.scene_body.disable_callbacks():
-			self.widgets.scene_body.value=body
+		self.scene_body.value=body
 
 	# refresh
 	def refresh(self):
@@ -1140,7 +1140,7 @@ class Slice:
 		real_physic_offset=vs*real_logic_offset + vt 
 		user_logic_offset=int((user_physic_offset-vt)/vs)
 
-		self.widgets.offset.name=" ".join([
+		self.offset.name=" ".join([
 			f"Offset: {user_physic_offset:.3f}±{abs(user_physic_offset-real_physic_offset):.3f}",
 			f"Pixel: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
 			f"Max Res: {endh}/{maxh}"
@@ -1151,30 +1151,30 @@ class Slice:
 
 			# in dynamic mode, I need to use the data range
 			if mode=="dynamic":
-				self.widgets.range_min.value = data_range[0]
-				self.widgets.range_max.value = data_range[1]
+				self.range_min.value = data_range[0]
+				self.range_max.value = data_range[1]
 				
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
-				if self.widgets.range_min.value==self.widgets.range_max.value:
-					self.widgets.range_min.value=data_range[0]
-					self.widgets.range_max.value=data_range[1]
+				if self.range_min.value==self.range_max.value:
+					self.range_min.value=data_range[0]
+					self.range_max.value=data_range[1]
 				else:
-					self.widgets.range_min.value = min(self.widgets.range_min.value, data_range[0])
-					self.widgets.range_max.value = max(self.widgets.range_max.value, data_range[1])
+					self.range_min.value = min(self.range_min.value, data_range[0])
+					self.range_max.value = max(self.range_max.value, data_range[1])
 
 			# update the color bar
-			low =cdouble(self.widgets.range_min.value)
-			high=cdouble(self.widgets.range_max.value)
+			low =cdouble(self.range_min.value)
+			high=cdouble(self.range_max.value)
 
 		# regenerate colormap
 		if self.color_bar is None:
 			color_mapper_type=self.getColorMapperType()
 			assert(color_mapper_type in ["linear","log"])
 			is_log=color_mapper_type=="log"
-			palette=self.widgets.palette.value
-			mapper_low =max(self.epsilon, low ) if is_log else low
-			mapper_high=max(self.epsilon, high) if is_log else high
+			palette=self.palette.value
+			mapper_low =max(EPSILON, low ) if is_log else low
+			mapper_high=max(EPSILON, high) if is_log else high
 			
 
 			self.color_bar = ColorBar(color_mapper = 
@@ -1196,7 +1196,7 @@ class Slice:
 		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
 		self.H=result['H']
 		query_status="running" if result['running'] else "FINISHED"
-		self.widgets.response.value=" ".join([
+		self.response.value=" ".join([
 			f"#{result['I']+1}",
 			f"{str(logic_box).replace(' ','')}",
 			f"{data.shape[0]}x{data.shape[1]}",
@@ -1262,8 +1262,8 @@ class Slice:
 		timestep=self.getTimestep()
 		field=self.getField()
 		box_i=[[int(it) for it in jt] for jt in query_logic_box]
-		self.widgets.request.value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
-		self.widgets.response.value="Running..."
+		self.request.value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
+		self.response.value="Running..."
 
 		self.query_node.pushJob(
 			self.db, 
