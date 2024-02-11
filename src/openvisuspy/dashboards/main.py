@@ -41,7 +41,7 @@ if __name__.startswith('bokeh'):
 		app = slice.getMainLayout()
 
 
-	# example 
+	# example of showing details
 	if True:
 
 		def ShowDetails(geometry):
