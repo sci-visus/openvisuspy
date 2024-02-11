@@ -300,16 +300,7 @@ class Widgets:
 
 	@staticmethod
 	def Button(callback=None,**kwargs):
-		ret = pn.widgets.Button(**kwargs)
-		def onClick(evt):
-			if not callback: return
-			try:
-				callback()
-			except:
-				logger.info(traceback.format_exc())
-				raise
-		ret.on_click(onClick)
-		return ret
+		return pn.widgets.Button(**kwargs)
 
 	@staticmethod
 	def Input(callback=None, type="text", **kwargs):

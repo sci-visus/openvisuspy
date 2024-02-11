@@ -33,12 +33,6 @@ DEFAULT_SHOW_OPTIONS={
 	]
 }
 
-import inspect
-
-def fname():
-    # get the frame object of the function
-    frame = inspect.currentframe()
-    return frame.f_code.co_name
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
@@ -63,14 +57,14 @@ class Slice(param.Parameterized):
 	play_sec               = Widgets.Select   (name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
 	request                = Widgets.Input    (name="", type="text", sizing_mode='stretch_width', disabled=False)
 	response               = Widgets.Input    (name="", type="text", sizing_mode='stretch_width', disabled=False)
+
 	info_button            = Widgets.Button   (icon="info-circle",width=20)
 	open_button            = Widgets.Button   (icon="file-upload",width=20)
-	save_button_helper     = Widgets.Input    (visible=False)
 	save_button            = Widgets.Button   (icon="file-download",width=20)
-	copy_url_button_helper = Widgets.Input    (visible=False)
+	save_button_helper     = Widgets.Input    (visible=False)
 	copy_url_button        = Widgets.Button   (icon="copy",width=20)
+	copy_url_button_helper = Widgets.Input    (visible=False)
 	logout_button          = Widgets.Button   (icon="logout",width=20)
-
 
 	scene_body=Widgets.TextAreaInput(
 		name='Current',
@@ -98,6 +92,7 @@ class Slice(param.Parameterized):
 		self.access = None
 		self.render_id = 0 
 
+		# translate and scale for each dimension
 		self.logic_to_physic        = [(0.0, 1.0)] * 3
 		self.metadata_range         = [0.0, 255.0]
 		self.scenes                 = {}
@@ -121,18 +116,18 @@ class Slice(param.Parameterized):
 		self.direction.param.watch(lambda evt: self.setDirection(evt.new),"value")
 		self.offset.param.watch(lambda evt: self.setOffset(evt.new),"value")
 
-		self.info_button.param.watch(lambda evt=None:self.showInfo(),"value")
-		self.open_button.param.watch(lambda evt=None:self.showOpen(),"value")
-		self.save_button.param.watch(lambda evt=None:self.save(),"value")
-		self.copy_url_button.param.watch(lambda evt=None: copyUrl(evt),"value")
-		self.play_button.param.watch(lambda evt=None: self.togglePlay(),"value")
+		self.info_button.on_click(lambda evt: self.showInfo())
+		self.open_button.on_click(lambda evt: self.showOpen())
+		self.save_button.on_click(lambda evt: self.save())
+		self.copy_url_button.on_click(lambda evt: self.copyUrl())
+		self.play_button.on_click(lambda evt: self.togglePlay())
 
 		self.setShowOptions(DEFAULT_SHOW_OPTIONS)
 
 		self.start()
 
 	# open
-	def showOpen():
+	def showOpen(self):
 
 		def onLoadClick(evt=None):
 			body=value.decode('ascii')
@@ -159,14 +154,14 @@ class Slice(param.Parameterized):
 	
 
 	# save
-	def save(evt=None):
+	def save(self):
 		body=json.dumps(self.getSceneBody(),indent=2)
 		self.save_button_helper.value=body
 		ShowInfoNotification('Save done')
 		print(body)
 
 	# copy url
-	def copyUrl(evt=None):
+	def copyUrl(self):
 		self.copy_url_button_helper.value=self.getShareableUrl()
 		ShowInfoNotification('Copy url done')
 
@@ -285,17 +280,6 @@ class Slice(param.Parameterized):
 		if not self.idle_callback:
 			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 30)
 		self.refresh()
-
-	# on_change
-	def on_change(self, attr, callback):
-		if not attr in self.on_change_callbacks:
-			self.on_change_callbacks[attr]=[]
-		self.on_change_callbacks[attr].append(callback)
-
-	# triggerOnChange
-	def triggerOnChange(self, attr, old,new_value):
-		for fn in self.on_change_callbacks.get(attr,[]):
-			fn(attr,old,new_value)
 
 	# getMainLayout
 	def getMainLayout(self):
@@ -540,7 +524,6 @@ class Slice(param.Parameterized):
 		self.setShowOptions(show_options)
 
 		self.start()
-		self.triggerOnChange('scene', None, name)
 
 		logger.info(f"id={self.id} END\n")
 
@@ -734,7 +717,6 @@ class Slice(param.Parameterized):
 
 		self.refresh()
 
-
 	# getRangeMin
 	def getRangeMin(self):
 		return cdouble(self.range_min.value)
@@ -824,7 +806,6 @@ class Slice(param.Parameterized):
 		if pdim == 2: value = 2
 		dims = [int(it) for it in self.db.getLogicSize()]
 		self.direction.value = value
-		self.triggerOnChange('direction', None, value)
 
 		# default behaviour is to guess the offset
 		offset_value,offset_range=self.guessOffset(value)
@@ -881,7 +862,6 @@ class Slice(param.Parameterized):
 		if all([int(it) == it for it in self.getOffsetRange()]): value = int(value)
 		self.offset.value = value
 		assert(self.offset.value == value)
-		self.triggerOnChange('offset', None, value)
 		self.refresh()
 
 	# guessOffset
@@ -972,7 +952,7 @@ class Slice(param.Parameterized):
 		return ret
 
 	# togglePlay
-	def togglePlay(self, evt=None):
+	def togglePlay(self):
 		if self.play.is_playing:
 			self.stopPlay()
 		else:
@@ -1206,7 +1186,7 @@ class Slice(param.Parameterized):
 		])
 		self.render_id+=1 
 
-		self.triggerOnChange("data", None, data)
+		# self.triggerOnChange("data", None, data)
   
 
 	# pushJobIfNeeded

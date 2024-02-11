@@ -42,10 +42,14 @@ class ProbeTool:
 		# to add probes
 		owner.canvas.on_double_tap=self.onCanvasDoubleTap
 
-		self.owner.on_change('offset'   , lambda attr,old, new: self.refresh()) # display the offset
-		self.owner.on_change('data'     , lambda attr,old, new: self.refresh()) # new data, important for the range
-		self.owner.on_change('scene'    , lambda attr,old, new: self.recompute()) 
-		self.owner.on_change('direction', lambda attr,old, new: self.recompute())
+		self.owner.offset.param.watch(lambda evt: self.refresh(),"value") # display the new offset
+		self.owner.scene.param.watch(lambda evt: self.recompute(),"value")
+		self.owner.direction.param.watch(lambda evt: self.recompute(),"value")
+
+		# TODO
+		# self.owner.on_change('data'     , lambda attr,old, new: self.refresh()) # new data, important for the range
+
+
 
 	# createFigure
 	def createFigure(self):
