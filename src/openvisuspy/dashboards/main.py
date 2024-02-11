@@ -36,11 +36,7 @@ if __name__.startswith('bokeh'):
 
 	if True:
 		probe=ProbeTool(slice)
-		app=pn.Row(
-			slice.getMainLayout(),
-			probe.getMainLayout()
-			)
-		
+		app = probe.getMainLayout()
 	else:
 		app = slice.getMainLayout()
 

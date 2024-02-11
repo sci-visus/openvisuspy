@@ -97,23 +97,26 @@ class ProbeTool(param.Parameterized):
 
 		self.createFigure()
 
-		self.main_layout = Column(
-			Row(
-				self.slider_x_pos,
-				self.slider_y_pos,
-				self.slider_z_range,
-				self.slider_z_op,
-				self.slider_z_res,
-				self.slider_num_points_x,
-				self.slider_num_points_y,
-				sizing_mode="stretch_width"
-			),
-			Row(
-				*[button for button in self.buttons], 
-				sizing_mode="stretch_width"
-			),
-			self.fig_placeholder,
-			sizing_mode="stretch_both"
+		self.main_layout = Row(
+			self.slice.getMainLayout(),
+				Column(
+					Row(
+						self.slider_x_pos,
+						self.slider_y_pos,
+						self.slider_z_range,
+						self.slider_z_op,
+						self.slider_z_res,
+						self.slider_num_points_x,
+						self.slider_num_points_y,
+						sizing_mode="stretch_width"
+					),
+					Row(
+						*[button for button in self.buttons], 
+						sizing_mode="stretch_width"
+					),
+					self.fig_placeholder,
+					sizing_mode="stretch_both"
+				)
 		)
 
 	# getMainLayout
