@@ -95,7 +95,7 @@ class Canvas:
 		self.fig=Figure(active_scroll = "wheel_zoom") 
 		self.fig.x_range = Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = Range1d(0,512) if old is None else old.y_range
-		self.fig.toolbar_location=None                 if old is None else old.toolbar_location
+		self.fig.toolbar_location="right" # None                 if old is None else old.toolbar_location
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
@@ -119,6 +119,31 @@ class Canvas:
 		self.last_dtype   = None
 		self.last_cb      = None
 		self.last_renderer= None
+
+		from bokeh.models import BoxSelectTool
+		from bokeh.events import SelectionGeometry
+		from bokeh.models.callbacks import CustomJS
+
+		tool=BoxSelectTool()
+		self.fig.add_tools(tool)
+
+		# does not working
+		if False:
+			self.fig.on_event(SelectionGeometry, lambda s: print("JHERE"))
+		else:
+
+			def MyCallback(attr,old,new):
+				j=json.loads(new)
+				print("MyCallback",j)
+
+			tool_helper=bokeh.models.TextInput()
+			tool_helper.on_change('value', MyCallback)
+
+			self.fig.js_on_event(SelectionGeometry, CustomJS(
+				args=dict(tool_helper=tool_helper), 
+				code="""tool_helper.value=JSON.stringify(cb_obj.geometry, undefined, 2);"""
+			))
+
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
@@ -294,19 +319,19 @@ def AddPeriodicCallback(fn, period, name="AddPeriodicCallback"):
 class Widgets:
 
 	@staticmethod
-	def CheckBox(callback=None,**kwargs):
+	def CheckBox(**kwargs):
 		return pn.widgets.Checkbox(**kwargs)
 
 	@staticmethod
-	def RadioButtonGroup(callback=None,**kwargs):
+	def RadioButtonGroup(**kwargs):
 		return pn.widgets.RadioButtonGroup(**kwargs)
 
 	@staticmethod
-	def Button(callback=None,**kwargs):
+	def Button(**kwargs):
 		return pn.widgets.Button(**kwargs)
 
 	@staticmethod
-	def Input(callback=None, type="text", **kwargs):
+	def Input(type="text", **kwargs):
 		return {
 			"text": pn.widgets.TextInput,
 			"int": pn.widgets.IntInput,
@@ -314,19 +339,19 @@ class Widgets:
 		}[type](**kwargs)
 
 	@staticmethod
-	def TextAreaInput(callback=None, type="text", **kwargs):
+	def TextAreaInput(type="text", **kwargs):
 		return pn.widgets.TextAreaInput(**kwargs)
 
 	@staticmethod
-	def Select(callback=None, **kwargs):
+	def Select(**kwargs):
 		return pn.widgets.Select(**kwargs) 
 
 	@staticmethod
-	def ColorMap(callback=None, **kwargs):
+	def ColorMap(**kwargs):
 		return pn.widgets.ColorMap(**kwargs) 
 
 	@staticmethod
-	def FileInput(callback=None, **kwargs):
+	def FileInput(**kwargs):
 		return pn.widgets.FileInput(**kwargs)
 
 	@staticmethod
@@ -334,7 +359,7 @@ class Widgets:
 		return pn.widgets.FileDownload(*args, **kwargs)
 
 	@staticmethod
-	def Slider(callback=None, type="int", parameter_name="value", editable=False, format="0.001",**kwargs):
+	def Slider(type="int", parameter_name="value", editable=False, format="0.001",**kwargs):
 
 		if type=="float":
 			from bokeh.models.formatters import NumeralTickFormatter
@@ -349,7 +374,7 @@ class Widgets:
 		return ret
 	
 	@staticmethod
-	def RangeSlider(editable=False, type="float", format="0.001", callback=None, parameter_name="value", **kwargs):
+	def RangeSlider(editable=False, type="float", format="0.001", parameter_name="value", **kwargs):
 		from bokeh.models.formatters import NumeralTickFormatter
 		kwargs["format"]=NumeralTickFormatter(format=format)
 		ret = {
