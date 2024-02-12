@@ -9,12 +9,9 @@ from .utils import *
 import bokeh
 import bokeh.models
 
-from bokeh.models import ColumnDataSource,Range1d
-from bokeh.events import DoubleTap
+from bokeh.models import ColumnDataSource,Range1d, BoxSelectTool
+from bokeh.events import DoubleTap,SelectionGeometry, RangesUpdate
 from bokeh.plotting import figure as Figure
-
-from bokeh.models import BoxSelectTool
-from bokeh.events import SelectionGeometry
 from bokeh.models.callbacks import CustomJS
 
 import panel as pn
@@ -28,8 +25,14 @@ class Canvas:
 	def __init__(self, id):
 		self.id=id
 		self.fig=None
-		self.on_double_tab=[]
-		self.on_selection_geometry=[]
+
+		# events
+		self.events={
+			DoubleTap: [],
+			SelectionGeometry: [],
+			RangesUpdate: []
+		}
+
 		self.main_layout=Row(sizing_mode="stretch_both")	
 		self.createFigure() 
 		self.source_image = ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
@@ -84,12 +87,7 @@ class Canvas:
 
 	# on_event
 	def on_event(self, evt, callback):
-		if evt==DoubleTap:
-			self.on_double_tab.append(callback)
-		elif evt==SelectionGeometry:
-			self.on_selection_geometry.append(callback)
-		else:
-			raise Exception("error")
+		self.events[evt].append(callback)
 
 	# createFigure
 	def createFigure(self):
@@ -103,9 +101,9 @@ class Canvas:
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
 		# if old: old_remove_on_event(DoubleTap, self.onDoubleTap) cannot find old_remove_on_event
-		def onDoubleTap(evt):
-			for callback in self.on_double_tab: callback(evt)
-		self.fig.on_event(DoubleTap, onDoubleTap)
+		def handleDoubleTap(evt):
+			return [fn(evt) for fn in self.events[DoubleTap](evt)]
+		self.fig.on_event(DoubleTap, handleDoubleTap)
 
 		# TODO: keep the renderers but not the
 		if old is not None:
@@ -126,17 +124,16 @@ class Canvas:
 		self.fig.add_tools(tool)
 
 		# does not working
-		if False:
-			self.fig.on_event(SelectionGeometry, lambda s: print("JHERE"))
-		else:
+		# self.fig.on_event(SelectionGeometry, lambda s: print("JHERE"))
+		if True:
 
-			def emitSelectionGeometry(attr,old,new):
+			def handleSelectionGeometry(attr,old,new):
 				evt=json.loads(new)
-				logger.info(f"emitSelectionGeometry {evt}")
-				for fn in self.on_selection_geometry: fn(evt)
+				logger.info(f"handleSelectionGeometry {evt}")
+				return [fn(evt) for fn in self.events[SelectionGeometry]]
 
 			tool_helper=bokeh.models.TextInput()
-			tool_helper.on_change('value', emitSelectionGeometry)
+			tool_helper.on_change('value', handleSelectionGeometry)
 
 			self.fig.js_on_event(SelectionGeometry, CustomJS(
 				args=dict(tool_helper=tool_helper), 
