@@ -49,9 +49,9 @@ class Slice(param.Parameterized):
 	render_id              = pn.widgets.IntSlider(name="RenderId", value=0)
 
 	# core query
-	scene                  = pn.widgets.Select             (name="Scene", options=[], width=180, )
-	timestep               = pn.widgets.EditableFloatSlider(name="Time", value=0, start=0, end=1, step=1.0, sizing_mode="stretch_width",format=NumeralTickFormatter(format="0.001"))
-	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 1, 32, 64, 128], value=1, width=60)
+	scene                  = pn.widgets.Select             (name="Scene", options=[], width=120)
+	timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
+	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 1, 32, 64, 128], value=1, width=50)
 	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
 	resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=DEFAULT_START_RESOLUTION, end=99,  sizing_mode="stretch_width")
 	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
@@ -64,7 +64,7 @@ class Slice(param.Parameterized):
 	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
 	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
 
-	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=220)
+	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
 	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=80)
 	
 	# play thingy
@@ -330,23 +330,23 @@ class Slice(param.Parameterized):
 		(x1,x2),(y1,y2)=self.canvas.getViewport()
 		return {
 			"scene" : {
-				"name": self.getScene(), 
+				"name": self.scene.value, 
 				
 				# NOT needed.. they should come automatically from the dataset?
 				#   "timesteps": self.getTimesteps(),
 				#   "physic_box": self.getPhysicBox(),
-				#   "fields": self.getFields(),
+				#   "fields": self.field.options,
 				#   "directions" : self.getDirections(),
 
-				"timestep-delta": self.getTimestepDelta(),
-				"timestep": self.getTimestep(),
+				"timestep-delta": self.timestep_delta.value,
+				"timestep": int(self.timestep.value),
 				"direction": self.getDirection(),
 				"offset": self.getOffset(), 
-				"field": self.getField(),
+				"field": self.field.value,
 				"view-dep": self.isViewDependent(),
 				"resolution": self.getResolution(),
 				"num-refinements": self.getNumberOfRefinements(),
-				"play-sec":self.getPlaySec(),
+				"play-sec":self.play_sec.value,
 				"palette": self.getPalette(),
 				# "metadata-range": self.getMetadataRange(),
 				"color-mapper-type": self.getColorMapperType(),
@@ -537,10 +537,6 @@ class Slice(param.Parameterized):
 
 		logger.info(f"id={self.id} END\n")
 
-	# getScene
-	def getScene(self):
-		return self.scene.value
-
 	# setScene
 	def setScene(self, name):
 		self.setSceneBody(self.scenes[name])
@@ -549,7 +545,7 @@ class Slice(param.Parameterized):
 	def showInfo(self):
 
 		logger.debug(f"Show info")
-		body=self.scenes[self.getScene()]
+		body=self.scenes[self.scene.value]
 		metadata=body["scene"].get("metadata", [])
 
 		cards=[]
@@ -600,18 +596,10 @@ class Slice(param.Parameterized):
 		self.timestep.end   = value[-1]
 		self.timestep.step  = 1
 
-	# getPlaySec
-	def getPlaySec(self):
-		return self.play_sec.value
-
 	# setPlaySec
 	def setPlaySec(self,value):
 		logger.debug(f"id={self.id} value={value}")
 		self.play_sec.value=value
-
-	# getTimestepDelta
-	def getTimestepDelta(self):
-		return self.timestep_delta.value
 
 	# setTimestepDelta
 	def setTimestepDelta(self, value):
@@ -620,7 +608,7 @@ class Slice(param.Parameterized):
 
 		A = self.timestep.start
 		B = self.timestep.end
-		T = self.getTimestep()
+		T = int(self.timestep.value)
 		T = A + value * int((T - A) / value)
 		T = min(B, max(A, T))
 		
@@ -628,9 +616,6 @@ class Slice(param.Parameterized):
 		self.timestep.step = value
 		self.setTimestep(T)
 
-	# getTimestep
-	def getTimestep(self):
-		return int(self.timestep.value)
 
 	# setTimestep
 	def setTimestep(self, value):
@@ -638,19 +623,11 @@ class Slice(param.Parameterized):
 		self.timestep.value = value
 		self.refresh()
 
-	# getFields
-	def getFields(self):
-		return self.field.options
-
 	# setFields
 	def setFields(self, value):
 		value=list(value)
 		logger.debug(f"id={self.id} value={value}")
 		self.field.options = value
-
-	# getField
-	def getField(self):
-		return str(self.field.value)
 
 	# setField
 	def setField(self, value):
@@ -973,7 +950,7 @@ class Slice(param.Parameterized):
 
 		# avoid playing too fast by waiting a minimum amount of time
 		t2 = time.time()
-		if (t2 - self.play.t1) < float(self.getPlaySec()):
+		if (t2 - self.play.t1) < float(self.play_sec.value):
 			return
 
 		# wait
@@ -981,7 +958,7 @@ class Slice(param.Parameterized):
 			return
 
 		# advance
-		T = self.getTimestep() + self.getTimestepDelta()
+		T = int(self.timestep.value) + self.timestep_delta.value
 
 		# reached the end -> go to the beginning?
 		if T >= self.timestep.end:
@@ -1221,8 +1198,8 @@ class Slice(param.Parameterized):
 		
 		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
 
-		timestep=self.getTimestep()
-		field=self.getField()
+		timestep=int(self.timestep.value)
+		field=self.field.value
 		box_i=[[int(it) for it in jt] for jt in query_logic_box]
 		self.request.value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
 		self.response.value="Running..."
