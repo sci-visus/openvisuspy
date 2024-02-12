@@ -920,7 +920,7 @@ class Slice(param.Parameterized):
 		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} range={[low,high]}")
 
 		# update the image
-		self.canvas.setImage(data,x1,y1,x2,y2, self.color_bar, self.toPhysic(logic_box))
+		self.canvas.setImage(data,self.color_bar, self.toPhysic(logic_box))
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)

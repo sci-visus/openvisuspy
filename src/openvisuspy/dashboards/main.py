@@ -56,7 +56,7 @@ if __name__.startswith('bokeh'):
 			y=float(geometry["y0"])
 			w=float(geometry["x1"])-x
 			h=float(geometry["y1"])-y
-			logic_box=slice.toLogic(x,y,w,h)
+			logic_box=slice.toLogic([x,y,w,h])
 
 			data=list(ovy.ExecuteBoxQuery(slice.db, access=slice.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
 			fig = Figure()
