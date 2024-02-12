@@ -137,7 +137,8 @@ class Slice(param.Parameterized):
 		
 		self.resolution.param.watch(lambda evt: self.setResolution(evt.new),"value")
 		self.view_dependent.param.watch(lambda evt: self.setViewDependent(evt.new),"value")
-		self.num_refinements.param.watch(lambda evt: self.setNumberOfRefinements(evt.new),"value")
+
+		self.num_refinements.param.watch(lambda evt: self.refresh(),"value")
 		self.direction.param.watch(lambda evt: self.setDirection(evt.new),"value")
 		self.offset.param.watch(lambda evt: self.setOffset(evt.new),"value")
 
@@ -504,8 +505,7 @@ class Slice(param.Parameterized):
 		field=scene.get("field", self.db.getField().name)
 		self.setField(field)
 
-		num_refinements=int(scene.get("num-refinements", 2))
-		self.setNumberOfRefinements(num_refinements)
+		self.num_refinements.value=int(scene.get("num-refinements", 2))
 
 		direction=int(scene.get("direction", 2))
 		self.setDirection(direction)
@@ -648,12 +648,6 @@ class Slice(param.Parameterized):
 		self.color_mapper_type.value = value
 		self.color_bar=None # force reneration of color_mapper
 		self.start()
-
-	# setNumberOfRefinements
-	def setNumberOfRefinements(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		self.num_refinements.value = value
-		self.refresh()
 
 	# getMaxResolution
 	def getMaxResolution(self):
@@ -838,7 +832,7 @@ class Slice(param.Parameterized):
 		self.play.t1 = time.time()
 		self.play.wait_render_id = None
 		self.play.num_refinements = self.num_refinements.value
-		self.setNumberOfRefinements(1)
+		self.num_refinements.value = 1
 		self.setWidgetsDisabled(True)
 		self.play_button.disabled = False
 		self.play_button.label = "Stop"
@@ -848,7 +842,7 @@ class Slice(param.Parameterized):
 		logger.info(f"id={self.id}::stopPlay")
 		self.play.is_playing = False
 		self.play.wait_render_id = None
-		self.setNumberOfRefinements(self.play.num_refinements)
+		self.num_refinements.value = self.play.num_refinements
 		self.setWidgetsDisabled(False)
 		self.play_button.disabled = False
 		self.play_button.label = "Play"
