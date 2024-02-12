@@ -336,15 +336,15 @@ class Slice(param.Parameterized):
 				#   "timesteps": self.getTimesteps(),
 				#   "physic_box": self.getPhysicBox(),
 				#   "fields": self.field.options,
-				#   "directions" : self.getDirections(),
+				#   "directions" : self.self.direction.options,
 				# "metadata-range": self.metadata_range,
 
 				"timestep-delta": self.timestep_delta.value,
 				"timestep": int(self.timestep.value),
-				"direction": self.getDirection(),
+				"direction": self.direction.value,
 				"offset": self.getOffset(), 
 				"field": self.field.value,
-				"view-dep": self.isViewDependent(),
+				"view-dep": self.view_dependent.value,
 				"resolution": self.resolution.value,
 				"num-refinements": self.num_refinements.value,
 				"play-sec":self.play_sec.value,
@@ -706,28 +706,16 @@ class Slice(param.Parameterized):
 		self.resolution.value = value
 		self.refresh()
 
-	# isViewDependent
-	def isViewDependent(self):
-		return self.view_dependent.value
-
 	# setViewDependent
 	def setViewDependent(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		self.view_dependent.value = value
 		self.refresh()
 
-	# getDirections
-	def getDirections(self):
-		return self.direction.options
-
 	# setDirections
 	def setDirections(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		self.direction.options = value
-
-	# getDirection
-	def getDirection(self):
-		return int(self.direction.value)
 
 	# setDirection
 	def setDirection(self, value):
@@ -748,8 +736,8 @@ class Slice(param.Parameterized):
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
 	def getLogicAxis(self):
-		dir  = self.getDirection()
-		directions = self.getDirections()
+		dir  = self.direction.value
+		directions = self.self.direction.options
 		# this is the projected slice
 		XY = list(directions.values())
 		if len(XY) == 3:
@@ -827,7 +815,7 @@ class Slice(param.Parameterized):
 			return [p1, p2]
 
 		pdim = self.getPointDim()
-		dir = self.getDirection()
+		dir = self.direction.value
 		assert (pdim == len(value))
 
 		vt = [self.logic_to_physic[I][0] for I in range(pdim)]
@@ -846,7 +834,7 @@ class Slice(param.Parameterized):
 	def toLogic(self, value):
 		assert (len(value) == 2)
 		pdim = self.getPointDim()
-		dir = self.getDirection()
+		dir = self.direction.value
 
 		# is a box?
 		if hasattr(value[0], "__iter__"):
@@ -1011,7 +999,7 @@ class Slice(param.Parameterized):
 		pdim=self.getPointDim()
 
 		if pdim==3:
-			dir=self.getDirection()
+			dir=self.direction.value
 			self.setOffset(point[dir])
 		
 		# the point should be centered in p3d
@@ -1038,7 +1026,7 @@ class Slice(param.Parameterized):
 
 		# show the user what is the current offset
 		maxh=self.db.getMaxResolution()
-		dir=self.getDirection()
+		dir=self.direction.value
 
 		pdim=self.getPointDim()
 		vt,vs=self.logic_to_physic[dir] if pdim==3 else (0.0,1.0)
@@ -1141,7 +1129,7 @@ class Slice(param.Parameterized):
 			return
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
-		if self.isViewDependent():
+		if self.view_dependent.value:
 			endh=None 
 			canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
 

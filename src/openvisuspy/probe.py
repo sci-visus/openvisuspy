@@ -137,7 +137,7 @@ class ProbeTool(param.Parameterized):
 
 	# onProbeXYChange
 	def onProbeXYChange(self):
-		dir = self.slice.getDirection()
+		dir = self.slice.direction.value
 		slot = self.slot
 		if slot is None: return
 		probe = self.probes[dir][slot]
@@ -148,7 +148,7 @@ class ProbeTool(param.Parameterized):
 	def onCanvasDoubleTap(self, evt):
 		x,y=evt.x,evt.y
 		logger.info(f"[{self.slice.id}] x={x} y={y}")
-		dir = self.slice.getDirection()
+		dir = self.slice.direction.value
 		slot = self.slot
 		if slot is None: slot = 0
 		probe = self.probes[dir][slot]
@@ -157,7 +157,7 @@ class ProbeTool(param.Parameterized):
 
 	# onProbeButtonClick
 	def onProbeButtonClick(self, slot):
-		dir = self.slice.getDirection()
+		dir = self.slice.direction.value
 		probe = self.probes[dir][slot]
 		logger.info(f"[{self.slice.id}] slot={slot} self.slot={self.slot} probe.pos={probe.pos} probe.enabled={probe.enabled}")
 
@@ -404,7 +404,7 @@ class ProbeTool(param.Parameterized):
 		self.fig.y_range.end   = self.slice.color_bar.color_mapper.high if self.slice.color_bar else 1.0
 
 		# buttons
-		dir = self.slice.getDirection()
+		dir = self.slice.direction.value
 		for slot, button in enumerate(self.buttons):
 			color = COLORS[slot]
 			probe = self.probes[dir][slot]
@@ -452,7 +452,7 @@ class ProbeTool(param.Parameterized):
 				probe.enabled = was_enabled[probe]
 
 		# add the probes only if sibile
-		dir = self.slice.getDirection()
+		dir = self.slice.direction.value
 		for slot, probe in enumerate(self.probes[dir]):
 	
 			if probe.pos is not None and probe.enabled:
