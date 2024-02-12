@@ -75,7 +75,8 @@ class ProbeTool(param.Parameterized):
 				y_axis_label="f", y_range=[y2,y2],y_axis_type=self.slice.color_mapper_type.value)
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
-		self.fig.on_event(DoubleTap, lambda evt: self.slice.setOffset(evt.x))
+		def handleDoubleTap(evt): self.slice.offset.value=evt.x
+		self.fig.on_event(DoubleTap, handleDoubleTap)
 
 		self.fig_placeholder[:]=[]
 		self.fig_placeholder.append(self.fig)

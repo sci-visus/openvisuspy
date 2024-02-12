@@ -161,7 +161,11 @@ class Slice(param.Parameterized):
 
 		self.num_refinements.param.watch(lambda evt: self.refresh(),"value")
 		self.direction.param.watch(lambda evt: self.setDirection(evt.new),"value")
-		self.offset.param.watch(lambda evt: self.setOffset(evt.new),"value")
+
+		def onOffsetChange(evt): 
+			self.offset.value = evt.new
+			self.refresh()
+		self.offset.param.watch(onOffsetChange,"value")
 
 		self.info_button.on_click(lambda evt: self.showInfo())
 		self.open_button.on_click(lambda evt: self.showOpen())
@@ -532,7 +536,7 @@ class Slice(param.Parameterized):
 		direction=int(scene.get("direction", 2))
 		self.setDirection(direction)
 
-		self.setOffset(float(scene.get("offset",self.guessOffset(direction)[0])))	
+		self.offset.value=float(scene.get("offset",self.guessOffset(direction)[0]))
 
 		self.play_sec.value=float(scene.get("play-sec",0.01))
 
@@ -664,10 +668,8 @@ class Slice(param.Parameterized):
 		# default behaviour is to guess the offset
 		offset_value,offset_range=self.guessOffset(value)
 		self.setOffsetRange(offset_range)  # both extrema included
-		self.setOffset(offset_value)
-
+		self.offset.value=offset_value
 		self.setQueryLogicBox(([0]*pdim,dims))
-
 		self.refresh()
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
@@ -697,10 +699,6 @@ class Slice(param.Parameterized):
 		else:
 			self.offset.step=step
 
-	# setOffset (3d only) (in physic domain)
-	def setOffset(self, value):
-		self.offset.value = int(value) if all([int(it) == it for it in [self.offset.start, self.offset.end, self.offset.step]]) else value
-		self.refresh()
 
 	# guessOffset
 	def guessOffset(self, dir):
@@ -711,7 +709,6 @@ class Slice(param.Parameterized):
 		if pdim == 2:
 			assert dir == 2
 			value = 0
-			logger.debug(f"id={self.id} pdim==2 calling setOffset({value})")
 			return value,[0, 0, 1]
 		else:
 			vt = [self.logic_to_physic[I][0] for I in range(pdim)]
@@ -920,7 +917,7 @@ class Slice(param.Parameterized):
 
 		if pdim==3:
 			dir=self.direction.value
-			self.setOffset(point[dir])
+			self.offset.value=point[dir]
 		
 		# the point should be centered in p3d
 		(p1,p2),dims=self.getQueryLogicBox(),self.getLogicSize()
