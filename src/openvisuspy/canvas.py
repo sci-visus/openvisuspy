@@ -1,6 +1,7 @@
 import os,sys,logging,copy,traceback,colorcet
 
 import numpy as np
+import types
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +131,13 @@ class Canvas:
 		if True:
 
 			def handleSelectionGeometry(attr,old,new):
-				evt=json.loads(new)
-				logger.info(f"handleSelectionGeometry {evt}")
+				j=json.loads(new)
+				x=float(j["x0"])
+				y=float(j["y0"])
+				w=float(j["x1"])-x
+				h=float(j["y1"])-y
+				evt=types.SimpleNamespace()
+				evt.new=[x,y,w,h]
 				return [fn(evt) for fn in self.events[SelectionGeometry]]
 
 			tool_helper=bokeh.models.TextInput()

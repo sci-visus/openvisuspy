@@ -45,19 +45,13 @@ if __name__.startswith('bokeh'):
 	# example of showing details
 	if True:
 
-		def ShowDetails(geometry):
-
+		def ShowDetails(evt):
 			from matplotlib.figure import Figure
 			import openvisuspy as ovy
 			import panel as pn
 			import numpy as np
-
-			x=float(geometry["x0"])
-			y=float(geometry["y0"])
-			w=float(geometry["x1"])-x
-			h=float(geometry["y1"])-y
+			x,y,h,w=evt.new
 			logic_box=slice.toLogic([x,y,w,h])
-
 			data=list(ovy.ExecuteBoxQuery(slice.db, access=slice.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
 			fig = Figure()
 			ax = fig.subplots()
