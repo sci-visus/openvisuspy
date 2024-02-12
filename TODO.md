@@ -10,6 +10,6 @@ Todo
 - [DONE] pick of a range with a rectable (or even for a point)... at full res. Prototype working...
 
 - [TODO] Linked View
-- [TODO]helper - with all query parameters
+- [TODO] helper - with all query parameters
 
 
