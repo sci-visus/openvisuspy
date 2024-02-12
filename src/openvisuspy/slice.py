@@ -459,7 +459,7 @@ class Slice(param.Parameterized):
 		self.setTimesteps(timesteps)
 
 		fields=self.db.getFields()
-		self.setFields(fields)
+		self.field.options=list(fields)
 
 		pdim = self.getPointDim()
 
@@ -612,13 +612,6 @@ class Slice(param.Parameterized):
 		self.timestep_delta.value = value
 		self.timestep.step = value
 		self.timestep.value=T
-
-
-	# setFields
-	def setFields(self, value):
-		value=list(value)
-		logger.debug(f"id={self.id} value={value}")
-		self.field.options = value
 
 	# setField
 	def setField(self, value):
