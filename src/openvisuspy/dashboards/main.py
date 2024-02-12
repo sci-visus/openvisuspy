@@ -56,11 +56,11 @@ if __name__.startswith('bokeh'):
 			logic_box=slice.toLogic([(x1,y1),(x2,y2)])
 
 			data=list(ovy.ExecuteBoxQuery(slice.db, access=slice.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
-			fig = Figure(figsize=(4, 3))
+			fig = Figure()
 			ax = fig.subplots()
 			im=ax.imshow(np.flip(data,axis=0))
 			fig.colorbar(im, ax=ax)
-			dialog = pn.pane.Matplotlib(fig)
+			dialog = pn.pane.Matplotlib(fig,sizing_mode="stretch_both")
 			slice.showDialog(dialog)
 
 		from bokeh.events import SelectionGeometry
