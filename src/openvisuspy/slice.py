@@ -532,10 +532,7 @@ class Slice(param.Parameterized):
 		direction=int(scene.get("direction", 2))
 		self.setDirection(direction)
 
-		default_offset, offset_range=self.guessOffset(direction)
-		offset=float(scene.get("offset",default_offset))
-		self.setOffsetRange(offset_range) 
-		self.setOffset(offset)	
+		self.setOffset(float(scene.get("offset",self.guessOffset(direction)[0])))	
 
 		self.play_sec.value=float(scene.get("play-sec",0.01))
 
@@ -689,13 +686,6 @@ class Slice(param.Parameterized):
 		titles = list(directions.keys())
 		return (X, Y, Z), (titles[X], titles[Y], titles[Z] if len(titles) == 3 else 'Z')
 
-	# getOffsetRange
-	def getOffsetRange(self):
-		widget=self.offset
-		start,end,step=widget.start, widget.end, widget.step
-		if widget.editable and step==1e-16: step=0.0 # problem with editable slider and step==0
-		return start,end,step
-
 	# setOffsetRange
 	def setOffsetRange(self, value):
 		logger.debug(f"id={self.id} value={value}")
@@ -709,9 +699,7 @@ class Slice(param.Parameterized):
 
 	# setOffset (3d only) (in physic domain)
 	def setOffset(self, value):
-		if all([int(it) == it for it in self.getOffsetRange()]): value = int(value)
-		self.offset.value = value
-		assert(self.offset.value == value)
+		self.offset.value = int(value) if all([int(it) == it for it in [self.offset.start, self.offset.end, self.offset.step]]) else value
 		self.refresh()
 
 	# guessOffset
