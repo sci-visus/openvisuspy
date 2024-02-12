@@ -114,7 +114,9 @@ class Slice(param.Parameterized):
 			self.setSceneBody(body)
 		self.scene.param.watch(onSceneChange,"value")
 
-		self.timestep.param.watch(lambda evt:self.setTimestep(evt.new), "value")
+		def onTimestepChange(evt):
+			self.refresh()
+		self.timestep.param.watch(onTimestepChange, "value")
 		self.timestep_delta.param.watch(lambda evt: self.setTimestepDelta(evt.new),"value")
 		self.field.param.watch(lambda evt: self.setField(evt.new),"value")
 
@@ -481,7 +483,7 @@ class Slice(param.Parameterized):
 		self.setTimestepDelta(timestep_delta)
 
 		timestep = int(scene.get("timestep", self.db.getTimesteps()[0]))
-		self.setTimestep(timestep)
+		self.timestep.value=timestep
 
 		viewdep=bool(scene.get('view-dep', True))
 		self.setViewDependent(viewdep)
@@ -505,7 +507,7 @@ class Slice(param.Parameterized):
 		self.setOffset(offset)	
 
 		play_sec=float(scene.get("play-sec",0.01))
-		self.setPlaySec(play_sec)
+		self.play_sec.value=play_sec
 
 		palette=scene.get("palette",DEFAULT_PALETTE)
 		self.setPalette(palette)
@@ -596,11 +598,6 @@ class Slice(param.Parameterized):
 		self.timestep.end   = value[-1]
 		self.timestep.step  = 1
 
-	# setPlaySec
-	def setPlaySec(self,value):
-		logger.debug(f"id={self.id} value={value}")
-		self.play_sec.value=value
-
 	# setTimestepDelta
 	def setTimestepDelta(self, value):
 
@@ -614,14 +611,8 @@ class Slice(param.Parameterized):
 		
 		self.timestep_delta.value = value
 		self.timestep.step = value
-		self.setTimestep(T)
+		self.timestep.value=T
 
-
-	# setTimestep
-	def setTimestep(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		self.timestep.value = value
-		self.refresh()
 
 	# setFields
 	def setFields(self, value):
@@ -917,7 +908,7 @@ class Slice(param.Parameterized):
 		# I will wait for the resolution to be displayed
 		self.play.wait_render_id = self.render_id.value+1
 		self.play.t1 = time.time()
-		self.setTimestep(T)
+		self.timestep.value= T
 
 	# onShowMetadataClick
 	def onShowMetadataClick(self):
