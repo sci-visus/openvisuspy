@@ -510,8 +510,7 @@ class Slice(param.Parameterized):
 		self.timestep.end   = timesteps[-1]
 		self.timestep.step  = 1
 
-		fields=self.db.getFields()
-		self.field.options=list(fields)
+		self.field.options=list(self.db.getFields())
 
 		pdim = self.getPointDim()
 
@@ -525,17 +524,13 @@ class Slice(param.Parameterized):
 
 		if "directions" in scene:
 			directions=scene["directions"]
-			self.direction.options=directions
 		else:
 			directions = self.db.inner.idxfile.axis.strip().split()
 			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
-			self.direction.options=directions
+		self.direction.options=directions
 
 		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
-
-		timestep = int(scene.get("timestep", self.db.getTimesteps()[0]))
-		self.timestep.value=timestep
-
+		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.view_dependent.value = bool(scene.get('view-dependent', True))
 
 		resolution=int(scene.get("resolution", -6))
@@ -543,35 +538,28 @@ class Slice(param.Parameterized):
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
 
-		field=scene.get("field", self.db.getField().name)
-		self.field.value=field
-
+		self.field.value=scene.get("field", self.db.getField().name)
 		self.num_refinements.value=int(scene.get("num-refinements", 2))
 
 		direction=int(scene.get("direction", 2))
 		self.setDirection(direction)
 
 		self.offset.value=float(scene.get("offset",self.guessOffset(direction)[0]))
-
 		self.play_sec.value=float(scene.get("play-sec",0.01))
-
 		self.palette.value_name=scene.get("palette",DEFAULT_PALETTE)
 
-		db_field = self.db.getField(field)
-		palette_metadata_range=list(scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To]))
-		assert(len(palette_metadata_range))==2
-		self.metadata_range = palette_metadata_range
+		db_field = self.db.getField(self.field.value)
+		self.metadata_range = list(scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To]))
+		assert(len(self.metadata_range))==2
 		self.color_map=None
 
-		range_mode=scene.get("range-mode","dynamic-acc")
-		self.range_mode.value=range_mode
+		self.range_mode.value=scene.get("range-mode","dynamic-acc")
 
 		if self.range_mode.value=="user":
 			self.range_min.value=scene.get("range-min",low)
 			self.range_max.value=scene.get("range-max",high)
 
-		color_mapper_type=scene.get("color-mapper-type","linear")
-		self.color_mapper_type.value = color_mapper_type	
+		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
 		x=scene.get("x",None)
 		y=scene.get("y",None)
