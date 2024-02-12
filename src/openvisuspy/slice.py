@@ -126,15 +126,12 @@ class Slice(param.Parameterized):
 			T = self.getTimestep()
 			T = A + value * int((T - A) / value)
 			T = min(B, max(A, T))
-			self.timestep_delta.value = value
 			self.timestep.step = value
 			self.setTimestep(T)
 			setattr("setting_timestep_delta",False)
-
 		self.timestep_delta.param.watch(onTimestepDeltaChange,"value")
 
 		def onFieldChange(evt):
-			self.field.value = evt.new
 			self.refresh()
 		self.field.param.watch(onFieldChange,"value")
 
@@ -145,7 +142,6 @@ class Slice(param.Parameterized):
 
 		def onRangeModeChange(evt):
 			mode=evt.new
-			self.range_mode.value = mode
 			self.color_map=None
 			if mode == "metadata":   self.range_min.value = it.metadata_range[0]
 			if mode == "dynamic-acc":self.range_min.value = 0.0
@@ -159,7 +155,6 @@ class Slice(param.Parameterized):
 		def onRangeChange(evt):
 			self.color_map=None
 			self.refresh()
-
 		self.range_min.param.watch(onRangeChange,"value")
 		self.range_max.param.watch(onRangeChange,"value")
 
@@ -168,19 +163,13 @@ class Slice(param.Parameterized):
 			self.refresh()
 		self.color_mapper_type.param.watch(onColorMapperTypeChange,"value")
 		
-		def onResolutionChange(evt):
-			self.refresh()
-
-		self.resolution.param.watch(onResolutionChange,"value")
+		self.resolution.param.watch(lambda evt: self.refresh(),"value")
 		self.view_dependent.param.watch(lambda evt: self.refresh(),"value")
 
 		self.num_refinements.param.watch(lambda evt: self.refresh(),"value")
 		self.direction.param.watch(lambda evt: self.setDirection(evt.new),"value")
 
-		def onOffsetChange(evt): 
-			self.offset.value = evt.new
-			self.refresh()
-		self.offset.param.watch(onOffsetChange,"value")
+		self.offset.param.watch(lambda evt: self.refresh(),"value")
 
 		self.info_button.on_click(lambda evt: self.showInfo())
 		self.open_button.on_click(lambda evt: self.showOpen())
