@@ -52,9 +52,11 @@ if __name__.startswith('bokeh'):
 			import panel as pn
 			import numpy as np
 
-			x1,y1=float(geometry["x0"]),float(geometry["y0"])
-			x2,y2=float(geometry["x1"]),float(geometry["y1"])
-			logic_box=slice.toLogic([(x1,y1),(x2,y2)])
+			x=float(geometry["x0"])
+			y=float(geometry["y0"])
+			w=float(geometry["x1"])-x
+			h=float(geometry["y1"])-y
+			logic_box=slice.toLogic(x,y,w,h)
 
 			data=list(ovy.ExecuteBoxQuery(slice.db, access=slice.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
 			fig = Figure()

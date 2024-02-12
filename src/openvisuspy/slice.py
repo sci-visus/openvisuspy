@@ -294,8 +294,8 @@ class Slice(param.Parameterized):
 		self.canvas = Canvas(self.id)
 
 		def onViewportChange(evt):
-			[(x1,x2),(y1,y2)]=self.canvas.getViewport()
-			self.viewport.value=f"{x1} {x2} {y1} {y2}"
+			x,y,w,h=self.canvas.getViewport()
+			self.viewport.value=f"{x} {y} {w} {h}"
 			self.refresh()
 
 		self.canvas.on_event(ViewportUpdate, onViewportChange)
@@ -400,7 +400,6 @@ class Slice(param.Parameterized):
 		
 	# getSceneBody
 	def getSceneBody(self):
-		(x1,x2),(y1,y2)=self.canvas.getViewport()
 		return {
 			"scene" : {
 				"name": self.scene.value, 
@@ -426,7 +425,7 @@ class Slice(param.Parameterized):
 				"range-mode": self.range_mode.value,
 				"range-min": cdouble(self.range_min.value), # Object of type float32 is not JSON serializable
 				"range-max": cdouble(self.range_max.value),
-				"viewport": [x1,y1,x2-x1,y2-y1]
+				"viewport": self.canvas.getViewport()
 			}
 		}
 
@@ -581,10 +580,7 @@ class Slice(param.Parameterized):
 
 		viewport=scene.get("viewport",None)
 		if viewport is not None:
-			x,y,w,h=viewport
-			x1,x2=x-0.5*w, x+0.5*w
-			y1,y2=y-0.5*h, y+0.5*h
-			self.canvas.setViewport([(x1,x2),(y1,y2)])
+			self.canvas.setViewport(viewport)
 
 		show_options=scene.get("show-options",DEFAULT_SHOW_OPTIONS)
 		self.setShowOptions(show_options)
@@ -690,66 +686,36 @@ class Slice(param.Parameterized):
 
 	# toPhysic
 	def toPhysic(self, value):
-
-		# is a box
-		if hasattr(value[0], "__iter__"):
-			p1, p2 = [self.toPhysic(p) for p in value]
-			return [p1, p2]
-
-		pdim = self.getPointDim()
 		dir = self.direction.value
-		assert (pdim == len(value))
-
+		pdim = self.getPointDim()
 		vt = [self.logic_to_physic[I][0] for I in range(pdim)]
 		vs = [self.logic_to_physic[I][1] for I in range(pdim)]
-
-		# apply scaling and translating
-		ret = [vs[I] * value[I] + vt[I] for I in range(pdim)]
-
-		if pdim == 3:
-			del ret[dir]  # project
-
-		assert (len(ret) == 2)
-		return ret
+		p1,p2=value
+		p1 = [vs[I] * p1[I] + vt[I] for I in range(pdim)]
+		p2 = [vs[I] * p2[I] + vt[I] for I in range(pdim)]
+		if pdim == 3: del p1[dir]
+		if pdim == 3: del p2[dir]
+		x1,y1=p1
+		x2,y2=p2
+		return [x1,y1,x2-x1,y2-y1]
 
 	# toLogic
 	def toLogic(self, value):
-		assert (len(value) == 2)
 		pdim = self.getPointDim()
 		dir = self.direction.value
-
-		# is a box?
-		if hasattr(value[0], "__iter__"):
-			p1, p2 = [self.toLogic(p) for p in value]
-			if pdim == 3:
-				p2[dir] += 1  # make full dimensional
-			return [p1, p2]
-
-		ret = list(value)
-
-		# unproject
-		if pdim == 3:
-			ret.insert(dir, 0)
-
-		assert (len(ret) == pdim)
-
 		vt = [self.logic_to_physic[I][0] for I in range(pdim)]
 		vs = [self.logic_to_physic[I][1] for I in range(pdim)]
-
-		# scaling/translatation
-		try:
-			ret = [(ret[I] - vt[I]) / vs[I] for I in range(pdim)]
-		except Exception as ex:
-			logger.info(f"Exception {ex} with logic_to_physic={self.logic_to_physic}", self.logic_to_physic)
-			raise
-
-		# unproject
+		x,y,w,h=value
+		p1=[x  ,y  ]
+		p2=[x+w,y+h]
+		if pdim == 3: p1.insert(dir, 0)
+		if pdim == 3: p2.insert(dir, 0)
+		p1 = [(p1[I] - vt[I]) / vs[I] for I in range(pdim)]
+		p2 = [(p2[I] - vt[I]) / vs[I] for I in range(pdim)]
 		if pdim == 3:
-			offset = self.offset.value  # this is in physic coordinates
-			ret[dir] = int((offset - vt[dir]) / vs[dir])
-
-		assert (len(ret) == pdim)
-		return ret
+			p1[dir] = int((self.offset.value  - vt[dir]) / vs[dir])
+			p2[dir] = p1[dir]+1 # needs to be full-dim
+		return [p1, p2]
 
 	# togglePlay
 	def togglePlay(self):
@@ -841,17 +807,11 @@ class Slice(param.Parameterized):
 
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
-		assert(self.canvas)
-		(x1,x2),(y1,y2)=self.canvas.getViewport()
-		return self.toLogic([(x1,y1),(x2,y2)])
+		return self.toLogic(self.canvas.getViewport())
 
 	# setQueryLogicBox
 	def setQueryLogicBox(self,value):
-		assert(self.canvas)
-		logger.debug(f"id={self.id} value={value}")
-		proj=self.toPhysic(value) 
-		(x1,y1),(x2,y2)=proj[0],proj[1]
-		self.canvas.setViewport([(x1,x2),(y1,y2)])
+		self.canvas.setViewport(self.toPhysic(value) )
 		self.refresh()
   
 	# getLogicCenter
@@ -870,7 +830,8 @@ class Slice(param.Parameterized):
 
   # gotoPoint
 	def gotoPoint(self,point):
-		return 
+		return  # COMMENTED OUT
+		"""
 		logger.debug(f"id={self.id} point={point}")
 		pdim=self.getPointDim()
 
@@ -884,7 +845,8 @@ class Slice(param.Parameterized):
 		for I in range(pdim):
 			p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
 		self.setQueryLogicBox([p1,p2])
-		self.canvas.renderPoints([self.toPhysic(point)]) # COMMENTED OUT
+		self.canvas.renderPoints([self.toPhysic(point)]) 
+		"""
   
 	# gotNewData
 	def gotNewData(self, result):
@@ -958,8 +920,7 @@ class Slice(param.Parameterized):
 		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} range={[low,high]}")
 
 		# update the image
-		(x1,y1),(x2,y2)=self.toPhysic(logic_box)
-		self.canvas.setImage(data,x1,y1,x2,y2, self.color_bar)
+		self.canvas.setImage(data,x1,y1,x2,y2, self.color_bar, self.toPhysic(logic_box))
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)

@@ -46,7 +46,7 @@ class Canvas:
 		self.last_W=0
 		self.last_H=0
 		self.last_viewport=None
-		self.setViewport([(0,256),(0,256)])
+		self.setViewport([0,0,256,256])
 		AddPeriodicCallback(self.onIdle,300)
 
 	# onIdle
@@ -59,33 +59,32 @@ class Canvas:
 
 		# some zoom in/out or panning happened (handled by bokeh) 
 		# note: no need to fix the aspect ratio in this case
-		(x1,x2),(y1,y2)=[
-			(self.fig.x_range.start, self.fig.x_range.end),
-			(self.fig.y_range.start, self.fig.y_range.end)
-		]
+		x=self.fig.x_range.start
+		y=self.fig.y_range.start
+		w=self.fig.x_range.end-x
+		h=self.fig.y_range.end-y
 
 		# nothing todo
-		if [(x1,x2),(y1,y2)]==self.last_viewport and [self.last_W,self.last_H]==[W,H]:
+		if [x,y,w,h]==self.last_viewport and [self.last_W,self.last_H]==[W,H]:
 			return
 
 		# I need to fix the aspect ratio , since only now I may have got the real canvas dimension
 		if [self.last_W,self.last_H]!=[W,H]:
-			w,cx =(1.0*x2-x1),(0.5*x1+0.5*x2)
-			h,cy =(1.0*y2-y1),(0.5*y1+0.5*y2)
+			x+=0.5*w
+			y+=0.5*h
 			if (w/W) > (h/H): 
-				h=(w/W)*H 
+				h=w*(H/W) 
 			else: 
-				w=(h/H)*W
-			x1,x2=cx-0.5*w,cx+0.5*w
-			y1,y2=cy-0.5*h,cy+0.5*h
+				w=h*(W/H)
+			x-=0.5*w
+			y-=0.5*h
 
 		#if [(x1,x2),(y1,y2)]!=[(self.fig.x_range.start, self.fig.x_range.end),(self.fig.y_range.start, self.fig.y_range.end)]:
-		self.fig.x_range.start, self.fig.x_range.end = (x1,x2)
-		self.fig.y_range.start, self.fig.y_range.end = (y1,y2)
+		self.fig.x_range.start, self.fig.x_range.end = x,x+w
+		self.fig.y_range.start, self.fig.y_range.end = y,y+h
 		self.last_W=W
 		self.last_H=H
-		self.last_viewport=[(x1,x2),(y1,y2)]
-
+		self.last_viewport=[x,y,w,h]
 		[fn(None) for fn in self.events[ViewportUpdate]]
 
 	# on_event
@@ -165,29 +164,31 @@ class Canvas:
 
 	# getViewport [(x1,x2),(y1,y2)]
 	def getViewport(self):
-		return [
-			(self.fig.x_range.start, self.fig.x_range.end),
-			(self.fig.y_range.start, self.fig.y_range.end)
-		]
+		x=self.fig.x_range.start
+		y=self.fig.y_range.start
+		w=self.fig.x_range.end-x
+		h=self.fig.y_range.end-y
+		return [x,y,w,h]
 
 	  # setViewport
 	def setViewport(self,value):
-		(x1,x2),(y1,y2)=value
+		x,y,w,h=value
 		self.last_W,self.last_H=0,0 # force a fix viewport
-		self.fig.x_range.start, self.fig.x_range.end = (x1,x2)
-		self.fig.y_range.start, self.fig.y_range.end = (y1,y2)
+		self.fig.x_range.start, self.fig.x_range.end = x, x+w
+		self.fig.y_range.start, self.fig.y_range.end = y, y+h
 		# NOTE: the event will be fired inside onIdle
 
 	# setImage
-	def setImage(self, data, x1, y1, x2, y2, color_bar):
+	def setImage(self, data, color_bar, viewport):
 		img=ConvertDataForRendering(data)
 		dtype=img.dtype
+		x,y,w,h=viewport
 		if self.last_dtype==dtype and self.last_cb==color_bar:
 			# current dtype is 'compatible' with the new image dtype, just change the source _data
-			self.source_image.data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]}
+			self.source_image.data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
 		else:
 			self.createFigure()
-			self.source_image = ColumnDataSource(data={"image":[img], "x":[x1], "y":[y1], "dw":[x2-x1], "dh":[y2-y1]})
+			self.source_image = ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
 			if img.dtype==np.uint32:	
 				self.last_renderer=self.fig.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
 			else:
