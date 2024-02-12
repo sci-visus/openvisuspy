@@ -139,7 +139,18 @@ class Slice(param.Parameterized):
 			self.refresh()
 		self.palette.param.watch(onPaletteChange,"value_name")
 
-		self.range_mode.param.watch(lambda evt: self.setRangeMode(evt.new),"value")
+		def onRangeModeChange(evt):
+			mode=evt.new
+			self.range_mode.value = mode
+			self.color_map=None
+			if mode == "metadata":   self.range_min.value = it.metadata_range[0]
+			if mode == "dynamic-acc":self.range_min.value = 0.0
+			self.range_min.disabled = False if mode == "user" else True
+			if mode == "metadata":   self.range_max.value = it.metadata_range[1]
+			if mode == "dynamic-acc":self.range_max.value = 0.0
+			self.range_max.disabled = False if mode == "user" else True
+			self.refresh()
+		self.range_mode.param.watch(onRangeModeChange,"value")
 
 		def onRangeChange(evt):
 			self.color_map=None
@@ -549,7 +560,7 @@ class Slice(param.Parameterized):
 		self.color_map=None
 
 		range_mode=scene.get("range-mode","dynamic-acc")
-		self.setRangeMode(range_mode)
+		self.range_mode.value=range_mode
 
 		if self.range_mode.value=="user":
 			self.range_min.value=scene.get("range-min",low)
@@ -628,24 +639,6 @@ class Slice(param.Parameterized):
 		self.field.value = value
 		self.refresh()
  
-	# setRangeMode
-	def setRangeMode(self, mode):
-		logger.debug(f"id={self.id} mode={mode} ")
-
-		self.range_mode.value = mode
-		self.color_map=None
-
-		if mode == "metadata":   self.range_min.value = it.metadata_range[0]
-		if mode == "dynamic-acc":self.range_min.value = 0.0
-		self.range_min.disabled = False if mode == "user" else True
-
-		if mode == "metadata":   self.range_max.value = it.metadata_range[1]
-		if mode == "dynamic-acc":self.range_max.value = 0.0
-		self.range_max.disabled = False if mode == "user" else True
-
-		self.refresh()
-
-
 	# getMaxResolution
 	def getMaxResolution(self):
 		return self.db.getMaxResolution()
