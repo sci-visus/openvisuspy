@@ -153,7 +153,10 @@ class Slice(param.Parameterized):
 			self.refresh()
 		self.color_mapper_type.param.watch(onColorMapperTypeChange,"value")
 		
-		self.resolution.param.watch(lambda evt: self.setResolution(evt.new),"value")
+		def onResolutionChange(evt):
+			self.refresh()
+
+		self.resolution.param.watch(onResolutionChange,"value")
 		self.view_dependent.param.watch(lambda evt: self.refresh(),"value")
 
 		self.num_refinements.param.watch(lambda evt: self.refresh(),"value")
@@ -518,7 +521,8 @@ class Slice(param.Parameterized):
 
 		resolution=int(scene.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
-		self.setResolution(resolution)
+		self.resolution.end = self.db.getMaxResolution()
+		self.resolution.value = resolution
 
 		field=scene.get("field", self.db.getField().name)
 		self.setField(field)
@@ -644,14 +648,6 @@ class Slice(param.Parameterized):
 	# getMaxResolution
 	def getMaxResolution(self):
 		return self.db.getMaxResolution()
-
-	# setResolution
-	def setResolution(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		value = Clamp(value, 0, self.db.getMaxResolution())
-		self.resolution.end   = self.db.getMaxResolution()
-		self.resolution.value = value
-		self.refresh()
 
 	# setViewDependent
 	def setViewDependent(self, value):
