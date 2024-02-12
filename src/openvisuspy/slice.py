@@ -126,8 +126,13 @@ class Slice(param.Parameterized):
 		self.palette.param.watch(onPaletteChange,"value_name")
 
 		self.range_mode.param.watch(lambda evt: self.setRangeMode(evt.new),"value")
-		self.range_min.param.watch(lambda evt: self.setRangeMin(evt.new) if self.range_mode.value == "user" else None,"value")
-		self.range_max.param.watch(lambda evt: self.setRangeMax(evt.new) if self.range_mode.value == "user" else None,"value")
+
+		def onRangeChange(evt):
+			self.color_map=None
+			self.refresh()
+
+		self.range_min.param.watch(onRangeChange,"value")
+		self.range_max.param.watch(onRangeChange,"value")
 		self.color_mapper_type.param.watch(lambda evt: self.setColorMapperType(evt.new),"value")
 		
 		self.resolution.param.watch(lambda evt: self.setResolution(evt.new),"value")
@@ -510,11 +515,9 @@ class Slice(param.Parameterized):
 		self.setOffsetRange(offset_range) 
 		self.setOffset(offset)	
 
-		play_sec=float(scene.get("play-sec",0.01))
-		self.play_sec.value=play_sec
+		self.play_sec.value=float(scene.get("play-sec",0.01))
 
-		palette=scene.get("palette",DEFAULT_PALETTE)
-		self.palette.value_name=palette
+		self.palette.value_name=scene.get("palette",DEFAULT_PALETTE)
 
 		db_field = self.db.getField(field)
 		palette_metadata_range=list(scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To]))
@@ -526,11 +529,8 @@ class Slice(param.Parameterized):
 		self.setRangeMode(range_mode)
 
 		if self.range_mode.value=="user":
-			range_min=scene.get("range-min",low)
-			self.setRangeMin(range_min)
-
-			range_max=scene.get("range-max",high)
-			self.setRangeMax(range_max)
+			self.range_min.value=scene.get("range-min",low)
+			self.range_max.value=scene.get("range-max",high)
 
 		color_mapper_type=scene.get("color-mapper-type","linear")
 		self.setColorMapperType(color_mapper_type)	
@@ -642,19 +642,6 @@ class Slice(param.Parameterized):
 		self.range_max.disabled = False if mode == "user" else True
 
 		self.refresh()
-
-	# setRangeMin
-	def setRangeMin(self, value):
-		self.range_min.value = vmin
-		self.color_map=None
-		self.refresh()
-
-	# setRangeMin
-	def setRangeMax(self, value):
-		self.range_max.value = vmin
-		self.color_map=None
-		self.refresh()
-
 
 	# setColorMapperType
 	def setColorMapperType(self, value):
