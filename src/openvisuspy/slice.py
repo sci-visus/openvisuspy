@@ -108,7 +108,12 @@ class Slice(param.Parameterized):
 
 		self.createGui()
 
-		self.scene.param.watch(lambda evt: self.setScene(evt.new),"value")
+		def onSceneChange(evt): 
+			logger.info(f"onSceneChange {evt}")
+			body=self.scenes[evt.new]
+			self.setSceneBody(body)
+		self.scene.param.watch(onSceneChange,"value")
+
 		self.timestep.param.watch(lambda evt:self.setTimestep(evt.new), "value")
 		self.timestep_delta.param.watch(lambda evt: self.setTimestepDelta(evt.new),"value")
 		self.field.param.watch(lambda evt: self.setField(evt.new),"value")
@@ -398,7 +403,8 @@ class Slice(param.Parameterized):
 		self.scene.options = list(self.scenes)
 
 		if self.scenes:
-			self.setScene(list(self.scenes)[0])
+			first_scene_name=list(self.scenes)[0]
+			self.scene.value=first_scene_name
 
 	# setSceneBody
 	def setSceneBody(self, scene):
@@ -538,9 +544,6 @@ class Slice(param.Parameterized):
 
 		logger.info(f"id={self.id} END\n")
 
-	# setScene
-	def setScene(self, name):
-		self.setSceneBody(self.scenes[name])
 
 	# showInfo
 	def showInfo(self):

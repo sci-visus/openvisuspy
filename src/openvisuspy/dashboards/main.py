@@ -32,7 +32,8 @@ if __name__.startswith('bokeh'):
 		body=json.loads(base64.b64decode(query_params['load']).decode("utf-8"))
 		slice.setSceneBody(body)
 	elif "dataset" in query_params:
-		slice.setScene(query_params["dataset"])
+		scene_name=query_params["dataset"]
+		slice.scene.value=scene_name
 
 	if True:
 		probe=ProbeTool(slice)
