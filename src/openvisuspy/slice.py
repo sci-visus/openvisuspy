@@ -147,7 +147,7 @@ class Slice(param.Parameterized):
 			# self.setSceneBody(json.loads(body)) NOT SURE I WANT THIS
 			ShowInfoNotification('Load done')
 
-		file_input = pn.widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
+		file_input = pn.widgets.FileInput(description="Load", accept=".json", callback=onLoadClick)
 
 		# onEvalClick
 		def onEvalClick(evt=None):
@@ -583,25 +583,13 @@ class Slice(param.Parameterized):
 				)
 			)
 
-		self.showDialog(*cards, name="Metadata")
+		self.showDialog(*cards)
 
 	# showDialog
 	def showDialog(self, *args,**kwargs):
-		name=kwargs["name"]
-
-		if not "position" in kwargs:
-			kwargs["position"]="center"
-
-		if not "width" in kwargs:
-			kwargs["width"]=1024
-
-		if not "height" in kwargs:
-			kwargs["height"]=600
-
-		if not "contained" in kwargs:
-			kwargs["contained"]=False
-
-		float_panel=FloatPanel(*args, **kwargs)
+		d={"position":"center", "width":1024, "height":600, "contained":False}
+		d.update(**kwargs)
+		float_panel=FloatPanel(*args, **d)
 		self.dialogs.append(float_panel)
 
 	# getTimesteps
