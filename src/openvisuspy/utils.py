@@ -22,6 +22,17 @@ bokeh.core.validation.silence(bokeh.core.validation.warnings.FIXED_SIZING_MODE,T
 
 import panel as pn
 
+# ////////////////////////////////////////////////////////
+def SafeCallback(fn):
+	def ReturnValue(evt):
+		try:
+			fn(evt)
+		except:
+			logger.error(traceback.format_exc())
+			raise
+	return ReturnValue
+
+
 # ///////////////////////////////////////////////
 def IsPyodide():
 	return "pyodide" in sys.modules

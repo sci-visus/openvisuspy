@@ -18,8 +18,8 @@ import panel as pn
 from panel import Column,Row
 from panel.pane import Bokeh
 
-class ViewportUpdate: pass
-
+class ViewportUpdate: 
+	pass
 
 
 # ////////////////////////////////////////////////////////////////////////////////////

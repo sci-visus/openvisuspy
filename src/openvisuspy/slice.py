@@ -43,14 +43,13 @@ DEFAULT_SHOW_OPTIONS={
 }
 
 
+
+
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
 
 	# whenever some new result is available
 	render_id              = pn.widgets.IntSlider          (name="RenderId", value=0)
-
-	# bounding box of the query region
-	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 		# current scene as JSON
 	scene_body             = pn.widgets.TextAreaInput(name='Current',sizing_mode="stretch_width",height=520,)
@@ -65,7 +64,8 @@ class Slice(param.Parameterized):
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
 	offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=NumeralTickFormatter(format="0.01"))
-	
+	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
+
 	# palette thingy
 	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120)
 	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
@@ -117,11 +117,11 @@ class Slice(param.Parameterized):
 			logger.info(f"onSceneChange {evt}")
 			body=self.scenes[evt.new]
 			self.setSceneBody(body)
-		self.scene.param.watch(onSceneChange,"value", onlychanged=True,queued=True)
+		self.scene.param.watch(SafeCallback(onSceneChange),"value", onlychanged=True,queued=True)
 
 		def onTimestepChange(evt):
 			self.refresh()
-		self.timestep.param.watch(onTimestepChange, "value", onlychanged=True,queued=True)
+		self.timestep.param.watch(SafeCallback(onTimestepChange), "value", onlychanged=True,queued=True)
 
 		def onTimestepDeltaChange(evt):
 			if bool(getattr(self,"setting_timestep_delta",False)): return
@@ -135,16 +135,16 @@ class Slice(param.Parameterized):
 			self.timestep.step = value
 			self.setTimestep(T)
 			setattr("setting_timestep_delta",False)
-		self.timestep_delta.param.watch(onTimestepDeltaChange,"value", onlychanged=True,queued=True)
+		self.timestep_delta.param.watch(SafeCallback(onTimestepDeltaChange),"value", onlychanged=True,queued=True)
 
 		def onFieldChange(evt):
 			self.refresh()
-		self.field.param.watch(onFieldChange,"value", onlychanged=True,queued=True)
+		self.field.param.watch(SafeCallback(onFieldChange),"value", onlychanged=True,queued=True)
 
 		def onPaletteChange(evt):
 			self.color_bar=None
 			self.refresh()
-		self.palette.param.watch(onPaletteChange,"value_name", onlychanged=True,queued=True)
+		self.palette.param.watch(SafeCallback(onPaletteChange),"value_name", onlychanged=True,queued=True)
 
 		def onRangeModeChange(evt):
 			mode=evt.new
@@ -156,23 +156,23 @@ class Slice(param.Parameterized):
 			if mode == "dynamic-acc":self.range_max.value = 0.0
 			self.range_max.disabled = False if mode == "user" else True
 			self.refresh()
-		self.range_mode.param.watch(onRangeModeChange,"value", onlychanged=True,queued=True)
+		self.range_mode.param.watch(SafeCallback(onRangeModeChange),"value", onlychanged=True,queued=True)
 
 		def onRangeChange(evt):
 			self.color_map=None
 			self.refresh()
-		self.range_min.param.watch(onRangeChange,"value", onlychanged=True,queued=True)
-		self.range_max.param.watch(onRangeChange,"value", onlychanged=True,queued=True)
+		self.range_min.param.watch(SafeCallback(onRangeChange),"value", onlychanged=True,queued=True)
+		self.range_max.param.watch(SafeCallback(onRangeChange),"value", onlychanged=True,queued=True)
 
 		def onColorMapperTypeChange(evt):
 			self.color_bar=None 
 			self.refresh()
-		self.color_mapper_type.param.watch(onColorMapperTypeChange,"value", onlychanged=True,queued=True)
+		self.color_mapper_type.param.watch(SafeCallback(onColorMapperTypeChange),"value", onlychanged=True,queued=True)
 		
-		self.resolution.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True)
-		self.view_dependent.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True)
+		self.resolution.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
+		self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
-		self.num_refinements.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True)
+		self.num_refinements.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
 		def onDirectionChange(evt):
 			value=evt.new
@@ -190,15 +190,15 @@ class Slice(param.Parameterized):
 			self.offset.value=offset_value
 			self.setQueryLogicBox(([0]*pdim,dims))
 			self.refresh()
-		self.direction.param.watch(onDirectionChange,"value", onlychanged=True,queued=True)
+		self.direction.param.watch(SafeCallback(onDirectionChange),"value", onlychanged=True,queued=True)
 
-		self.offset.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True)
+		self.offset.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
-		self.info_button.on_click(lambda evt: self.showInfo())
-		self.open_button.on_click(lambda evt: self.showOpen())
-		self.save_button.on_click(lambda evt: self.save())
-		self.copy_url_button.on_click(lambda evt: self.copyUrl())
-		self.play_button.on_click(lambda evt: self.togglePlay())
+		self.info_button.on_click(SafeCallback(lambda evt: self.showInfo()))
+		self.open_button.on_click(SafeCallback(lambda evt: self.showOpen()))
+		self.save_button.on_click(SafeCallback(lambda evt: self.save()))
+		self.copy_url_button.on_click(SafeCallback(lambda evt: self.copyUrl()))
+		self.play_button.on_click(SafeCallback(lambda evt: self.togglePlay()))
 
 		self.setShowOptions(DEFAULT_SHOW_OPTIONS)
 
@@ -208,21 +208,19 @@ class Slice(param.Parameterized):
 	# open
 	def showOpen(self):
 
-		def onLoadClick(evt=None):
+		def onLoadClick(evt):
 			body=value.decode('ascii')
 			self.scene_body.value=body
-			# self.setSceneBody(json.loads(body)) NOT SURE I WANT THIS
-			ShowInfoNotification('Load done')
+			ShowInfoNotification('Load done. Press `Eval`')
+		file_input = pn.widgets.FileInput(description="Load", accept=".json")
+		file_input.param.watch(SafeCallback(onLoadClick),"value", onlychanged=True,queued=True)
 
-		file_input = pn.widgets.FileInput(description="Load", accept=".json", callback=onLoadClick)
-
-		# onEvalClick
-		def onEvalClick(evt=None):
-			body=json.loads(self.scene_body.value)
-			self.setSceneBody(body)
+		def onEvalClick(evt):
+			self.setSceneBody(json.loads(self.scene_body.value))
 			ShowInfoNotification('Eval done')
+		eval_button = pn.widgets.Button(name="Eval", align='end')
+		eval_button.on_click(SafeCallback(onEvalClick))
 
-		eval_button = pn.widgets.Button(name="Eval", callback=onEvalClick, align='end')
 		self.showDialog(
 			Column(
 				self.scene_body,
@@ -428,10 +426,7 @@ class Slice(param.Parameterized):
 				"range-mode": self.range_mode.value,
 				"range-min": cdouble(self.range_min.value), # Object of type float32 is not JSON serializable
 				"range-max": cdouble(self.range_max.value),
-				"x":(x1+x2)/2.0,
-				"y":(y1+y2)/2.0,
-				"w":x2-x1,
-				"h":y2-y1	
+				"viewport": [x1,y1,x2-x1,y2-y1]
 			}
 		}
 
@@ -584,14 +579,11 @@ class Slice(param.Parameterized):
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
-		x=scene.get("x",None)
-		y=scene.get("y",None)
-		w=scene.get("w",None)
-		h=scene.get("h",None)
-
-		if x is not None:
-			x1,x2=x-w/2.0, x+w/2.0
-			y1,y2=y-h/2.0, y+h/2.0
+		viewport=scene.get("viewport",None)
+		if viewport is not None:
+			x,y,w,h=viewport
+			x1,x2=x-0.5*w, x+0.5*w
+			y1,y2=y-0.5*h, y+0.5*h
 			self.canvas.setViewport([(x1,x2),(y1,y2)])
 
 		show_options=scene.get("show-options",DEFAULT_SHOW_OPTIONS)
