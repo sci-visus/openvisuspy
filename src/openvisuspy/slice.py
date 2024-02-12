@@ -517,8 +517,10 @@ class Slice(param.Parameterized):
 		self.palette.value_name=palette
 
 		db_field = self.db.getField(field)
-		palette_metadata_range=scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To])
-		self.setMetadataRange(palette_metadata_range)
+		palette_metadata_range=list(scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To]))
+		assert(len(palette_metadata_range))==2
+		self.metadata_range = palette_metadata_range
+		self.color_map=None
 
 		range_mode=scene.get("range-mode","dynamic-acc")
 		self.setRangeMode(range_mode)
@@ -623,16 +625,7 @@ class Slice(param.Parameterized):
 		if value is None: return
 		self.field.value = value
 		self.refresh()
-
-
-
-	# setMetadataRange
-	def setMetadataRange(self, value):
-		vmin, vmax = value
-		self.metadata_range = [vmin, vmax]
-		self.color_map=None
-		self.refresh()
-
+ 
 	# setRangeMode
 	def setRangeMode(self, mode):
 		logger.debug(f"id={self.id} mode={mode} ")
