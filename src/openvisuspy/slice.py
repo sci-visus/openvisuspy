@@ -667,7 +667,10 @@ class Slice(param.Parameterized):
 
 		# default behaviour is to guess the offset
 		offset_value,offset_range=self.guessOffset(value)
-		self.setOffsetRange(offset_range)  # both extrema included
+		self.offset.start=offset_range[0]
+		self.offset.end  =offset_range[1]
+		self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
+
 		self.offset.value=offset_value
 		self.setQueryLogicBox(([0]*pdim,dims))
 		self.refresh()
@@ -687,18 +690,6 @@ class Slice(param.Parameterized):
 		Z = dir if len(directions) == 3 else 2
 		titles = list(directions.keys())
 		return (X, Y, Z), (titles[X], titles[Y], titles[Z] if len(titles) == 3 else 'Z')
-
-	# setOffsetRange
-	def setOffsetRange(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		A, B, step = value
-		self.offset.start=A
-		self.offset.end=B
-		if self.offset.editable and step==0.0:
-			self.offset.step=1e-16 #  problem with editable slider and step==0
-		else:
-			self.offset.step=step
-
 
 	# guessOffset
 	def guessOffset(self, dir):
