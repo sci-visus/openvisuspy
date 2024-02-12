@@ -57,12 +57,12 @@ class ProbeTool(param.Parameterized):
 		# to add probes
 		slice.canvas.on_event(DoubleTap,self.onCanvasDoubleTap)
 
-		self.slice.offset.param.watch(lambda evt: self.refresh(),"value") # display the new offset
-		self.slice.scene.param.watch(lambda evt: self.recompute(),"value")
-		self.slice.direction.param.watch(lambda evt: self.recompute(),"value")
+		self.slice.offset.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True) # display the new offset
+		self.slice.scene.param.watch(lambda evt: self.recompute(),"value", onlychanged=True,queued=True)
+		self.slice.direction.param.watch(lambda evt: self.recompute(),"value", onlychanged=True,queued=True)
 
 		# new data, important for the range
-		self.slice.render_id.param.watch(lambda evt: self.refresh(), "value") 
+		self.slice.render_id.param.watch(lambda evt: self.refresh(), "value", onlychanged=True,queued=True) 
 
 	# createFigure
 	def createFigure(self):
@@ -88,13 +88,13 @@ class ProbeTool(param.Parameterized):
 		self.button_css = [None] * len(COLORS)
 		self.fig_placeholder = Column(sizing_mode='stretch_both')
 
-		self.slider_x_pos.param.watch(lambda new: self.onProbeXYChange(), "value_throttled")
-		self.slider_y_pos.param.watch(lambda new: self.onProbeXYChange(), "value_throttled")
-		self.slider_z_range.param.watch(lambda evt: self.recompute(), "value_throttled")
-		self.slider_num_points_x.param.watch(lambda evt: self.recompute(), 'value_throttled')
-		self.slider_num_points_y.param.watch(lambda evt: self.recompute(), 'value_throttled')
-		self.slider_z_res.param.watch(lambda evt: self.recompute(), 'value_throttled')
-		self.slider_z_op.param.watch(lambda evt: self.recompute(), "value")
+		self.slider_x_pos.param.watch(lambda new: self.onProbeXYChange(), "value_throttled", onlychanged=True,queued=True)
+		self.slider_y_pos.param.watch(lambda new: self.onProbeXYChange(), "value_throttled", onlychanged=True,queued=True)
+		self.slider_z_range.param.watch(lambda evt: self.recompute(), "value_throttled", onlychanged=True,queued=True)
+		self.slider_num_points_x.param.watch(lambda evt: self.recompute(), 'value_throttled', onlychanged=True,queued=True)
+		self.slider_num_points_y.param.watch(lambda evt: self.recompute(), 'value_throttled', onlychanged=True,queued=True)
+		self.slider_z_res.param.watch(lambda evt: self.recompute(), 'value_throttled', onlychanged=True,queued=True)
+		self.slider_z_op.param.watch(lambda evt: self.recompute(), "value", onlychanged=True,queued=True)
 
 		# create buttons
 		self.buttons = []

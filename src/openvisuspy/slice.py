@@ -42,10 +42,15 @@ DEFAULT_SHOW_OPTIONS={
 	]
 }
 
+
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
 
-	render_id              = pn.widgets.IntSlider(name="RenderId", value=0)
+	# whenever some new result is available
+	render_id              = pn.widgets.IntSlider          (name="RenderId", value=0)
+
+	# bounding box of the query region
+	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# core query
 	scene                  = pn.widgets.Select             (name="Scene", options=[], width=120)
@@ -111,11 +116,11 @@ class Slice(param.Parameterized):
 			logger.info(f"onSceneChange {evt}")
 			body=self.scenes[evt.new]
 			self.setSceneBody(body)
-		self.scene.param.watch(onSceneChange,"value")
+		self.scene.param.watch(onSceneChange,"value", onlychanged=True,queued=True)
 
 		def onTimestepChange(evt):
 			self.refresh()
-		self.timestep.param.watch(onTimestepChange, "value")
+		self.timestep.param.watch(onTimestepChange, "value", onlychanged=True,queued=True)
 
 		def onTimestepDeltaChange(evt):
 			if bool(getattr(self,"setting_timestep_delta",False)): return
@@ -129,16 +134,16 @@ class Slice(param.Parameterized):
 			self.timestep.step = value
 			self.setTimestep(T)
 			setattr("setting_timestep_delta",False)
-		self.timestep_delta.param.watch(onTimestepDeltaChange,"value")
+		self.timestep_delta.param.watch(onTimestepDeltaChange,"value", onlychanged=True,queued=True)
 
 		def onFieldChange(evt):
 			self.refresh()
-		self.field.param.watch(onFieldChange,"value")
+		self.field.param.watch(onFieldChange,"value", onlychanged=True,queued=True)
 
 		def onPaletteChange(evt):
 			self.color_bar=None
 			self.refresh()
-		self.palette.param.watch(onPaletteChange,"value_name")
+		self.palette.param.watch(onPaletteChange,"value_name", onlychanged=True,queued=True)
 
 		def onRangeModeChange(evt):
 			mode=evt.new
@@ -150,23 +155,23 @@ class Slice(param.Parameterized):
 			if mode == "dynamic-acc":self.range_max.value = 0.0
 			self.range_max.disabled = False if mode == "user" else True
 			self.refresh()
-		self.range_mode.param.watch(onRangeModeChange,"value")
+		self.range_mode.param.watch(onRangeModeChange,"value", onlychanged=True,queued=True)
 
 		def onRangeChange(evt):
 			self.color_map=None
 			self.refresh()
-		self.range_min.param.watch(onRangeChange,"value")
-		self.range_max.param.watch(onRangeChange,"value")
+		self.range_min.param.watch(onRangeChange,"value", onlychanged=True,queued=True)
+		self.range_max.param.watch(onRangeChange,"value", onlychanged=True,queued=True)
 
 		def onColorMapperTypeChange(evt):
 			self.color_bar=None 
 			self.refresh()
-		self.color_mapper_type.param.watch(onColorMapperTypeChange,"value")
+		self.color_mapper_type.param.watch(onColorMapperTypeChange,"value", onlychanged=True,queued=True)
 		
-		self.resolution.param.watch(lambda evt: self.refresh(),"value")
-		self.view_dependent.param.watch(lambda evt: self.refresh(),"value")
+		self.resolution.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True)
+		self.view_dependent.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True)
 
-		self.num_refinements.param.watch(lambda evt: self.refresh(),"value")
+		self.num_refinements.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True)
 
 		def onDirectionChange(evt):
 			value=evt.new
@@ -184,9 +189,9 @@ class Slice(param.Parameterized):
 			self.offset.value=offset_value
 			self.setQueryLogicBox(([0]*pdim,dims))
 			self.refresh()
-		self.direction.param.watch(onDirectionChange,"value")
+		self.direction.param.watch(onDirectionChange,"value", onlychanged=True,queued=True)
 
-		self.offset.param.watch(lambda evt: self.refresh(),"value")
+		self.offset.param.watch(lambda evt: self.refresh(),"value", onlychanged=True,queued=True)
 
 		self.info_button.on_click(lambda evt: self.showInfo())
 		self.open_button.on_click(lambda evt: self.showOpen())
@@ -289,7 +294,12 @@ class Slice(param.Parameterized):
 		self.query_node=QueryNode()
 		self.canvas = Canvas(self.id)
 
-		self.canvas.on_event(ViewportUpdate, lambda evt: self.refresh())
+		def onViewportChange(evt):
+			[(x1,x2),(y1,y2)]=self.canvas.getViewport()
+			self.viewport.value=f"{x1} {x2} {y1} {y2}"
+			self.refresh()
+
+		self.canvas.on_event(ViewportUpdate, onViewportChange)
 
 		self.top_layout=Column(sizing_mode="stretch_width")
 

@@ -20,6 +20,8 @@ from panel.pane import Bokeh
 
 class ViewportUpdate: pass
 
+
+
 # ////////////////////////////////////////////////////////////////////////////////////
 class Canvas:
   
@@ -80,11 +82,11 @@ class Canvas:
 		#if [(x1,x2),(y1,y2)]!=[(self.fig.x_range.start, self.fig.x_range.end),(self.fig.y_range.start, self.fig.y_range.end)]:
 		self.fig.x_range.start, self.fig.x_range.end = (x1,x2)
 		self.fig.y_range.start, self.fig.y_range.end = (y1,y2)
-		[fn(None) for fn in self.events[ViewportUpdate]]
-
 		self.last_W=W
 		self.last_H=H
 		self.last_viewport=[(x1,x2),(y1,y2)]
+
+		[fn(None) for fn in self.events[ViewportUpdate]]
 
 	# on_event
 	def on_event(self, evt, callback):
@@ -103,7 +105,7 @@ class Canvas:
 
 		# if old: old_remove_on_event(DoubleTap, self.onDoubleTap) cannot find old_remove_on_event
 		def handleDoubleTap(evt):
-			return [fn(evt) for fn in self.events[DoubleTap](evt)]
+			return [fn(evt) for fn in self.events[DoubleTap]]
 		self.fig.on_event(DoubleTap, handleDoubleTap)
 
 		# TODO: keep the renderers but not the
@@ -174,6 +176,7 @@ class Canvas:
 		self.last_W,self.last_H=0,0 # force a fix viewport
 		self.fig.x_range.start, self.fig.x_range.end = (x1,x2)
 		self.fig.y_range.start, self.fig.y_range.end = (y1,y2)
+		# NOTE: the event will be fired inside onIdle
 
 	# setImage
 	def setImage(self, data, x1, y1, x2, y2, color_bar):
