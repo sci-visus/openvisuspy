@@ -29,15 +29,13 @@ from panel.layout import FloatPanel
 from panel import Column,Row,GridBox,Card
 from panel.pane import HTML,JSON,Bokeh
 
-
-
 DEFAULT_START_RESOLUTION = 20
 SLICE_ID=0
 EPSILON = 0.001
 
 DEFAULT_SHOW_OPTIONS={
 	"top": [
-		["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dep", "num_refinements"],
+		["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dependent", "num_refinements"],
 		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 	],
 	"bottom": [
@@ -53,10 +51,10 @@ class Slice(param.Parameterized):
 	# core query
 	scene                  = pn.widgets.Select             (name="Scene", options=[], width=180, )
 	timestep               = pn.widgets.EditableFloatSlider(name="Time", value=0, start=0, end=1, step=1.0, sizing_mode="stretch_width",format=NumeralTickFormatter(format="0.001"))
-	timestep_delta         = pn.widgets.Select             (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60)
+	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 1, 32, 64, 128], value=1, width=60)
 	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
 	resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=DEFAULT_START_RESOLUTION, end=99,  sizing_mode="stretch_width")
-	view_dep               = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
+	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
 	offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=NumeralTickFormatter(format="0.01"))
@@ -112,7 +110,7 @@ class Slice(param.Parameterized):
 
 		self.scene.param.watch(lambda evt: self.setScene(evt.new),"value")
 		self.timestep.param.watch(lambda evt:self.setTimestep(evt.new), "value")
-		self.timestep_delta.param.watch(lambda evt: self.setTimestepDelta(self.speedFromOption(evt.new)),"value")
+		self.timestep_delta.param.watch(lambda evt: self.setTimestepDelta(evt.new),"value")
 		self.field.param.watch(lambda evt: self.setField(evt.new),"value")
 
 		self.palette.param.watch(lambda evt: self.setPalette(evt.new),"value_name")
@@ -122,7 +120,7 @@ class Slice(param.Parameterized):
 		self.color_mapper_type.param.watch(lambda evt: self.setColorMapperType(evt.new),"value")
 		
 		self.resolution.param.watch(lambda evt: self.setResolution(evt.new),"value")
-		self.view_dep.param.watch(lambda evt: self.setViewDependent(evt.new),"value")
+		self.view_dependent.param.watch(lambda evt: self.setViewDependent(evt.new),"value")
 		self.num_refinements.param.watch(lambda evt: self.setNumberOfRefinements(evt.new),"value")
 		self.direction.param.watch(lambda evt: self.setDirection(evt.new),"value")
 		self.offset.param.watch(lambda evt: self.setOffset(evt.new),"value")
@@ -594,25 +592,13 @@ class Slice(param.Parameterized):
 
 	# getTimesteps
 	def getTimesteps(self):
-		try:
-			return [int(value) for value in self.db.db.getTimesteps().asVector()]
-		except:
-			return []
+		return [int(value) for value in self.db.db.getTimesteps().asVector()] if self.db else []
 
 	# setTimesteps
 	def setTimesteps(self, value):
-		logger.debug(f"id={self.id} start={value[0]} end={value[-1]}")
 		self.timestep.start = value[0]
 		self.timestep.end   = value[-1]
 		self.timestep.step  = 1
-
-	# speedFromOption
-	def speedFromOption(self, option):
-		return (int(option[:-1]))
-
-	# optionFromSpeed
-	def optionFromSpeed(self, speed):
-		return (str(speed) + "x")
 
 	# getPlaySec
 	def getPlaySec(self):
@@ -625,12 +611,12 @@ class Slice(param.Parameterized):
 
 	# getTimestepDelta
 	def getTimestepDelta(self):
-		return self.speedFromOption(self.timestep_delta.value)
+		return self.timestep_delta.value
 
 	# setTimestepDelta
 	def setTimestepDelta(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		option=self.optionFromSpeed(value)
+
+		value=int(value)
 
 		A = self.timestep.start
 		B = self.timestep.end
@@ -638,9 +624,8 @@ class Slice(param.Parameterized):
 		T = A + value * int((T - A) / value)
 		T = min(B, max(A, T))
 		
-		self.timestep_delta.value = option
+		self.timestep_delta.value = value
 		self.timestep.step = value
-
 		self.setTimestep(T)
 
 	# getTimestep
@@ -778,12 +763,12 @@ class Slice(param.Parameterized):
 
 	# isViewDependent
 	def isViewDependent(self):
-		return self.view_dep.value
+		return self.view_dependent.value
 
 	# setViewDependent
 	def setViewDependent(self, value):
 		logger.debug(f"id={self.id} value={value}")
-		self.view_dep.value = value
+		self.view_dependent.value = value
 		self.refresh()
 
 	# getDirections
@@ -1024,7 +1009,7 @@ class Slice(param.Parameterized):
 		self.offset.disabled = value
 		self.num_refinements.disabled = value
 		self.resolution.disabled = value
-		self.view_dep.disabled = value
+		self.view_dependent.disabled = value
 		self.request.disabled = value
 		self.response.disabled = value
 		self.play_button.disabled = value
