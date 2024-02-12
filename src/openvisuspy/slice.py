@@ -351,8 +351,8 @@ class Slice(param.Parameterized):
 				"palette": self.palette.value_name,
 				"color-mapper-type": self.getColorMapperType(),
 				"range-mode": self.range_mode.value,
-				"range-min": self.getRangeMin(),
-				"range-min": self.getRangeMax(),
+				"range-min": cdouble(self.range_min.value),
+				"range-max": cdouble(self.range_max.value),
 				"x":(x1+x2)/2.0,
 				"y":(y1+y2)/2.0,
 				"w":x2-x1,
@@ -667,14 +667,6 @@ class Slice(param.Parameterized):
 		self.range_max.disabled = False if mode == "user" else True
 
 		self.refresh()
-
-	# getRangeMin
-	def getRangeMin(self):
-		return cdouble(self.range_min.value)
-
-	# getRangeMax
-	def getRangeMax(self):
-		return cdouble(self.range_max.value)
 
 	# setRangeMin
 	def setRangeMin(self, value):
