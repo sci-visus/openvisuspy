@@ -116,7 +116,22 @@ class Slice(param.Parameterized):
 		def onTimestepChange(evt):
 			self.refresh()
 		self.timestep.param.watch(onTimestepChange, "value")
-		self.timestep_delta.param.watch(lambda evt: self.setTimestepDelta(evt.new),"value")
+
+		def onTimestepDeltaChange(evt):
+			if bool(getattr(self,"setting_timestep_delta",False)): return
+			setattr("setting_timestep_delta",True)
+			value=int(evt.new)
+			A = self.timestep.start
+			B = self.timestep.end
+			T = self.getTimestep()
+			T = A + value * int((T - A) / value)
+			T = min(B, max(A, T))
+			self.timestep_delta.value = value
+			self.timestep.step = value
+			self.setTimestep(T)
+			setattr("setting_timestep_delta",False)
+
+		self.timestep_delta.param.watch(onTimestepDeltaChange,"value")
 		self.field.param.watch(lambda evt: self.setField(evt.new),"value")
 
 		def onPaletteChange(evt):
@@ -494,8 +509,7 @@ class Slice(param.Parameterized):
 			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
 			self.direction.options=directions
 
-		timestep_delta = int(scene.get("timestep-delta", 1))
-		self.setTimestepDelta(timestep_delta)
+		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
 
 		timestep = int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.timestep.value=timestep
@@ -601,21 +615,6 @@ class Slice(param.Parameterized):
 		d.update(**kwargs)
 		float_panel=FloatPanel(*args, **d)
 		self.dialogs.append(float_panel)
-
-	# setTimestepDelta
-	def setTimestepDelta(self, value):
-
-		value=int(value)
-
-		A = self.timestep.start
-		B = self.timestep.end
-		T = int(self.timestep.value)
-		T = A + value * int((T - A) / value)
-		T = min(B, max(A, T))
-		
-		self.timestep_delta.value = value
-		self.timestep.step = value
-		self.timestep.value=T
 
 	# setField
 	def setField(self, value):
