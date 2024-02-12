@@ -333,16 +333,16 @@ class Slice(param.Parameterized):
 				"name": self.scene.value, 
 				
 				# NOT needed.. they should come automatically from the dataset?
-				#   "timesteps": self.getTimesteps(),
+				#   "timesteps": self.db.getTimesteps(),
 				#   "physic_box": self.getPhysicBox(),
 				#   "fields": self.field.options,
-				#   "directions" : self.self.direction.options,
+				#   "directions" : self.direction.options,
 				# "metadata-range": self.metadata_range,
 
 				"timestep-delta": self.timestep_delta.value,
-				"timestep": int(self.timestep.value),
+				"timestep": self.timestep.value,
 				"direction": self.direction.value,
-				"offset": self.getOffset(), 
+				"offset": self.offset.value, 
 				"field": self.field.value,
 				"view-dep": self.view_dependent.value,
 				"resolution": self.resolution.value,
@@ -351,7 +351,7 @@ class Slice(param.Parameterized):
 				"palette": self.palette.value_name,
 				"color-mapper-type": self.color_mapper_type.value,
 				"range-mode": self.range_mode.value,
-				"range-min": cdouble(self.range_min.value),
+				"range-min": cdouble(self.range_min.value), # Object of type float32 is not JSON serializable
 				"range-max": cdouble(self.range_max.value),
 				"x":(x1+x2)/2.0,
 				"y":(y1+y2)/2.0,
@@ -587,10 +587,6 @@ class Slice(param.Parameterized):
 		float_panel=FloatPanel(*args, **d)
 		self.dialogs.append(float_panel)
 
-	# getTimesteps
-	def getTimesteps(self):
-		return [int(value) for value in self.db.db.getTimesteps().asVector()] if self.db else []
-
 	# setTimesteps
 	def setTimesteps(self, value):
 		self.timestep.start = value[0]
@@ -737,7 +733,7 @@ class Slice(param.Parameterized):
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
 	def getLogicAxis(self):
 		dir  = self.direction.value
-		directions = self.self.direction.options
+		directions = self.direction.options
 		# this is the projected slice
 		XY = list(directions.values())
 		if len(XY) == 3:
@@ -768,15 +764,8 @@ class Slice(param.Parameterized):
 		else:
 			self.offset.step=step
 
-	# getOffset (in physic domain)
-	def getOffset(self):
-		return self.offset.value
-
 	# setOffset (3d only) (in physic domain)
 	def setOffset(self, value):
-		logger.debug(f"id={self.id} new-value={value} old-value={self.getOffset()}")
-
-		# do not send float offset if it's all integer
 		if all([int(it) == it for it in self.getOffsetRange()]): value = int(value)
 		self.offset.value = value
 		assert(self.offset.value == value)
@@ -863,7 +852,7 @@ class Slice(param.Parameterized):
 
 		# unproject
 		if pdim == 3:
-			offset = self.getOffset()  # this is in physic coordinates
+			offset = self.offset.value  # this is in physic coordinates
 			ret[dir] = int((offset - vt[dir]) / vs[dir])
 
 		assert (len(ret) == pdim)
@@ -1032,7 +1021,7 @@ class Slice(param.Parameterized):
 		vt,vs=self.logic_to_physic[dir] if pdim==3 else (0.0,1.0)
 		endh=result['H']
 
-		user_physic_offset=self.getOffset()
+		user_physic_offset=self.offset.value
 
 		real_logic_offset=logic_box[0][dir] if pdim==3 else 0.0
 		real_physic_offset=vs*real_logic_offset + vt 
@@ -1110,7 +1099,7 @@ class Slice(param.Parameterized):
 		assert(self.query_node and self.canvas)
 		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
 		query_logic_box=self.getQueryLogicBox()
-		offset=self.getOffset()
+		offset=self.offset.value
 		pdim=self.getPointDim()
 
 		if not self.new_job:

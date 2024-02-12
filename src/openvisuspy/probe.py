@@ -426,7 +426,7 @@ class ProbeTool(param.Parameterized):
 				button.stylesheets = [css]
 
 		# draw figure line for offset
-		offset = self.slice.getOffset()
+		offset = self.slice.offset.value
 		self.removeRenderer(self.fig, self.renderers["offset"])
 		self.renderers["offset"] = self.fig.line(
 			[offset, offset],
