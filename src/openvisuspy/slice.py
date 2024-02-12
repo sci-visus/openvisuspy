@@ -345,11 +345,11 @@ class Slice(param.Parameterized):
 				"offset": self.getOffset(), 
 				"field": self.field.value,
 				"view-dep": self.isViewDependent(),
-				"resolution": self.getResolution(),
-				"num-refinements": self.getNumberOfRefinements(),
+				"resolution": self.resolution.value,
+				"num-refinements": self.num_refinements.value,
 				"play-sec":self.play_sec.value,
 				"palette": self.palette.value_name,
-				"color-mapper-type": self.getColorMapperType(),
+				"color-mapper-type": self.color_mapper_type.value,
 				"range-mode": self.range_mode.value,
 				"range-min": cdouble(self.range_min.value),
 				"range-max": cdouble(self.range_max.value),
@@ -680,9 +680,6 @@ class Slice(param.Parameterized):
 		self.color_map=None
 		self.refresh()
 
-	# getColorMapperType
-	def getColorMapperType(self):
-		return self.color_mapper_type.value
 
 	# setColorMapperType
 	def setColorMapperType(self, value):
@@ -690,19 +687,11 @@ class Slice(param.Parameterized):
 		self.color_bar=None # force reneration of color_mapper
 		self.start()
 
-	# getNumberOfRefinements
-	def getNumberOfRefinements(self):
-		return self.num_refinements.value
-
 	# setNumberOfRefinements
 	def setNumberOfRefinements(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		self.num_refinements.value = value
 		self.refresh()
-
-	# getResolution
-	def getResolution(self):
-		return self.resolution.value
 
 	# getMaxResolution
 	def getMaxResolution(self):
@@ -905,7 +894,7 @@ class Slice(param.Parameterized):
 		self.play.is_playing = True
 		self.play.t1 = time.time()
 		self.play.wait_render_id = None
-		self.play.num_refinements = self.getNumberOfRefinements()
+		self.play.num_refinements = self.num_refinements.value
 		self.setNumberOfRefinements(1)
 		self.setWidgetsDisabled(True)
 		self.play_button.disabled = False
@@ -1090,7 +1079,7 @@ class Slice(param.Parameterized):
 
 		# regenerate colormap
 		if self.color_bar is None:
-			color_mapper_type=self.getColorMapperType()
+			color_mapper_type=self.color_mapper_type.value
 			assert(color_mapper_type in ["linear","log"])
 			is_log=color_mapper_type=="log"
 			palette=self.palette.value
@@ -1142,7 +1131,7 @@ class Slice(param.Parameterized):
 		# abort the last one
 		self.aborted.setTrue()
 		self.query_node.waitIdle()
-		num_refinements = self.getNumberOfRefinements()
+		num_refinements = self.num_refinements.value
 		if num_refinements==0:
 			num_refinements=3 if pdim==2 else 4
 		self.aborted=Aborted()
@@ -1161,7 +1150,7 @@ class Slice(param.Parameterized):
 				return
 			
 			max_pixels=canvas_w*canvas_h
-			resolution=self.getResolution()
+			resolution=self.resolution.value
 			delta=resolution-self.getMaxResolution()
 			if resolution<self.getMaxResolution():
 				max_pixels=int(max_pixels/pow(1.3,abs(delta))) # decrease 
@@ -1170,7 +1159,7 @@ class Slice(param.Parameterized):
 		else:
 			# I am not using the information about the pixel on screen
 			max_pixels=None
-			resolution=self.getResolution()
+			resolution=self.resolution.value
 			endh=resolution
 		
 		self.updateSceneBodyText()

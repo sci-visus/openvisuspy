@@ -72,7 +72,7 @@ class ProbeTool(param.Parameterized):
 
 		self.fig=Figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
 				x_axis_label="Z", x_range=[x1,x2],x_axis_type="linear",
-				y_axis_label="f", y_range=[y2,y2],y_axis_type=self.slice.getColorMapperType())
+				y_axis_label="f", y_range=[y2,y2],y_axis_type=self.slice.color_mapper_type.value)
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		self.fig.on_event(DoubleTap, lambda evt: self.slice.setOffset(evt.x))
@@ -333,7 +333,7 @@ class ProbeTool(param.Parameterized):
 				ys = [it for it in ys]
 
 			for it in ys:
-				if self.slice.getColorMapperType()=="log":
+				if self.slice.color_mapper_type.value=="log":
 					it = [max(EPSILON, value) for value in it]
 				self.renderers[probe]["fig"].append(
 					self.fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
@@ -358,9 +358,9 @@ class ProbeTool(param.Parameterized):
 	def refresh(self):
 
 		# changing y_scale DOES NOT WORK (!!!)
-		# self.fig.y_scale=LogScale() if self.slice.getColorMapperType()=="log" else LinearScale()
+		# self.fig.y_scale=LogScale() if self.slice.color_mapper_type.value=="log" else LinearScale()
 		
-		is_log=self.slice.getColorMapperType()=="log"
+		is_log=self.slice.color_mapper_type.value=="log"
 		fig_log=isinstance(self.fig.y_scale, LogScale)
 		if is_log!=fig_log:
 			self.createFigure()
