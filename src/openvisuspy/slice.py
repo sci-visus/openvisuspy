@@ -65,7 +65,7 @@ class Slice(param.Parameterized):
 	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
 
 	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
-	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=80)
+	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=60)
 	
 	# play thingy
 	play_button            = pn.widgets.Button             (name="Play", width=8)
@@ -115,8 +115,8 @@ class Slice(param.Parameterized):
 
 		self.palette.param.watch(lambda evt: self.setPalette(evt.new),"value_name")
 		self.range_mode.param.watch(lambda evt: self.setRangeMode(evt.new),"value")
-		self.range_min.param.watch(lambda evt: self.setRangeMin(evt.new) if self.getRangeMode() == "user" else None,"value")
-		self.range_max.param.watch(lambda evt: self.setRangeMax(evt.new) if self.getRangeMode() == "user" else None,"value")
+		self.range_min.param.watch(lambda evt: self.setRangeMin(evt.new) if self.range_mode.value == "user" else None,"value")
+		self.range_max.param.watch(lambda evt: self.setRangeMax(evt.new) if self.range_mode.value == "user" else None,"value")
 		self.color_mapper_type.param.watch(lambda evt: self.setColorMapperType(evt.new),"value")
 		
 		self.resolution.param.watch(lambda evt: self.setResolution(evt.new),"value")
@@ -337,6 +337,7 @@ class Slice(param.Parameterized):
 				#   "physic_box": self.getPhysicBox(),
 				#   "fields": self.field.options,
 				#   "directions" : self.getDirections(),
+				# "metadata-range": self.metadata_range,
 
 				"timestep-delta": self.timestep_delta.value,
 				"timestep": int(self.timestep.value),
@@ -347,11 +348,11 @@ class Slice(param.Parameterized):
 				"resolution": self.getResolution(),
 				"num-refinements": self.getNumberOfRefinements(),
 				"play-sec":self.play_sec.value,
-				"palette": self.getPalette(),
-				# "metadata-range": self.getMetadataRange(),
+				"palette": self.palette.value_name,
 				"color-mapper-type": self.getColorMapperType(),
-				"range-mode": self.getRangeMode(),
+				"range-mode": self.range_mode.value,
 				"range-min": self.getRangeMin(),
+				"range-min": self.getRangeMax(),
 				"x":(x1+x2)/2.0,
 				"y":(y1+y2)/2.0,
 				"w":x2-x1,
@@ -510,7 +511,7 @@ class Slice(param.Parameterized):
 		range_mode=scene.get("range-mode","dynamic-acc")
 		self.setRangeMode(range_mode)
 
-		if self.getRangeMode()=="user":
+		if self.range_mode.value=="user":
 			range_min=scene.get("range-min",low)
 			self.setRangeMin(range_min)
 
@@ -636,10 +637,6 @@ class Slice(param.Parameterized):
 		self.field.value = value
 		self.refresh()
 
-	# getPalette
-	def getPalette(self):
-		return self.palette.value_name 
-
 	# setPalette
 	def setPalette(self, value):
 		logger.debug(f"id={self.id} value={value}")
@@ -647,20 +644,12 @@ class Slice(param.Parameterized):
 		self.color_bar=None
 		self.refresh()
 
-	# getMetadataRange
-	def getMetadataRange(self):
-		return self.metadata_range
-
 	# setMetadataRange
 	def setMetadataRange(self, value):
 		vmin, vmax = value
 		self.metadata_range = [vmin, vmax]
 		self.color_map=None
 		self.refresh()
-
-	# getRangeMode
-	def getRangeMode(self):
-		return self.range_mode.value
 
 	# setRangeMode
 	def setRangeMode(self, mode):
@@ -705,8 +694,6 @@ class Slice(param.Parameterized):
 
 	# setColorMapperType
 	def setColorMapperType(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		palette = self.getPalette()
 		self.color_mapper_type.value = value
 		self.color_bar=None # force reneration of color_mapper
 		self.start()
@@ -1066,7 +1053,7 @@ class Slice(param.Parameterized):
 		logic_box=result['logic_box'] 
 
 		# depending on the palette range mode, I need to use different color mapper low/high
-		mode=self.getRangeMode()
+		mode=self.range_mode.value
 
 		# show the user what is the current offset
 		maxh=self.db.getMaxResolution()
