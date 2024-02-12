@@ -34,7 +34,7 @@ if __name__.startswith('bokeh'):
 	elif "dataset" in query_params:
 		slice.setScene(query_params["dataset"])
 
-	if False:
+	if True:
 		probe=ProbeTool(slice)
 		app = probe.getMainLayout()
 	else:

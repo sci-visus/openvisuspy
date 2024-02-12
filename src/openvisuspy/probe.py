@@ -5,12 +5,19 @@ logger = logging.getLogger(__name__)
 import numpy as np
 from statistics import mean, median
 
-from .slice  import  Slice, Widgets,DEFAULT_START_RESOLUTION, EPSILON
+from .slice  import  Slice, DEFAULT_START_RESOLUTION, EPSILON
 from .backend import ExecuteBoxQuery
-from .widgets import *
-from .utils   import COLORS
+from .utils   import *
+
+from bokeh.plotting import figure as Figure
+
+from bokeh.events import DoubleTap
+from bokeh.models.scales import LinearScale,LogScale
 
 import param
+
+import panel as pn
+from panel import Column,Row
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Probe:
@@ -23,13 +30,13 @@ class Probe:
 class ProbeTool(param.Parameterized):
 
 	# widgets
-	slider_x_pos         = Widgets.Slider(name="X coordinate", type="float", value=0.0, start=0.0, end=1.0, step=1.0, editable=False, width=160)
-	slider_y_pos         = Widgets.Slider(name="Y coordinate", type="float", value=0, start=0, end=1, step=1, editable=False, width=160)
-	slider_z_range       = Widgets.RangeSlider(name="Range", type="float", start=0.0, end=1.0, value=(0.0, 1.0), editable=False, width=250)
-	slider_num_points_x  = Widgets.Slider(name="#x", type="int", start=1, end=8, step=1, value=2, editable=False, width=60)
-	slider_num_points_y  = Widgets.Slider(name="#y", type="int", start=1, end=8, step=1, value=2, editable=False, width=60)
-	slider_z_res         = Widgets.Slider(name="Res", type="int", start=DEFAULT_START_RESOLUTION, end=99, step=1, value=24, editable=False, width=60)
-	slider_z_op          = Widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg")
+	slider_x_pos         = pn.widgets.FloatSlider     (name="X coordinate", value=0.0, start=0.0, end=1.0, step=1.0, width=160)
+	slider_y_pos         = pn.widgets.FloatSlider     (name="Y coordinate", value=0, start=0, end=1, step=1, width=160)
+	slider_z_range       = pn.widgets.RangeSlider     (name="Range", start=0.0, end=1.0, value=(0.0, 1.0), width=250,format="0.001")
+	slider_num_points_x  = pn.widgets.IntSlider       (name="#x", start=1, end=8, step=1, value=2, width=60)
+	slider_num_points_y  = pn.widgets.IntSlider       (name="#y", start=1, end=8, step=1, value=2, width=60)
+	slider_z_res         = pn.widgets.IntSlider       (name="Res", start=DEFAULT_START_RESOLUTION, end=99, step=1, value=24, width=60)
+	slider_z_op          = pn.widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg")
 
 	# constructor
 	def __init__(self, slice):
@@ -91,7 +98,7 @@ class ProbeTool(param.Parameterized):
 		# create buttons
 		self.buttons = []
 		for slot, color in enumerate(COLORS):
-			button=Widgets.Button(name=color, sizing_mode="stretch_width")
+			button=pn.widgets.Button(name=color, sizing_mode="stretch_width")
 			button.on_click(lambda evt, slot=slot: self.onProbeButtonClick(slot))
 			self.buttons.append(button)
 

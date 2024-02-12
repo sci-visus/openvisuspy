@@ -3,10 +3,8 @@ import numpy as np
 import os,sys,logging,asyncio,time,json,xmltodict,urllib
 import urllib.request
 
-
 import requests
 from requests.auth import HTTPBasicAuth
-
 
 from pprint import pprint
 
@@ -15,6 +13,14 @@ logger = logging.getLogger(__name__)
 COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
 
 DEFAULT_PALETTE="Viridis256"
+
+import colorcet
+
+import bokeh
+bokeh.core.validation.silence(bokeh.core.validation.warnings.EMPTY_LAYOUT, True)
+bokeh.core.validation.silence(bokeh.core.validation.warnings.FIXED_SIZING_MODE,True)
+
+import panel as pn
 
 # ///////////////////////////////////////////////
 def IsPyodide():
@@ -68,11 +74,6 @@ def LoadJSON(value):
 		return json.loads(body)
 
 	raise Exception(f"{value} not supported")
-
-
-
-
-
 
 
 # ///////////////////////////////////////////////////////////////////
@@ -375,3 +376,48 @@ def ConvertDataForRendering(data, normalize_float=True):
 
 
 
+
+# ///////////////////////////////////////////////////
+def GetPalettes():
+	ret = {}
+	for name in bokeh.palettes.__palettes__:
+		value=getattr(bokeh.palettes,name,None)
+		if value and len(value)>=256:
+			ret[name]=value
+
+	for name in sorted(colorcet.palette):
+		value=getattr(colorcet.palette,name,None)
+		if value and len(value)>=256:
+			# stupid criteria but otherwise I am getting too much palettes
+			if len(name)>12: continue
+			ret[name]=value
+
+	return ret
+
+# ////////////////////////////////////////////////////////
+def ShowInfoNotification(msg):
+	pn.state.notifications.info(msg)
+
+# ////////////////////////////////////////////////////////
+def GetCurrentUrl():
+	return pn.state.location.href
+
+# //////////////////////////////////////////////////////////////////////////////////////
+def GetQueryParams():
+	return {k: v for k,v in pn.state.location.query_params.items()}
+
+# ////////////////////////////////////////////////////////
+import traceback
+
+def CallPeriodicFunction(fn):
+	try:
+		fn()
+	except:
+		logger.error(traceback.format_exc())
+
+def AddPeriodicCallback(fn, period, name="AddPeriodicCallback"):
+	#if IsPyodide():
+	#	return AddAsyncLoop(name, fn,period )  
+	#else:
+
+	return pn.state.add_periodic_callback(lambda fn=fn: CallPeriodicFunction(fn), period=period)

@@ -12,12 +12,24 @@ import numpy as np
 
 from .utils   import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
-from .widgets import *
-from .widgets import Canvas as Canvas
+
+from .canvas import Canvas 
 
 logger = logging.getLogger(__name__)
 
-import param
+import bokeh
+from bokeh.models.scales import LinearScale,LogScale
+from bokeh.models import LinearColorMapper,LogColorMapper,ColorBar,ColumnDataSource,Range1d
+from bokeh.models.formatters import NumeralTickFormatter
+
+import param 
+
+import panel as pn
+from panel.layout import FloatPanel
+from panel import Column,Row,GridBox,Card
+from panel.pane import HTML,JSON,Bokeh
+
+
 
 DEFAULT_START_RESOLUTION = 20
 SLICE_ID=0
@@ -33,54 +45,50 @@ DEFAULT_SHOW_OPTIONS={
 	]
 }
 
-
-
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
 
-	render_id               = Widgets.Slider   (name="RenderId", type="int", value=0)
+	render_id              = pn.widgets.IntSlider(name="RenderId", value=0)
 
-	# widgets
-	scene                  = Widgets.Select   (name="Scene", options=[], width=180, )
-	timestep               = Widgets.Slider   (name="Time", type="float", value=0, start=0, end=1, step=1.0, editable=True,  sizing_mode="stretch_width")
-	timestep_delta         = Widgets.Select   (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60)
-	field                  = Widgets.Select   (name='Field', options=[], value='data', width=80)
-	palette                = Widgets.ColorMap (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=220)
-	range_mode             = Widgets.Select   (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120)
-	range_min              = Widgets.Input    (name="Min", type="float",width=80)
-	range_max              = Widgets.Input    (name="Max", type="float",width=80)
-	color_mapper_type      = Widgets.Select   (name="Mapper", options=["linear", "log", ],width=80)
-	resolution             = Widgets.Slider   (name='Res', type="int", value=21, start=DEFAULT_START_RESOLUTION, editable=False, end=99,  sizing_mode="stretch_width")
-	view_dep               = Widgets.Select   (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
-	num_refinements        = Widgets.Slider   (name='#Ref', type="int", value=0, start=0, end=4, editable=False, width=80)
-	direction              = Widgets.Select   (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
-	offset                 = Widgets.Slider   (name="Offset", type="float", start=0.0, end=1024.0, step=1.0, value=0.0, editable=True,  sizing_mode="stretch_width")
-	play_button            = Widgets.Button   (name="Play", width=8)
-	play_sec               = Widgets.Select   (name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
-	request                = Widgets.Input    (name="", type="text", sizing_mode='stretch_width', disabled=False)
-	response               = Widgets.Input    (name="", type="text", sizing_mode='stretch_width', disabled=False)
-
-	info_button            = Widgets.Button   (icon="info-circle",width=20)
-	open_button            = Widgets.Button   (icon="file-upload",width=20)
-	save_button            = Widgets.Button   (icon="file-download",width=20)
-	save_button_helper     = Widgets.Input    (visible=False)
-	copy_url_button        = Widgets.Button   (icon="copy",width=20)
-	copy_url_button_helper = Widgets.Input    (visible=False)
-	logout_button          = Widgets.Button   (icon="logout",width=20)
-
-	scene_body=Widgets.TextAreaInput(
-		name='Current',
-		sizing_mode="stretch_width",
-		height=520,
-		stylesheets=["""
-			.bk-input {
-				background-color: rgb(48, 48, 64);
-				color: white;
-				font-size: small;
-			}
-			"""])
-
+	# core query
+	scene                  = pn.widgets.Select             (name="Scene", options=[], width=180, )
+	timestep               = pn.widgets.EditableFloatSlider(name="Time", value=0, start=0, end=1, step=1.0, sizing_mode="stretch_width",format=NumeralTickFormatter(format="0.001"))
+	timestep_delta         = pn.widgets.Select             (name="Speed", options=["1x", "2x", "4x", "8x", "16x", "32x", "64x", "128x"], value="1x", width=60)
+	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
+	resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=DEFAULT_START_RESOLUTION, end=99,  sizing_mode="stretch_width")
+	view_dep               = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
+	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
+	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
+	offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=NumeralTickFormatter(format="0.01"))
 	
+	# palette thingy
+	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120)
+	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
+	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
+
+	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=220)
+	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=80)
+	
+	# play thingy
+	play_button            = pn.widgets.Button             (name="Play", width=8)
+	play_sec               = pn.widgets.Select             (name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
+
+	# bottom status bar
+	request                = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
+	response               = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
+
+	# toolbar thingy
+	info_button            = pn.widgets.Button   (icon="info-circle",width=20)
+	open_button            = pn.widgets.Button   (icon="file-upload",width=20)
+	save_button            = pn.widgets.Button   (icon="file-download",width=20)
+	save_button_helper     = pn.widgets.IntInput (visible=False)
+	copy_url_button        = pn.widgets.Button   (icon="copy",width=20)
+	copy_url_button_helper = pn.widgets.IntInput (visible=False)
+	logout_button          = pn.widgets.Button   (icon="logout",width=20)
+
+	# current scene as JSON
+	scene_body=pn.widgets.TextAreaInput(name='Current',sizing_mode="stretch_width",height=520,
+		stylesheets=[""".bk-input {background-color: rgb(48, 48, 64);color: white;font-size: small;}"""])
 
 	# constructor
 	def __init__(self):
@@ -130,7 +138,6 @@ class Slice(param.Parameterized):
 		self.start()
 
 
-
 	# open
 	def showOpen(self):
 
@@ -140,7 +147,7 @@ class Slice(param.Parameterized):
 			# self.setSceneBody(json.loads(body)) NOT SURE I WANT THIS
 			ShowInfoNotification('Load done')
 
-		file_input = Widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
+		file_input = pn.widgets.FileInput(name="Load", description="Load", accept=".json", callback=onLoadClick)
 
 		# onEvalClick
 		def onEvalClick(evt=None):
@@ -148,7 +155,7 @@ class Slice(param.Parameterized):
 			self.setSceneBody(body)
 			ShowInfoNotification('Eval done')
 
-		eval_button = Widgets.Button(name="Eval", callback=onEvalClick, align='end')
+		eval_button = pn.widgets.Button(name="Eval", callback=onEvalClick, align='end')
 		self.showDialog(
 			Column(
 				self.scene_body,
@@ -196,7 +203,7 @@ class Slice(param.Parameterized):
 			setTimeout(jsCopyUrl,300);
 		""")
 
-		self.logout_button = Widgets.Button(icon="logout",width=20)
+		self.logout_button = pn.widgets.Button(icon="logout",width=20)
 		self.logout_button.js_on_click(args={"source": self.logout_button}, code="""
 			console.log("logging out...")
 			window.location=window.location.href + "/logout";
@@ -569,7 +576,7 @@ class Slice(param.Parameterized):
 
 			cards.append(Card(
 					internal_panel,
-					Widgets.FileDownload(file, embed=True, filename=filename,align="end"),
+					pn.widgets.FileDownload(file, embed=True, filename=filename,align="end"),
 					title=filename,
 					collapsed=(I>0),
 					sizing_mode="stretch_width"
@@ -1214,7 +1221,6 @@ class Slice(param.Parameterized):
 		# do not push too many jobs
 		if (time.time()-self.last_job_pushed)<0.2:
 			return
-		
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
 		if self.isViewDependent():
