@@ -52,6 +52,9 @@ class Slice(param.Parameterized):
 	# bounding box of the query region
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
+		# current scene as JSON
+	scene_body             = pn.widgets.TextAreaInput(name='Current',sizing_mode="stretch_width",height=520,)
+
 	# core query
 	scene                  = pn.widgets.Select             (name="Scene", options=[], width=120)
 	timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
@@ -88,10 +91,6 @@ class Slice(param.Parameterized):
 	copy_url_button_helper = pn.widgets.IntInput (visible=False)
 	logout_button          = pn.widgets.Button   (icon="logout",width=20)
 
-	# current scene as JSON
-	scene_body=pn.widgets.TextAreaInput(name='Current',sizing_mode="stretch_width",height=520,
-		stylesheets=[""".bk-input {background-color: rgb(48, 48, 64);color: white;font-size: small;}"""])
-
 	# constructor
 	def __init__(self):
 
@@ -109,6 +108,8 @@ class Slice(param.Parameterized):
 		self.logic_to_physic        = [(0.0, 1.0)] * 3
 		self.metadata_range         = [0.0, 255.0]
 		self.scenes                 = {}
+
+		self.scene_body.stylesheets=[""".bk-input {background-color: rgb(48, 48, 64);color: white;font-size: small;}"""]
 
 		self.createGui()
 
@@ -841,16 +842,10 @@ class Slice(param.Parameterized):
 	def getPointDim(self):
 		return self.db.getPointDim() if self.db else 2
 
-	# updateSceneBodyText
-	def updateSceneBodyText(self):
-		body=json.dumps(self.getSceneBody(),indent=2)
-		self.scene_body.value=body
-
 	# refresh
 	def refresh(self):
 		self.aborted.setTrue()
 		self.new_job=True
-		self.updateSceneBodyText()
 
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
@@ -1039,7 +1034,8 @@ class Slice(param.Parameterized):
 			resolution=self.resolution.value
 			endh=resolution
 		
-		self.updateSceneBodyText()
+		# new scene body
+		self.scene_body.value=json.dumps(self.getSceneBody(),indent=2)
 		
 		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
 

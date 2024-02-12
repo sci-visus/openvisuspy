@@ -8,6 +8,8 @@ Todo
 - [DONE] holoviews "param" tracking
 - [DONE] probe as a tool on top of Slice
 - [DONE] pick of a range with a rectable (or even for a point)... at full res. Prototype working...
-- helper - with all query parameters
+
+- [TODO] Linked View
+- [TODO]helper - with all query parameters
 
 
