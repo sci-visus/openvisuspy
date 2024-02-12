@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 import numpy as np
 from statistics import mean, median
 
-from .slice  import  Slice, DEFAULT_START_RESOLUTION, EPSILON
+from .slice  import  Slice, EPSILON
 from .backend import ExecuteBoxQuery
 from .utils   import *
 
@@ -35,7 +35,7 @@ class ProbeTool(param.Parameterized):
 	slider_z_range       = pn.widgets.RangeSlider     (name="Range", start=0.0, end=1.0, value=(0.0, 1.0), width=250,format="0.001")
 	slider_num_points_x  = pn.widgets.IntSlider       (name="#x", start=1, end=8, step=1, value=2, width=60)
 	slider_num_points_y  = pn.widgets.IntSlider       (name="#y", start=1, end=8, step=1, value=2, width=60)
-	slider_z_res         = pn.widgets.IntSlider       (name="Res", start=DEFAULT_START_RESOLUTION, end=99, step=1, value=24, width=60)
+	slider_z_res         = pn.widgets.IntSlider       (name="Res", start=20, end=99, step=1, value=24, width=60)
 	slider_z_op          = pn.widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg")
 
 	# constructor

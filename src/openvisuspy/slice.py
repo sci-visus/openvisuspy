@@ -29,7 +29,6 @@ from panel.layout import FloatPanel
 from panel import Column,Row,GridBox,Card
 from panel.pane import HTML,JSON,Bokeh
 
-DEFAULT_START_RESOLUTION = 20
 SLICE_ID=0
 EPSILON = 0.001
 
@@ -53,7 +52,7 @@ class Slice(param.Parameterized):
 	timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
 	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 1, 32, 64, 128], value=1, width=50)
 	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
-	resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=DEFAULT_START_RESOLUTION, end=99,  sizing_mode="stretch_width")
+	resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=20, end=99,  sizing_mode="stretch_width")
 	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
@@ -136,7 +135,7 @@ class Slice(param.Parameterized):
 		self.color_mapper_type.param.watch(lambda evt: self.setColorMapperType(evt.new),"value")
 		
 		self.resolution.param.watch(lambda evt: self.setResolution(evt.new),"value")
-		self.view_dependent.param.watch(lambda evt: self.setViewDependent(evt.new),"value")
+		self.view_dependent.param.watch(lambda evt: self.refresh(),"value")
 
 		self.num_refinements.param.watch(lambda evt: self.refresh(),"value")
 		self.direction.param.watch(lambda evt: self.setDirection(evt.new),"value")
@@ -361,7 +360,7 @@ class Slice(param.Parameterized):
 				"direction": self.direction.value,
 				"offset": self.offset.value, 
 				"field": self.field.value,
-				"view-dep": self.view_dependent.value,
+				"view-dependent": self.view_dependent.value,
 				"resolution": self.resolution.value,
 				"num-refinements": self.num_refinements.value,
 				"play-sec":self.play_sec.value,
@@ -483,11 +482,11 @@ class Slice(param.Parameterized):
 
 		if "directions" in scene:
 			directions=scene["directions"]
-			self.setDirections(directions)
+			self.direction.options=directions
 		else:
 			directions = self.db.inner.idxfile.axis.strip().split()
 			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
-			self.setDirections(directions)
+			self.direction.options=directions
 
 		timestep_delta = int(scene.get("timestep-delta", 1))
 		self.setTimestepDelta(timestep_delta)
@@ -495,8 +494,7 @@ class Slice(param.Parameterized):
 		timestep = int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.timestep.value=timestep
 
-		viewdep=bool(scene.get('view-dep', True))
-		self.setViewDependent(viewdep)
+		self.view_dependent.value = bool(scene.get('view-dependent', True))
 
 		resolution=int(scene.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
@@ -657,7 +655,6 @@ class Slice(param.Parameterized):
 	def setResolution(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		value = Clamp(value, 0, self.db.getMaxResolution())
-		self.resolution.start = DEFAULT_START_RESOLUTION
 		self.resolution.end   = self.db.getMaxResolution()
 		self.resolution.value = value
 		self.refresh()
@@ -668,10 +665,6 @@ class Slice(param.Parameterized):
 		self.view_dependent.value = value
 		self.refresh()
 
-	# setDirections
-	def setDirections(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		self.direction.options = value
 
 	# setDirection
 	def setDirection(self, value):
