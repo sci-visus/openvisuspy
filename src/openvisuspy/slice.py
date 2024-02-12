@@ -13,7 +13,7 @@ import numpy as np
 from .utils   import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
 
-from .canvas import Canvas 
+from .canvas import Canvas, ViewportUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +288,8 @@ class Slice(param.Parameterized):
 		self.last_job_pushed =time.time()
 		self.query_node=QueryNode()
 		self.canvas = Canvas(self.id)
-		self.canvas.on_viewport_change=lambda: self.refresh()
+
+		self.canvas.on_event(ViewportUpdate, lambda evt: self.refresh())
 
 		self.top_layout=Column(sizing_mode="stretch_width")
 

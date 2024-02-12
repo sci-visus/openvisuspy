@@ -10,13 +10,15 @@ import bokeh
 import bokeh.models
 
 from bokeh.models import ColumnDataSource,Range1d, BoxSelectTool
-from bokeh.events import DoubleTap,SelectionGeometry, RangesUpdate
+from bokeh.events import DoubleTap,SelectionGeometry
 from bokeh.plotting import figure as Figure
 from bokeh.models.callbacks import CustomJS
 
 import panel as pn
 from panel import Column,Row
 from panel.pane import Bokeh
+
+class ViewportUpdate: pass
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Canvas:
@@ -30,7 +32,7 @@ class Canvas:
 		self.events={
 			DoubleTap: [],
 			SelectionGeometry: [],
-			RangesUpdate: []
+			ViewportUpdate: []
 		}
 
 		self.main_layout=Row(sizing_mode="stretch_both")	
@@ -39,10 +41,8 @@ class Canvas:
 		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
-		self.on_viewport_change=None
 		self.setViewport([(0,256),(0,256)])
 		AddPeriodicCallback(self.onIdle,1000//30)
-
 
 	# onIdle
 	def onIdle(self):
@@ -56,11 +56,10 @@ class Canvas:
 		# note: no need to fix the aspect ratio in this case
 		fig_viewport=self.__getFigureViewport()
 		if fig_viewport!=self.user_viewport:
+			print("!!!!","Viewport Changed")
 			(x1,x2),(y1,y2)=fig_viewport 
 			self.user_viewport=[(x1,x2),(y1,y2)]
-			if self.on_viewport_change:
-				self.on_viewport_change()
-			return
+			return [fn(None) for fn in self.events[ViewportUpdate]]
 
 		# I need to fix the aspect ratio , since only now I may have got the real canvas dimension
 		if True:
@@ -82,8 +81,7 @@ class Canvas:
 		# viewport changed, notify to the external too
 		self.user_viewport=value
 		self.__setFigureViewport(value)
-		if self.on_viewport_change:
-			self.on_viewport_change()
+		[fn(None) for fn in self.events[ViewportUpdate]]
 
 	# on_event
 	def on_event(self, evt, callback):
