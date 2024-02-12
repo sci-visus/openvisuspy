@@ -132,7 +132,11 @@ class Slice(param.Parameterized):
 
 		self.range_min.param.watch(onRangeChange,"value")
 		self.range_max.param.watch(onRangeChange,"value")
-		self.color_mapper_type.param.watch(lambda evt: self.setColorMapperType(evt.new),"value")
+
+		def onColorMapperTypeChange(evt):
+			self.color_bar=None 
+			self.refresh()
+		self.color_mapper_type.param.watch(onColorMapperTypeChange,"value")
 		
 		self.resolution.param.watch(lambda evt: self.setResolution(evt.new),"value")
 		self.view_dependent.param.watch(lambda evt: self.refresh(),"value")
@@ -465,7 +469,9 @@ class Slice(param.Parameterized):
 		self.scene.value=name
 
 		timesteps=self.db.getTimesteps()
-		self.setTimesteps(timesteps)
+		self.timestep.start = timesteps[ 0]
+		self.timestep.end   = timesteps[-1]
+		self.timestep.step  = 1
 
 		fields=self.db.getFields()
 		self.field.options=list(fields)
@@ -531,7 +537,7 @@ class Slice(param.Parameterized):
 			self.range_max.value=scene.get("range-max",high)
 
 		color_mapper_type=scene.get("color-mapper-type","linear")
-		self.setColorMapperType(color_mapper_type)	
+		self.color_mapper_type.value = color_mapper_type	
 
 		x=scene.get("x",None)
 		y=scene.get("y",None)
@@ -596,12 +602,6 @@ class Slice(param.Parameterized):
 		float_panel=FloatPanel(*args, **d)
 		self.dialogs.append(float_panel)
 
-	# setTimesteps
-	def setTimesteps(self, value):
-		self.timestep.start = value[0]
-		self.timestep.end   = value[-1]
-		self.timestep.step  = 1
-
 	# setTimestepDelta
 	def setTimestepDelta(self, value):
 
@@ -641,11 +641,6 @@ class Slice(param.Parameterized):
 
 		self.refresh()
 
-	# setColorMapperType
-	def setColorMapperType(self, value):
-		self.color_mapper_type.value = value
-		self.color_bar=None # force reneration of color_mapper
-		self.start()
 
 	# getMaxResolution
 	def getMaxResolution(self):
