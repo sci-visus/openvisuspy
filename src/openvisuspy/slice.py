@@ -167,7 +167,24 @@ class Slice(param.Parameterized):
 		self.view_dependent.param.watch(lambda evt: self.refresh(),"value")
 
 		self.num_refinements.param.watch(lambda evt: self.refresh(),"value")
-		self.direction.param.watch(lambda evt: self.setDirection(evt.new),"value")
+
+		def onDirectionChange(evt):
+			value=evt.new
+			logger.debug(f"id={self.id} value={value}")
+			pdim = self.getPointDim()
+			if pdim == 2: value = 2
+			dims = [int(it) for it in self.db.getLogicSize()]
+
+			# default behaviour is to guess the offset
+			offset_value,offset_range=self.guessOffset(value)
+			self.offset.start=offset_range[0]
+			self.offset.end  =offset_range[1]
+			self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
+
+			self.offset.value=offset_value
+			self.setQueryLogicBox(([0]*pdim,dims))
+			self.refresh()
+		self.direction.param.watch(onDirectionChange,"value")
 
 		self.offset.param.watch(lambda evt: self.refresh(),"value")
 
@@ -530,10 +547,15 @@ class Slice(param.Parameterized):
 		self.field.value=scene.get("field", self.db.getField().name)
 		self.num_refinements.value=int(scene.get("num-refinements", 2))
 
-		direction=int(scene.get("direction", 2))
-		self.setDirection(direction)
+		self.direction.value = int(scene.get("direction", 2))
 
-		self.offset.value=float(scene.get("offset",self.guessOffset(direction)[0]))
+		default_offset_value,offset_range=self.guessOffset(self.direction.value)
+		self.offset.start=offset_range[0]
+		self.offset.end  =offset_range[1]
+		self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
+		self.offset.value=self.offset.value=float(scene.get("offset",default_offset_value))
+		self.setQueryLogicBox(([0]*self.getPointDim(),[int(it) for it in self.db.getLogicSize()]))
+
 		self.play_sec.value=float(scene.get("play-sec",0.01))
 		self.palette.value_name=scene.get("palette",DEFAULT_PALETTE)
 
@@ -621,25 +643,6 @@ class Slice(param.Parameterized):
 	def setViewDependent(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		self.view_dependent.value = value
-		self.refresh()
-
-
-	# setDirection
-	def setDirection(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		pdim = self.getPointDim()
-		if pdim == 2: value = 2
-		dims = [int(it) for it in self.db.getLogicSize()]
-		self.direction.value = value
-
-		# default behaviour is to guess the offset
-		offset_value,offset_range=self.guessOffset(value)
-		self.offset.start=offset_range[0]
-		self.offset.end  =offset_range[1]
-		self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
-
-		self.offset.value=offset_value
-		self.setQueryLogicBox(([0]*pdim,dims))
 		self.refresh()
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
