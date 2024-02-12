@@ -132,7 +132,11 @@ class Slice(param.Parameterized):
 			setattr("setting_timestep_delta",False)
 
 		self.timestep_delta.param.watch(onTimestepDeltaChange,"value")
-		self.field.param.watch(lambda evt: self.setField(evt.new),"value")
+
+		def onFieldChange(evt):
+			self.field.value = evt.new
+			self.refresh()
+		self.field.param.watch(onFieldChange,"value")
 
 		def onPaletteChange(evt):
 			self.color_bar=None
@@ -540,7 +544,7 @@ class Slice(param.Parameterized):
 		self.resolution.value = resolution
 
 		field=scene.get("field", self.db.getField().name)
-		self.setField(field)
+		self.field.value=field
 
 		self.num_refinements.value=int(scene.get("num-refinements", 2))
 
@@ -632,13 +636,6 @@ class Slice(param.Parameterized):
 		float_panel=FloatPanel(*args, **d)
 		self.dialogs.append(float_panel)
 
-	# setField
-	def setField(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		if value is None: return
-		self.field.value = value
-		self.refresh()
- 
 	# getMaxResolution
 	def getMaxResolution(self):
 		return self.db.getMaxResolution()
