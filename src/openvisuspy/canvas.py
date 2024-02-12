@@ -41,47 +41,50 @@ class Canvas:
 		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
+		self.last_W=0
+		self.last_H=0
+		self.last_viewport=None
 		self.setViewport([(0,256),(0,256)])
-		AddPeriodicCallback(self.onIdle,1000//30)
+		AddPeriodicCallback(self.onIdle,300)
 
 	# onIdle
 	def onIdle(self):
-		W,H=self.getWidth(),self.getHeight()
-
+		
 		# I need to wait until I get a decent size
+		W,H=self.getWidth(),self.getHeight()
 		if W==0 or H==0:  
 			return
 
 		# some zoom in/out or panning happened (handled by bokeh) 
 		# note: no need to fix the aspect ratio in this case
-		fig_viewport=self.__getFigureViewport()
-		if fig_viewport!=self.user_viewport:
-			print("!!!!","Viewport Changed")
-			(x1,x2),(y1,y2)=fig_viewport 
-			self.user_viewport=[(x1,x2),(y1,y2)]
-			return [fn(None) for fn in self.events[ViewportUpdate]]
+		(x1,x2),(y1,y2)=[
+			(self.fig.x_range.start, self.fig.x_range.end),
+			(self.fig.y_range.start, self.fig.y_range.end)
+		]
+
+		# nothing todo
+		if [(x1,x2),(y1,y2)]==self.last_viewport and [self.last_W,self.last_H]==[W,H]:
+			return
 
 		# I need to fix the aspect ratio , since only now I may have got the real canvas dimension
-		if True:
-			(x1,x2),(y1,y2)=self.user_viewport # using the last value set by the user
-			w,cx =(x2-x1),(x1+x2)/2.0
-			h,cy =(y2-y1),(y1+y2)/2.0
+		if [self.last_W,self.last_H]!=[W,H]:
+			w,cx =(1.0*x2-x1),(0.5*x1+0.5*x2)
+			h,cy =(1.0*y2-y1),(0.5*y1+0.5*y2)
 			if (w/W) > (h/H): 
 				h=(w/W)*H 
 			else: 
 				w=(h/H)*W
-			x1,x2=cx-w/2,cx+w/2
-			y1,y2=cy-h/2,cy+h/2
-			value=[(x1,x2),(y1,y2)]
+			x1,x2=cx-0.5*w,cx+0.5*w
+			y1,y2=cy-0.5*h,cy+0.5*h
 
-		# nothing changed
-		if value==self.user_viewport: 
-			return
-
-		# viewport changed, notify to the external too
-		self.user_viewport=value
-		self.__setFigureViewport(value)
+		#if [(x1,x2),(y1,y2)]!=[(self.fig.x_range.start, self.fig.x_range.end),(self.fig.y_range.start, self.fig.y_range.end)]:
+		self.fig.x_range.start, self.fig.x_range.end = (x1,x2)
+		self.fig.y_range.start, self.fig.y_range.end = (y1,y2)
 		[fn(None) for fn in self.events[ViewportUpdate]]
+
+		self.last_W=W
+		self.last_H=H
+		self.last_viewport=[(x1,x2),(y1,y2)]
 
 	# on_event
 	def on_event(self, evt, callback):
@@ -158,33 +161,22 @@ class Canvas:
 		except:
 			return 0
 
-	# __getFigureViewport
-	def __getFigureViewport(self):
+	# getViewport [(x1,x2),(y1,y2)]
+	def getViewport(self):
 		return [
 			(self.fig.x_range.start, self.fig.x_range.end),
 			(self.fig.y_range.start, self.fig.y_range.end)
 		]
 
-	# __setFigureViewport
-	def __setFigureViewport(self,value):
-		(x1,x2),(y1,y2)=value
-		self.fig.x_range.start, self.fig.x_range.end = (x1,x2)
-		self.fig.y_range.start, self.fig.y_range.end = (y1,y2)
-
-
-	# getViewport [(x1,x2),(y1,y2)]
-	def getViewport(self):
-		return self.user_viewport
-
 	  # setViewport
 	def setViewport(self,value):
 		(x1,x2),(y1,y2)=value
-		self.user_viewport=[(x1,x2),(y1,y2)]
-		self.__setFigureViewport(value)
+		self.last_W,self.last_H=0,0 # force a fix viewport
+		self.fig.x_range.start, self.fig.x_range.end = (x1,x2)
+		self.fig.y_range.start, self.fig.y_range.end = (y1,y2)
 
 	# setImage
 	def setImage(self, data, x1, y1, x2, y2, color_bar):
-
 		img=ConvertDataForRendering(data)
 		dtype=img.dtype
 		if self.last_dtype==dtype and self.last_cb==color_bar:
