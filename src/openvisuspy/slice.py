@@ -120,7 +120,11 @@ class Slice(param.Parameterized):
 		self.timestep_delta.param.watch(lambda evt: self.setTimestepDelta(evt.new),"value")
 		self.field.param.watch(lambda evt: self.setField(evt.new),"value")
 
-		self.palette.param.watch(lambda evt: self.setPalette(evt.new),"value_name")
+		def onPaletteChange(evt):
+			self.color_bar=None
+			self.refresh()
+		self.palette.param.watch(onPaletteChange,"value_name")
+
 		self.range_mode.param.watch(lambda evt: self.setRangeMode(evt.new),"value")
 		self.range_min.param.watch(lambda evt: self.setRangeMin(evt.new) if self.range_mode.value == "user" else None,"value")
 		self.range_max.param.watch(lambda evt: self.setRangeMax(evt.new) if self.range_mode.value == "user" else None,"value")
@@ -510,7 +514,7 @@ class Slice(param.Parameterized):
 		self.play_sec.value=play_sec
 
 		palette=scene.get("palette",DEFAULT_PALETTE)
-		self.setPalette(palette)
+		self.palette.value_name=palette
 
 		db_field = self.db.getField(field)
 		palette_metadata_range=scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To])
@@ -620,12 +624,7 @@ class Slice(param.Parameterized):
 		self.field.value = value
 		self.refresh()
 
-	# setPalette
-	def setPalette(self, value):
-		logger.debug(f"id={self.id} value={value}")
-		self.palette.value_name = value
-		self.color_bar=None
-		self.refresh()
+
 
 	# setMetadataRange
 	def setMetadataRange(self, value):
