@@ -184,7 +184,7 @@ class Slice(param.Parameterized):
 			value=evt.new
 			logger.debug(f"id={self.id} value={value}")
 			pdim = self.getPointDim()
-			if pdim == 2: value = 2
+			if pdim in (1,2): value = 2
 			dims = [int(it) for it in self.db.getLogicSize()]
 
 			# default behaviour is to guess the offset
@@ -192,7 +192,6 @@ class Slice(param.Parameterized):
 			self.offset.start=offset_range[0]
 			self.offset.end  =offset_range[1]
 			self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
-
 			self.offset.value=offset_value
 			self.setQueryLogicBox(([0]*pdim,dims))
 			self.refresh()
@@ -713,12 +712,10 @@ class Slice(param.Parameterized):
 
 		pdim = self.getPointDim()
 
-		# 2d there is no direction
-		if pdim == 2:
-			assert dir == 2
-			value = 0
-			return value,[0, 0, 1]
+		if pdim<=2:
+			return 0, [0, 0, 1] # (offset,range)
 		else:
+			# 3d
 			vt = [self.logic_to_physic[I][0] for I in range(pdim)]
 			vs = [self.logic_to_physic[I][1] for I in range(pdim)]
 
@@ -731,7 +728,7 @@ class Slice(param.Parameterized):
 				value = (A + B) / 2.0
 				return value,[A, B, 0]
 
-	# toPhysic
+	# toPhysic (i.e. logic box -> canvas viewport in physic coordinates)
 	def toPhysic(self, value):
 		dir = self.direction.value
 		pdim = self.getPointDim()
@@ -740,11 +737,26 @@ class Slice(param.Parameterized):
 		p1,p2=value
 		p1 = [vs[I] * p1[I] + vt[I] for I in range(pdim)]
 		p2 = [vs[I] * p2[I] + vt[I] for I in range(pdim)]
-		if pdim == 3: del p1[dir]
-		if pdim == 3: del p2[dir]
+
+		if pdim==1:
+			# todo: what is the y range? probably I shold do what I am doing with the colormap
+			assert(len(p1)==1)
+			assert(len(p2)==1)
+			p1.append(0.0)
+			p2.append(1.0)
+		elif pdim==2:
+			assert(len(p1)==2)
+			assert(len(p2)==2)
+		else:
+			assert(pdim==3)
+			assert(len(p1)==3)
+			assert(len(p2)==3)
+			del p1[dir]
+			del p2[dir]
+
 		x1,y1=p1
 		x2,y2=p2
-		return [x1,y1,x2-x1,y2-y1]
+		return [x1,y1, x2-x1, y2-y1]
 
 	# toLogic
 	def toLogic(self, value):
@@ -755,13 +767,27 @@ class Slice(param.Parameterized):
 		x,y,w,h=value
 		p1=[x  ,y  ]
 		p2=[x+w,y+h]
-		if pdim == 3: p1.insert(dir, 0)
-		if pdim == 3: p2.insert(dir, 0)
+
+		if pdim==1:
+			del p1[1]
+			del p2[1]
+		elif pdim==2:
+			pass # alredy in 2d simension
+		else:
+			assert(pdim==3)
+			p1.insert(dir, 0)
+			p2.insert(dir, 0)
+
+		assert(len(p1)==pdim)
+		assert(len(p2)==pdim)
 		p1 = [(p1[I] - vt[I]) / vs[I] for I in range(pdim)]
 		p2 = [(p2[I] - vt[I]) / vs[I] for I in range(pdim)]
+
+		# in 3d the offset is what I should return in logic coordinates (making the box full dim)
 		if pdim == 3:
 			p1[dir] = int((self.offset.value  - vt[dir]) / vs[dir])
-			p2[dir] = p1[dir]+1 # needs to be full-dim
+			p2[dir] = p1[dir]+1 
+		
 		return [p1, p2]
 
 	# togglePlay
@@ -1007,7 +1033,11 @@ class Slice(param.Parameterized):
 		self.query_node.waitIdle()
 		num_refinements = self.num_refinements.value
 		if num_refinements==0:
-			num_refinements=3 if pdim==2 else 4
+			num_refinements={
+				1: 1, # 1 refinement for 1d signal
+				2: 3, # 2 refinements for 2d image
+				3: 4  # 4 refinements if volum
+			}[pdim]
 		self.aborted=Aborted()
 
 		# do not push too many jobs
