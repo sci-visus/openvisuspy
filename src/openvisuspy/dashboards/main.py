@@ -53,6 +53,13 @@ if __name__.startswith('bokeh'):
 			x,y,h,w=evt.new
 			logic_box=slice.toLogic([x,y,w,h])
 			data=list(ovy.ExecuteBoxQuery(slice.db, access=slice.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
+
+			if slice.range_mode.value=="dynamic-acc":
+				vmin,vmax=np.min(data),np.max(data)
+				slice.range_min.value = min(slice.range_min.value, vmin)
+				slice.range_max.value = max(slice.range_max.value, vmax)
+				logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
+
 			fig = Figure()
 			ax = fig.subplots()
 			im=ax.imshow(np.flip(data,axis=0))
@@ -60,9 +67,10 @@ if __name__.startswith('bokeh'):
 			dialog = pn.pane.Matplotlib(fig,sizing_mode="stretch_both")
 			slice.showDialog(dialog)
 
+			# slice.range_min.value=min(slice.range_min.value,np.min())
+
 		from bokeh.events import SelectionGeometry
 		slice.canvas.on_event(SelectionGeometry,ShowDetails)
-
 
 	app.servable()
 

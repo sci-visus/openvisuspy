@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 import bokeh
 from bokeh.models.scales import LinearScale,LogScale
+from bokeh.events import Tap,DoubleTap
 from bokeh.models import LinearColorMapper,LogColorMapper,ColorBar,ColumnDataSource,Range1d
 from bokeh.models.formatters import NumeralTickFormatter
 
@@ -149,11 +150,16 @@ class Slice(param.Parameterized):
 		def onRangeModeChange(evt):
 			mode=evt.new
 			self.color_map=None
-			if mode == "metadata":   self.range_min.value = it.metadata_range[0]
-			if mode == "dynamic-acc":self.range_min.value = 0.0
+
+			if mode == "metadata":   
+				self.range_min.value = it.metadata_range[0]
+				self.range_max.value = it.metadata_range[1]
+
+			if mode == "dynamic-acc":
+				self.range_min.value = 0.0
+				self.range_max.value = 0.0
+			
 			self.range_min.disabled = False if mode == "user" else True
-			if mode == "metadata":   self.range_max.value = it.metadata_range[1]
-			if mode == "dynamic-acc":self.range_max.value = 0.0
 			self.range_max.disabled = False if mode == "user" else True
 			self.refresh()
 		self.range_mode.param.watch(SafeCallback(onRangeModeChange),"value", onlychanged=True,queued=True)
@@ -293,12 +299,9 @@ class Slice(param.Parameterized):
 		self.query_node=QueryNode()
 		self.canvas = Canvas(self.id)
 
-		def onViewportChange(evt):
-			x,y,w,h=self.canvas.getViewport()
-			self.viewport.value=f"{x} {y} {w} {h}"
-			self.refresh()
-
-		self.canvas.on_event(ViewportUpdate, onViewportChange)
+		self.canvas.on_event(ViewportUpdate, SafeCallback(self.onCanvasViewportChange))
+		self.canvas.on_event(Tap           , SafeCallback(self.onCanvasSingleTap))
+		self.canvas.on_event(DoubleTap     , SafeCallback(self.onCanvasDoubleTap))
 
 		self.top_layout=Column(sizing_mode="stretch_width")
 
@@ -323,6 +326,20 @@ class Slice(param.Parameterized):
 
 			sizing_mode="stretch_both"
 		)
+
+	# onCanvasViewportChange
+	def onCanvasViewportChange(self, evt):
+		x,y,w,h=self.canvas.getViewport()
+		self.viewport.value=f"{x} {y} {w} {h}"
+		self.refresh()
+
+	# onCanvasSingleTap
+	def onCanvasSingleTap(self, evt):
+		pass
+
+	# onCanvasDoubleTap
+	def onCanvasDoubleTap(self, evt):
+		pass
 
 	# getShowOptions
 	def getShowOptions(self):

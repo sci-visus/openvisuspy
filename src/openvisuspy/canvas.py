@@ -11,7 +11,7 @@ import bokeh
 import bokeh.models
 
 from bokeh.models import ColumnDataSource,Range1d, BoxSelectTool
-from bokeh.events import DoubleTap,SelectionGeometry
+from bokeh.events import Tap, DoubleTap,SelectionGeometry
 from bokeh.plotting import figure as Figure
 from bokeh.models.callbacks import CustomJS
 
@@ -33,6 +33,7 @@ class Canvas:
 
 		# events
 		self.events={
+			Tap: [],
 			DoubleTap: [],
 			SelectionGeometry: [],
 			ViewportUpdate: []
@@ -103,10 +104,8 @@ class Canvas:
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
-		# if old: old_remove_on_event(DoubleTap, self.onDoubleTap) cannot find old_remove_on_event
-		def handleDoubleTap(evt):
-			return [fn(evt) for fn in self.events[DoubleTap]]
-		self.fig.on_event(DoubleTap, handleDoubleTap)
+		self.fig.on_event(Tap      , lambda evt: [fn(evt) for fn in self.events[Tap      ]])
+		self.fig.on_event(DoubleTap, lambda evt: [fn(evt) for fn in self.events[DoubleTap]])
 
 		# TODO: keep the renderers but not the
 		if old is not None:
@@ -123,13 +122,12 @@ class Canvas:
 		self.last_cb      = None
 		self.last_renderer= None
 
-		tool=BoxSelectTool()
-		self.fig.add_tools(tool)
-
-		# does not working
-		# self.fig.on_event(SelectionGeometry, lambda s: print("JHERE"))
 		if True:
+			tool=BoxSelectTool()
+			self.fig.add_tools(tool)
 
+			# does not working
+			# self.fig.on_event(SelectionGeometry, lambda s: print("JHERE"))
 			def handleSelectionGeometry(attr,old,new):
 				j=json.loads(new)
 				x=float(j["x0"])
@@ -147,7 +145,6 @@ class Canvas:
 				args=dict(tool_helper=tool_helper), 
 				code="""tool_helper.value=JSON.stringify(cb_obj.geometry, undefined, 2);"""
 			))
-
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):

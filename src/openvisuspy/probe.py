@@ -55,7 +55,7 @@ class ProbeTool(param.Parameterized):
 		self.createGui()
 		
 		# to add probes
-		slice.canvas.on_event(DoubleTap,self.onCanvasDoubleTap)
+		slice.canvas.on_event(DoubleTap,SafeCallback(self.onCanvasDoubleTap))
 
 		self.slice.offset.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True) # display the new offset
 		self.slice.scene.param.watch(SafeCallback(lambda evt: self.recompute()),"value", onlychanged=True,queued=True)
