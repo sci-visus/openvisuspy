@@ -74,8 +74,6 @@ class Canvas:
 		self.last_viewport=None
 		self.setViewport([0,0,256,256])
 		
-		AddPeriodicCallback(self.onIdle,300)
-
 	# onIdle
 	def onIdle(self):
 		
@@ -931,8 +929,9 @@ class Slice(param.Parameterized):
 
 		pdim = self.getPointDim()
 
+		# offset does not make sense in 1D and 2D
 		if pdim<=2:
-			return 0, [0, 0, 1] # (offset,range) NOTE: offset does not make sense in 1D and 2D
+			return 0, [0, 0, 1] # (offset,range) 
 		else:
 			# 3d
 			vt = [self.logic_to_physic[I][0] for I in range(pdim)]
@@ -962,8 +961,10 @@ class Slice(param.Parameterized):
 			assert(len(p1)==1 and len(p2)==1)
 			p1.append(0.0)
 			p2.append(1.0)
+
 		elif pdim==2:
 			assert(len(p1)==2 and len(p2)==2)
+			
 		else:
 			assert(pdim==3 and len(p1)==3 and len(p2)==3)
 			del p1[dir]
@@ -1306,6 +1307,8 @@ class Slice(param.Parameterized):
 
 		if not self.db:
 			return
+
+		self.canvas.onIdle()
 
 		if self.canvas and  self.canvas.getWidth()>0 and self.canvas.getHeight()>0:
 			self.playNextIfNeeded()
