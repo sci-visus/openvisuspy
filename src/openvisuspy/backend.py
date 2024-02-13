@@ -52,7 +52,7 @@ class BaseDataset:
 	):
 
 		pdim=self.getPointDim()
-		assert pdim==2 or pdim==3 # todo other cases?
+		assert pdim in [1,2,3]
 
 		maxh=self.getMaxResolution()
 		bitmask=self.getBitmask()
@@ -88,6 +88,7 @@ class BaseDataset:
 			p1,p2=list(logic_box[0]),list(logic_box[1])
 			slice_dir=None
 			for I in range(pdim):
+				
 				# *************** is a slice? *******************
 				if not full_dim and  pdim==3 and (p2[I]-p1[I])==1:
 					assert slice_dir is None 

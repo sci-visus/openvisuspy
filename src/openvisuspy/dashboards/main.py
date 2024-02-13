@@ -35,7 +35,7 @@ if __name__.startswith('bokeh'):
 		scene_name=query_params["dataset"]
 		slice.scene.value=scene_name
 
-	if True:
+	if False:
 		app = ProbeTool(slice).getMainLayout()
 	else:
 		app = slice.getMainLayout()

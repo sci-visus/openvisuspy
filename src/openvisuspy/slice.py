@@ -215,12 +215,14 @@ class Canvas:
 	# setImage
 	def showData(self, data, viewport,color_bar=None):
 
+		x,y,w,h=viewport
+
 		# 1D signal
 		if len(data.shape)==1:
 			self.fix_aspect_ratio=False
 			self.fig.renderers.clear()
-			xs=np.arange(x0,x1,(x1-x0)/signal.shape[0])
-			ys=signal
+			xs=np.arange(x,x+w,w/data.shape[0])
+			ys=data
 			self.fig.line(xs,ys)
 			
 		# 2d image (eventually multichannel)
@@ -229,7 +231,7 @@ class Canvas:
 			self.fix_aspect_ratio=True
 			img=ConvertDataForRendering(data)
 			dtype=img.dtype
-			x,y,w,h=viewport
+			
 			
 			# compatible with last rendered image?
 			if all([
@@ -964,7 +966,7 @@ class Slice(param.Parameterized):
 
 		elif pdim==2:
 			assert(len(p1)==2 and len(p2)==2)
-			
+
 		else:
 			assert(pdim==3 and len(p1)==3 and len(p2)==3)
 			del p1[dir]
@@ -1211,14 +1213,14 @@ class Slice(param.Parameterized):
 
 		# update the status bar
 		if True:
-			tot_pixels=data.shape[0]*data.shape[1]
+			tot_pixels=np.prod(data.shape)
 			canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
 			self.H=result['H']
 			query_status="running" if result['running'] else "FINISHED"
 			self.response.value=" ".join([
 				f"#{result['I']+1}",
 				f"{str(logic_box).replace(' ','')}",
-				f"{data.shape[0]}x{data.shape[1]}",
+				str(data.shape),
 				f"Res={result['H']}/{maxh}",
 				f"{result['msec']}msec",
 				str(query_status)

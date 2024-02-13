@@ -70,6 +70,8 @@ set VISUS_CACHE=c:/tmp/visus-cache
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/david_subsampled/visus.idx"
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/2kbit1/zip/hzorder/visus.idx"
 
+python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/1d/visus.idx"
+
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/chess/nsdf-group/dashboards.json"
 
 
