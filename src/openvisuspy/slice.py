@@ -184,7 +184,7 @@ class Slice(param.Parameterized):
 			value=evt.new
 			logger.debug(f"id={self.id} value={value}")
 			pdim = self.getPointDim()
-			if pdim in (1,2): value = 2
+			if pdim in (1,2): value = 2 # direction value does not make sense in 1D and 2D
 			dims = [int(it) for it in self.db.getLogicSize()]
 
 			# default behaviour is to guess the offset
@@ -713,7 +713,7 @@ class Slice(param.Parameterized):
 		pdim = self.getPointDim()
 
 		if pdim<=2:
-			return 0, [0, 0, 1] # (offset,range)
+			return 0, [0, 0, 1] # (offset,range) NOTE: offset does not make sense in 1D and 2D
 		else:
 			# 3d
 			vt = [self.logic_to_physic[I][0] for I in range(pdim)]
@@ -740,17 +740,13 @@ class Slice(param.Parameterized):
 
 		if pdim==1:
 			# todo: what is the y range? probably I shold do what I am doing with the colormap
-			assert(len(p1)==1)
-			assert(len(p2)==1)
+			assert(len(p1)==1 and len(p2)==1)
 			p1.append(0.0)
 			p2.append(1.0)
 		elif pdim==2:
-			assert(len(p1)==2)
-			assert(len(p2)==2)
+			assert(len(p1)==2 and len(p2)==2)
 		else:
-			assert(pdim==3)
-			assert(len(p1)==3)
-			assert(len(p2)==3)
+			assert(pdim==3 and len(p1)==3 and len(p2)==3)
 			del p1[dir]
 			del p2[dir]
 
@@ -772,14 +768,13 @@ class Slice(param.Parameterized):
 			del p1[1]
 			del p2[1]
 		elif pdim==2:
-			pass # alredy in 2d simension
+			pass # alredy in 2D
 		else:
-			assert(pdim==3)
-			p1.insert(dir, 0)
+			assert(pdim==3) 
+			p1.insert(dir, 0) # need to add the missing direction
 			p2.insert(dir, 0)
 
-		assert(len(p1)==pdim)
-		assert(len(p2)==pdim)
+		assert(len(p1)==pdim and len(p2)==pdim)
 		p1 = [(p1[I] - vt[I]) / vs[I] for I in range(pdim)]
 		p2 = [(p2[I] - vt[I]) / vs[I] for I in range(pdim)]
 
@@ -907,17 +902,11 @@ class Slice(param.Parameterized):
 	def gotoPoint(self,point):
 		return  # COMMENTED OUT
 		"""
-		logger.debug(f"id={self.id} point={point}")
-		pdim=self.getPointDim()
-
-		if pdim==3:
-			dir=self.direction.value
-			self.offset.value=point[dir]
+		self.offset.value=point[self.direction.value]
 		
-		# the point should be centered in p3d
 		(p1,p2),dims=self.getQueryLogicBox(),self.getLogicSize()
 		p1,p2=list(p1),list(p2)
-		for I in range(pdim):
+		for I in range(self.getPointDim()):
 			p1[I],p2[I]=point[I]-dims[I]/2,point[I]+dims[I]/2
 		self.setQueryLogicBox([p1,p2])
 		self.canvas.renderPoints([self.toPhysic(point)]) 
