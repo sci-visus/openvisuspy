@@ -256,7 +256,7 @@ def ConvertData(specs):
 					data=data[0,:,:,:]
 
 				parent=field.nxgroup
-				if hasattr(parent,"attr") and "axes" in parent.attrs:
+				if hasattr(parent,"attrs") and "axes" in parent.attrs:
 					axis=[parent[it] for it in parent.attrs["axes"]]
 					idx_axis,idx_physic_box=[],[]
 					for it in axis:
