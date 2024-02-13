@@ -85,10 +85,12 @@ class Slice(param.Parameterized):
 	info_button            = pn.widgets.Button   (icon="info-circle",width=20)
 	open_button            = pn.widgets.Button   (icon="file-upload",width=20)
 	save_button            = pn.widgets.Button   (icon="file-download",width=20)
-	save_button_helper     = pn.widgets.IntInput (visible=False)
 	copy_url_button        = pn.widgets.Button   (icon="copy",width=20)
-	copy_url_button_helper = pn.widgets.IntInput (visible=False)
 	logout_button          = pn.widgets.Button   (icon="logout",width=20)
+
+	# internal use only
+	save_button_helper     = pn.widgets.IntInput (visible=False)
+	copy_url_button_helper = pn.widgets.IntInput (visible=False)
 
 	# constructor
 	def __init__(self):
@@ -150,8 +152,8 @@ class Slice(param.Parameterized):
 			self.color_map=None
 
 			if mode == "metadata":   
-				self.range_min.value = it.metadata_range[0]
-				self.range_max.value = it.metadata_range[1]
+				self.range_min.value = self.metadata_range[0]
+				self.range_max.value = self.metadata_range[1]
 
 			if mode == "dynamic-acc":
 				self.range_min.value = 0.0
@@ -317,7 +319,6 @@ class Slice(param.Parameterized):
 		self.idle_callback = None
 		self.color_bar     = None
 		self.query_node    = None
-		self.canvas        = None
 
 		self.t1=time.time()
 		self.aborted       = Aborted()
@@ -325,8 +326,8 @@ class Slice(param.Parameterized):
 		self.current_img   = None
 		self.last_job_pushed =time.time()
 		self.query_node=QueryNode()
-		self.canvas = Canvas(self.id)
 
+		self.canvas = Canvas(self.id, pdim=2)
 		self.canvas.on_event(ViewportUpdate,              SafeCallback(self.onCanvasViewportChange))
 		self.canvas.on_event(bokeh.events.Tap           , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap     , SafeCallback(self.onCanvasDoubleTap))
@@ -334,7 +335,7 @@ class Slice(param.Parameterized):
 		self.top_layout=Column(sizing_mode="stretch_width")
 
 		self.middle_layout=Column(
-			Row(self.canvas.main_layout, sizing_mode='stretch_both'),
+			Row(self.canvas.fig_layout, sizing_mode='stretch_both'),
 			sizing_mode='stretch_both'
 		)
 
@@ -358,7 +359,7 @@ class Slice(param.Parameterized):
 	# onCanvasViewportChange
 	def onCanvasViewportChange(self, evt):
 		x,y,w,h=self.canvas.getViewport()
-		self.viewport.value=f"{x} {y} {w} {h}"
+		self.viewport.value=f"{x} {y} {w} {h}" # this way someone from the outside can watch for changes
 		self.refresh()
 
 	# onCanvasSingleTap
@@ -853,11 +854,13 @@ class Slice(param.Parameterized):
 
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
-		return self.toLogic(self.canvas.getViewport())
+		viewport=self.canvas.getViewport()
+		return self.toLogic(viewport)
 
 	# setQueryLogicBox
 	def setQueryLogicBox(self,value):
-		self.canvas.setViewport(self.toPhysic(value) )
+		viewport=self.toPhysic(value)
+		self.canvas.setViewport(viewport)
 		self.refresh()
   
 	# getLogicCenter
@@ -922,6 +925,7 @@ class Slice(param.Parameterized):
 		real_physic_offset=vs*real_logic_offset + vt 
 		user_logic_offset=int((user_physic_offset-vt)/vs)
 
+		# update slider info
 		self.offset.name=" ".join([
 			f"Offset: {user_physic_offset:.3f}±{abs(user_physic_offset-real_physic_offset):.3f}",
 			f"Pixel: {user_logic_offset}±{abs(user_logic_offset-real_logic_offset)}",
@@ -957,7 +961,6 @@ class Slice(param.Parameterized):
 			palette=self.palette.value
 			mapper_low =max(EPSILON, low ) if is_log else low
 			mapper_high=max(EPSILON, high) if is_log else high
-			
 			self.color_bar = bokeh.models.ColorBar(color_mapper = 
 				bokeh.models.LogColorMapper   (palette=palette, low=mapper_low, high=mapper_high) if is_log else 
 				bokeh.models.LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
@@ -972,32 +975,32 @@ class Slice(param.Parameterized):
 		self.canvas.setAxisLabels(tX,tY)
 
 		# update the status bar
-		tot_pixels=data.shape[0]*data.shape[1]
-		canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
-		self.H=result['H']
-		query_status="running" if result['running'] else "FINISHED"
-		self.response.value=" ".join([
-			f"#{result['I']+1}",
-			f"{str(logic_box).replace(' ','')}",
-			f"{data.shape[0]}x{data.shape[1]}",
-			f"Res={result['H']}/{maxh}",
-			f"{result['msec']}msec",
-			str(query_status)
-		])
+		if True:
+			tot_pixels=data.shape[0]*data.shape[1]
+			canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
+			self.H=result['H']
+			query_status="running" if result['running'] else "FINISHED"
+			self.response.value=" ".join([
+				f"#{result['I']+1}",
+				f"{str(logic_box).replace(' ','')}",
+				f"{data.shape[0]}x{data.shape[1]}",
+				f"Res={result['H']}/{maxh}",
+				f"{result['msec']}msec",
+				str(query_status)
+			])
 
+		# this way someone from the outside can watch for new results
 		self.render_id.value=self.render_id.value+1 
   
-
 	# pushJobIfNeeded
 	def pushJobIfNeeded(self):
-		assert(self.query_node and self.canvas)
-		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
-		query_logic_box=self.getQueryLogicBox()
-		offset=self.offset.value
-		pdim=self.getPointDim()
 
 		if not self.new_job:
 			return
+
+		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
+		query_logic_box=self.getQueryLogicBox()
+		pdim=self.getPointDim()
 
 		# abort the last one
 		self.aborted.setTrue()

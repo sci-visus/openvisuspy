@@ -24,9 +24,11 @@ class ViewportUpdate:
 class Canvas:
   
 	# constructor
-	def __init__(self, id):
+	def __init__(self, id, pdim):
 		self.id=id
 		self.fig=None
+		self.pdim=pdim
+		assert(pdim==1 or pdim==2)
 
 		# events
 		self.events={
@@ -36,16 +38,28 @@ class Canvas:
 			ViewportUpdate: []
 		}
 
-		self.main_layout=Row(sizing_mode="stretch_both")	
+		self.fig_layout=Row(sizing_mode="stretch_both")	
 		self.createFigure() 
-		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
-		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
+
+		if pdim==1:
+			xs  = np.arange(0.0,255.0,1.0)
+			ys1 = np.sin(np.linspace(0,10*np.pi,256))
+			self.fig_source=ColumnDataSource(data={'xs' : xs,'ys' : ys})
+			self.fig.line('xs', 'ys', source=self.fig_source)
+
+		elif pdim==2:
+			self.fig_source = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
+			self.last_image=self.fig.image("image", source=self.fig_source, x="x", y="y", dw="dw", dh="dh")
+
+		else:
+			raise Exception("internal error")
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
 		self.last_W=0
 		self.last_H=0
 		self.last_viewport=None
 		self.setViewport([0,0,256,256])
+		
 		AddPeriodicCallback(self.onIdle,300)
 
 	# onIdle
@@ -67,8 +81,8 @@ class Canvas:
 		if [x,y,w,h]==self.last_viewport and [self.last_W,self.last_H]==[W,H]:
 			return
 
-		# I need to fix the aspect ratio , since only now I may have got the real canvas dimension
-		if [self.last_W,self.last_H]!=[W,H]:
+		# I need to fix the aspect ratio 
+		if self.pdim==2 and [self.last_W,self.last_H]!=[W,H]:
 			x+=0.5*w
 			y+=0.5*h
 			if (w/W) > (h/H): 
@@ -94,10 +108,10 @@ class Canvas:
 	def createFigure(self):
 		old=self.fig
 
-		self.pan_tool=bokeh.models.PanTool()
-		self.wheel_zoom_tool=bokeh.models.WheelZoomTool()
-		self.box_select_tool=bokeh.models.BoxSelectTool()
-		self.box_select_tool_helper=bokeh.models.TextInput()
+		self.pan_tool               = bokeh.models.PanTool()
+		self.wheel_zoom_tool        = bokeh.models.WheelZoomTool()
+		self.box_select_tool        = bokeh.models.BoxSelectTool()
+		self.box_select_tool_helper = bokeh.models.TextInput()
 
 		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.box_select_tool]) 
 		self.fig.toolbar.active_scroll = self.wheel_zoom_tool
@@ -107,7 +121,7 @@ class Canvas:
 
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
-		self.fig.toolbar_location="right" # None                 if old is None else old.toolbar_location
+		self.fig.toolbar_location="right" 
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
@@ -115,24 +129,28 @@ class Canvas:
 		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
 
-		# TODO: keep the renderers but not the
-		if old is not None:
-			v=old.renderers
-			old.renderers=[]
-			for it in v:
-				if it!=self.last_renderer:
-					self.fig.renderers.append(it)
+		# TODO: keep the old renderers (apart for the image)
+		if self.pdim==2:
+			if old is not None:
+				v, old.renderers=old.renderers, []
+				for it in v:
+					if it!=self.last_image:
+						self.fig.renderers.append(it)
 
-		self.main_layout[:]=[]
-		self.main_layout.append(Bokeh(self.fig))
+		# replace the figure from the fig_layout (so that later on I can replace it)
+		self.fig_layout[:]=[]
+		self.fig_layout.append(Bokeh(self.fig))
 		
-		self.last_dtype   = None
-		self.last_cb      = None
-		self.last_renderer= None
+		if self.pdim==2:
+			self.last_image_dtype       = None
+			self.last_image_color_bar   = None
+			self.last_image             = None
+			self.enableSelection()
 
-		# python event DOES NOT work
-		use_python_events=False
+	# enableSelection
+	def enableSelection(self,use_python_events=False):
 		if use_python_events:
+			# python event DOES NOT work
 			self.fig.on_event(bokeh.events.SelectionGeometry, lambda s: print("JHERE"))
 		else:
 			def handleSelectionGeometry(attr,old,new):
@@ -153,7 +171,7 @@ class Canvas:
 					widget.value=JSON.stringify(cb_obj.geometry, undefined, 2);
 					console.log("Setting widget value for selection DONE");
 					"""
-			))				
+			))	
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
@@ -190,22 +208,37 @@ class Canvas:
 		self.fig.y_range.start, self.fig.y_range.end = y, y+h
 		# NOTE: the event will be fired inside onIdle
 
+
+	# setSignal
+	def setSignal(self, signal, x0, x1):
+		assert(self.pdim==1)
+		assert(len(signal.shape)==1)
+		self.fig_source.data={
+			"xs":np.arange(x0,x1,(x1-x0)/signal.shape[0]), 
+			"ys":signal
+		}
+
 	# setImage
 	def setImage(self, data, color_bar, viewport):
+		assert(self.pdim==2)
 		img=ConvertDataForRendering(data)
 		dtype=img.dtype
 		x,y,w,h=viewport
-		if self.last_dtype==dtype and self.last_cb==color_bar:
-			# current dtype is 'compatible' with the new image dtype, just change the source _data
-			self.source_image.data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
+		# current dtype is 'compatible' with the new image dtype, just change the source _data
+		if self.last_image_dtype==dtype and self.last_image_color_bar==color_bar:
+			self.fig_source.data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
 		else:
 			self.createFigure()
-			self.source_image = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
+			self.fig_source = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
 			if img.dtype==np.uint32:	
-				self.last_renderer=self.fig.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
+				self.last_image=self.fig.image_rgba("image", source=self.fig_source, x="x", y="y", dw="dw", dh="dh") 
 			else:
-				self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+				self.last_image=self.fig.image("image", source=self.fig_source, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 			self.fig.add_layout(color_bar, 'right')
-			self.last_dtype=img.dtype
-			self.last_cb=color_bar
+			self.last_image_dtype=img.dtype
+			self.last_image_color_bar=color_bar
+
+
+
+
 
