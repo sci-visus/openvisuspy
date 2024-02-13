@@ -12,7 +12,7 @@ if __name__.startswith('bokeh'):
 	# https://github.com/holoviz/panel/issues/3404
 	# https://panel.holoviz.org/api/config.html
 	pn.extension(
-		'bokeh',
+		"ipywidgets",
 		"floatpanel",
 		log_level ="DEBUG",
 		notifications=True, 
@@ -36,41 +36,9 @@ if __name__.startswith('bokeh'):
 		slice.scene.value=scene_name
 
 	if True:
-		probe=ProbeTool(slice)
-		app = probe.getMainLayout()
+		app = ProbeTool(slice).getMainLayout()
 	else:
 		app = slice.getMainLayout()
-
-
-	# example of showing details
-	if True:
-
-		def ShowDetails(evt):
-			from matplotlib.figure import Figure
-			import openvisuspy as ovy
-			import panel as pn
-			import numpy as np
-			x,y,h,w=evt.new
-			logic_box=slice.toLogic([x,y,w,h])
-			data=list(ovy.ExecuteBoxQuery(slice.db, access=slice.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
-
-			if slice.range_mode.value=="dynamic-acc":
-				vmin,vmax=np.min(data),np.max(data)
-				slice.range_min.value = min(slice.range_min.value, vmin)
-				slice.range_max.value = max(slice.range_max.value, vmax)
-				logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
-
-			fig = Figure()
-			ax = fig.subplots()
-			im=ax.imshow(np.flip(data,axis=0))
-			fig.colorbar(im, ax=ax)
-			dialog = pn.pane.Matplotlib(fig,sizing_mode="stretch_both")
-			slice.showDialog(dialog)
-
-			# slice.range_min.value=min(slice.range_min.value,np.min())
-
-		from bokeh.events import SelectionGeometry
-		slice.canvas.on_event(SelectionGeometry,ShowDetails)
 
 	app.servable()
 

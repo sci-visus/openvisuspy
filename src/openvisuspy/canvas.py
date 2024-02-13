@@ -5,23 +5,20 @@ import types
 
 logger = logging.getLogger(__name__)
 
-from .utils import *
-
 import bokeh
 import bokeh.models
-
-from bokeh.models import ColumnDataSource,Range1d, BoxSelectTool
-from bokeh.events import Tap, DoubleTap,SelectionGeometry
-from bokeh.plotting import figure as Figure
-from bokeh.models.callbacks import CustomJS
+import bokeh.events
+import bokeh.plotting
+import bokeh.models.callbacks
 
 import panel as pn
 from panel import Column,Row
 from panel.pane import Bokeh
 
+from .utils import *
+
 class ViewportUpdate: 
 	pass
-
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Canvas:
@@ -33,15 +30,15 @@ class Canvas:
 
 		# events
 		self.events={
-			Tap: [],
-			DoubleTap: [],
-			SelectionGeometry: [],
+			bokeh.events.Tap: [],
+			bokeh.events.DoubleTap: [],
+			bokeh.events.SelectionGeometry: [],
 			ViewportUpdate: []
 		}
 
 		self.main_layout=Row(sizing_mode="stretch_both")	
 		self.createFigure() 
-		self.source_image = ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
+		self.source_image = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
 		self.last_renderer=self.fig.image("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh")
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
@@ -96,16 +93,27 @@ class Canvas:
 	# createFigure
 	def createFigure(self):
 		old=self.fig
-		self.fig=Figure(active_scroll = "wheel_zoom") 
-		self.fig.x_range = Range1d(0,512) if old is None else old.x_range
-		self.fig.y_range = Range1d(0,512) if old is None else old.y_range
+
+		self.pan_tool=bokeh.models.PanTool()
+		self.wheel_zoom_tool=bokeh.models.WheelZoomTool()
+		self.box_select_tool=bokeh.models.BoxSelectTool()
+		self.box_select_tool_helper=bokeh.models.TextInput()
+
+		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.box_select_tool]) 
+		self.fig.toolbar.active_scroll = self.wheel_zoom_tool
+		self.fig.toolbar.active_drag    = self.pan_tool
+		self.fig.toolbar.active_inspect = None
+		self.fig.toolbar.active_tap     = None
+
+		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
+		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
 		self.fig.toolbar_location="right" # None                 if old is None else old.toolbar_location
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
 
-		self.fig.on_event(Tap      , lambda evt: [fn(evt) for fn in self.events[Tap      ]])
-		self.fig.on_event(DoubleTap, lambda evt: [fn(evt) for fn in self.events[DoubleTap]])
+		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
+		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
 
 		# TODO: keep the renderers but not the
 		if old is not None:
@@ -122,29 +130,30 @@ class Canvas:
 		self.last_cb      = None
 		self.last_renderer= None
 
-		if True:
-			tool=BoxSelectTool()
-			self.fig.add_tools(tool)
-
-			# does not working
-			# self.fig.on_event(SelectionGeometry, lambda s: print("JHERE"))
+		# python event DOES NOT work
+		use_python_events=False
+		if use_python_events:
+			self.fig.on_event(bokeh.events.SelectionGeometry, lambda s: print("JHERE"))
+		else:
 			def handleSelectionGeometry(attr,old,new):
 				j=json.loads(new)
-				x=float(j["x0"])
-				y=float(j["y0"])
-				w=float(j["x1"])-x
-				h=float(j["y1"])-y
+				x,y=float(j["x0"]),float(j["y0"])
+				w,h=float(j["x1"])-x,float(j["y1"])-y
 				evt=types.SimpleNamespace()
 				evt.new=[x,y,w,h]
-				return [fn(evt) for fn in self.events[SelectionGeometry]]
+				[fn(evt) for fn in self.events[bokeh.events.SelectionGeometry]]
+				logger.info(f"HandleSeletionGeometry {evt}")
 
-			tool_helper=bokeh.models.TextInput()
-			tool_helper.on_change('value', handleSelectionGeometry)
+			self.box_select_tool_helper.on_change('value', handleSelectionGeometry)
 
-			self.fig.js_on_event(SelectionGeometry, CustomJS(
-				args=dict(tool_helper=tool_helper), 
-				code="""tool_helper.value=JSON.stringify(cb_obj.geometry, undefined, 2);"""
-			))
+			self.fig.js_on_event(bokeh.events.SelectionGeometry, bokeh.models.callbacks.CustomJS(
+				args=dict(widget=self.box_select_tool_helper), 
+				code="""
+					console.log("Setting widget value for selection...");
+					widget.value=JSON.stringify(cb_obj.geometry, undefined, 2);
+					console.log("Setting widget value for selection DONE");
+					"""
+			))				
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
@@ -191,7 +200,7 @@ class Canvas:
 			self.source_image.data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
 		else:
 			self.createFigure()
-			self.source_image = ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
+			self.source_image = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
 			if img.dtype==np.uint32:	
 				self.last_renderer=self.fig.image_rgba("image", source=self.source_image, x="x", y="y", dw="dw", dh="dh") 
 			else:

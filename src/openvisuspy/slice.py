@@ -10,18 +10,9 @@ from urllib.parse import urlparse, urlencode
 
 import numpy as np
 
-from .utils   import *
-from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
-
-from .canvas import Canvas, ViewportUpdate
-
-logger = logging.getLogger(__name__)
-
 import bokeh
-from bokeh.models.scales import LinearScale,LogScale
-from bokeh.events import Tap,DoubleTap
-from bokeh.models import LinearColorMapper,LogColorMapper,ColorBar,ColumnDataSource,Range1d
-from bokeh.models.formatters import NumeralTickFormatter
+import bokeh.events
+import bokeh.models
 
 import param 
 
@@ -29,6 +20,13 @@ import panel as pn
 from panel.layout import FloatPanel
 from panel import Column,Row,GridBox,Card
 from panel.pane import HTML,JSON,Bokeh
+
+from .utils   import *
+from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
+
+from .canvas import Canvas, ViewportUpdate
+
+logger = logging.getLogger(__name__)
 
 SLICE_ID=0
 EPSILON = 0.001
@@ -64,7 +62,7 @@ class Slice(param.Parameterized):
 	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
-	offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=NumeralTickFormatter(format="0.01"))
+	offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# palette thingy
@@ -208,8 +206,38 @@ class Slice(param.Parameterized):
 
 		self.setShowOptions(DEFAULT_SHOW_OPTIONS)
 
+		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.showDetails))
+
 		self.start()
 
+
+	# showDetails
+	def showDetails(self,evt=None):
+		from matplotlib.figure import Figure
+		import openvisuspy as ovy
+		import panel as pn
+		import numpy as np
+		x,y,h,w=evt.new
+		logic_box=self.toLogic([x,y,w,h])
+		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
+
+		if self.range_mode.value=="dynamic-acc":
+			vmin,vmax=np.min(data),np.max(data)
+			self.range_min.value = min(self.range_min.value, vmin)
+			self.range_max.value = max(self.range_max.value, vmax)
+			logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
+
+		fig = Figure()
+		ax = fig.subplots()
+		im=ax.imshow(np.flip(data,axis=0))
+		fig.colorbar(im, ax=ax)
+		self.showDialog(
+			pn.Column(
+				pn.pane.Matplotlib(fig,width=800, height=800),
+				sizing_mode="stretch_both"
+			), 
+			width=1024, height=768, name="Details"
+		)
 
 	# open
 	def showOpen(self):
@@ -299,9 +327,9 @@ class Slice(param.Parameterized):
 		self.query_node=QueryNode()
 		self.canvas = Canvas(self.id)
 
-		self.canvas.on_event(ViewportUpdate, SafeCallback(self.onCanvasViewportChange))
-		self.canvas.on_event(Tap           , SafeCallback(self.onCanvasSingleTap))
-		self.canvas.on_event(DoubleTap     , SafeCallback(self.onCanvasDoubleTap))
+		self.canvas.on_event(ViewportUpdate,              SafeCallback(self.onCanvasViewportChange))
+		self.canvas.on_event(bokeh.events.Tap           , SafeCallback(self.onCanvasSingleTap))
+		self.canvas.on_event(bokeh.events.DoubleTap     , SafeCallback(self.onCanvasDoubleTap))
 
 		self.top_layout=Column(sizing_mode="stretch_width")
 
@@ -335,11 +363,12 @@ class Slice(param.Parameterized):
 
 	# onCanvasSingleTap
 	def onCanvasSingleTap(self, evt):
+		logger.info(f"Single tap {evt}")
 		pass
 
 	# onCanvasDoubleTap
 	def onCanvasDoubleTap(self, evt):
-		pass
+		logger.info(f"Double tap {evt}")
 
 	# getShowOptions
 	def getShowOptions(self):
@@ -929,9 +958,9 @@ class Slice(param.Parameterized):
 			mapper_low =max(EPSILON, low ) if is_log else low
 			mapper_high=max(EPSILON, high) if is_log else high
 			
-			self.color_bar = ColorBar(color_mapper = 
-				LogColorMapper   (palette=palette, low=mapper_low, high=mapper_high) if is_log else 
-				LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
+			self.color_bar = bokeh.models.ColorBar(color_mapper = 
+				bokeh.models.LogColorMapper   (palette=palette, low=mapper_low, high=mapper_high) if is_log else 
+				bokeh.models.LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
 			)
 
 		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} range={[low,high]}")

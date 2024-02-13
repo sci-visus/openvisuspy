@@ -9,15 +9,12 @@ from .slice  import  Slice, EPSILON
 from .backend import ExecuteBoxQuery
 from .utils   import *
 
-from bokeh.plotting import figure as Figure
-
-from bokeh.events import DoubleTap
-from bokeh.models.scales import LinearScale,LogScale
+import bokeh.plotting 
+import bokeh.events
+import bokeh.models.scales
 
 import param
-
 import panel as pn
-from panel import Column,Row
 
 # //////////////////////////////////////////////////////////////////////////////////////
 class Probe:
@@ -55,7 +52,7 @@ class ProbeTool(param.Parameterized):
 		self.createGui()
 		
 		# to add probes
-		slice.canvas.on_event(DoubleTap,SafeCallback(self.onCanvasDoubleTap))
+		slice.canvas.on_event(bokeh.events.DoubleTap,SafeCallback(self.onCanvasDoubleTap))
 
 		self.slice.offset.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True) # display the new offset
 		self.slice.scene.param.watch(SafeCallback(lambda evt: self.recompute()),"value", onlychanged=True,queued=True)
@@ -70,13 +67,18 @@ class ProbeTool(param.Parameterized):
 		x1, x2 = self.slider_z_range.value
 		y1, y2 = (self.slice.color_bar.color_mapper.low, self.slice.color_bar.color_mapper.high) if self.slice.color_bar else (0.0,1.0)
 
-		self.fig=Figure(title=None,sizing_mode="stretch_both",active_scroll="wheel_zoom",toolbar_location=None,
-				x_axis_label="Z", x_range=[x1,x2],x_axis_type="linear",
-				y_axis_label="f", y_range=[y2,y2],y_axis_type=self.slice.color_mapper_type.value)
+		self.fig=bokeh.plotting.figure(
+			title=None,
+			sizing_mode="stretch_both",
+			active_scroll="wheel_zoom",
+			toolbar_location=None,
+			x_axis_label="Z", x_range=[x1,x2],x_axis_type="linear",
+			y_axis_label="f", y_range=[y2,y2],y_axis_type=self.slice.color_mapper_type.value
+			)
 
 		# change the offset on the proble plot (NOTE evt.x in is physic domain)
 		def handleDoubleTap(evt): self.slice.offset.value=evt.x
-		self.fig.on_event(DoubleTap, handleDoubleTap)
+		self.fig.on_event(bokeh.events.DoubleTap, handleDoubleTap)
 
 		self.fig_placeholder[:]=[]
 		self.fig_placeholder.append(self.fig)
@@ -86,7 +88,7 @@ class ProbeTool(param.Parameterized):
 
 		self.slot = None
 		self.button_css = [None] * len(COLORS)
-		self.fig_placeholder = Column(sizing_mode='stretch_both')
+		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
 
 		self.slider_x_pos.param.watch(SafeCallback(lambda new: self.onProbeXYChange()), "value_throttled", onlychanged=True,queued=True)
 		self.slider_y_pos.param.watch(SafeCallback(lambda new: self.onProbeXYChange()), "value_throttled", onlychanged=True,queued=True)
@@ -105,10 +107,10 @@ class ProbeTool(param.Parameterized):
 
 		self.createFigure()
 
-		self.main_layout = Row(
+		self.main_layout = pn.Row(
 			self.slice.getMainLayout(),
-				Column(
-					Row(
+				pn.Column(
+					pn.Row(
 						self.slider_x_pos,
 						self.slider_y_pos,
 						self.slider_z_range,
@@ -118,7 +120,7 @@ class ProbeTool(param.Parameterized):
 						self.slider_num_points_y,
 						sizing_mode="stretch_width"
 					),
-					Row(
+					pn.Row(
 						*[button for button in self.buttons], 
 						sizing_mode="stretch_width"
 					),
@@ -359,10 +361,10 @@ class ProbeTool(param.Parameterized):
 	def refresh(self):
 
 		# changing y_scale DOES NOT WORK (!!!)
-		# self.fig.y_scale=LogScale() if self.slice.color_mapper_type.value=="log" else LinearScale()
+		# self.fig.y_scale=bokeh.models.scales.LogScale() if self.slice.color_mapper_type.value=="log" else bokeh.models.scales.LinearScale()
 		
 		is_log=self.slice.color_mapper_type.value=="log"
-		fig_log=isinstance(self.fig.y_scale, LogScale)
+		fig_log=isinstance(self.fig.y_scale, bokeh.models.scales.LogScale)
 		if is_log!=fig_log:
 			self.createFigure()
 
