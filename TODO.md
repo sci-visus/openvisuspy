@@ -12,7 +12,7 @@ Todo
 
 - [TODO] Linked View
 - [TODO] helper - with all query parameters
-- [TODO] 1D big signals
+- [TODO] 1D big signals (right now I need to force -1, +1 as y_range.... why?)
 
 ON HOLD:
 - [todo] sometimes dialog boxes do not work in jupyter lab (i.e. details). What to do?
