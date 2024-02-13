@@ -24,11 +24,10 @@ class ViewportUpdate:
 class Canvas:
   
 	# constructor
-	def __init__(self, id, pdim):
+	def __init__(self, id):
 		self.id=id
 		self.fig=None
-		self.pdim=pdim
-		assert(pdim==1 or pdim==2)
+		self.fix_aspect_ratio=True
 
 		# events
 		self.events={
@@ -40,19 +39,6 @@ class Canvas:
 
 		self.fig_layout=Row(sizing_mode="stretch_both")	
 		self.createFigure() 
-
-		if pdim==1:
-			xs  = np.arange(0.0,255.0,1.0)
-			ys1 = np.sin(np.linspace(0,10*np.pi,256))
-			self.fig_source=ColumnDataSource(data={'xs' : xs,'ys' : ys})
-			self.fig.line('xs', 'ys', source=self.fig_source)
-
-		elif pdim==2:
-			self.fig_source = bokeh.models.ColumnDataSource(data={"image": [np.random.random((300,300))*255], "x":[0], "y":[0], "dw":[256], "dh":[256]})  
-			self.last_image=self.fig.image("image", source=self.fig_source, x="x", y="y", dw="dw", dh="dh")
-
-		else:
-			raise Exception("internal error")
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
 		self.last_W=0
@@ -82,7 +68,7 @@ class Canvas:
 			return
 
 		# I need to fix the aspect ratio 
-		if self.pdim==2 and [self.last_W,self.last_H]!=[W,H]:
+		if self.fix_aspect_ratio and [self.last_W,self.last_H]!=[W,H]:
 			x+=0.5*w
 			y+=0.5*h
 			if (w/W) > (h/H): 
@@ -114,14 +100,15 @@ class Canvas:
 		self.box_select_tool_helper = bokeh.models.TextInput()
 
 		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.box_select_tool]) 
+		self.fig.toolbar_location="right" 
 		self.fig.toolbar.active_scroll = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
 		self.fig.toolbar.active_inspect = None
 		self.fig.toolbar.active_tap     = None
 
+		# try to preserve the old status
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
-		self.fig.toolbar_location="right" 
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
@@ -129,23 +116,13 @@ class Canvas:
 		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
 
-		# TODO: keep the old renderers (apart for the image)
-		if self.pdim==2:
-			if old is not None:
-				v, old.renderers=old.renderers, []
-				for it in v:
-					if it!=self.last_image:
-						self.fig.renderers.append(it)
-
 		# replace the figure from the fig_layout (so that later on I can replace it)
 		self.fig_layout[:]=[]
 		self.fig_layout.append(Bokeh(self.fig))
 		
-		if self.pdim==2:
-			self.last_image_dtype       = None
-			self.last_image_color_bar   = None
-			self.last_image             = None
-			self.enableSelection()
+		self.enableSelection()
+
+		self.last_renderer={}
 
 	# enableSelection
 	def enableSelection(self,use_python_events=False):
@@ -209,34 +186,47 @@ class Canvas:
 		# NOTE: the event will be fired inside onIdle
 
 
-	# setSignal
-	def setSignal(self, signal, x0, x1):
-		assert(self.pdim==1)
-		assert(len(signal.shape)==1)
-		self.fig_source.data={
-			"xs":np.arange(x0,x1,(x1-x0)/signal.shape[0]), 
-			"ys":signal
-		}
-
 	# setImage
-	def setImage(self, data, color_bar, viewport):
-		assert(self.pdim==2)
-		img=ConvertDataForRendering(data)
-		dtype=img.dtype
-		x,y,w,h=viewport
-		# current dtype is 'compatible' with the new image dtype, just change the source _data
-		if self.last_image_dtype==dtype and self.last_image_color_bar==color_bar:
-			self.fig_source.data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
-		else:
-			self.createFigure()
-			self.fig_source = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
-			if img.dtype==np.uint32:	
-				self.last_image=self.fig.image_rgba("image", source=self.fig_source, x="x", y="y", dw="dw", dh="dh") 
+	def showData(self, data, viewport,color_bar=None):
+
+		# 1D signal
+		if len(data.shape)==1:
+			self.fix_aspect_ratio=False
+			self.fig.renderers.clear()
+			xs=np.arange(x0,x1,(x1-x0)/signal.shape[0])
+			ys=signal
+			self.fig.line(xs,ys)
+			
+		# 2d image (eventually multichannel)
+		else:	
+			assert(len(data.shape) in [2,3])
+			self.fix_aspect_ratio=True
+			img=ConvertDataForRendering(data)
+			dtype=img.dtype
+			x,y,w,h=viewport
+			
+			# compatible with last rendered image?
+			if all([
+				self.last_renderer.get("source",None) is not None,
+				self.last_renderer.get("dtype",None)==dtype,
+				self.last_renderer.get("color_bar",None)==color_bar
+			]):
+				self.last_renderer["source"].data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
 			else:
-				self.last_image=self.fig.image("image", source=self.fig_source, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
-			self.fig.add_layout(color_bar, 'right')
-			self.last_image_dtype=img.dtype
-			self.last_image_color_bar=color_bar
+				self.createFigure()
+				source = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
+				if img.dtype==np.uint32:	
+					self.fig.image_rgba("image", source=source, x="x", y="y", dw="dw", dh="dh") 
+				else:
+					self.fig.image("image", source=source, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+				self.fig.add_layout(color_bar, 'right')
+				self.last_renderer={
+					"source": source,
+					"dtype":img.dtype,
+					"color_bar":color_bar
+				}
+
+
 
 
 

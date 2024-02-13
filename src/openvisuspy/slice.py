@@ -326,7 +326,7 @@ class Slice(param.Parameterized):
 		self.last_job_pushed =time.time()
 		self.query_node=QueryNode()
 
-		self.canvas = Canvas(self.id, pdim=2)
+		self.canvas = Canvas(self.id)
 		self.canvas.on_event(ViewportUpdate,              SafeCallback(self.onCanvasViewportChange))
 		self.canvas.on_event(bokeh.events.Tap           , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap     , SafeCallback(self.onCanvasDoubleTap))
@@ -995,7 +995,7 @@ class Slice(param.Parameterized):
 		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} range={[low,high]}")
 
 		# update the image
-		self.canvas.setImage(data,self.color_bar, self.toPhysic(logic_box))
+		self.canvas.showData(data, self.toPhysic(logic_box), color_bar=self.color_bar)
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)
