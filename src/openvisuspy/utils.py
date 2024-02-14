@@ -17,6 +17,9 @@ DEFAULT_PALETTE="Viridis256"
 import colorcet
 
 import bokeh
+import bokeh.core
+import bokeh.core.validation
+
 bokeh.core.validation.silence(bokeh.core.validation.warnings.EMPTY_LAYOUT, True)
 bokeh.core.validation.silence(bokeh.core.validation.warnings.FIXED_SIZING_MODE,True)
 
