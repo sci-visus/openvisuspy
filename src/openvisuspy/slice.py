@@ -55,7 +55,7 @@ class Canvas:
 	def __init__(self, id):
 		self.id=id
 		self.fig=None
-		self.fix_aspect_ratio=True
+		self.pdim=2
 
 		# events
 		self.events={
@@ -85,8 +85,9 @@ class Canvas:
 		# some zoom in/out or panning happened (handled by bokeh) 
 		# note: no need to fix the aspect ratio in this case
 		x=self.fig.x_range.start
-		y=self.fig.y_range.start
 		w=self.fig.x_range.end-x
+
+		y=self.fig.y_range.start
 		h=self.fig.y_range.end-y
 
 		# nothing todo
@@ -94,7 +95,7 @@ class Canvas:
 			return
 
 		# I need to fix the aspect ratio 
-		if self.fix_aspect_ratio and [self.last_W,self.last_H]!=[W,H]:
+		if self.pdim==2 and [self.last_W,self.last_H]!=[W,H]:
 			x+=0.5*w
 			y+=0.5*h
 			if (w/W) > (h/H): 
@@ -104,12 +105,17 @@ class Canvas:
 			x-=0.5*w
 			y-=0.5*h
 
-		#if [(x1,x2),(y1,y2)]!=[(self.fig.x_range.start, self.fig.x_range.end),(self.fig.y_range.start, self.fig.y_range.end)]:
-		self.fig.x_range.start, self.fig.x_range.end = x,x+w
-		self.fig.y_range.start, self.fig.y_range.end = y,y+h
 		self.last_W=W
 		self.last_H=H
 		self.last_viewport=[x,y,w,h]
+
+		if not all([
+			self.fig.x_range.start==x, self.fig.x_range.end==x+w,
+			self.fig.y_range.start==y, self.fig.y_range.end==y+h
+		]):
+			self.fig.x_range.start, self.fig.x_range.end = x,x+w
+			self.fig.y_range.start, self.fig.y_range.end = y,y+h
+
 		[fn(None) for fn in self.events[ViewportUpdate]]
 
 	# on_event
@@ -211,7 +217,6 @@ class Canvas:
 		self.fig.y_range.start, self.fig.y_range.end = y, y+h
 		# NOTE: the event will be fired inside onIdle
 
-
 	# setImage
 	def showData(self, data, viewport,color_bar=None):
 
@@ -219,7 +224,9 @@ class Canvas:
 
 		# 1D signal
 		if len(data.shape)==1:
-			self.fix_aspect_ratio=False
+			self.pdim=1
+			self.fig.y_range.start=np.min(data)
+			self.fig.y_range.end  =np.max(data)
 			self.fig.renderers.clear()
 			xs=np.arange(x,x+w,w/data.shape[0])
 			ys=data
@@ -228,10 +235,9 @@ class Canvas:
 		# 2d image (eventually multichannel)
 		else:	
 			assert(len(data.shape) in [2,3])
-			self.fix_aspect_ratio=True
+			self.pdim=2
 			img=ConvertDataForRendering(data)
 			dtype=img.dtype
-			
 			
 			# compatible with last rendered image?
 			if all([
