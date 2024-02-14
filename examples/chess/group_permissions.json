@@ -1,0 +1,11 @@
+{
+  "nsdf-group"      : ["nsdf"],
+  "pegan-3579-c"    : ["nsdf", "pagan-3579-c",     "id4bstaff"],
+  "lee-3565-c"      : ["nsdf", "lee-3565-c",       "id4bstaff"],
+  "capolungo-3850-a": ["nsdf", "capolungo-3850-a", "chexsfast"],
+  "umich"           : ["nsdf", "berman-3804-a",    "chexsfast"],
+  "xiao-3945-a"     : ["nsdf", "xiao-3945-a",      "chexsfast-m"],
+  "hedstrom-3751-b" : ["nsdf","hedstrom-3751-b",   "chexsfast-m"],
+  "hassani-3477-d"  : ["nsdf","hassani-3477-d",    "chexsfast-m"],
+  "sangid-3915-a"   : ["nsdf","sangid-3915-a",     "chexsfast-m"]
+}

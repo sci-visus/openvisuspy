@@ -63,30 +63,17 @@ class LoginHandler(RequestHandler):
 		from urllib.parse import unquote, urlparse, parse_qs
 		group=parse_qs(urlparse(unquote(next)).query).get('group',['nsdf-group'])[0]
 
-		# -----------------------------------------------------------
-		# TODO: security must be outside
-		# group  -> AD groups
-		permissions={
-			"pegan-3579-c"    : ["nsdf", "pagan-3579-c",     "id4bstaff"],
-			"lee-3565-c"      : ["nsdf", "lee-3565-c",       "id4bstaff"],
-			"capolungo-3850-a": ["nsdf", "capolungo-3850-a", "chexsfast"],
-			"umich"           : ["nsdf", "berman-3804-a",    "chexsfast"],
-			"nsdf-group"      : ["nsdf"]
-		}
-		# -----------------------------------------------------------
+		with open("group_permissions.json","r") as f:
+			permissions_per_group=json.load(f)
 
 		allowed=False
-		for ad_group in permissions.get(group,"*"):
-			if ad_group=="*" or self.ad.user_is_member_of_group(user, ad_group):
-				allowed=True
-				break
+		for ad_group in permissions_per_group.get(group,"*"):
+			allowed=allowed or (ad_group=="*" or self.ad.user_is_member_of_group(user, ad_group))
 
 		if not allowed:
 			self.redirect(f"{login_url}?error={url_escape('No allowed AD group')}&next={next}")
 			self.clear_cookie("user")
-			return
-	
-		# all ok
-		self.set_secure_cookie("user", json_encode(username))
-		self.redirect(next) # this way I am keeping the group
+		else:
+			self.set_secure_cookie("user", json_encode(username))
+			self.redirect(next) # this way I am keeping the group
 
