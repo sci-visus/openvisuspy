@@ -67,7 +67,7 @@ class BaseDataset:
 		if logic_box is None:
 			logic_box=self.getLogicBox()
 
-		if endh is None:
+		if endh is None and not max_pixels:
 			endh=maxh
 
 		if aborted is None:
@@ -75,9 +75,6 @@ class BaseDataset:
 
 		logger.info(f"begin timestep={timestep} field={field} logic_box={logic_box} num_refinements={num_refinements} max_pixels={max_pixels} endh={endh}")
 
-		if IsIterable(max_pixels):
-			max_pixels=int(np.prod(max_pixels,dtype=np.int64))
-		
 		# if box is not specified get the all box
 		if logic_box is None:
 			W,H,D=[int(it) for it in self.getLogicSize()]
@@ -104,6 +101,10 @@ class BaseDataset:
 		
 		# is view dependent? if so guess max resolution and endh is IGNORED and overwritten 
 		if max_pixels:
+
+			if IsIterable(max_pixels):
+				max_pixels=int(np.prod(max_pixels,dtype=np.int64))
+
 			original_box=logic_box
 			for __endh in range(maxh,0,-1):
 				aligned_box, delta, num_pixels=self.getAlignedBox(original_box,__endh, slice_dir=slice_dir)

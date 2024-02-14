@@ -225,8 +225,10 @@ class Canvas:
 		# 1D signal
 		if len(data.shape)==1:
 			self.pdim=1
-			self.fig.y_range.start=np.min(data)
-			self.fig.y_range.end  =np.max(data)
+			self.wheel_zoom_tool.dimensions="width"
+			vmin,vmax=np.min(data),np.max(data)
+			self.fig.y_range.start=0.5*(vmin+vmax)-1.2*0.5*(vmax-vmin)
+			self.fig.y_range.end  =0.5*(vmin+vmax)+1.2*0.5*(vmax-vmin)
 			self.fig.renderers.clear()
 			xs=np.arange(x,x+w,w/data.shape[0])
 			ys=data
@@ -236,6 +238,7 @@ class Canvas:
 		else:	
 			assert(len(data.shape) in [2,3])
 			self.pdim=2
+			self.wheel_zoom_tool.dimensions="both"
 			img=ConvertDataForRendering(data)
 			dtype=img.dtype
 			
@@ -822,7 +825,7 @@ class Slice(param.Parameterized):
 		self.resolution.value = resolution
 
 		self.field.value=scene.get("field", self.db.getField().name)
-		self.num_refinements.value=int(scene.get("num-refinements", 2))
+		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 2))
 
 		self.direction.value = int(scene.get("direction", 2))
 
@@ -1251,9 +1254,9 @@ class Slice(param.Parameterized):
 		num_refinements = self.num_refinements.value
 		if num_refinements==0:
 			num_refinements={
-				1: 1, # 1 refinement for 1d signal
-				2: 3, # 2 refinements for 2d image
-				3: 4  # 4 refinements if volum
+				1: 1, 
+				2: 3, 
+				3: 4  
 			}[pdim]
 		self.aborted=Aborted()
 
@@ -1262,30 +1265,36 @@ class Slice(param.Parameterized):
 			return
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
-		if self.view_dependent.value:
+		if not self.view_dependent.value:
+			# I am not using the information about the pixel on screen
+			endh=self.resolution.value
+			max_pixels=None
+		else:
+
 			endh=None 
 			canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
 
 			# probably the UI is not ready yet
 			if not canvas_w or not canvas_h:
 				return
+
+			if pdim==1:
+				max_pixels=canvas_w
+			else:
+				delta=self.resolution.value-self.getMaxResolution()
+				a,b=self.resolution.value,self.getMaxResolution()
+				if a==b:
+					coeff=1.0
+				if a<b:
+					coeff=1.0/pow(1.3,abs(delta)) # decrease 
+				else:
+					coeff=1.0*pow(1.3,abs(delta)) # increase 
+				max_pixels=int(canvas_w*canvas_h*coeff)
 			
-			max_pixels=canvas_w*canvas_h
-			resolution=self.resolution.value
-			delta=resolution-self.getMaxResolution()
-			if resolution<self.getMaxResolution():
-				max_pixels=int(max_pixels/pow(1.3,abs(delta))) # decrease 
-			elif resolution>self.getMaxResolution():
-				max_pixels=int(max_pixels*pow(1.3,abs(delta))) # increase 
-		else:
-			# I am not using the information about the pixel on screen
-			max_pixels=None
-			resolution=self.resolution.value
-			endh=resolution
-		
 		# new scene body
 		self.scene_body.value=json.dumps(self.getSceneBody(),indent=2)
 		
+		logger.debug("# ///////////////////////////////")
 		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
 
 		timestep=int(self.timestep.value)
@@ -1308,7 +1317,7 @@ class Slice(param.Parameterized):
 		
 		self.last_job_pushed=time.time()
 		self.new_job=False
-		logger.debug(f"id={self.id} pushed new job query_logic_box={query_logic_box}")
+		# logger.debug(f"id={self.id} pushed new job query_logic_box={query_logic_box}")
 
 	# onIdle
 	def onIdle(self):
