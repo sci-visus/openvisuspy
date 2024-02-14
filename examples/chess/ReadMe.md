@@ -1,51 +1,205 @@
 # Introduction
 
-Links:
 
-- https://nsdf01.classe.cornell.edu
+Landing page:
 
+- https://nsdf01.classe.cornell.edu       (from outside CHESS)
+- https://lnx-nsdf01.classe.cornell.edu   (from inside CHESS)
 
-Directories
-- `/mnt/data1/nsdf/`            official nsdf directory on the entrypoint
-- `/mnt/data1/nsdf/datasets`    some Visus datasets 
-- `/mnt/data1/nsdf/miniforge3`  needed to get a recent version of Python (3.10)
-- `/mnt/data1/nsdf/OpenVisus`   binaries used by httpd
-- `/mnt/data1/nsdf/openvisuspy` directory for inline editing of code (vscode open folder)
-- `/mnt/data1/nsdf/examples`    some data needed for conversion
-- `/mnt/data1/nsdf/workflow`    all the convert-workflow generated data (symbolic linked to .workflow)
-- `/mnt/data1/nsdf/visus-cache` openvisus cache if needed
+Dashboards (one per group):
 
-# DONE
+- https://nsdf01.classe.cornell.edu/dashboards/app?group=${NSDF_GROUP}
 
-Disabled cronjob. ref Dan Riley
+Statistics (one per group):
 
-- *There's an issue with gmail rejecting cron jobs delivery reports from our systems that I'm working on finding a workaround.  Until then, if you have a non-gmail address we could use as your forwarding address, that would simplify things.  If not, please don't create any more every-minute cron jobs, as they're all generating mail that's ending up bouncing to postmaster.*
-
-Overall picture
-- see chess-diagram
-- Updated (and broke) httpd OpenVisus. FIxed it with all the paths
-- now nginx acts as a proxy for (*) bokeh app (*) apache mod visus
-- two security: apache passowrds and active directory (Bokeh auth module)
-
-- Active Directory
--   now a BOKEH secret for each app
--   TODO: expiration? I think they will last for some days
--   Fixed problems with bokeh --prefix (not working with AD; Open Bug). SOlved using proxy instuction
--   login/logout was not working for NGINX redirect problems/
-
-Metatada system:
-- query should be ok now?
-- fixed requests problem related to certificatates
-
-Groups
-- We can have parallel workflow running easily
-- Zero trust, all separated
+- https://nsdf01.classe.cornell.edu/stats/${NSDF_GROUP}.html
 
 
+## Run Convert Tracker (one per group)
+
+In the first terminal, init the tracker:
+
+```bash
+
+# assuming to use a specific directory on the entrypoint
+cd /mnt/data1/nsdf/openvisuspy
+
+# **change the group name** as needed
+export NSDF_GROUP="nsdf-group"
+
+# creating a screen session is not strictly necessary, but allows to reconnect in case of problems
+screen -S ${NSDF_GROUP}-tracker
+
+# use the existing NSDF conda environment with all python packages installed
+conda activate nsdf-env
+
+# init kerberos ticket in case there is the need to get metadata from the CHESS metadata system
+kinit -k -t ~/krb5_keytab -c ~/krb5_ccache ${USER}
+
+# create a function which creates a specific directory for the group
+function init_tracker() {
+
+   convert_dir=${1? Error need a directory argument}
+
+   if [ -d ${convert_dir} ]; then
+
+      read -p "Are you sure you want to remove directory=${convert_dir}? (Y/n) " yn
+      case ${yn} in 
+         Y ) 
+            echo ok, we will proceed
+            ;;
+         * ) 
+            echo "skipping"
+            return;;
+      esac
+
+      # remove directory
+      rm  -Rf ${convert_dir} 
+   fi
+
+   # create the conversion directory
+   mkdir -p ${convert_dir}
+
+   # create emtpy files
+   touch "${convert_dir}/convert.log"
+   touch "${convert_dir}/dashboards.log"
+   touch "${convert_dir}/visus.group.config"
+   touch "${convert_dir}/dashboards.json"
+
+   # link the master visus config to the workflow directory (the tracker assume this name under the workflow folder)
+   ln -f -s /mnt/data1/nsdf/OpenVisus/visus.config ${convert_dir}/visus.config #
+
+   # add the dashboard json to Apache httpd so it can be served (for dashboards)
+   group_name=$(basename ${convert_dir})
+   ln  -f -s ${convert_dir}/dashboards.json ${WWW}/${group_name}.json 
+
+   # make the job directory
+   mkdir -p ${convert_dir}/jobs
+
+   # create the db
+   python  ./examples/chess/tracker.py create-db --convert-dir ${convert_dir} 
+}
+
+# call the function (NOTE:call the `init_tracker` just once since it will `rm -rf` any prexisting directory
+init_tracker "/mnt/data1/nsdf/workflow/${NSDF_GROUP}"
+
+# Apache HTTPD serves an HTML landing page here `https://nsdf01.classe.cornell.edu/`
+# every time there is a new group, please add the group to the HTML
+code /var/www/html/index.html 
+
+
+# run the tracker
+# the tracker is a loop which will watch for JSON jobs and automatically convert incoming data to OpenVisus data format
+while [[ "1" == "1" ]] ; do
+  python ./examples/chess/tracker.py run-loop --convert-dir "/mnt/data1/nsdf/workflow/${NSDF_GROUP}" --jobs "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/*.json"
+done
+```
+
+Edit the file `examples/chess/group_permissions.json` and setup the allowed LDAP group for each dashboard
+- [dev] see `examples/chess/auth.py` file
+
+
+If the tracker is up and running, just just copy the JSON jobs to `.workflow/${NSDF_GROUP}/jobs/`:
+
+```bash
+cp ./examples/chess/json/* .workflow/${NSDF_GROUP}/jobs/
+```
+
+If the tracker is NOT up and running, you can still run conversions manually. For example
+
+```bash
+
+# this is for 3a, it's a simple script which will scrape some directory for fields to convert
+cp .workflow/umich/run-convert.py .workflow/${NSDF_GROUP}/
+
+# this is for 4b, it's a simple script which will scrape some directory for fields to convert
+# cp .workflow/pokharel-3828-a/run-convert.py .workflow/${NSDF_GROUP}/
+```
+
+Edit the `.workflow/${NSDF_GROUP}/run_convert.py` and change paths as needed.
+You will need to change some paths.
+
+Run `.workflow/${NSDF_GROUP}/run_convert.py`. Instructions will follow.
+
+
+## Run Convert Statistics (one per group)
+
+For each group you need to:
+
+```bash
+
+# change group name as needed
+export NSDF_GROUP="nsdf-group"
+
+# creating a screen session is not strictly necessary, but allows to reconnect in case of problems
+screen -S ${NSDF_GROUP}-stats
+
+# use the existing NSDF conda environment with all python packages installed
+conda activate nsdf-env
+
+# copy a staticis jupyter notebook template as a starter
+# in general statistics are different depending on the beamline (e.g. 3a vs 4b) so you may want to start with something already created crfore
+cp .workflow/umich/stats.ipynb .workflow/${NSDF_GROUP}/stats.ipynb
+
+# *** Edit the notebook to point to the group directory *** 
+
+# customize the statistics as needed
+
+# continuos produce statistics, and copy the new stats to a directory that Apache HTTP can serve
+while [[ "1" == "1" ]] ; do   
+   jupyter nbconvert --to html .workflow/${NSDF_GROUP}/stats.ipynb --no-input --execute 
+   mv .workflow/${NSDF_GROUP}/stats.html ${WWW}/stats/${NSDF_GROUP}.html
+   sleep 30
+done
+
+```
 
 
 
-# Setup Conda env
+
+## [DEV] NSDF directories
+
+
+- `/mnt/data1/nsdf/`                 official nsdf directory on the entrypoint
+- `/mnt/data1/nsdf/datasets`         some Visus datasets 
+- `/mnt/data1/nsdf/miniforge3`       needed to get a recent version of Python (3.10)
+- `/mnt/data1/nsdf/OpenVisus`        binaries used by httpd
+- `/mnt/data1/nsdf/openvisuspy`      openvisuspy used by CHESS (branch chess-v0.1)
+- `/mnt/data1/nsdf/openvisuspy-dev`  experimental new openvisus viewer
+- `/mnt/data1/nsdf/examples`         some data needed for conversion
+- `/mnt/data1/nsdf/workflow`         all the convert-workflow generated data (symbolic linked to .workflow)
+- `/mnt/data1/nsdf/visus-cache`      openvisus cache if needed
+
+
+## [ONCE ONLY] Run Dashboards
+
+Note:
+- now that a dashboard is serving all groups (the URL must contains the group argument i.e. https://nsdf01.classe.cornell.edu/dashboards/app?group=umich) there is no need to:
+- `code /etc/nginx/nginx.conf` 
+- `sudo /usr/bin/systemctl restart nginx`
+
+```bash
+
+# this is the screen to run all dashboards
+screen -S all-dashboards
+
+conda activate nsdf-env
+
+# needed for AD security
+export BOKEH_COOKIE_SECRET=$(echo $RANDOM | md5sum | head -c 32)
+
+while [[ "1" == "1" ]] ; do
+python -m bokeh serve examples/dashboards/app \
+   --port 6011 \
+   --use-xheaders \
+   --allow-websocket-origin='*.classe.cornell.edu' \
+   --dev \
+   --auth-module=./examples/chess/auth.py \
+   --args --prefer local
+done
+```
+
+## [ONCE ONLY] Setup Conda env 
 
 ```bash
 
@@ -113,166 +267,8 @@ conda env config vars list
 conda install ipykernel
 ```
 
-# Run Workflow 
 
-In the first terminal, init the tracker:
-
-```bash
-export NSDF_GROUP="nsdf-group"
-
-# NOTE: creating a screen session is not strictly necessary, but allows to reconnect if needed
-screen -S ${NSDF_GROUP}-tracker
-echo $STY
-
-conda activate nsdf-env
-kinit -k -t ~/krb5_keytab -c ~/krb5_ccache ${USER}
-
-# init
-function init_tracker() {
-
-   convert_dir=${1? Error need a directory argument}
-
-   if [ -d ${convert_dir} ]; then
-
-      read -p "Are you sure you want to remove directory=${convert_dir}? (Y/n) " yn
-      case ${yn} in 
-         Y ) 
-            echo ok, we will proceed
-            ;;
-         * ) 
-            echo "skipping"
-            return;;
-      esac
-
-      # remove directory
-      rm  -Rf ${convert_dir} 
-   fi
-
-   # create the conversion directory
-   mkdir -p ${convert_dir}
-
-   # create emtpy files
-   touch "${convert_dir}/convert.log"
-   touch "${convert_dir}/dashboards.log"
-   touch "${convert_dir}/visus.group.config"
-   touch "${convert_dir}/dashboards.json"
-
-   # link the master visus config to the workflow directory (the tracker assume this name under the workflow folder)
-   ln -f -s /mnt/data1/nsdf/OpenVisus/visus.config ${convert_dir}/visus.config #
-
-   # add the dashboard json to Apache httpd so it can be served (for dashboards)
-   group_name=$(basename ${convert_dir})
-   ln  -f -s ${convert_dir}/dashboards.json ${WWW}/${group_name}.json 
-
-   # make the job directory
-   mkdir -p ${convert_dir}/jobs
-
-   # create the db
-   python  ./examples/chess/tracker.py create-db --convert-dir ${convert_dir} 
-}
-
-init_tracker "/mnt/data1/nsdf/workflow/${NSDF_GROUP}"
-
-# run loop (convert-dir job-glob-expr)
-while [[ "1" == "1" ]] ; do
-python ./examples/chess/tracker.py run-loop --convert-dir "/mnt/data1/nsdf/workflow/${NSDF_GROUP}" --jobs "/mnt/data1/nsdf/workflow/${NSDF_GROUP}/jobs/*.json"
-done
-
-# AFTER THE FIRST conversion can check in the workflow directory the `visus.config`` file contains the new group
-```
-
-In a second terminal, setup the dashboards
-
-```bash
-
-# use the env of the previous section
-export NSDF_GROUP="nsdf-group"
-screen -S ${NSDF_GROUP}-dashboards
-
-conda activate nsdf-env
-
-# edit configuration file, and add the group app for the bokeh port
-code /etc/nginx/nginx.conf
-sudo /usr/bin/systemctl restart nginx
-
-# choose any port you want which does not collide with other groups
-export BOKEH_PORT=<N>
-
-# add the group to the `index.html`
-code /var/www/html/index.html
-
-# in case you need to set who has access or not to the dashboard, use this uids separated by `;`
-# otherwise leave it emty or `*`
-export NSDF_ALLOWED_GROUPS="*"
-
-# json dashboards file
-export DASHBOARDS_CONFIG=/mnt/data1/nsdf/workflow/${NSDF_GROUP}/dashboards.json
-
-# where to store the logs
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME=${DASHBOARDS_CONFIG/.json/.log}
-
-# needed for AD security
-export BOKEH_COOKIE_SECRET=$(echo $RANDOM | md5sum | head -c 32)
-
-
-while [[ "1" == "1" ]] ; do
-python -m panel serve src/openvisuspy/dashboards    \
-   --port ${BOKEH_PORT} \
-   --use-xheaders \
-   --allow-websocket-origin='*.classe.cornell.edu' \
-   --dev \
-   --auth-module=./examples/chess/auth.py \
-   --args "${DASHBOARDS_CONFIG}" 
-done
-
-# From a browser open the following URL (change group name as needed)
-echo "https://nsdf01.classe.cornell.edu/dashboards/${NSDF_GROUP}/app"
-
-```
-
-if you want statistics:
-
-```bash
-
-# use the env of the previous section
-export NSDF_GROUP="nsdf-group"
-screen -S ${NSDF_GROUP}-stats
-conda activate nsdf-env
-
-cp .workflow/<your-template>/stats.ipynb .workflow/${NSDF_GROUP}/stats.ipynb
-
-# *** Edit the notebook to point to the BTR directory *** 
-
-# customize the statistics as needed
-
-# continuos stat\
-while [[ "1" == "1" ]] ; do   
-   jupyter nbconvert --to html .workflow/${NSDF_GROUP}/stats.ipynb --no-input --execute 
-   mv .workflow/${NSDF_GROUP}/stats.html ${WWW}/stats/${NSDF_GROUP}.html
-   sleep 30
-done
-
-echo "https://nsdf01.classe.cornell.edu/stats/${NSDF_GROUP}.html"
-```
-
-Finally you can run the conversion:
-
-```bash
-export NSDF_GROUP="nsdf-group"
-cp ./examples/chess/json/* .workflow/${NSDF_GROUP}/jobs/
-```
-
-you can use a python script to check for new files
-
-```bash
-cp .workflow/from-group/run-convert.py .workflow/${NSDF_GROUP}/
-
-# edit the file and...
-python .workflow/${NSDF_GROUP}/run-convert.py
-
-```
-
-You can follow conversions using sqllite:
+## [DEV] Inspect the DB 
 
 ```bash
 
@@ -287,7 +283,7 @@ done
 
 ```
 
-# [DEBUG] Check if httpd and nginx are working
+## [DEV] Check if httpd and nginx are working
 
 ```bash
 source "/mnt/data1/nsdf/miniforge3/bin/activate" nsdf-env
@@ -302,8 +298,11 @@ curl --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.classe.c
 ```
 
 
-# (BROKEN) Run Tracker Using crontab 
+## [BROKEN] Run Tracker Using crontab 
 
+Disabled cronjob. ref Dan Riley
+
+- *There's an issue with gmail rejecting cron jobs delivery reports from our systems that I'm working on finding a workaround.  Until then, if you have a non-gmail address we could use as your forwarding address, that would simplify things.  If not, please don't create any more every-minute cron jobs, as they're all generating mail that's ending up bouncing to postmaster.*
 
 ```bash 
 
@@ -316,7 +315,7 @@ crontab -e
 ```
 
 
-# (BROKEN) Run Dashboards Using systemd 
+## [BROKEN] Run Dashboards Using systemd 
 
 NOTE: 
 - systemd is configured by CHESS, and cannot be changed directly. 
@@ -335,8 +334,7 @@ sudo systemctl start chess-dashboard
 
 ```
 
-
-# (OLD) PubSub puller
+## [DEV] PubSub puller
 
 ```bash
 
@@ -350,7 +348,7 @@ python examples/chess/pubsub.py --action flush      --url "${NSDF_CONVERT_PUBSUB
 python examples/chess/pubsub.py --action pub        --url "${NSDF_CONVERT_PUBSUB_URL}" --queue "${QUEUE}" --message ./examples/chess/puller/example.json 
 ```
 
-# Windows External Dashboards
+## [DEV] Windows External Dashboards
 
 ```
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;./src
@@ -358,11 +356,11 @@ set MODVISUS_USERNAME=xxxxx
 set MODVISUS_PASSWORD=yyyyy
 set VISUS_CPP_VERBOSE="1"
 set VISUS_NETSERVICE_VERBOSE="1"
-python -m bokeh serve src/openvisuspy/dashboards --dev --args "C:\big\visus_datasets\chess\test-group\config.json"
-python -m bokeh serve src/openvisuspy/dashboards --dev --args "https://nsdf01.classe.cornell.edu/test-group.json"
+python -m bokeh serve examples/dashboards/app --dev --args "C:\big\visus_datasets\chess\test-group\config.json"
+python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/test-group.json"
 ```
 
-# Linux External Dashboards
+## [DEV] Linux External Dashboards
 
 Example about how to setup an external dashboards (getting data from chess and caching it):
 
@@ -408,7 +406,7 @@ screen -S nsdf-dashboards
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install   numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.3.1
+python3 -m pip install   numpy boto3 xmltodict colorcet requests scikit-image matplotlib bokeh==3.2.2
 python3 -m pip install --upgrade OpenVisusNoGui
 
 # TODO HERE
@@ -421,7 +419,6 @@ export VISUS_CACHE="/tmp/visus-cache"
 export BOKEH_RESOURCES="cdn"
 export BOKEH_ALLOW_WS_ORIGIN="*"
 export BOKEH_LOG_LEVEL="debug"
-export OPENVISUSPY_DASHBOARDS_LOG_FILENAME"/tmp/openvisuspy/logs.dashboards.log"
 export WWW=/var/www/html
 source .venv/bin/activate
 EOF
@@ -432,26 +429,27 @@ curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell
 curl -u ${MODVISUS_USERNAME}:${MODVISUS_PASSWORD} "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=nsdf-group/nexus&cached=arco"
 
 # this is for local debugging access
-python -m bokeh serve src/openvisuspy/dashboards --dev --args "${WWW}/nsdf-group.json" 
-python -m bokeh serve src/openvisuspy/dashboards --dev --args "https://nsdf01.classe.cornell.edu/nsdf-group.json"
+python -m bokeh serve examples/dashboards/app --dev --args "${WWW}/nsdf-group.json" --prefer local
+python -m bokeh serve examples/dashboards/app --dev --args "https://nsdf01.classe.cornell.edu/nsdf-group.json"
 
 # this is for public access
-python3 -m bokeh serve "dashboards" \
+python3 -m bokeh serve "examples/dashboards/app" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port 10334 \
    --args https://nsdf01.classe.cornell.edu/nsdf-group.json
 
 # in case you have a local json
-python3 -m bokeh serve "dashboards" \
+python3 -m bokeh serve "examples/dashboards/app" \
    --allow-websocket-origin="*" \
    --address "$(curl -s checkip.amazonaws.com)" \
    --port 10334 \
-   --args ./test-group-bitmask.json
+   --args ./test-group-bitmask.json \
+   --prefer local
 
 ```
 
-# Copy all blocks (must be binary compatible)
+# [DEV] Copy all blocks (must be binary compatible)
 
 ```bash
 
@@ -513,8 +511,6 @@ curl -vvvv --user "${MODVISUS_USERNAME}:${MODVISUS_PASSWORD}" "https://nsdf01.cl
 
 # If you want to know more about apache status:
 apachectl -S
-
-
 ```
 
 To debug if `visus.config` is ok:
@@ -531,10 +527,9 @@ modvisus = ov.ModVisus()
 modvisus.configureDatasets(config)
 server=ov.NetServer(10000, modvisus)
 server.runInThisThread()
-
 ```
 
-# CHESS Setup Kerberos for Metadata
+## [DEV] CHESS Setup Kerberos for Metadata
 
 Setup *persistent* kerneros tickets:
 

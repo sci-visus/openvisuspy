@@ -162,11 +162,11 @@ def ConvertData(specs):
 
 	T1=time.time()
 
-	src         = specs["src"]
-	dst         = specs["dst"]
+	src	    = specs["src"]
+	dst	    = specs["dst"]
 	compression = specs.get("compression","zip")
-	arco        = specs.get("arco","8mb")
-	c_size      = os.path.getsize(src) if os.path.isfile(src) else 0
+	arco	    = specs.get("arco","8mb")
+	c_size	    = os.path.getsize(src) if os.path.isfile(src) else 0
 
 	logger.info(f"src={src} dst={dst} compression={compression} arco={arco} c_size={c_size} start...")
 
@@ -200,30 +200,27 @@ def ConvertData(specs):
 
 	else:
 
-		# single file case
-		# allow glob if it ends up with a single file
-		if "*" in src:
-			v=list(glob.glob(src))
-			if len(v)!=1: raise Exception(f"Got src={src} which is not a single file")
-			src=v[0]
-
 		# ___________________________________________
 		if ext == ".npy":
+			# allow glob if it ends up with a single file
+			if "*" in src:
+				v=list(glob.glob(src))
+				if len(v)!=1: raise Exception(f"Got src={src} which is not a single file")
+				src=v[0]
 			data=np.load(src)
 
 		# ___________________________________________
-		elif ext == ".h5":
+		elif ext in (".h5", ".hdf5"):
 			expression  = specs.get("expression","/imageseries/images") # how to reach the field
 			logger.info(f"expression={expression}")
 
-			f = h5py.File(src, 'r')
-
-			data=f
-			for it in expression.split("/")[1:]: data=data[it]
-
-			t1=time.time()
 			logger.info(f"Reading H5 data...")
-			data=data[:,:,:]
+			if '*' in src:
+				v=list(glob.glob(src))
+				data=GetMultipleH5Dataset(v, expression)
+			else:
+				data=GetH5Dataset(src, expression)
+
 			logger.info(f"Read H5 data in {time.time()-t1} seconds")
 
 		# ___________________________________________
@@ -259,7 +256,7 @@ def ConvertData(specs):
 					data=data[0,:,:,:]
 
 				parent=field.nxgroup
-				if hasattr(parent,"attr") and "axes" in parent.attrs:
+				if hasattr(parent,"attrs") and "axes" in parent.attrs:
 					axis=[parent[it] for it in parent.attrs["axes"]]
 					idx_axis,idx_physic_box=[],[]
 					for it in axis:
@@ -352,5 +349,42 @@ def ConvertData(specs):
 		logger.info(f"Compressed dataset to {compression} in {time.time()-t1} seconds")
 
 	logger.info(f"src={src} dst={dst} compression={compression} arco={arco} DONE in {time.time()-T1} seconds")
-	
 
+
+def GetMultipleH5Dataset(files, expression):
+	"""Return a dataset built from partial datasets spread across
+	multiple h5 files.
+
+	:param files: List of h5 file names.
+	:type files: list[str]
+	:param expression: Path to the partial dataset in every file in `files`.
+	:type expression: str
+	:returns: Full dataset.
+	:rtype: numpy.ndarray
+	"""
+	if len(files) == 1:
+		return GetH5Dataset(files[0], expression)
+	files.sort()
+	data_0 = GetH5Dataset(files[0], expression)
+	full_dataset = np.empty((len(files), *data_0.shape))
+	full_dataset[0] = data_0
+	for i, f in enumerate(files[1:]):
+		full_dataset[i+1] = GetH5Dataset(f, expression)
+	return full_dataset
+
+
+def GetH5Dataset(file_, expression):
+	"""Return a dataset from an H5 file with extraneous dimensions
+	squeezed out.
+
+	:param file_: Name of H5 file.
+	:type file_: str
+	:param expression: Path to the dataset in the H5 file.
+	:type expression: str
+	:returns: H5 dataset
+	:rtype: numpy.ndarray
+	"""
+	with h5py.File(file_, 'r') as h5file:
+		data = h5file[expression][:]
+	data.squeeze()
+	return data
