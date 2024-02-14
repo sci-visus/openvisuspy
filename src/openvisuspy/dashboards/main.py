@@ -24,6 +24,7 @@ if __name__.startswith('bokeh'):
 	log_filename=os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME","/tmp/openvisuspy-dashboards.log")
 	logger=SetupLogger(log_filename=log_filename,logging_level=logging.DEBUG)
 
+	
 	slice = Slice()
 	slice.load(sys.argv[1])
 	

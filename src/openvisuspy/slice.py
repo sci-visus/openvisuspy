@@ -264,14 +264,6 @@ class Canvas:
 				}
 
 
-
-
-
-
-
-
-
-
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
 
@@ -742,7 +734,11 @@ class Slice(param.Parameterized):
 
 		if self.scenes:
 			first_scene_name=list(self.scenes)[0]
-			self.scene.value=first_scene_name
+			# I am not getting the event since it didn't change
+			if False:
+				self.scene.value=first_scene_name
+			else:
+				self.setSceneBody(self.scenes[first_scene_name])
 
 	# setSceneBody
 	def setSceneBody(self, scene):
