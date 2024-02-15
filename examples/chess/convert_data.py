@@ -299,19 +299,20 @@ def ConvertData(specs):
 	
 	logger.info(f"Data loaded in {time.time() - t1} seconds shape={data.shape} dtype={data.dtype} nbytes={data.nbytes:,}")
 
-	D,H,W=data.shape
+	dims = list(data.shape[::-1])
 
 	# example ofd bitmask with preference along Z "V(2*)(.*)"
 	bitmask=specs.get("bitmask",None)
 	if bitmask: 
 		if "*" in bitmask:
-			bitmask=GuessBitmask([W,H,D],bitmask)
+			bitmask=GuessBitmask(dims,bitmask)
 		extra_args["bitmask"]= bitmask
 
 	if idx_axis is None:
 		idx_axis="X Y Z"
 
 	if idx_physic_box is None:
+		D,H,W=data.shape
 		idx_physic_box=ov.BoxNd.fromString(f"0 {W} 0 {H} 0 {D}")
 
 	# create idx
@@ -321,7 +322,7 @@ def ConvertData(specs):
 
 		db=ov.CreateIdx(
 			url=dst, 
-			dims=[W,H,D], 
+			dims=dims, 
 			fields=[field], 
 			compression="raw",  # first I write uncompressed
 			arco=arco, 

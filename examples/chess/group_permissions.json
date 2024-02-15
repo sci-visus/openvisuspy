@@ -7,5 +7,6 @@
   "xiao-3945-a"     : ["nsdf", "xiao-3945-a",      "chexsfast-m"],
   "hedstrom-3751-b" : ["nsdf","hedstrom-3751-b",   "chexsfast-m"],
   "hassani-3477-d"  : ["nsdf","hassani-3477-d",    "chexsfast-m"],
-  "sangid-3915-a"   : ["nsdf","sangid-3915-a",     "chexsfast-m"]
+  "sangid-3915-a"   : ["nsdf","sangid-3915-a",     "chexsfast-m"],
+  "automation-0000-A": ["nsdf", "chess3buser", "fmb"]
 }
