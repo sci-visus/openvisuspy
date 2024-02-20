@@ -309,8 +309,9 @@ class Slice(param.Parameterized):
 	logout_button          = pn.widgets.Button   (icon="logout",width=20)
 
 	# internal use only
-	save_button_helper     = pn.widgets.IntInput (visible=False)
-	copy_url_button_helper = pn.widgets.IntInput (visible=False)
+	save_button_helper = pn.widgets.TextInput(visible=False)
+	copy_url_button_helper = pn.widgets.TextInput(visible=False)
+
 
 	# constructor
 	def __init__(self):
@@ -386,6 +387,7 @@ class Slice(param.Parameterized):
 
 		def onRangeChange(evt):
 			self.color_map=None
+			self.color_bar=None
 			self.refresh()
 		self.range_min.param.watch(SafeCallback(onRangeChange),"value", onlychanged=True,queued=True)
 		self.range_max.param.watch(SafeCallback(onRangeChange),"value", onlychanged=True,queued=True)
@@ -450,11 +452,11 @@ class Slice(param.Parameterized):
 
 		fig = Figure()
 		ax = fig.subplots()
-		im=ax.imshow(np.flip(data,axis=0))
+		im=ax.imshow(np.flip(data,axis=0),vmin=self.range_min.value, vmax=self.range_max.value)
 		fig.colorbar(im, ax=ax)
 		self.showDialog(
 			pn.Column(
-				pn.pane.Matplotlib(fig,width=800, height=800),
+				pn.pane.Matplotlib(fig),
 				sizing_mode="stretch_both"
 			), 
 			width=1024, height=768, name="Details"
@@ -497,17 +499,18 @@ class Slice(param.Parameterized):
 		self.copy_url_button_helper.value=self.getShareableUrl()
 		ShowInfoNotification('Copy url done')
 
-
+	
 	# createGui
 	def createGui(self):
 
-		self.save_button.js_on_click(args={"source": self.save_button_helper}, code="""
+		self.save_button.js_on_click(args={"source":self.save_button_helper}, code="""
 			function jsSave() {
+				console.log('Test scene values');
 				console.log(source.value);
 				const link = document.createElement("a");
 				const file = new Blob([source.value], { type: 'text/plain' });
 				link.href = URL.createObjectURL(file);
-				link.download = "sample.txt";
+				link.download = "save_scene.json";
 				link.click();
 				URL.revokeObjectURL(link.href);
 			}
@@ -515,9 +518,9 @@ class Slice(param.Parameterized):
 		""")
 
 
-		self.copy_url_button.js_on_click(args={"source": self.copy_url_button_helper}, code="""
+		self.copy_url_button.js_on_click(args={"source": self.save_button_helper}, code="""
 			function jsCopyUrl() {
-				console.log(source.value);
+				console.log(source);
 				navigator.clipboard.writeText(source.value);
 			} 
 			setTimeout(jsCopyUrl,300);
@@ -1190,13 +1193,15 @@ class Slice(param.Parameterized):
 				else:
 					self.range_min.value = min(self.range_min.value, data_range[0])
 					self.range_max.value = max(self.range_max.value, data_range[1])
-
 			# update the color bar
 			low =cdouble(self.range_min.value)
 			high=cdouble(self.range_max.value)
+			print(f'Min Value: {low} ;  Max Value: {high}')
+
 
 		# regenerate colormap
 		if self.color_bar is None:
+			print('NONE COLORMAP')
 			color_mapper_type=self.color_mapper_type.value
 			assert(color_mapper_type in ["linear","log"])
 			is_log=color_mapper_type=="log"

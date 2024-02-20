@@ -167,16 +167,16 @@ def cdouble(value):
 
 # ///////////////////////////////////////////////////////////////////
 def cbool(value):
-	 if isinstance(value,bool):
-		  return value
+	if isinstance(value,bool):
+		return value
 
-	 if isinstance(value,int) or isinstance(value,float):
-		  return bool(value)
+	if isinstance(value,int) or isinstance(value,float):
+		return bool(value)
 
-	 if isinstance(value, str):
-		  return value.lower().strip() in ['true', '1']
+	if isinstance(value, str):
+		return value.lower().strip() in ['true', '1']
 	 
-	 raise Exception("not supported")
+	raise Exception("not supported")
 
 
 # ///////////////////////////////////////////////////////////////////
