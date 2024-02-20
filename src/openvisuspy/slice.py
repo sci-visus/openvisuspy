@@ -518,7 +518,7 @@ class Slice(param.Parameterized):
 		""")
 
 
-		self.copy_url_button.js_on_click(args={"source": self.save_button_helper}, code="""
+		self.copy_url_button.js_on_click(args={"source": self.copy_url_button_helper}, code="""
 			function jsCopyUrl() {
 				console.log(source);
 				navigator.clipboard.writeText(source.value);
