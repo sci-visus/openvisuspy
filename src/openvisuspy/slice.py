@@ -309,7 +309,7 @@ class Slice(param.Parameterized):
 	logout_button          = pn.widgets.Button   (icon="logout",width=20)
 
 	# internal use only
-	tton_helper = pn.widgets.TextInput(visible=False)
+	save_button_helper = pn.widgets.TextInput(visible=False)
 	copy_url_button_helper = pn.widgets.TextInput(visible=False)
 
 
