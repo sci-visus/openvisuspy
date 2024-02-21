@@ -37,7 +37,7 @@ EPSILON = 0.001
 
 DEFAULT_SHOW_OPTIONS={
 	"top": [
-		["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dependent", "num_refinements"],
+		["open_button","save_button","info_button","copy_url_button",  "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dependent", "num_refinements"],
 		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 	],
 	"bottom": [
@@ -286,9 +286,9 @@ class Slice(param.Parameterized):
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# palette thingy
-	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120)
-	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
-	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
+	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="user", width=120)
+	range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=0)
+	range_max              = pn.widgets.FloatInput         (name="Max", width=80,value=300)
 
 	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
 	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=60)
@@ -311,6 +311,7 @@ class Slice(param.Parameterized):
 	# internal use only
 	save_button_helper = pn.widgets.TextInput(visible=False)
 	copy_url_button_helper = pn.widgets.TextInput(visible=False)
+	file_name_input=  pn.widgets.TextInput(name="Numpy_File", placeholder='Numpy File Name')
 
 
 	# constructor
@@ -325,6 +326,7 @@ class Slice(param.Parameterized):
 		
 		self.db = None
 		self.access = None
+		self.detailed_data=None
 
 		# translate and scale for each dimension
 		self.logic_to_physic        = [(0.0, 1.0)] * 3
@@ -443,7 +445,9 @@ class Slice(param.Parameterized):
 		x,y,h,w=evt.new
 		logic_box=self.toLogic([x,y,w,h])
 		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
-
+		self.detailed_data=data
+		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
+		save_numpy_button.on_click(self.save_data)
 		if self.range_mode.value=="dynamic-acc":
 			vmin,vmax=np.min(data),np.max(data)
 			self.range_min.value = min(self.range_min.value, vmin)
@@ -456,12 +460,37 @@ class Slice(param.Parameterized):
 		fig.colorbar(im, ax=ax)
 		self.showDialog(
 			pn.Column(
+       			self.file_name_input,
+        		save_numpy_button,
 				pn.pane.Matplotlib(fig),
 				sizing_mode="stretch_both"
 			), 
 			width=1024, height=768, name="Details"
 		)
+		# save_numpy_button.js_on_click(args={"source":self.detailed_data}, code="""
+		# 	function jsSave() {
+		# 		console.log('Test scene values');
+		# 		console.log(source);
+		# 		const link = document.createElement("a");
+		# 		const file = new Blob([source], { type: 'application/json' });
+		# 		link.href = URL.createObjectURL(file);
+		# 		link.download = "save_file.npy";
+		# 		link.click();
+		# 		URL.revokeObjectURL(link.href);
+		# 	}
+		# 	setTimeout(jsSave,300);
+		# """)
+  
 
+	def save_data(self, event):
+		if self.detailed_data is not None:
+			file_name = f"{self.file_name_input.value}.npy"
+			print(file_name)
+			np.save(file_name, self.detailed_data)  
+			ShowInfoNotification('Data Saved successfully to current directory!')
+			print("Data saved successfully.") 
+		else:
+			print("No data to save.")
 	# open
 	def showOpen(self):
 
@@ -518,7 +547,7 @@ class Slice(param.Parameterized):
 		""")
 
 
-		self.copy_url_button.js_on_click(args={"source": self.save_button_helper}, code="""
+		self.copy_url_button.js_on_click(args={"source": self.copy_url_button_helper}, code="""
 			function jsCopyUrl() {
 				console.log(source);
 				navigator.clipboard.writeText(source.value);
@@ -843,11 +872,11 @@ class Slice(param.Parameterized):
 		assert(len(self.metadata_range))==2
 		self.color_map=None
 
-		self.range_mode.value=scene.get("range-mode","dynamic-acc")
+		self.range_mode.value=scene.get("range-mode","user")
 
-		if self.range_mode.value=="user":
-			self.range_min.value=scene.get("range-min",low)
-			self.range_max.value=scene.get("range-max",high)
+		# if self.range_mode.value=="user":
+		# 	self.range_min.value=scene.get("range-min",low)
+		# 	self.range_max.value=scene.get("range-max",high)
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 

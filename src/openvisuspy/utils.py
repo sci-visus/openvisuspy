@@ -409,8 +409,9 @@ def GetPalettes():
 	return ret
 
 # ////////////////////////////////////////////////////////
-def ShowInfoNotification(msg):
-	pn.state.notifications.info(msg)
+def ShowInfoNotification(msg):  
+    pn.state.notifications.clear()
+    pn.state.notifications.info(msg)
 
 # ////////////////////////////////////////////////////////
 def GetCurrentUrl():
