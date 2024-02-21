@@ -18,6 +18,9 @@ import bokeh.models
 import bokeh.events
 import bokeh.plotting
 import bokeh.models.callbacks
+from bokeh.plotting import figure
+from bokeh.models import ColumnDataSource, ColorBar, LinearColorMapper
+from bokeh.transform import transform
 
 import param 
 
@@ -442,9 +445,12 @@ class Slice(param.Parameterized):
 		import openvisuspy as ovy
 		import panel as pn
 		import numpy as np
+		from matplotlib.colors import LinearSegmentedColormap
+
 		x,y,h,w=evt.new
 		logic_box=self.toLogic([x,y,w,h])
-		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
+		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
+		print(self.db.getDatasetBody)
 		self.detailed_data=data
 		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
 		save_numpy_button.on_click(self.save_data)
@@ -453,33 +459,28 @@ class Slice(param.Parameterized):
 			self.range_min.value = min(self.range_min.value, vmin)
 			self.range_max.value = max(self.range_max.value, vmax)
 			logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
+		p = figure()
+		palette_name = self.palette.value_name 
+		mapper = LinearColorMapper(palette=palette_name, low=self.range_min.value, high=self.range_max.value)
+        
+		data_flipped = data # Flip data to match imshow orientation
+		source = ColumnDataSource(data=dict(image=[data_flipped]))
+        
+		p.image(image='image', x=0, y=0, dw=data_flipped.shape[0], dh=data_flipped.shape[1], color_mapper=mapper, source=source)  
+		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
+		p.add_layout(color_bar, 'right')
 
-		fig = Figure()
-		ax = fig.subplots()
-		im=ax.imshow(np.flip(data,axis=0),vmin=self.range_min.value, vmax=self.range_max.value)
-		fig.colorbar(im, ax=ax)
+        # Display using Panel
 		self.showDialog(
-			pn.Column(
-       			self.file_name_input,
-        		save_numpy_button,
-				pn.pane.Matplotlib(fig),
-				sizing_mode="stretch_both"
-			), 
-			width=1024, height=768, name="Details"
-		)
-		# save_numpy_button.js_on_click(args={"source":self.detailed_data}, code="""
-		# 	function jsSave() {
-		# 		console.log('Test scene values');
-		# 		console.log(source);
-		# 		const link = document.createElement("a");
-		# 		const file = new Blob([source], { type: 'application/json' });
-		# 		link.href = URL.createObjectURL(file);
-		# 		link.download = "save_file.npy";
-		# 		link.click();
-		# 		URL.revokeObjectURL(link.href);
-		# 	}
-		# 	setTimeout(jsSave,300);
-		# """)
+            pn.Column(
+                self.file_name_input,  # Assuming this is defined elsewhere in your class
+                save_numpy_button,
+                pn.pane.Bokeh(p),
+                sizing_mode="stretch_both"
+            ), 
+            width=1024, height=768, name="Details"
+        )
+
   
 
 	def save_data(self, event):
@@ -873,10 +874,6 @@ class Slice(param.Parameterized):
 		self.color_map=None
 
 		self.range_mode.value=scene.get("range-mode","user")
-
-		# if self.range_mode.value=="user":
-		# 	self.range_min.value=scene.get("range-min",low)
-		# 	self.range_max.value=scene.get("range-max",high)
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
