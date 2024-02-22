@@ -145,8 +145,8 @@ class Canvas:
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
-		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
-		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
+		self.fig.yaxis.axis_label  = "Latitude"               if old is None else old.xaxis.axis_label
+		self.fig.xaxis.axis_label  = "Longitude"               if old is None else old.yaxis.axis_label
 
 		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
@@ -187,8 +187,8 @@ class Canvas:
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.fig.xaxis.axis_label  = x
-		self.fig.yaxis.axis_label  = y		
+		self.fig.xaxis.axis_label  = 'Longitude'
+		self.fig.yaxis.axis_label  = 'Latitude'		
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
@@ -251,20 +251,21 @@ class Canvas:
 				self.last_renderer.get("dtype",None)==dtype,
 				self.last_renderer.get("color_bar",None)==color_bar
 			]):
-				self.last_renderer["source"].data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
+				self.last_renderer["source"].data={"image":[img], "Longitude":[x], "Latitude":[y], "dw":[w], "dh":[h]}
 			else:
 				self.createFigure()
-				source = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
+				source = bokeh.models.ColumnDataSource(data={"image":[img], "Longitude":[x], "Latitude":[y], "dw":[w], "dh":[h]})
 				if img.dtype==np.uint32:	
-					self.fig.image_rgba("image", source=source, x="x", y="y", dw="dw", dh="dh") 
+					self.fig.image_rgba("image", source=source, x="Longitude", y="Latitude", dw="dw", dh="dh") 
 				else:
-					self.fig.image("image", source=source, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+					self.fig.image("image", source=source, x="Longitude", y="Latitude", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 				self.fig.add_layout(color_bar, 'right')
 				self.last_renderer={
 					"source": source,
 					"dtype":img.dtype,
 					"color_bar":color_bar
 				}
+    
 
 
 # ////////////////////////////////////////////////////////////////////////////////////
@@ -330,6 +331,7 @@ class Slice(param.Parameterized):
 		self.db = None
 		self.access = None
 		self.detailed_data=None
+		self.selected_logic_box=None
 
 		# translate and scale for each dimension
 		self.logic_to_physic        = [(0.0, 1.0)] * 3
@@ -450,7 +452,9 @@ class Slice(param.Parameterized):
 		x,y,h,w=evt.new
 		logic_box=self.toLogic([x,y,w,h])
 		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
-		print(self.db.getDatasetBody)
+		print('Selected logic box here...')
+		print(logic_box)
+		self.selected_logic_box=logic_box
 		self.detailed_data=data
 		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
 		save_numpy_button.on_click(self.save_data)
@@ -459,16 +463,20 @@ class Slice(param.Parameterized):
 			self.range_min.value = min(self.range_min.value, vmin)
 			self.range_max.value = max(self.range_max.value, vmax)
 			logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
-		p = figure()
+		p = figure(x_range=(logic_box[0][0], logic_box[1][0]), y_range=(logic_box[0][1], logic_box[1][1]))
 		palette_name = self.palette.value_name 
 		mapper = LinearColorMapper(palette=palette_name, low=self.range_min.value, high=self.range_max.value)
         
 		data_flipped = data # Flip data to match imshow orientation
 		source = ColumnDataSource(data=dict(image=[data_flipped]))
-        
-		p.image(image='image', x=0, y=0, dw=data_flipped.shape[0], dh=data_flipped.shape[1], color_mapper=mapper, source=source)  
+		dw = abs(logic_box[1][0] - logic_box[0][0])
+		dh = abs(logic_box[1][1] - logic_box[0][1])
+		p.image(image='image', x=logic_box[0][0], y=logic_box[0][1], dw=dw, dh=dh, color_mapper=mapper, source=source)  
 		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
 		p.add_layout(color_bar, 'right')
+		p.xaxis.axis_label = "Longitude"
+		p.yaxis.axis_label = "Latitude"
+
 
         # Display using Panel
 		self.showDialog(
@@ -485,9 +493,9 @@ class Slice(param.Parameterized):
 
 	def save_data(self, event):
 		if self.detailed_data is not None:
-			file_name = f"{self.file_name_input.value}.npy"
+			file_name = f"{self.file_name_input.value}.npz"
 			print(file_name)
-			np.save(file_name, self.detailed_data)  
+			np.savez(file_name, data=self.detailed_data, lon_lat=self.selected_logic_box)
 			ShowInfoNotification('Data Saved successfully to current directory!')
 			print("Data saved successfully.") 
 		else:
