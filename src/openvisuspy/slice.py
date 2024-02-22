@@ -466,7 +466,7 @@ class Slice(param.Parameterized):
 			self.range_min.value = min(self.range_min.value, vmin)
 			self.range_max.value = max(self.range_max.value, vmax)
 			logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
-		p = figure(x_range=(logic_box[0][0], logic_box[1][0]), y_range=(logic_box[0][1], logic_box[1][1]))
+		p = figure(x_range=(self.selected_physic_box[0][0], self.selected_physic_box[0][1]), y_range=(self.selected_physic_box[1][0], self.selected_physic_box[1][1]))
 		palette_name = self.palette.value_name 
 		mapper = LinearColorMapper(palette=palette_name, low=self.range_min.value, high=self.range_max.value)
         
