@@ -472,9 +472,9 @@ class Slice(param.Parameterized):
         
 		data_flipped = data # Flip data to match imshow orientation
 		source = ColumnDataSource(data=dict(image=[data_flipped]))
-		dw = abs(logic_box[0][1] - logic_box[0][0])
-		dh = abs(logic_box[1][1] - logic_box[1][0])
-		p.image(image='image', x=logic_box[0][0], y=logic_box[0][1], dw=dw, dh=dh, color_mapper=mapper, source=source)  
+		dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
+		dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
+		p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
 		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
 		p.add_layout(color_bar, 'right')
 		p.xaxis.axis_label = "Longitude"
