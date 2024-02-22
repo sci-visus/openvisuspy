@@ -455,7 +455,7 @@ class Slice(param.Parameterized):
 		print('Selected logic box here...')
 		print(logic_box)
 		self.selected_logic_box=logic_box
-		# self.selected_physic_box=toPhysic(logic_box,self.db.getB)
+		self.selected_physic_box=[[x,x+w],[y,y+h]]
 		print('Physical box here')
 		print(f'{x} {y} {x+w} {y+h}')
 		self.detailed_data=data
@@ -472,8 +472,8 @@ class Slice(param.Parameterized):
         
 		data_flipped = data # Flip data to match imshow orientation
 		source = ColumnDataSource(data=dict(image=[data_flipped]))
-		dw = abs(logic_box[1][0] - logic_box[0][0])
-		dh = abs(logic_box[1][1] - logic_box[0][1])
+		dw = abs(logic_box[0][1] - logic_box[0][0])
+		dh = abs(logic_box[1][1] - logic_box[1][0])
 		p.image(image='image', x=logic_box[0][0], y=logic_box[0][1], dw=dw, dh=dh, color_mapper=mapper, source=source)  
 		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
 		p.add_layout(color_bar, 'right')
@@ -498,7 +498,7 @@ class Slice(param.Parameterized):
 		if self.detailed_data is not None:
 			file_name = f"{self.file_name_input.value}.npz"
 			print(file_name)
-			np.savez(file_name, data=self.detailed_data, lon_lat=self.selected_logic_box)
+			np.savez(file_name, data=self.detailed_data, lon_lat=self.selected_physic_box)
 			ShowInfoNotification('Data Saved successfully to current directory!')
 			print("Data saved successfully.") 
 		else:
