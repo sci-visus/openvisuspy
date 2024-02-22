@@ -147,7 +147,6 @@ class Canvas:
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.yaxis.axis_label  = "Latitude"               if old is None else old.xaxis.axis_label
 		self.fig.xaxis.axis_label  = "Longitude"               if old is None else old.yaxis.axis_label
-
 		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
 
@@ -331,6 +330,7 @@ class Slice(param.Parameterized):
 		self.db = None
 		self.access = None
 		self.detailed_data=None
+		self.selected_physic_box=None
 		self.selected_logic_box=None
 
 		# translate and scale for each dimension
@@ -455,6 +455,9 @@ class Slice(param.Parameterized):
 		print('Selected logic box here...')
 		print(logic_box)
 		self.selected_logic_box=logic_box
+		# self.selected_physic_box=toPhysic(logic_box,self.db.getB)
+		print('Physical box here')
+		print(f'{x} {y} {x+w} {y+h}')
 		self.detailed_data=data
 		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
 		save_numpy_button.on_click(self.save_data)
