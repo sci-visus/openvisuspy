@@ -67,7 +67,7 @@ set VISUS_NETSERVICE_VERBOSE=1
 set VISUS_VERBOSE_DISKACCESS=0
 set VISUS_CACHE=c:/tmp/visus-cache
 
-python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/david_subsampled/visus.idx"
+python -m panel serve src/openvisuspy/dashboards --dev --args "c:/big/visus-datasets/david_subsampled/visus.idx"
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/2kbit1/zip/hzorder/visus.idx"
 
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/signal1d/visus.idx"
@@ -76,6 +76,11 @@ python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets
 
 
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:\visus-datasets\chess\nsdf-group\datasets\near-field-nexus\visus.idx"
+
+python -m panel serve src/openvisuspy/dashboards --dev --args c:\big\visus-datasets\signal1d-slac\visus.idx   
+
+
+python -m panel serve src/openvisuspy/dashboards --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d-slac/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
 
 # not sure why I cannot cache in arco an IDX that is NON arco
 python -m panel serve src/openvisuspy/dashboards --dev --args "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=idx" 
