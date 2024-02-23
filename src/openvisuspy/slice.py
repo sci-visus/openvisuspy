@@ -792,7 +792,7 @@ class Slice(param.Parameterized):
 
 		timesteps=self.db.getTimesteps()
 		self.timestep.start = timesteps[ 0]
-		self.timestep.end   = timesteps[-1]
+		self.timestep.end   = max(timesteps[-1],self.timestep.start+1)
 		self.timestep.step  = 1
 
 		self.field.options=list(self.db.getFields())
