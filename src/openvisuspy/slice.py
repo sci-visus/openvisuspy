@@ -218,13 +218,16 @@ class Canvas:
 		# NOTE: the event will be fired inside onIdle
 
 	# setImage
-	def showData(self, data, viewport,color_bar=None):
+	def showData(self, pdim, data, viewport,color_bar=None):
 
 		x,y,w,h=viewport
+		self.pdim=pdim
+		assert(pdim==1 or pdim==2)
 
-		# 1D signal
-		if len(data.shape)==1:
-			self.pdim=1
+		# 1D signal (eventually with an extra channel for filters)
+		if pdim==1:
+			assert(len(data.shape) in [1,2])
+			if len(data.shape)==2: data=data[:,0]
 			self.wheel_zoom_tool.dimensions="width"
 			vmin,vmax=np.min(data),np.max(data)
 			self.fig.y_range.start=0.5*(vmin+vmax)-1.2*0.5*(vmax-vmin)
@@ -237,7 +240,6 @@ class Canvas:
 		# 2d image (eventually multichannel)
 		else:	
 			assert(len(data.shape) in [2,3])
-			self.pdim=2
 			self.wheel_zoom_tool.dimensions="both"
 			img=ConvertDataForRendering(data)
 			dtype=img.dtype
@@ -1216,7 +1218,7 @@ class Slice(param.Parameterized):
 		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} range={[low,high]}")
 
 		# update the image
-		self.canvas.showData(data, self.toPhysic(logic_box), color_bar=self.color_bar)
+		self.canvas.showData(pdim, data, self.toPhysic(logic_box), color_bar=self.color_bar)
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)

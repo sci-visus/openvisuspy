@@ -60,6 +60,10 @@ python examples/python/test-vtkvolume.py
 Change as needed:
 
 ```bash
+.venv\Scripts\activate
+
+# set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;.\src
+
 set BOKEH_ALLOW_WS_ORIGIN=*
 set BOKEH_LOG_LEVEL=debug
 set VISUS_CPP_VERBOSE=1
@@ -77,10 +81,14 @@ python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets
 
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:\visus-datasets\chess\nsdf-group\datasets\near-field-nexus\visus.idx"
 
-python -m panel serve src/openvisuspy/dashboards --dev --args c:\big\visus-datasets\signal1d-slac\visus.idx   
+python -m panel serve src/openvisuspy/dashboards --dev --args c:\big\visus-datasets\signal1d_slac\visus.idx   
+python -m panel serve src/openvisuspy/dashboards --dev --args c:\big\visus-datasets\signal1d_slac_max\visus.idx   
 
+python -m panel serve src/openvisuspy/dashboards --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_slac/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
 
-python -m panel serve src/openvisuspy/dashboards --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d-slac/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+python -m panel serve src/openvisuspy/dashboards --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_slac_max/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+
+python -m panel serve src/openvisuspy/dashboards --dev --args dashboards.json
 
 # not sure why I cannot cache in arco an IDX that is NON arco
 python -m panel serve src/openvisuspy/dashboards --dev --args "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=idx" 
