@@ -131,11 +131,21 @@ class Canvas:
 		self.box_select_tool        = bokeh.models.BoxSelectTool()
 		self.box_select_tool_helper = bokeh.models.TextInput()
 
-		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.box_select_tool]) 
+		self.over_tool = bokeh.models.HoverTool(tooltips=[
+					("x_value", "@x{0,0.000}"),
+					("y_value", "@y{0,0.000}"),
+			])
+
+		self.fig=bokeh.plotting.figure(tools=[
+			self.pan_tool,
+			self.wheel_zoom_tool,
+			self.box_select_tool,
+			self.over_tool
+			]) 
 		self.fig.toolbar_location="right" 
-		self.fig.toolbar.active_scroll = self.wheel_zoom_tool
+		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
-		self.fig.toolbar.active_inspect = None
+		self.fig.toolbar.active_inspect = self.over_tool
 		self.fig.toolbar.active_tap     = None
 
 		# try to preserve the old status
@@ -218,11 +228,13 @@ class Canvas:
 		# NOTE: the event will be fired inside onIdle
 
 	# setImage
-	def showData(self, pdim, data, viewport,color_bar=None):
+	def showData(self, pdim, data, viewport, color_bar=None):
 
 		x,y,w,h=viewport
 		self.pdim=pdim
 		assert(pdim==1 or pdim==2)
+		self.fig.xaxis.formatter.use_scientific = (pdim!=1)
+		self.fig.yaxis.formatter.use_scientific = (pdim!=1)
 
 		# 1D signal (eventually with an extra channel for filters)
 		if pdim==1:
@@ -233,10 +245,11 @@ class Canvas:
 			self.fig.y_range.start=0.5*(vmin+vmax)-1.2*0.5*(vmax-vmin)
 			self.fig.y_range.end  =0.5*(vmin+vmax)+1.2*0.5*(vmax-vmin)
 			self.fig.renderers.clear()
+
 			xs=np.arange(x,x+w,w/data.shape[0])
 			ys=data
 			self.fig.line(xs,ys)
-			
+
 		# 2d image (eventually multichannel)
 		else:	
 			assert(len(data.shape) in [2,3])
@@ -962,9 +975,11 @@ class Slice(param.Parameterized):
 	def toPhysic(self, value):
 		dir = self.direction.value
 		pdim = self.getPointDim()
+
 		vt = [self.logic_to_physic[I][0] for I in range(pdim)]
 		vs = [self.logic_to_physic[I][1] for I in range(pdim)]
 		p1,p2=value
+
 		p1 = [vs[I] * p1[I] + vt[I] for I in range(pdim)]
 		p2 = [vs[I] * p2[I] + vt[I] for I in range(pdim)]
 
@@ -991,7 +1006,8 @@ class Slice(param.Parameterized):
 		pdim = self.getPointDim()
 		dir = self.direction.value
 		vt = [self.logic_to_physic[I][0] for I in range(pdim)]
-		vs = [self.logic_to_physic[I][1] for I in range(pdim)]
+		vs = [self.logic_to_physic[I][1] for I in range(pdim)]		
+
 		x,y,w,h=value
 		p1=[x  ,y  ]
 		p2=[x+w,y+h]
@@ -1007,6 +1023,9 @@ class Slice(param.Parameterized):
 			p2.insert(dir, 0)
 
 		assert(len(p1)==pdim and len(p2)==pdim)
+
+
+
 		p1 = [(p1[I] - vt[I]) / vs[I] for I in range(pdim)]
 		p2 = [(p2[I] - vt[I]) / vs[I] for I in range(pdim)]
 
@@ -1014,7 +1033,7 @@ class Slice(param.Parameterized):
 		if pdim == 3:
 			p1[dir] = int((self.offset.value  - vt[dir]) / vs[dir])
 			p2[dir] = p1[dir]+1 
-		
+			
 		return [p1, p2]
 
 	# togglePlay

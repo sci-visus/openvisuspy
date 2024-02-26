@@ -173,12 +173,14 @@ class BaseDataset:
 		H=self.getQueryCurrentResolution(query)
 		msec=int(1000*(time.time()-query.t1))
 		logger.info(f"got data cursor={query.cursor} end_resolutions{query.end_resolutions} timestep={query.timestep} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
-		
+
 		return {
 			"I": query.cursor,
 			"timestep": query.timestep,
 			"field": query.field, 
-			"logic_box": query.logic_box, 
+			"logic_box": query.logic_box,
+			#"logic_box":  #BoxToPyList(query.inner.logic_samples.logic_box),
+			#"logic_size": PointToPyList(query.inner.logic_samples.delta), 
 			"H": H, 
 			"data": data,
 			"msec": msec,

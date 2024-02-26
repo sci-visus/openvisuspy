@@ -163,9 +163,9 @@ class QueryNode:
 			while db.isQueryRunning(query):
 				try:
 					result=db.executeBoxQuery(access, query)
-				except Exception as ex:
+				except:
 					if not query.aborted == is_aborted:
-						logger.info(f"db.executeBoxQuery failed {ex}")
+						logger.error(f"# ***************** db.executeBoxQuery failed {traceback.format_exc()}")
 					break
 
 				if result is None: 
@@ -282,6 +282,9 @@ class Dataset (BaseDataset):
 		if not query.inner:
 			return None
 
+		# important
+		query.inner.enableFilters()
+
 		for H in query.end_resolutions:
 			query.inner.end_resolutions.push_back(H)
 
@@ -308,7 +311,7 @@ class Dataset (BaseDataset):
 		if not self.inner.executeBoxQuery(access, query.inner):
 			return None
 		data=ov.Array.toNumPy(query.inner.buffer, bShareMem=False) 
-		return super().returnBoxQueryData(access,query,data)
+		return super().returnBoxQueryData(access, query, data)
 
 	# nextBoxQuery
 	def nextBoxQuery(self,query):

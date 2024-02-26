@@ -89,6 +89,16 @@ def LoadJSON(value):
 
 	raise Exception(f"{value} not supported")
 
+# ///////////////////////////////////////////////////////////////////
+import OpenVisus as ov
+
+def PointToPyList(value):
+	return [value[I] for I in range(value.getPointDim())]
+
+def BoxToPyList(value):
+	return [PointToPyList(value.p1),PointToPyList(value.p2)]
+
+
 
 # ///////////////////////////////////////////////////////////////////
 def SaveJSON(filename,d):
@@ -138,8 +148,8 @@ def AddAsyncLoop(name, fn, msec):
 					t1=time.time()
 			try:
 				await fn()
-			except Exception as ex:
-				logger.info(f"ERROR {fn} : {ex}")
+			except:
+				logger.error(f"\n\n# ****************** ERROR {fn} : {traceback.format_exc()}")
 			await SleepMsec(msec)
 
 	return asyncio.create_task(MyLoop())
