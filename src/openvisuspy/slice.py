@@ -240,10 +240,6 @@ class Canvas:
 		if pdim==1:
 			assert(len(data.shape) in [1,2])
 			if len(data.shape)==2: data=data[:,0]
-			self.wheel_zoom_tool.dimensions="width"
-			vmin,vmax=np.min(data),np.max(data)
-			self.fig.y_range.start=0.5*(vmin+vmax)-1.2*0.5*(vmax-vmin)
-			self.fig.y_range.end  =0.5*(vmin+vmax)+1.2*0.5*(vmax-vmin)
 			self.fig.renderers.clear()
 
 			xs=np.arange(x,x+w,w/data.shape[0])
@@ -253,7 +249,6 @@ class Canvas:
 		# 2d image (eventually multichannel)
 		else:	
 			assert(len(data.shape) in [2,3])
-			self.wheel_zoom_tool.dimensions="both"
 			img=ConvertDataForRendering(data)
 			dtype=img.dtype
 			
@@ -1198,6 +1193,8 @@ class Slice(param.Parameterized):
 			f"Max Res: {endh}/{maxh}"
 		])
 
+		pdim = self.getPointDim()
+
 		# refresh the range
 		if True:
 
@@ -1205,7 +1202,7 @@ class Slice(param.Parameterized):
 			if mode=="dynamic":
 				self.range_min.value = data_range[0]
 				self.range_max.value = data_range[1]
-				
+
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
 				if self.range_min.value==self.range_max.value:
@@ -1214,11 +1211,22 @@ class Slice(param.Parameterized):
 				else:
 					self.range_min.value = min(self.range_min.value, data_range[0])
 					self.range_max.value = max(self.range_max.value, data_range[1])
+
 			# update the color bar
 			low =cdouble(self.range_min.value)
 			high=cdouble(self.range_max.value)
 			print(f'Min Value: {low} ;  Max Value: {high}')
 
+		#
+		if pdim==1:
+			if mode in ["dynamic","dynamic-acc"]:
+				self.canvas.wheel_zoom_tool.dimensions="width"
+				self.canvas.fig.y_range.start=int(self.range_min.value)
+				self.canvas.fig.y_range.end  =int(self.range_max.value)			
+			else:
+				self.canvas.wheel_zoom_tool.dimensions="both"
+		else:
+			self.canvas.wheel_zoom_tool.dimensions="both"
 
 		# regenerate colormap
 		if self.color_bar is None:
