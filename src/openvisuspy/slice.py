@@ -1215,18 +1215,23 @@ class Slice(param.Parameterized):
 			# update the color bar
 			low =cdouble(self.range_min.value)
 			high=cdouble(self.range_max.value)
-			print(f'Min Value: {low} ;  Max Value: {high}')
 
 		#
 		if pdim==1:
+			self.canvas.pan_tool.dimensions="width"
+			self.canvas.wheel_zoom_tool.dimensions="width"
 			if mode in ["dynamic","dynamic-acc"]:
-				self.canvas.wheel_zoom_tool.dimensions="width"
 				self.canvas.fig.y_range.start=int(self.range_min.value)
 				self.canvas.fig.y_range.end  =int(self.range_max.value)			
-			else:
-				self.canvas.wheel_zoom_tool.dimensions="both"
+			elif mode=="user":
+				self.canvas.fig.y_range.start=int(self.range_min.value)
+				self.canvas.fig.y_range.end  =int(self.range_max.value)			
+			elif mode=="metadata":
+				self.range_min.value = self.metadata_range[0]
+				self.range_max.value = self.metadata_range[1]
 		else:
 			self.canvas.wheel_zoom_tool.dimensions="both"
+			self.canvas.pan_tool.dimensions="both"
 
 		# regenerate colormap
 		if self.color_bar is None:
@@ -1242,7 +1247,7 @@ class Slice(param.Parameterized):
 				bokeh.models.LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
 			)
 
-		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} range={[low,high]}")
+		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} mode={mode} np-array-range={data_range} widget-range={[low,high]}")
 
 		# update the image
 		self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar=self.color_bar)
