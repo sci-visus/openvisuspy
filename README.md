@@ -72,7 +72,7 @@ set VISUS_VERBOSE_DISKACCESS=0
 set VISUS_CACHE=c:/tmp/visus-cache
 
 python -m panel serve src/openvisuspy/dashboards --dev --args "c:/big/visus-datasets/david_subsampled/visus.idx"
-python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/2kbit1/zip/hzorder/visus.idx"
+python -m panel serve src/openvisuspy/dashboards --dev --args "c:/big/visus-datasets/2kbit1/zip/hzorder/visus.idx"
 
 python -m panel serve src/openvisuspy/dashboards --dev --args "D:/visus-datasets/signal1d/visus.idx"
 

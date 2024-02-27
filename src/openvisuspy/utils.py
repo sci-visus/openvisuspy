@@ -48,11 +48,7 @@ def IsJupyter():
 def IsPanelServe():
 	return "panel.command.serve" in sys.modules 
 
-# ///////////////////////////////////////////////
-def GetBackend():
-	ret=os.environ.get("VISUS_BACKEND", "py" if IsPyodide() else "cpp")
-	assert(ret=="cpp" or ret=="py")
-	return ret
+
 
 # ///////////////////////////////////////////////////////////////////
 def Touch(filename):
