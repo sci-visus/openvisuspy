@@ -382,11 +382,11 @@ class OpenVisusDataset:
 		]
 
 		query=types.SimpleNamespace()
-		query.slice_dir=slice_dir
 		query.aborted=aborted
 
 		self.t1=time.time()
 		self.cursor=0
+		self.slice_dir=slice_dir
 		
 		query.ov_query  = self.db.createBoxQuery(
 			ov.BoxNi(ov.PointNi(logic_box[0]), ov.PointNi(logic_box[1])), 
@@ -435,10 +435,11 @@ class OpenVisusDataset:
 			return None
 
 		# is a slice? I need to reduce the size (i.e. from 3d data to 2d data)
-		if query.slice_dir is not None:
+		slice_dir=self.slice_dir
+		if slice_dir is not None:
 			dims=list(reversed(data.shape))
-			assert dims[query.slice_dir]==1
-			del dims[query.slice_dir]
+			assert dims[slice_dir]==1
+			del dims[slice_dir]
 			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
 			data=data.reshape(list(reversed(dims)))
 
