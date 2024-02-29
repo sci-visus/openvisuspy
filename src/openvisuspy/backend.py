@@ -86,7 +86,6 @@ class Stats:
 
 
 
-
 # /////////////////////////////////////////////////////////////////////////////////////////////////
 class BaseDataset(object):
 
@@ -412,7 +411,7 @@ class OpenVisusDataset(BaseDataset):
 		if query is None: return
 		logic_box=BoxToPyList(query.logic_box)
 		logger.info(f"beginBoxQuery timestep={query.time} field={query.field} logic_box={logic_box} end_resolutions={[I for I in query.end_resolutions]}")	
-		query.cursor=0	
+		self.cursor=0	
 		self.db.beginBoxQuery(query)
 
 	# isRunning
@@ -450,7 +449,7 @@ class OpenVisusDataset(BaseDataset):
 		logger.info(f"got data cursor={self.cursor} end_resolutions{[I for I in query.end_resolutions]} timestep={query.time} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
 
 		return {
-			"I": query.cursor,
+			"I": self.cursor,
 			"timestep": query.time,
 			"field": query.field, 
 			"logic_box": logic_box,
@@ -464,7 +463,7 @@ class OpenVisusDataset(BaseDataset):
 		if not self.isQueryRunning(query): return
 		self.db.nextBoxQuery(query)
 		if not self.isQueryRunning(query): return
-		query.cursor+=1
+		self.cursor+=1
 
 
 # ///////////////////////////////////////////////////////////////////
