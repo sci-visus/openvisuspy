@@ -197,7 +197,7 @@ class QueryNode:
 
 
 # //////////////////////////////////////////////////////////////////////////
-class Dataset:
+class OpenVisusDataset:
 
 	def __init__(self,url):
 		self.url=url
@@ -234,7 +234,6 @@ class Dataset:
 			p2[I]=max(p1[I]+delta[I], p2[I])
 		
 		num_pixels=[(p2[I]-p1[I])//delta[I] for I in range(pdim)]
-
 
 		#  force to be a slice?
 		# REMOVE THIS!!!
@@ -295,36 +294,6 @@ class Dataset:
 	def getDatasetBody(self):
 		return self.db.getDatasetBody()
 
-
-	# returnBoxQueryData
-	def returnBoxQueryData(self,access, query, data):
-		
-		if query is None or data is None:
-			logger.info(f"read done {query} {data}")
-			return None
-
-		# is a slice? I need to reduce the size (i.e. from 3d data to 2d data)
-		if query.slice_dir is not None:
-			dims=list(reversed(data.shape))
-			assert dims[query.slice_dir]==1
-			del dims[query.slice_dir]
-			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
-			data=data.reshape(list(reversed(dims)))
-
-		H=self.getQueryCurrentResolution(query)
-		msec=int(1000*(time.time()-query.t1))
-		logger.info(f"got data cursor={query.cursor} end_resolutions{query.end_resolutions} timestep={query.timestep} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
-
-		return {
-			"I": query.cursor,
-			"timestep": query.timestep,
-			"field": query.field, 
-			"logic_box": query.logic_box,
-			"H": H, 
-			"data": data,
-			"msec": msec,
-			}
-
 	# createBoxQuery
 	def createBoxQuery(self, 		
 		timestep=None, 
@@ -335,7 +304,6 @@ class Dataset:
 		num_refinements=1, 
 		aborted=None,
 		full_dim=False):
-
 
 		pdim=self.getPointDim()
 		assert pdim in [1,2,3]
@@ -465,7 +433,32 @@ class Dataset:
 		if not self.db.executeBoxQuery(access, query.ov_query):
 			return None
 		data=ov.Array.toNumPy(query.ov_query.buffer, bShareMem=False) 
-		return self.returnBoxQueryData(access, query, data)
+
+		if data is None:
+			logger.info(f"read done {query} {data}")
+			return None
+
+		# is a slice? I need to reduce the size (i.e. from 3d data to 2d data)
+		if query.slice_dir is not None:
+			dims=list(reversed(data.shape))
+			assert dims[query.slice_dir]==1
+			del dims[query.slice_dir]
+			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
+			data=data.reshape(list(reversed(dims)))
+
+		H=self.getQueryCurrentResolution(query)
+		msec=int(1000*(time.time()-query.t1))
+		logger.info(f"got data cursor={query.cursor} end_resolutions{query.end_resolutions} timestep={query.timestep} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
+
+		return {
+			"I": query.cursor,
+			"timestep": query.timestep,
+			"field": query.field, 
+			"logic_box": query.logic_box,
+			"H": H, 
+			"data": data,
+			"msec": msec,
+			}
 
 	# nextBoxQuery
 	def nextBoxQuery(self,query):
@@ -475,10 +468,9 @@ class Dataset:
 		query.cursor+=1
 
 
-
 # ///////////////////////////////////////////////////////////////////
 def LoadDataset(url):
-	return Dataset(url)
+	return OpenVisusDataset(url)
 
 # ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 def ExecuteBoxQuery(db,*args,**kwargs):
