@@ -295,8 +295,40 @@ class Dataset:
 	def getDatasetBody(self):
 		return self.inner.getDatasetBody()
 
-	# innerCreateBoxQuery
-	def innerCreateBoxQuery(self,
+
+	# returnBoxQueryData
+	def returnBoxQueryData(self,access, query, data):
+		
+		if query is None or data is None:
+			logger.info(f"read done {query} {data}")
+			return None
+
+		# is a slice? I need to reduce the size (i.e. from 3d data to 2d data)
+		if query.slice_dir is not None:
+			dims=list(reversed(data.shape))
+			assert dims[query.slice_dir]==1
+			del dims[query.slice_dir]
+			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
+			data=data.reshape(list(reversed(dims)))
+
+		H=self.getQueryCurrentResolution(query)
+		msec=int(1000*(time.time()-query.t1))
+		logger.info(f"got data cursor={query.cursor} end_resolutions{query.end_resolutions} timestep={query.timestep} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
+
+		return {
+			"I": query.cursor,
+			"timestep": query.timestep,
+			"field": query.field, 
+			"logic_box": query.logic_box,
+			#"logic_box":  #BoxToPyList(query.inner.logic_samples.logic_box),
+			#"logic_size": PointToPyList(query.inner.logic_samples.delta), 
+			"H": H, 
+			"data": data,
+			"msec": msec,
+			}
+
+	# createBoxQuery
+	def createBoxQuery(self, 		
 		timestep=None, 
 		field=None, 
 		logic_box=None,
@@ -304,8 +336,8 @@ class Dataset:
 		endh=None, 
 		num_refinements=1, 
 		aborted=None,
-		full_dim=False,
-	):
+		full_dim=False):
+
 
 		pdim=self.getPointDim()
 		assert pdim in [1,2,3]
@@ -394,48 +426,7 @@ class Dataset:
 		query.aborted=aborted
 		query.t1=time.time()
 		query.cursor=0
-		return query
-
-
-	# returnBoxQueryData
-	def returnBoxQueryData(self,access, query, data):
 		
-		if query is None or data is None:
-			logger.info(f"read done {query} {data}")
-			return None
-
-		# is a slice? I need to reduce the size (i.e. from 3d data to 2d data)
-		if query.slice_dir is not None:
-			dims=list(reversed(data.shape))
-			assert dims[query.slice_dir]==1
-			del dims[query.slice_dir]
-			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
-			data=data.reshape(list(reversed(dims)))
-
-		H=self.getQueryCurrentResolution(query)
-		msec=int(1000*(time.time()-query.t1))
-		logger.info(f"got data cursor={query.cursor} end_resolutions{query.end_resolutions} timestep={query.timestep} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
-
-		return {
-			"I": query.cursor,
-			"timestep": query.timestep,
-			"field": query.field, 
-			"logic_box": query.logic_box,
-			#"logic_box":  #BoxToPyList(query.inner.logic_samples.logic_box),
-			#"logic_size": PointToPyList(query.inner.logic_samples.delta), 
-			"H": H, 
-			"data": data,
-			"msec": msec,
-			}
-
-	# createBoxQuery
-	def createBoxQuery(self, *args,**kwargs):
-
-		query=self.innerCreateBoxQuery(*args,**kwargs)
-		
-		if query is None:
-			return None
-
 		query.inner  = self.inner.createBoxQuery(
 			ov.BoxNi(ov.PointNi(query.logic_box[0]), ov.PointNi(query.logic_box[1])), 
 			self.inner.getField(query.field), 
