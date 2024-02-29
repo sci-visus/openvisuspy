@@ -393,7 +393,7 @@ class OpenVisusDataset:
 			self.db.getField(field), 
 			timestep, 
 			ord('r'), 
-			query.aborted.ov_aborted)
+			aborted.ov_aborted)
 
 		if not query.ov_query:
 			return None
