@@ -200,14 +200,14 @@ class BaseDataset(object):
 				try:
 					result=db.executeBoxQuery(access, query)
 				except:
-					if not query.aborted == is_aborted:
+					if not self.aborted == is_aborted:
 						logger.error(f"# ***************** db.executeBoxQuery failed {traceback.format_exc()}")
 					break
 
 				if result is None: 
 					break
 				
-				if query.aborted == is_aborted:
+				if self.aborted == is_aborted:
 					break 
 
 				
@@ -384,54 +384,52 @@ class OpenVisusDataset(BaseDataset):
 			[int(it) for it in logic_box[1]]
 		]
 
-		query=types.SimpleNamespace()
-		query.aborted=aborted
-
 		self.t1=time.time()
 		self.cursor=0
 		self.slice_dir=slice_dir
+		self.aborted=aborted
 		
-		query.ov_query  = self.db.createBoxQuery(
+		query  = self.db.createBoxQuery(
 			ov.BoxNi(ov.PointNi(logic_box[0]), ov.PointNi(logic_box[1])), 
 			self.db.getField(field), 
 			timestep, 
 			ord('r'), 
 			aborted.ov_aborted)
 
-		if not query.ov_query:
+		if not query:
 			return None
 
 		# important
-		query.ov_query.enableFilters()
+		query.enableFilters()
 
 		for H in end_resolutions:
-			query.ov_query.end_resolutions.push_back(H)
+			query.end_resolutions.push_back(H)
 
 		return query
 
 	# beginBoxQuery
 	def beginBoxQuery(self,query):
 		if query is None: return
-		logic_box=BoxToPyList(query.ov_query.logic_box)
-		logger.info(f"beginBoxQuery timestep={query.ov_query.time} field={query.ov_query.field} logic_box={logic_box} end_resolutions={[I for I in query.ov_query.end_resolutions]}")	
+		logic_box=BoxToPyList(query.logic_box)
+		logger.info(f"beginBoxQuery timestep={query.time} field={query.field} logic_box={logic_box} end_resolutions={[I for I in query.end_resolutions]}")	
 		query.cursor=0	
-		self.db.beginBoxQuery(query.ov_query)
+		self.db.beginBoxQuery(query)
 
 	# isRunning
 	def isQueryRunning(self,query):
 		if query is None: return False
-		return query.ov_query.isRunning() 
+		return query.isRunning() 
 
 	# getCurrentResolution
 	def getCurrentResolution(self, query):
-		return query.ov_query.getCurrentResolution() if self.isQueryRunning(query) else -1
+		return query.getCurrentResolution() if self.isQueryRunning(query) else -1
 
 	# executeBoxQuery
 	def executeBoxQuery(self,access, query):
 		assert self.isQueryRunning(query)
-		if not self.db.executeBoxQuery(access, query.ov_query):
+		if not self.db.executeBoxQuery(access, query):
 			return None
-		data=ov.Array.toNumPy(query.ov_query.buffer, bShareMem=False) 
+		data=ov.Array.toNumPy(query.buffer, bShareMem=False) 
 
 		if data is None:
 			logger.info(f"read done {query} {data}")
@@ -446,15 +444,15 @@ class OpenVisusDataset(BaseDataset):
 			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
 			data=data.reshape(list(reversed(dims)))
 
-		logic_box=BoxToPyList(query.ov_query.logic_box)
+		logic_box=BoxToPyList(query.logic_box)
 		H=self.getCurrentResolution(query)
 		msec=int(1000*(time.time()-self.t1))
-		logger.info(f"got data cursor={self.cursor} end_resolutions{[I for I in query.ov_query.end_resolutions]} timestep={query.ov_query.time} field={query.ov_query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
+		logger.info(f"got data cursor={self.cursor} end_resolutions{[I for I in query.end_resolutions]} timestep={query.time} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
 
 		return {
 			"I": query.cursor,
-			"timestep": query.ov_query.time,
-			"field": query.ov_query.field, 
+			"timestep": query.time,
+			"field": query.field, 
 			"logic_box": logic_box,
 			"H": H, 
 			"data": data,
@@ -464,7 +462,7 @@ class OpenVisusDataset(BaseDataset):
 	# nextBoxQuery
 	def nextBoxQuery(self,query):
 		if not self.isQueryRunning(query): return
-		self.db.nextBoxQuery(query.ov_query)
+		self.db.nextBoxQuery(query)
 		if not self.isQueryRunning(query): return
 		query.cursor+=1
 
@@ -477,7 +475,7 @@ def LoadDataset(url):
 def ExecuteBoxQuery(db,*args,**kwargs):
 	access=kwargs['access'];del kwargs['access']
 	query=db.createBoxQuery(*args,**kwargs)
-	I,N=0,len([I for I in query.ov_query.end_resolutions])
+	I,N=0,len([I for I in query.end_resolutions])
 	db.beginBoxQuery(query)
 	while db.isQueryRunning(query):
 		result=db.executeBoxQuery(access, query)
