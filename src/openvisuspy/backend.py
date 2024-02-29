@@ -62,7 +62,7 @@ class Stats:
 		with self.lock:
 			self.num_running+=1
 			if self.num_running>1: return
-		self.t1=time.time()
+		self.T1=time.time()
 		self.readStats()
 			
 	# stopCollecting
@@ -74,7 +74,7 @@ class Stats:
 
 	# printStatistics
 	def printStatistics(self):
-		sec=max(time.time()-self.t1,1e-8)
+		sec=max(time.time()-self.T1,1e-8)
 		stats=self.readStats()
 		logger.info(f"Stats::printStatistics enlapsed={sec} seconds" )
 		for k,v in stats.items():
@@ -146,12 +146,12 @@ class QueryNode:
 		is_aborted=ov.Aborted()
 		is_aborted.setTrue()
 
-		t1=None
+		T1=None
 		while True:
 
-			if t1 is None or (time.time()-t1)>5.0:
+			if T1 is None or (time.time()-T1)>5.0:
 				logger.info("_threadLoop is Alive")
-				t1=time.time()
+				T1=time.time()
 
 			db, kwargs=self.iqueue.get()
 			if db is None: 
@@ -384,8 +384,9 @@ class OpenVisusDataset:
 		query=types.SimpleNamespace()
 		query.slice_dir=slice_dir
 		query.aborted=aborted
-		query.t1=time.time()
-		query.cursor=0
+
+		self.t1=time.time()
+		self.cursor=0
 		
 		query.ov_query  = self.db.createBoxQuery(
 			ov.BoxNi(ov.PointNi(logic_box[0]), ov.PointNi(logic_box[1])), 
@@ -443,8 +444,8 @@ class OpenVisusDataset:
 
 		logic_box=BoxToPyList(query.ov_query.logic_box)
 		H=self.getQueryCurrentResolution(query)
-		msec=int(1000*(time.time()-query.t1))
-		logger.info(f"got data cursor={query.cursor} end_resolutions{[I for I in query.ov_query.end_resolutions]} timestep={query.ov_query.time} field={query.ov_query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
+		msec=int(1000*(time.time()-self.t1))
+		logger.info(f"got data cursor={self.cursor} end_resolutions{[I for I in query.ov_query.end_resolutions]} timestep={query.ov_query.time} field={query.ov_query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
 
 		return {
 			"I": query.cursor,
@@ -472,7 +473,6 @@ def LoadDataset(url):
 def ExecuteBoxQuery(db,*args,**kwargs):
 	access=kwargs['access'];del kwargs['access']
 	query=db.createBoxQuery(*args,**kwargs)
-	t1=time.time()
 	I,N=0,len([I for I in query.ov_query.end_resolutions])
 	db.beginBoxQuery(query)
 	while db.isQueryRunning(query):
