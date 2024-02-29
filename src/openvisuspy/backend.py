@@ -88,7 +88,7 @@ class Stats:
 
 
 # /////////////////////////////////////////////////////////////////////////////////////////////////
-class QueryNode:
+class BaseDataset(object):
 
 	# shared by all instances (and must remain this way!)
 	stats=Stats()
@@ -197,9 +197,11 @@ class QueryNode:
 
 
 # //////////////////////////////////////////////////////////////////////////
-class OpenVisusDataset:
+class OpenVisusDataset(BaseDataset):
 
+	# constructor
 	def __init__(self,url):
+		super().__init__()
 		self.url=url
 
 		# handle security

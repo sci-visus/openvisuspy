@@ -27,7 +27,7 @@ from panel import Column,Row,GridBox,Card
 from panel.pane import HTML,JSON,Bokeh
 
 from .utils   import *
-from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
+from .backend import Aborted,LoadDataset,ExecuteBoxQuery
 
 
 logger = logging.getLogger(__name__)
@@ -550,14 +550,12 @@ class Slice(param.Parameterized):
 
 		self.idle_callback = None
 		self.color_bar     = None
-		self.query_node    = None
 
 		self.t1=time.time()
 		self.aborted       = Aborted()
 		self.new_job       = False
 		self.current_img   = None
 		self.last_job_pushed =time.time()
-		self.query_node=QueryNode()
 
 		self.canvas = Canvas(self.id)
 		self.canvas.on_event(ViewportUpdate,              SafeCallback(self.onCanvasViewportChange))
@@ -634,11 +632,13 @@ class Slice(param.Parameterized):
 	# stop
 	def stop(self):
 		self.aborted.setTrue()
-		self.query_node.stop()
+		if self.db:
+			self.db.stop()
 
 	# start
 	def start(self):
-		self.query_node.start()
+		if self.db:
+			self.db.start()
 		if not self.idle_callback:
 			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 30)
 		self.refresh()
@@ -1285,7 +1285,7 @@ class Slice(param.Parameterized):
 
 		# abort the last one
 		self.aborted.setTrue()
-		self.query_node.waitIdle()
+		self.db.waitIdle()
 		num_refinements = self.num_refinements.value
 		if num_refinements==0:
 			num_refinements={
@@ -1338,7 +1338,7 @@ class Slice(param.Parameterized):
 		self.request.value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
 		self.response.value="Running..."
 
-		self.query_node.pushJob(
+		self.db.pushJob(
 			self.db, 
 			access=self.access,
 			timestep=timestep, 
@@ -1365,8 +1365,8 @@ class Slice(param.Parameterized):
 		if self.canvas and  self.canvas.getWidth()>0 and self.canvas.getHeight()>0:
 			self.playNextIfNeeded()
 
-		if self.query_node:
-			result=self.query_node.popResult(last_only=True) 
+		if self.db:
+			result=self.db.popResult(last_only=True) 
 			if result is not None: 
 				self.gotNewData(result)
 			self.pushJobIfNeeded()
