@@ -12,12 +12,12 @@ class Aborted:
 	
 	# constructor
 	def __init__(self,value=False):
-		self.inner=ov.Aborted()
-		if value: self.inner.setTrue()
+		self.ov_aborted=ov.Aborted()
+		if value: self.ov_aborted.setTrue()
 
 	# setTrue
 	def setTrue(self):
-		self.inner.setTrue()
+		self.ov_aborted.setTrue()
 
 # ///////////////////////////////////////////////////////////////////
 class Stats:
@@ -214,7 +214,7 @@ class Dataset:
 
 			url=url + f"&~auth_username={os.environ['MODVISUS_USERNAME']}&~auth_password={os.environ['MODVISUS_PASSWORD']}"
 
-		self.inner=ov.LoadDataset(url)
+		self.db=ov.LoadDataset(url)
 
 	# getAlignedBox
 	def getAlignedBox(self, logic_box, endh, slice_dir:int=None):
@@ -253,47 +253,47 @@ class Dataset:
 
 	# getPointDim
 	def getPointDim(self):
-		return self.inner.getPointDim()
+		return self.db.getPointDim()
 
 	# getLogicBox
 	def getLogicBox(self):
-		return self.inner.getLogicBox()
+		return self.db.getLogicBox()
 
 	# getMaxResolution
 	def getMaxResolution(self):
-		return self.inner.getMaxResolution()
+		return self.db.getMaxResolution()
 
 	# getBitmask
 	def getBitmask(self):
-		return self.inner.getBitmask().toString()
+		return self.db.getBitmask().toString()
 
 	# getLogicSize
 	def getLogicSize(self):
-		return self.inner.getLogicSize()
+		return self.db.getLogicSize()
 	
 	# getTimesteps
 	def getTimesteps(self):
-		return self.inner.getTimesteps() 
+		return self.db.getTimesteps() 
 
 	# getTimestep
 	def getTimestep(self):
-		return self.inner.getTime()
+		return self.db.getTime()
 
 	# getFields
 	def getFields(self):
-		return self.inner.getFields()
+		return self.db.getFields()
 
 	# createAccess
 	def createAccess(self):
-		return self.inner.createAccess()
+		return self.db.createAccess()
 
 	# getField
 	def getField(self,field=None):
-		return self.inner.getField(field) if field is not None else self.inner.getField()
+		return self.db.getField(field) if field is not None else self.db.getField()
 
 	# getDatasetBody
 	def getDatasetBody(self):
-		return self.inner.getDatasetBody()
+		return self.db.getDatasetBody()
 
 
 	# returnBoxQueryData
@@ -320,8 +320,6 @@ class Dataset:
 			"timestep": query.timestep,
 			"field": query.field, 
 			"logic_box": query.logic_box,
-			#"logic_box":  #BoxToPyList(query.inner.logic_samples.logic_box),
-			#"logic_size": PointToPyList(query.inner.logic_samples.delta), 
 			"H": H, 
 			"data": data,
 			"msec": msec,
@@ -427,21 +425,21 @@ class Dataset:
 		query.t1=time.time()
 		query.cursor=0
 		
-		query.inner  = self.inner.createBoxQuery(
+		query.ov_query  = self.db.createBoxQuery(
 			ov.BoxNi(ov.PointNi(query.logic_box[0]), ov.PointNi(query.logic_box[1])), 
-			self.inner.getField(query.field), 
+			self.db.getField(query.field), 
 			query.timestep, 
 			ord('r'), 
-			query.aborted.inner)
+			query.aborted.ov_aborted)
 
-		if not query.inner:
+		if not query.ov_query:
 			return None
 
 		# important
-		query.inner.enableFilters()
+		query.ov_query.enableFilters()
 
 		for H in query.end_resolutions:
-			query.inner.end_resolutions.push_back(H)
+			query.ov_query.end_resolutions.push_back(H)
 
 		return query
 
@@ -450,29 +448,29 @@ class Dataset:
 		if query is None: return
 		logger.info(f"beginBoxQuery timestep={query.timestep} field={query.field} logic_box={query.logic_box} end_resolutions={query.end_resolutions}")	
 		query.cursor=0	
-		self.inner.beginBoxQuery(query.inner)
+		self.db.beginBoxQuery(query.ov_query)
 
 	# isRunning
 	def isQueryRunning(self,query):
 		if query is None: return False
-		return query.inner.isRunning() 
+		return query.ov_query.isRunning() 
 
 	# getQueryCurrentResolution
 	def getQueryCurrentResolution(self, query):
-		return query.inner.getCurrentResolution() if self.isQueryRunning(query) else -1
+		return query.ov_query.getCurrentResolution() if self.isQueryRunning(query) else -1
 
 	# executeBoxQuery
 	def executeBoxQuery(self,access, query):
 		assert self.isQueryRunning(query)
-		if not self.inner.executeBoxQuery(access, query.inner):
+		if not self.db.executeBoxQuery(access, query.ov_query):
 			return None
-		data=ov.Array.toNumPy(query.inner.buffer, bShareMem=False) 
+		data=ov.Array.toNumPy(query.ov_query.buffer, bShareMem=False) 
 		return self.returnBoxQueryData(access, query, data)
 
 	# nextBoxQuery
 	def nextBoxQuery(self,query):
 		if not self.isQueryRunning(query): return
-		self.inner.nextBoxQuery(query.inner)
+		self.db.nextBoxQuery(query.ov_query)
 		if not self.isQueryRunning(query): return
 		query.cursor+=1
 

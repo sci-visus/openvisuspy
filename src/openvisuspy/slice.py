@@ -813,14 +813,14 @@ class Slice(param.Parameterized):
 			logic_to_physic=scene["logic-to-physic"]
 			self.setLogicToPhysic(logic_to_physic)
 		else:
-			physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+			physic_box = self.db.db.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
 			physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
 			self.setPhysicBox(physic_box)
 
 		if "directions" in scene:
 			directions=scene["directions"]
 		else:
-			directions = self.db.inner.idxfile.axis.strip().split()
+			directions = self.db.db.idxfile.axis.strip().split()
 			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
 		self.direction.options=directions
 
