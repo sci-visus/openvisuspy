@@ -241,9 +241,7 @@ class OpenVisusDataset:
 			offset=p1[slice_dir]
 			p2[slice_dir]=offset+0
 			p2[slice_dir]=offset+1
-		
 		# print(f"getAlignedBox logic_box={logic_box} endh={endh} slice_dir={slice_dir} (p1,p2)={(p1,p2)} delta={delta} num_pixels={num_pixels}")
-
 		return (p1,p2), delta, num_pixels
 
 	# getUrl
@@ -384,7 +382,6 @@ class OpenVisusDataset:
 		]
 
 		query=types.SimpleNamespace()
-		query.logic_box=logic_box
 		query.slice_dir=slice_dir
 		query.aborted=aborted
 		query.t1=time.time()
@@ -411,7 +408,8 @@ class OpenVisusDataset:
 	# beginBoxQuery
 	def beginBoxQuery(self,query):
 		if query is None: return
-		logger.info(f"beginBoxQuery timestep={query.ov_query.time} field={query.ov_query.field} logic_box={query.logic_box} end_resolutions={[I for I in query.ov_query.end_resolutions]}")	
+		logic_box=BoxToPyList(query.ov_query.logic_box)
+		logger.info(f"beginBoxQuery timestep={query.ov_query.time} field={query.ov_query.field} logic_box={logic_box} end_resolutions={[I for I in query.ov_query.end_resolutions]}")	
 		query.cursor=0	
 		self.db.beginBoxQuery(query.ov_query)
 
@@ -443,15 +441,16 @@ class OpenVisusDataset:
 			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
 			data=data.reshape(list(reversed(dims)))
 
+		logic_box=BoxToPyList(query.ov_query.logic_box)
 		H=self.getQueryCurrentResolution(query)
 		msec=int(1000*(time.time()-query.t1))
-		logger.info(f"got data cursor={query.cursor} end_resolutions{[I for I in query.ov_query.end_resolutions]} timestep={query.ov_query.time} field={query.ov_query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
+		logger.info(f"got data cursor={query.cursor} end_resolutions{[I for I in query.ov_query.end_resolutions]} timestep={query.ov_query.time} field={query.ov_query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
 
 		return {
 			"I": query.cursor,
 			"timestep": query.ov_query.time,
 			"field": query.ov_query.field, 
-			"logic_box": query.logic_box,
+			"logic_box": logic_box,
 			"H": H, 
 			"data": data,
 			"msec": msec,

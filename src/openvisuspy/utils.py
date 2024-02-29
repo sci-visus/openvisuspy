@@ -95,7 +95,6 @@ def BoxToPyList(value):
 	return [PointToPyList(value.p1),PointToPyList(value.p2)]
 
 
-
 # ///////////////////////////////////////////////////////////////////
 def SaveJSON(filename,d):
 	with open(filename,"wt") as fp:
