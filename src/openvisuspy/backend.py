@@ -387,7 +387,6 @@ class OpenVisusDataset:
 		query.logic_box=logic_box
 		query.timestep=timestep
 		query.field=field
-		query.end_resolutions=end_resolutions
 		query.slice_dir=slice_dir
 		query.aborted=aborted
 		query.t1=time.time()
@@ -406,7 +405,7 @@ class OpenVisusDataset:
 		# important
 		query.ov_query.enableFilters()
 
-		for H in query.end_resolutions:
+		for H in end_resolutions:
 			query.ov_query.end_resolutions.push_back(H)
 
 		return query
@@ -414,7 +413,7 @@ class OpenVisusDataset:
 	# beginBoxQuery
 	def beginBoxQuery(self,query):
 		if query is None: return
-		logger.info(f"beginBoxQuery timestep={query.timestep} field={query.field} logic_box={query.logic_box} end_resolutions={query.end_resolutions}")	
+		logger.info(f"beginBoxQuery timestep={query.timestep} field={query.field} logic_box={query.logic_box} end_resolutions={[I for I in query.ov_query.end_resolutions]}")	
 		query.cursor=0	
 		self.db.beginBoxQuery(query.ov_query)
 
@@ -448,7 +447,7 @@ class OpenVisusDataset:
 
 		H=self.getQueryCurrentResolution(query)
 		msec=int(1000*(time.time()-query.t1))
-		logger.info(f"got data cursor={query.cursor} end_resolutions{query.end_resolutions} timestep={query.timestep} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
+		logger.info(f"got data cursor={query.cursor} end_resolutions{[I for I in query.ov_query.end_resolutions]} timestep={query.timestep} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
 
 		return {
 			"I": query.cursor,
@@ -477,7 +476,7 @@ def ExecuteBoxQuery(db,*args,**kwargs):
 	access=kwargs['access'];del kwargs['access']
 	query=db.createBoxQuery(*args,**kwargs)
 	t1=time.time()
-	I,N=0,len(query.end_resolutions)
+	I,N=0,len([I for I in query.ov_query.end_resolutions])
 	db.beginBoxQuery(query)
 	while db.isQueryRunning(query):
 		result=db.executeBoxQuery(access, query)
