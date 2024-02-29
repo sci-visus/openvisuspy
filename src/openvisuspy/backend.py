@@ -94,11 +94,44 @@ class BaseDataset(object):
 	stats=Stats()
 
 	# constructor
-	def __init__(self):
+	def __init__(self,url):
+		self.url=url
 		self.iqueue=queue.Queue()
 		self.oqueue=queue.Queue()
 		self.wait_for_oqueue=False
 		self.thread=None
+
+	# getUrl
+	def getUrl(self):
+		return self.url      
+
+	# getAlignedBox
+	def getAlignedBox(self, logic_box, endh, slice_dir:int=None):
+		p1,p2=copy.deepcopy(logic_box)
+		pdim=self.getPointDim()
+		maxh=self.getMaxResolution()
+		bitmask=self.getBitmask()
+		delta=[1,1,1]
+		
+		for K in range(maxh,endh,-1):
+			bit=ord(bitmask[K])-ord('0')
+			delta[bit]*=2
+
+		for I in range(pdim):
+			p1[I]=delta[I]*(p1[I]//delta[I])
+			p2[I]=delta[I]*(p2[I]//delta[I])
+			p2[I]=max(p1[I]+delta[I], p2[I])
+		
+		num_pixels=[(p2[I]-p1[I])//delta[I] for I in range(pdim)]
+
+		#  force to be a slice?
+		# REMOVE THIS!!!
+		if pdim==3 and slice_dir is not None:
+			offset=p1[slice_dir]
+			p2[slice_dir]=offset+0
+			p2[slice_dir]=offset+1
+		# print(f"getAlignedBox logic_box={logic_box} endh={endh} slice_dir={slice_dir} (p1,p2)={(p1,p2)} delta={delta} num_pixels={num_pixels}")
+		return (p1,p2), delta, num_pixels
 
 	# disableOutputQueue
 	def disableOutputQueue(self):
@@ -201,8 +234,7 @@ class OpenVisusDataset(BaseDataset):
 
 	# constructor
 	def __init__(self,url):
-		super().__init__()
-		self.url=url
+		super().__init__(url)
 
 		# handle security
 		if all([
@@ -218,37 +250,6 @@ class OpenVisusDataset(BaseDataset):
 
 		self.db=ov.LoadDataset(url)
 
-	# getAlignedBox
-	def getAlignedBox(self, logic_box, endh, slice_dir:int=None):
-		p1,p2=copy.deepcopy(logic_box)
-		pdim=self.getPointDim()
-		maxh=self.getMaxResolution()
-		bitmask=self.getBitmask()
-		delta=[1,1,1]
-		
-		for K in range(maxh,endh,-1):
-			bit=ord(bitmask[K])-ord('0')
-			delta[bit]*=2
-
-		for I in range(pdim):
-			p1[I]=delta[I]*(p1[I]//delta[I])
-			p2[I]=delta[I]*(p2[I]//delta[I])
-			p2[I]=max(p1[I]+delta[I], p2[I])
-		
-		num_pixels=[(p2[I]-p1[I])//delta[I] for I in range(pdim)]
-
-		#  force to be a slice?
-		# REMOVE THIS!!!
-		if pdim==3 and slice_dir is not None:
-			offset=p1[slice_dir]
-			p2[slice_dir]=offset+0
-			p2[slice_dir]=offset+1
-		# print(f"getAlignedBox logic_box={logic_box} endh={endh} slice_dir={slice_dir} (p1,p2)={(p1,p2)} delta={delta} num_pixels={num_pixels}")
-		return (p1,p2), delta, num_pixels
-
-	# getUrl
-	def getUrl(self):
-		return self.url       
 
 	# getPointDim
 	def getPointDim(self):
@@ -421,8 +422,8 @@ class OpenVisusDataset(BaseDataset):
 		if query is None: return False
 		return query.ov_query.isRunning() 
 
-	# getQueryCurrentResolution
-	def getQueryCurrentResolution(self, query):
+	# getCurrentResolution
+	def getCurrentResolution(self, query):
 		return query.ov_query.getCurrentResolution() if self.isQueryRunning(query) else -1
 
 	# executeBoxQuery
@@ -446,7 +447,7 @@ class OpenVisusDataset(BaseDataset):
 			data=data.reshape(list(reversed(dims)))
 
 		logic_box=BoxToPyList(query.ov_query.logic_box)
-		H=self.getQueryCurrentResolution(query)
+		H=self.getCurrentResolution(query)
 		msec=int(1000*(time.time()-self.t1))
 		logger.info(f"got data cursor={self.cursor} end_resolutions{[I for I in query.ov_query.end_resolutions]} timestep={query.ov_query.time} field={query.ov_query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
 
