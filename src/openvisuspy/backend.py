@@ -493,25 +493,46 @@ class NPZDataset(BaseDataset):
 	def __init__(self,url):
 		super().__init__(url)
 		self.cursor=-1
-		self.signal=np.load(url)["data"]
-		self.vmin,self.vmax=np.min(self.signal),np.max(self.signal)
-		print(type(self.signal),self.signal.shape)
-		N=self.signal.shape[0]
+		signal=np.load(url)["data"]
+		self.levels=[signal]
+		self.vmin,self.vmax=np.min(signal),np.max(signal)
+		N=signal.shape[0]
 		self.bitmask="V"
 		while N>1: self.bitmask,N=self.bitmask+"0", (N>>1)
-		
+
+		# downsample keeping min max
+		if True:
+
+			endh=self.getMaxResolution()
+			logger.info(f"signal endh={endh} shape={signal.shape} dtype={signal.dtype}")
+			
+			# out of 4 samples I am keeping min,Max
+			while self.levels[0].shape[0]>1024:
+				cur=self.levels[0]
+				filtered=np.copy(cur[::2])
+				endh-=1
+				for I in range(0,4*(cur.shape[0]//4),4):
+					v=list(cur[I:I+4])
+					vmin,vmax=np.min(v),np.max(v)
+					filtered[I//2+0:I//2+2]=[vmin,vmax] if v.index(vmin)<v.index(vmax) else [vmax,vmin]
+				logger.info(f"filtered endh={endh} shape={filtered.shape} dtype={filtered.dtype}")
+				self.levels=[filtered]+self.levels
+
+			while len(self.levels)!=len(self.bitmask):
+				self.levels=[None]+self.levels
+
 	# getPointDim
 	def getPointDim(self):
 		return 1
 
 	# getLogicBox
 	def getLogicBox(self):
-		p1,p2=[0],[self.signal.shape[0]]
+		p1,p2=[0],[self.levels[-1].shape[0]]
 		return [p1,p2]
 
 	# getPhysicBox
 	def getPhysicBox(self):
-		return [[0,self.signal.shape[0]]]
+		return [[0,self.levels[-1].shape[0]]]
 
 	# getMaxResolution
 	def getMaxResolution(self):
@@ -569,8 +590,38 @@ class NPZDataset(BaseDataset):
 		aborted=None,
 		full_dim=False
 	):
+
 		self.cursor=-1
-		self.aborted=Aborted()
+		self.aborted=Aborted()	
+		self.endh =self.getMaxResolution()
+		self.x1=logic_box[0][0] # in pixel coordinates
+		self.x2=logic_box[1][0]
+		self.step=1
+		self.num_pixels=(self.x2-self.x1)//self.step
+
+		while True:
+			logger.info(f"max_pixels={max_pixels} maxh={self.getMaxResolution()} endh={self.endh} level={self.levels[self.endh].shape} x1={self.x1} y2={self.x2} step={self.step} numpixels={self.num_pixels}")
+
+			if self.endh<=1 or self.levels[self.endh-1] is None:
+				break
+
+			# user specified max num_pixels
+			if max_pixels:
+				assert(max_pixels and not endh)
+				if self.num_pixels <= (1.2*max_pixels):
+					break
+			# user specified a specific curve
+			else:
+				assert(endh and not max_pixels)
+				if self.endh==endh:
+					break
+
+			self.endh-=1
+			self.step*=2
+			self.x1=(self.x1//self.step)*self.step
+			self.x2=(self.x2//self.step)*self.step
+			self.num_pixels=(self.x2-self.x1)//self.step
+
 		return True # no need to create a query
 
 	# beginBoxQuery
@@ -588,14 +639,17 @@ class NPZDataset(BaseDataset):
 	# executeBoxQuery
 	def executeBoxQuery(self,access, query):
 		assert self.isQueryRunning(query)
-
+		lvl=self.levels[self.endh]
+		x1=int(self.x1//self.step)
+		x2=int(self.x2//self.step)
+		# logger.info(f"lvl shape={lvl.shape} dtype={lvl.dtype} x1={x1} x2={x2} step={self.step}")
 		return {
 			"I": self.cursor,
 			"timestep": self.getTimestep(),
 			"field": self.getField(), 
-			"logic_box": self.getLogicBox(),
-			"H": self.getMaxResolution(), 
-			"data": self.signal,
+			"logic_box": [[self.x1],[self.x2]],
+			"H": self.endh, 
+			"data": lvl[x1:x2],
 			"msec": 0,
 			}
 
