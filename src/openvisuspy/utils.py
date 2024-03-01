@@ -105,6 +105,7 @@ def DownloadFile(url, cache_dir=os.environ["VISUS_CACHE"],verify=False):
 	local_filename=os.path.join(cache_dir,f"{parsed.scheme}/{parsed.hostname}/{parsed.port if parsed.port else default_ports[parsed.scheme]}/{parsed.path}")
 
 	if os.path.isfile(local_filename):
+		logger.info(f"Using cached file for url={url} local_filename={local_filename}")
 		return local_filename
 
 	if endpoint_url:
@@ -128,7 +129,6 @@ def PointToPyList(value):
 
 def BoxToPyList(value):
 	return [PointToPyList(value.p1),PointToPyList(value.p2)]
-
 
 # ///////////////////////////////////////////////////////////////////
 def SaveJSON(filename,d):
