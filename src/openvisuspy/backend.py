@@ -491,8 +491,9 @@ class Signal1DDataset(BaseDataset):
 
 	# constructor
 	def __init__(self,url):
-		assert(".npz" in url)
 		super().__init__(url)
+		assert(".npz" in url)
+		logger.info(f"opening {url}")
 		self.cursor=-1
 		local_filename=DownloadFile(url)
 		signal=np.load(local_filename)["data"]
