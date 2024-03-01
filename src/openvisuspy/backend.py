@@ -287,12 +287,32 @@ class OpenVisusDataset(BaseDataset):
 		return self.db.createAccess()
 
 	# getField
-	def getField(self,field=None):
-		return self.db.getField(field) if field is not None else self.db.getField()
+	def getField(self,field:str=None):
+		if field is None: field=self.db.getField().name
+		return self.db.getField(field).name
+
+	# getFieldRange
+	def getFieldRange(self,field:str=None):
+		if field is None: field=self.getField()
+		field = self.db.getField(field)
+		return [field.getDTypeRange().From, field.getDTypeRange().To]
 
 	# getDatasetBody
 	def getDatasetBody(self):
 		return self.db.getDatasetBody()
+
+	# getPhysicBox
+	def getPhysicBox(self):
+		pdim=self.getPointDim()
+		ret = self.db.db.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+		ret = [(float(ret[I]), float(ret[I + 1])) for I in range(0, pdim * 2, 2)]
+		return ret
+
+	# getAxis
+	def getAxis(self):
+		ret = self.db.db.idxfile.axis.strip().split()
+		ret = {it: I for I, it in enumerate(directions)} if ret else  {'X':0,'Y':1,'Z':2}
+		return ret
 
 	# createBoxQuery
 	def createBoxQuery(self, 		
@@ -316,7 +336,7 @@ class OpenVisusDataset(BaseDataset):
 			timestep=self.getTimestep()
 
 		if field is None:
-			field=self.getField()
+			field=self.db.getField()
 
 		if logic_box is None:
 			logic_box=self.getLogicBox()
@@ -466,9 +486,131 @@ class OpenVisusDataset(BaseDataset):
 		self.cursor+=1
 
 
+# //////////////////////////////////////////////////////////////////////////
+class NPZDataset(BaseDataset):
+
+	# constructor
+	def __init__(self,url):
+		super().__init__(url)
+		self.cursor=-1
+		self.signal=np.load(url)["data"]
+		self.vmin,self.vmax=np.min(self.signal),np.max(self.signal)
+		print(type(self.signal),self.signal.shape)
+		N=self.signal.shape[0]
+		self.bitmask="V"
+		while N>1: self.bitmask,N=self.bitmask+"0", (N>>1)
+		
+	# getPointDim
+	def getPointDim(self):
+		return 1
+
+	# getLogicBox
+	def getLogicBox(self):
+		p1,p2=[0],[self.signal.shape[0]]
+		return [p1,p2]
+
+	# getPhysicBox
+	def getPhysicBox(self):
+		return [[0,self.signal.shape[0]]]
+
+	# getMaxResolution
+	def getMaxResolution(self):
+		return len(self.bitmask)-1
+
+	# getBitmask
+	def getBitmask(self):
+		return self.bitmask
+
+	# getLogicSize
+	def getLogicSize(self):
+		N=1<<(len(self.bitmask)-1)
+		return [N]
+	
+	# getTimesteps
+	def getTimesteps(self):
+		return [0]
+
+	# getTimestep
+	def getTimestep(self):
+		return 0
+
+	# getFields
+	def getFields(self):
+		return ["data"]
+
+	# createAccess
+	def createAccess(self):
+		return True # no need for access
+
+	# getField
+	def getField(self,field=None):
+		return "data"
+
+	# getFieldRange
+	def getFieldRange(self,field:str=None):
+		return [self.vmin,self.vmax]
+
+	# getDatasetBody
+	def getDatasetBody(self):
+		return self.url
+
+	# getAxis
+	def getAxis(self):
+		return {'X':0,'Y':1,'Z':2}
+
+	# createBoxQuery
+	def createBoxQuery(self, 		
+		timestep=None, 
+		field=None, 
+		logic_box=None,
+		max_pixels=None, 
+		endh=None, 
+		num_refinements=1, 
+		aborted=None,
+		full_dim=False
+	):
+		self.cursor=-1
+		self.aborted=Aborted()
+		return True # no need to create a query
+
+	# beginBoxQuery
+	def beginBoxQuery(self,query):
+		self.cursor=0
+
+	# isQueryRunning
+	def isQueryRunning(self,query):
+		return self.cursor==0
+
+	# getCurrentResolution
+	def getCurrentResolution(self, query):
+		return len(self.bitmask)-1 # always at full resolution
+
+	# executeBoxQuery
+	def executeBoxQuery(self,access, query):
+		assert self.isQueryRunning(query)
+
+		return {
+			"I": self.cursor,
+			"timestep": self.getTimestep(),
+			"field": self.getField(), 
+			"logic_box": self.getLogicBox(),
+			"H": self.getMaxResolution(), 
+			"data": self.signal,
+			"msec": 0,
+			}
+
+	# nextBoxQuery
+	def nextBoxQuery(self,query):
+		self.cursor=-1
+
+
 # ///////////////////////////////////////////////////////////////////
 def LoadDataset(url):
-	return OpenVisusDataset(url)
+	if ".npz" in url:
+		return NPZDataset("data.npz")
+	else:
+		return OpenVisusDataset(url)
+	
 
 # ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 def ExecuteBoxQuery(db,*args,**kwargs):

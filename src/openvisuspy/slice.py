@@ -813,15 +813,13 @@ class Slice(param.Parameterized):
 			logic_to_physic=scene["logic-to-physic"]
 			self.setLogicToPhysic(logic_to_physic)
 		else:
-			physic_box = self.db.db.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
-			physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
+			physic_box=self.db.getPhysicBox()
 			self.setPhysicBox(physic_box)
 
 		if "directions" in scene:
 			directions=scene["directions"]
 		else:
-			directions = self.db.db.idxfile.axis.strip().split()
-			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
+			directions=self.db.getAxis()
 		self.direction.options=directions
 
 		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
@@ -833,7 +831,7 @@ class Slice(param.Parameterized):
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
 
-		self.field.value=scene.get("field", self.db.getField().name)
+		self.field.value=scene.get("field", self.db.getField())
 		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 2))
 
 		self.direction.value = int(scene.get("direction", 2))
@@ -848,8 +846,7 @@ class Slice(param.Parameterized):
 		self.play_sec.value=float(scene.get("play-sec",0.01))
 		self.palette.value_name=scene.get("palette",DEFAULT_PALETTE)
 
-		db_field = self.db.getField(self.field.value)
-		self.metadata_range = list(scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To]))
+		self.metadata_range = list(scene.get("metadata-range",self.db.getFieldRange()))
 		assert(len(self.metadata_range))==2
 		self.color_map=None
 
