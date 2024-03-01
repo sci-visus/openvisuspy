@@ -2,6 +2,8 @@
 import numpy as np
 import os,sys,logging,asyncio,time,json,xmltodict,urllib
 import urllib.request
+import boto3
+import urllib.parse 
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -71,7 +73,10 @@ def LoadJSON(value):
 		if username and password: 
 			auth = HTTPBasicAuth(username, password) if username else None
 		response = requests.get(url, auth=auth)
-		body = response.body.decode('utf-8') 
+		try:
+			body = response.body.decode('utf-8') 
+		except:
+			body = response.content.decode('utf-8') 
 		return json.loads(body)
 	
 	if os.path.isfile(value):
@@ -85,6 +90,36 @@ def LoadJSON(value):
 
 	raise Exception(f"{value} not supported")
 
+# ///////////////////////////////////////////////////////////////////
+def DownloadFile(url, cache_dir=os.environ["VISUS_CACHE"],verify=False):
+
+	if not url.startswith("http"):
+		return url # already local
+		
+	# need to download trhe file
+	parsed=urllib.parse.urlparse(url)
+	q=urllib.parse.parse_qs(parsed.query)
+	endpoint_url=os.environ.get("AWS_ENDPOINT_URL",q.get("endpoint_url",[""])[0])
+
+	default_ports={"http":80,"https":443}
+	local_filename=os.path.join(cache_dir,f"{parsed.scheme}/{parsed.hostname}/{parsed.port if parsed.port else default_ports[parsed.scheme]}/{parsed.path}")
+
+	if os.path.isfile(local_filename):
+		return local_filename
+
+	if endpoint_url:
+		profile=os.environ.get("AWS_PROFILE",q.get("profile",[None])[0])
+		bucket_name,key=url[len(endpoint_url)+1:].split("?")[0].split("/",maxsplit=1)
+		session=boto3.session.Session(profile_name=profile)
+		resource=session.resource('s3', endpoint_url=endpoint_url,verify=verify)
+		bucket = resource.Bucket(bucket_name)
+		os.makedirs(os.path.dirname(local_filename),exist_ok=True)
+		bucket.download_file(key,local_filename)
+	else:
+		from urllib.request import urlretrieve
+		urlretrieve(url, local_filename)
+
+		return local_filename
 # ///////////////////////////////////////////////////////////////////
 import OpenVisus as ov
 

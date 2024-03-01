@@ -84,7 +84,13 @@ python -m panel serve src/openvisuspy/dashboards --dev --args "D:\visus-datasets
 python -m panel serve src/openvisuspy/dashboards --dev --args c:\big\visus-datasets\signal1d_slac\visus.idx   
 python -m panel serve src/openvisuspy/dashboards --dev --args c:\big\visus-datasets\signal1d_slac_max\visus.idx
 
+
 python -m panel serve src/openvisuspy/dashboards --dev --args ./data.npz
+
+python -m panel serve src/openvisuspy/dashboards --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/supercdms-data/CDMS/UMN/R68/Raw/07180816_1648/07180816_1648_F0006/events/00135/banks/SCD0/data.npz?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+s5=''
+s5 cp https://raw.githubusercontent.com/nsdf-fabric/nsdf-slac/main/dashboards.json
+
 
 python -m panel serve src/openvisuspy/dashboards --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_slac/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
 

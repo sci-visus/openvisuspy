@@ -12,7 +12,6 @@ from urllib.parse import urlparse, urlencode
 
 import numpy as np
 
-
 import bokeh
 import bokeh.models
 import bokeh.events

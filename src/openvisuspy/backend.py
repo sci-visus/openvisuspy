@@ -487,13 +487,15 @@ class OpenVisusDataset(BaseDataset):
 
 
 # //////////////////////////////////////////////////////////////////////////
-class NPZDataset(BaseDataset):
+class Signal1DDataset(BaseDataset):
 
 	# constructor
 	def __init__(self,url):
+		assert(".npz" in url)
 		super().__init__(url)
 		self.cursor=-1
-		signal=np.load(url)["data"]
+		local_filename=DownloadFile(url)
+		signal=np.load(local_filename)["data"]
 		self.levels=[signal]
 		self.vmin,self.vmax=np.min(signal),np.max(signal)
 		N=signal.shape[0]
@@ -501,25 +503,23 @@ class NPZDataset(BaseDataset):
 		while N>1: self.bitmask,N=self.bitmask+"0", (N>>1)
 
 		# downsample keeping min max
-		if True:
+		endh=self.getMaxResolution()
+		logger.info(f"signal endh={endh} shape={signal.shape} dtype={signal.dtype}")
+		
+		# out of 4 samples I am keeping min,Max
+		while self.levels[0].shape[0]>1024:
+			cur=self.levels[0]
+			filtered=np.copy(cur[::2])
+			endh-=1
+			for I in range(0,4*(cur.shape[0]//4),4):
+				v=list(cur[I:I+4])
+				vmin,vmax=np.min(v),np.max(v)
+				filtered[I//2+0:I//2+2]=[vmin,vmax] if v.index(vmin)<v.index(vmax) else [vmax,vmin]
+			logger.info(f"filtered endh={endh} shape={filtered.shape} dtype={filtered.dtype}")
+			self.levels=[filtered]+self.levels
 
-			endh=self.getMaxResolution()
-			logger.info(f"signal endh={endh} shape={signal.shape} dtype={signal.dtype}")
-			
-			# out of 4 samples I am keeping min,Max
-			while self.levels[0].shape[0]>1024:
-				cur=self.levels[0]
-				filtered=np.copy(cur[::2])
-				endh-=1
-				for I in range(0,4*(cur.shape[0]//4),4):
-					v=list(cur[I:I+4])
-					vmin,vmax=np.min(v),np.max(v)
-					filtered[I//2+0:I//2+2]=[vmin,vmax] if v.index(vmin)<v.index(vmax) else [vmax,vmin]
-				logger.info(f"filtered endh={endh} shape={filtered.shape} dtype={filtered.dtype}")
-				self.levels=[filtered]+self.levels
-
-			while len(self.levels)!=len(self.bitmask):
-				self.levels=[None]+self.levels
+		while len(self.levels)!=len(self.bitmask):
+			self.levels=[None]+self.levels
 
 	# getPointDim
 	def getPointDim(self):
@@ -661,7 +661,7 @@ class NPZDataset(BaseDataset):
 # ///////////////////////////////////////////////////////////////////
 def LoadDataset(url):
 	if ".npz" in url:
-		return NPZDataset("data.npz")
+		return Signal1DDataset(url)
 	else:
 		return OpenVisusDataset(url)
 	
