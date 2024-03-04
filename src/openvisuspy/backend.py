@@ -547,13 +547,14 @@ class Signal1DDataset(BaseDataset):
 			if not os.path.isfile(cached_filename):
 				cur=self.levels[0]
 				filtered=np.copy(cur[::2])
+				logger.info(f"Computing filter H={H} shape={filtered.shape} dtype={filtered.dtype} ")
 				for I in range(0,4*(cur.shape[0]//4),4):
 					v=list(cur[I:I+4])
 					vmin,vmax=np.min(v),np.max(v)
 					filtered[I//2+0:I//2+2]=[vmin,vmax] if v.index(vmin)<v.index(vmax) else [vmax,vmin]
 				os.makedirs(os.path.dirname(cached_filename),exist_ok=True)
 				np.save(cached_filename, filtered)
-				logger.info(f"saved filtered H={H} shape={filtered.shape} dtype={filtered.dtype} cached_filename={cached_filename}")
+				logger.info(f"saved filtered cached_filename={cached_filename}")
 			
 			# load from cache
 			filtered=np.load(cached_filename, mmap_mode="r") # all mem mapped
