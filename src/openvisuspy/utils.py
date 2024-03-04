@@ -93,6 +93,9 @@ def LoadJSON(value):
 # ///////////////////////////////////////////////////////////////////
 def DownloadFile(url, cache_dir=os.environ["VISUS_CACHE"],verify=False):
 
+	
+	logger.info(f"downloading url={url} verify={verify}")
+
 	if not url.startswith("http"):
 		return url # already local
 		
@@ -102,7 +105,7 @@ def DownloadFile(url, cache_dir=os.environ["VISUS_CACHE"],verify=False):
 	endpoint_url=os.environ.get("AWS_ENDPOINT_URL",q.get("endpoint_url",[""])[0])
 
 	default_ports={"http":80,"https":443}
-	local_filename=os.path.join(cache_dir,f"{parsed.scheme}/{parsed.hostname}/{parsed.port if parsed.port else default_ports[parsed.scheme]}/{parsed.path}")
+	local_filename=os.path.join(cache_dir,f"{parsed.scheme}/{parsed.hostname}/{parsed.port if parsed.port else default_ports[parsed.scheme]}{parsed.path}")
 
 	if os.path.isfile(local_filename):
 		logger.info(f"Using cached file for url={url} local_filename={local_filename}")
@@ -111,6 +114,9 @@ def DownloadFile(url, cache_dir=os.environ["VISUS_CACHE"],verify=False):
 	if endpoint_url:
 		profile=os.environ.get("AWS_PROFILE",q.get("profile",[None])[0])
 		bucket_name,key=url[len(endpoint_url)+1:].split("?")[0].split("/",maxsplit=1)
+		assert("access_key" not in q) # TODO, for now use the profile
+		assert("secret_key" not in q)
+
 		session=boto3.session.Session(profile_name=profile)
 		resource=session.resource('s3', endpoint_url=endpoint_url,verify=verify)
 		bucket = resource.Bucket(bucket_name)

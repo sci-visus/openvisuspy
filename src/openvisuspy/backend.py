@@ -487,40 +487,82 @@ class OpenVisusDataset(BaseDataset):
 
 
 # //////////////////////////////////////////////////////////////////////////
+def GuessBitmask(N):
+		ret="V"
+		while N>1: 
+			ret,N=ret+"0", (N>>1)
+		logger.info(f"bitmask={ret}")
+		return ret
+
+# ////////////////////////////////////////////////////////////////////
+def ReplaceExtWith(filename, suffix):
+	return os.path.splitext(filename)[0]+suffix
+
+# ////////////////////////////////////////////////////////////////////
 class Signal1DDataset(BaseDataset):
 
 	# constructor
 	def __init__(self,url):
 		super().__init__(url)
-		assert(".npz" in url)
+		assert(".npz" in url or ".npy" in url)
 		self.cursor=-1
-		local_filename=DownloadFile(url)
-		logger.info(f"opening url={url} local_filename={local_filename}")
-		signal=np.load(local_filename)["data"]
-		self.levels=[signal]
-		self.vmin,self.vmax=np.min(signal),np.max(signal)
-		N=signal.shape[0]
-		self.bitmask="V"
-		while N>1: self.bitmask,N=self.bitmask+"0", (N>>1)
+		filename=DownloadFile(url)
+		logger.info(f"url={url} filename={filename}")
 
-		# downsample keeping min max
-		endh=self.getMaxResolution()
+		if ".npz" in filename:
+			signal=np.load(filename,mmap_mode="r")["data"]
+		else:
+			signal=np.load(filename,mmap_mode="r")
+
+		info_filename=ReplaceExtWith(filename, ".json")
+
+		# need to read all the array
+		if not os.path.isfile(info_filename):
+				SaveJSON(info_filename,{
+					"bitmask": GuessBitmask(signal.shape[0]),
+					"dtype": str(signal.dtype),
+					"shape": signal.shape,
+					"vmin": str(np.min(signal)), # Object of type int64 is not JSON serializable
+					"vmax": str(np.max(signal))
+				})
+		
+		info=LoadJSON(info_filename)
+		self.bitmask=info["bitmask"]
+		assert(info["dtype"]=="int64")
+		# assert(info["shape"]==signal.shape)
+		self.vmin=int(info["vmin"]) # TODO, what if float
+		self.vmax=int(info["vmax"])
+		
+		endh=len(self.bitmask)-1
+		self.levels=[signal]
 		logger.info(f"signal endh={endh} shape={signal.shape} dtype={signal.dtype}")
 		
 		# out of 4 samples I am keeping min,Max
+		H=endh
 		while self.levels[0].shape[0]>1024:
-			cur=self.levels[0]
-			filtered=np.copy(cur[::2])
-			endh-=1
-			for I in range(0,4*(cur.shape[0]//4),4):
-				v=list(cur[I:I+4])
-				vmin,vmax=np.min(v),np.max(v)
-				filtered[I//2+0:I//2+2]=[vmin,vmax] if v.index(vmin)<v.index(vmax) else [vmax,vmin]
-			logger.info(f"filtered endh={endh} shape={filtered.shape} dtype={filtered.dtype}")
-			self.levels=[filtered]+self.levels
+			H-=1
 
-		while len(self.levels)!=len(self.bitmask):
+			# generate cache
+			cached_filename=  ReplaceExtWith(filename, f".{H}.npy")
+			if not os.path.isfile(cached_filename):
+				cur=self.levels[0]
+				filtered=np.copy(cur[::2])
+				for I in range(0,4*(cur.shape[0]//4),4):
+					v=list(cur[I:I+4])
+					vmin,vmax=np.min(v),np.max(v)
+					filtered[I//2+0:I//2+2]=[vmin,vmax] if v.index(vmin)<v.index(vmax) else [vmax,vmin]
+				os.makedirs(os.path.dirname(cached_filename),exist_ok=True)
+				np.save(cached_filename, filtered)
+				logger.info(f"saved filtered H={H} shape={filtered.shape} dtype={filtered.dtype} cached_filename={cached_filename}")
+			
+			# load from cache
+			filtered=np.load(cached_filename, mmap_mode="r") # all mem mapped
+			self.levels=[filtered]+self.levels
+				
+		while len(self.levels)!=(endh+1):
 			self.levels=[None]+self.levels
+
+		logger.info("ComputeFilter done")
 
 	# getPointDim
 	def getPointDim(self):
@@ -661,7 +703,7 @@ class Signal1DDataset(BaseDataset):
 
 # ///////////////////////////////////////////////////////////////////
 def LoadDataset(url):
-	if ".npz" in url:
+	if ".npz" in url or ".npy" in url:
 		return Signal1DDataset(url)
 	else:
 		return OpenVisusDataset(url)
