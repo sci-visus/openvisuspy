@@ -3,7 +3,7 @@ import argparse,json
 import panel as pn
 import logging
 import base64,json
-sys.path.append('/app/openvisuspy/src')
+sys.path.append('/Users/aashishpanta/Research/openvisuspy_github/openvisuspy/src')
 from openvisuspy import SetupLogger, Slice, ProbeTool, GetQueryParams
 
 # //////////////////////////////////////////////////////////////////////////////////////

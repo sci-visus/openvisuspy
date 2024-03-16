@@ -145,8 +145,8 @@ class Canvas:
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
-		self.fig.yaxis.axis_label  = "Latitude"               if old is None else old.xaxis.axis_label
-		self.fig.xaxis.axis_label  = "Longitude"               if old is None else old.yaxis.axis_label
+		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
+		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
 		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
 
@@ -186,8 +186,8 @@ class Canvas:
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.fig.xaxis.axis_label  = 'Longitude'
-		self.fig.yaxis.axis_label  = 'Latitude'		
+		self.fig.xaxis.axis_label  = 'X'
+		self.fig.yaxis.axis_label  = 'Y'		
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
@@ -250,14 +250,14 @@ class Canvas:
 				self.last_renderer.get("dtype",None)==dtype,
 				self.last_renderer.get("color_bar",None)==color_bar
 			]):
-				self.last_renderer["source"].data={"image":[img], "Longitude":[x], "Latitude":[y], "dw":[w], "dh":[h]}
+				self.last_renderer["source"].data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]}
 			else:
 				self.createFigure()
-				source = bokeh.models.ColumnDataSource(data={"image":[img], "Longitude":[x], "Latitude":[y], "dw":[w], "dh":[h]})
+				source = bokeh.models.ColumnDataSource(data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]})
 				if img.dtype==np.uint32:	
-					self.fig.image_rgba("image", source=source, x="Longitude", y="Latitude", dw="dw", dh="dh") 
+					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh") 
 				else:
-					self.fig.image("image", source=source, x="Longitude", y="Latitude", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+					self.fig.image("image", source=source, x="X", y="Y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 				self.fig.add_layout(color_bar, 'right')
 				self.last_renderer={
 					"source": source,
@@ -477,14 +477,14 @@ class Slice(param.Parameterized):
 		p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
 		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
 		p.add_layout(color_bar, 'right')
-		p.xaxis.axis_label = "Longitude"
-		p.yaxis.axis_label = "Latitude"
+		p.xaxis.axis_label = "X"
+		p.yaxis.axis_label = "Y"
 
 
         # Display using Panel
 		self.showDialog(
             pn.Column(
-                self.file_name_input,  # Assuming this is defined elsewhere in your class
+                self.file_name_input, 
                 save_numpy_button,
                 pn.pane.Bokeh(p),
                 sizing_mode="stretch_both"
