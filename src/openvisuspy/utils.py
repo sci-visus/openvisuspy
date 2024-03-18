@@ -91,9 +91,9 @@ def LoadJSON(value):
 	raise Exception(f"{value} not supported")
 
 # ///////////////////////////////////////////////////////////////////
-def DownloadFile(url, cache_dir=os.environ["VISUS_CACHE"],verify=False):
+def DownloadFile(url, cache_dir=os.environ.get("VISUS_CACHE",os.path.expanduser("~/visus/cache")),verify=False):
 
-	
+	os.makedirs(cache_dir,exist_ok=True)
 	logger.info(f"downloading url={url} verify={verify}")
 
 	if not url.startswith("http"):

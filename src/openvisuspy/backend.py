@@ -311,7 +311,7 @@ class OpenVisusDataset(BaseDataset):
 	# getAxis
 	def getAxis(self):
 		ret = self.db.db.idxfile.axis.strip().split()
-		ret = {it: I for I, it in enumerate(directions)} if ret else  {'X':0,'Y':1,'Z':2}
+		ret = {it: I for I, it in enumerate(ret)} if ret else  {'X':0,'Y':1,'Z':2}
 		return ret
 
 	# createBoxQuery
