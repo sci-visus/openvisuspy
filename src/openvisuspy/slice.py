@@ -17,9 +17,6 @@ import bokeh.models
 import bokeh.events
 import bokeh.plotting
 import bokeh.models.callbacks
-from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, ColorBar, LinearColorMapper
-from bokeh.transform import transform
 
 import param 
 
@@ -39,11 +36,35 @@ EPSILON = 0.001
 
 DEFAULT_SHOW_OPTIONS={
 	"top": [
-		["open_button","save_button","info_button","copy_url_button",  "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dependent", "num_refinements"],
-		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+		[
+			"open_button",
+			"save_button",
+			"info_button",
+			"copy_url_button",  
+			"logout_button", 
+			"scene", 
+			"timestep", 
+			"timestep_delta", 
+			"palette",  
+			"color_mapper_type", 
+			"resolution", 
+			"view_dependent",
+			"num_refinements"
+		],
+		[
+			"field",
+			"direction", 
+			"offset", 
+			"range_mode", 
+			"range_min",  
+			"range_max"
+			]
 	],
 	"bottom": [
-		["request","response"]
+		[
+			"request",
+			"response"
+		]
 	]
 }
 
@@ -195,8 +216,8 @@ class Canvas:
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.fig.xaxis.axis_label  = 'X'
-		self.fig.yaxis.axis_label  = 'Y'		
+		self.fig.xaxis.axis_label  = x
+		self.fig.yaxis.axis_label  = y
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
@@ -298,8 +319,8 @@ class Slice(param.Parameterized):
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# palette thingy
-	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="user", width=120)
-	range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=0)
+	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120)
+	range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=0  )
 	range_max              = pn.widgets.FloatInput         (name="Max", width=80,value=300)
 
 	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
@@ -325,7 +346,6 @@ class Slice(param.Parameterized):
 	copy_url_button_helper = pn.widgets.TextInput(visible=False)
 	file_name_input=  pn.widgets.TextInput(name="Numpy_File", placeholder='Numpy File Name')
 
-
 	# constructor
 	def __init__(self):
 
@@ -338,9 +358,6 @@ class Slice(param.Parameterized):
 		
 		self.db = None
 		self.access = None
-		self.detailed_data=None
-		self.selected_physic_box=None
-		self.selected_logic_box=None
 
 		# translate and scale for each dimension
 		self.logic_to_physic        = [(0.0, 1.0)] * 3
@@ -452,66 +469,61 @@ class Slice(param.Parameterized):
 
 	# showDetails
 	def showDetails(self,evt=None):
-		from matplotlib.figure import Figure
+
 		import openvisuspy as ovy
 		import panel as pn
 		import numpy as np
-		from matplotlib.colors import LinearSegmentedColormap
 
 		x,y,h,w=evt.new
 		logic_box=self.toLogic([x,y,w,h])
 		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
-		print('Selected logic box here...')
-		print(logic_box)
-		self.selected_logic_box=logic_box
-		self.selected_physic_box=[[x,x+w],[y,y+h]]
-		print('Physical box here')
-		print(f'{x} {y} {x+w} {y+h}')
-		self.detailed_data=data
-		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
-		save_numpy_button.on_click(self.save_data)
+		if not data:
+			ShowInfoNotification("No data to save.")
+			return
+
+		print('Selected logic box here...', logic_box)
+		selected_physic_box=[[x,x+w],[y,y+h]]
+		print(f'Physical box here x1={x} y1={y} x2={x+w} y2={y+h}')
+
+		file_name = f"{self.file_name_input.value}.npz"
+		print(file_name)
+
+		def onSaveClicked(__evt=None):
+			np.savez(file_name, data=data, lon_lat=selected_physic_box)
+			ShowInfoNotification('Data Saved successfully to current directory!')
+
+		save_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
+		save_button.on_click(self.onSaveClicked)
+
 		if self.range_mode.value=="dynamic-acc":
 			vmin,vmax=np.min(data),np.max(data)
 			self.range_min.value = min(self.range_min.value, vmin)
 			self.range_max.value = max(self.range_max.value, vmax)
 			logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
-		p = figure(x_range=(self.selected_physic_box[0][0], self.selected_physic_box[0][1]), y_range=(self.selected_physic_box[1][0], self.selected_physic_box[1][1]))
+		
+		p = bokeh.plotting.figure(x_range=(selected_physic_box[0][0], selected_physic_box[0][1]), y_range=(selected_physic_box[1][0], selected_physic_box[1][1]))
 		palette_name = self.palette.value_name 
-		mapper = LinearColorMapper(palette=palette_name, low=self.range_min.value, high=self.range_max.value)
+		mapper = bokeh.models.LinearColorMapper(palette=palette_name, low=self.range_min.value, high=self.range_max.value)
         
 		data_flipped = data # Flip data to match imshow orientation
-		source = ColumnDataSource(data=dict(image=[data_flipped]))
-		dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
-		dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
-		p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
-		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
+		source = bokeh.models.ColumnDataSource(data=dict(image=[data_flipped]))
+		dw = abs(selected_physic_box[0][1] -selected_physic_box[0][0])
+		dh = abs(selected_physic_box[1][1] - selected_physic_box[1][0])
+		p.image(image='image', x=selected_physic_box[0][0], y=selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
+		color_bar = bokeh.models.ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
 		p.add_layout(color_bar, 'right')
 		p.xaxis.axis_label = "X"
 		p.yaxis.axis_label = "Y"
 
-
-        # Display using Panel
 		self.showDialog(
             pn.Column(
                 self.file_name_input, 
-                save_numpy_button,
+                save_button,
                 pn.pane.Bokeh(p),
                 sizing_mode="stretch_both"
             ), 
-            width=1024, height=768, name="Details"
-        )
-
-  
-
-	def save_data(self, event):
-		if self.detailed_data is not None:
-			file_name = f"{self.file_name_input.value}.npz"
-			print(file_name)
-			np.savez(file_name, data=self.detailed_data, lon_lat=self.selected_physic_box)
-			ShowInfoNotification('Data Saved successfully to current directory!')
-			print("Data saved successfully.") 
-		else:
-			print("No data to save.")
+            width=1024, height=768, name="Details")
+					
 	# open
 	def showOpen(self):
 
@@ -890,7 +902,11 @@ class Slice(param.Parameterized):
 		assert(len(self.metadata_range))==2
 		self.color_map=None
 
-		self.range_mode.value=scene.get("range-mode","user")
+		self.range_mode.value=scene.get("range-mode","dynamic-acc")
+
+		if self.range_mode.value=="user":
+			self.range_min.value=scene.get("range-min",0.0)
+			self.range_max.value=scene.get("range-max",1.0)
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
