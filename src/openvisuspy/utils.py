@@ -445,18 +445,19 @@ def GetPalettes():
 		if value and len(value)>=256:
 			ret[name]=value
 
-	for name in sorted(colorcet.palette):
-		value=getattr(colorcet.palette,name,None)
-		if value and len(value)>=256:
-			# stupid criteria but otherwise I am getting too much palettes
-			if len(name)>12: continue
-			ret[name]=value
+	# for name in sorted(colorcet.palette):
+	# 	value=getattr(colorcet.palette,name,None)
+	# 	if value and len(value)>=256:
+	# 		# stupid criteria but otherwise I am getting too much palettes
+	# 		if len(name)>12: continue
+	# 		ret[name]=value
 
 	return ret
 
 # ////////////////////////////////////////////////////////
-def ShowInfoNotification(msg):
-	pn.state.notifications.info(msg)
+def ShowInfoNotification(msg):  
+    pn.state.notifications.clear()
+    pn.state.notifications.info(msg)
 
 # ////////////////////////////////////////////////////////
 def GetCurrentUrl():

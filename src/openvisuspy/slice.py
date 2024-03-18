@@ -17,6 +17,9 @@ import bokeh.models
 import bokeh.events
 import bokeh.plotting
 import bokeh.models.callbacks
+from bokeh.plotting import figure
+from bokeh.models import ColumnDataSource, ColorBar, LinearColorMapper
+from bokeh.transform import transform
 
 import param 
 
@@ -36,7 +39,7 @@ EPSILON = 0.001
 
 DEFAULT_SHOW_OPTIONS={
 	"top": [
-		["open_button","save_button","info_button","copy_url_button", "logout_button", "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dependent", "num_refinements"],
+		["open_button","save_button","info_button","copy_url_button",  "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dependent", "num_refinements"],
 		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 	],
 	"bottom": [
@@ -151,9 +154,8 @@ class Canvas:
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
-		self.fig.xaxis.axis_label  = "X"               if old is None else old.xaxis.axis_label
-		self.fig.yaxis.axis_label  = "Y"               if old is None else old.yaxis.axis_label
-
+		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
+		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
 		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
 
@@ -193,8 +195,8 @@ class Canvas:
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.fig.xaxis.axis_label  = x
-		self.fig.yaxis.axis_label  = y		
+		self.fig.xaxis.axis_label  = 'X'
+		self.fig.yaxis.axis_label  = 'Y'		
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
@@ -257,20 +259,21 @@ class Canvas:
 				self.last_renderer.get("dtype",None)==dtype,
 				self.last_renderer.get("color_bar",None)==color_bar
 			]):
-				self.last_renderer["source"].data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
+				self.last_renderer["source"].data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]}
 			else:
 				self.createFigure()
-				source = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
+				source = bokeh.models.ColumnDataSource(data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]})
 				if img.dtype==np.uint32:	
-					self.fig.image_rgba("image", source=source, x="x", y="y", dw="dw", dh="dh") 
+					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh") 
 				else:
-					self.fig.image("image", source=source, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+					self.fig.image("image", source=source, x="X", y="Y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 				self.fig.add_layout(color_bar, 'right')
 				self.last_renderer={
 					"source": source,
 					"dtype":img.dtype,
 					"color_bar":color_bar
 				}
+    
 
 
 # ////////////////////////////////////////////////////////////////////////////////////
@@ -295,9 +298,9 @@ class Slice(param.Parameterized):
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# palette thingy
-	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic-acc", width=120)
-	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
-	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
+	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="user", width=120)
+	range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=0)
+	range_max              = pn.widgets.FloatInput         (name="Max", width=80,value=300)
 
 	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
 	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=60)
@@ -320,6 +323,7 @@ class Slice(param.Parameterized):
 	# internal use only
 	save_button_helper = pn.widgets.TextInput(visible=False)
 	copy_url_button_helper = pn.widgets.TextInput(visible=False)
+	file_name_input=  pn.widgets.TextInput(name="Numpy_File", placeholder='Numpy File Name')
 
 
 	# constructor
@@ -334,6 +338,9 @@ class Slice(param.Parameterized):
 		
 		self.db = None
 		self.access = None
+		self.detailed_data=None
+		self.selected_physic_box=None
+		self.selected_logic_box=None
 
 		# translate and scale for each dimension
 		self.logic_to_physic        = [(0.0, 1.0)] * 3
@@ -449,28 +456,62 @@ class Slice(param.Parameterized):
 		import openvisuspy as ovy
 		import panel as pn
 		import numpy as np
+		from matplotlib.colors import LinearSegmentedColormap
+
 		x,y,h,w=evt.new
 		logic_box=self.toLogic([x,y,w,h])
-		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), logic_box=logic_box,num_refinements=1))[0]["data"]
-
+		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
+		print('Selected logic box here...')
+		print(logic_box)
+		self.selected_logic_box=logic_box
+		self.selected_physic_box=[[x,x+w],[y,y+h]]
+		print('Physical box here')
+		print(f'{x} {y} {x+w} {y+h}')
+		self.detailed_data=data
+		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
+		save_numpy_button.on_click(self.save_data)
 		if self.range_mode.value=="dynamic-acc":
 			vmin,vmax=np.min(data),np.max(data)
 			self.range_min.value = min(self.range_min.value, vmin)
 			self.range_max.value = max(self.range_max.value, vmax)
 			logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
+		p = figure(x_range=(self.selected_physic_box[0][0], self.selected_physic_box[0][1]), y_range=(self.selected_physic_box[1][0], self.selected_physic_box[1][1]))
+		palette_name = self.palette.value_name 
+		mapper = LinearColorMapper(palette=palette_name, low=self.range_min.value, high=self.range_max.value)
+        
+		data_flipped = data # Flip data to match imshow orientation
+		source = ColumnDataSource(data=dict(image=[data_flipped]))
+		dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
+		dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
+		p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
+		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
+		p.add_layout(color_bar, 'right')
+		p.xaxis.axis_label = "X"
+		p.yaxis.axis_label = "Y"
 
-		fig = Figure()
-		ax = fig.subplots()
-		im=ax.imshow(np.flip(data,axis=0),vmin=self.range_min.value, vmax=self.range_max.value)
-		fig.colorbar(im, ax=ax)
+
+        # Display using Panel
 		self.showDialog(
-			pn.Column(
-				pn.pane.Matplotlib(fig),
-				sizing_mode="stretch_both"
-			), 
-			width=1024, height=768, name="Details"
-		)
+            pn.Column(
+                self.file_name_input, 
+                save_numpy_button,
+                pn.pane.Bokeh(p),
+                sizing_mode="stretch_both"
+            ), 
+            width=1024, height=768, name="Details"
+        )
 
+  
+
+	def save_data(self, event):
+		if self.detailed_data is not None:
+			file_name = f"{self.file_name_input.value}.npz"
+			print(file_name)
+			np.savez(file_name, data=self.detailed_data, lon_lat=self.selected_physic_box)
+			ShowInfoNotification('Data Saved successfully to current directory!')
+			print("Data saved successfully.") 
+		else:
+			print("No data to save.")
 	# open
 	def showOpen(self):
 
@@ -849,11 +890,7 @@ class Slice(param.Parameterized):
 		assert(len(self.metadata_range))==2
 		self.color_map=None
 
-		self.range_mode.value=scene.get("range-mode","dynamic-acc")
-
-		if self.range_mode.value=="user":
-			self.range_min.value=scene.get("range-min",low)
-			self.range_max.value=scene.get("range-max",high)
+		self.range_mode.value=scene.get("range-mode","user")
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
