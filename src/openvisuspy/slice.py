@@ -451,16 +451,21 @@ class Slice(param.Parameterized):
 
 		x,y,h,w=evt.new
 		logic_box=self.toLogic([x,y,w,h])
+		self.logic_box=logic_box
 		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
 		print('Selected logic box here...')
-		print(logic_box)
-		self.selected_logic_box=logic_box
+		print(self.logic_box)
+		self.selected_logic_box=self.logic_box
 		self.selected_physic_box=[[x,x+w],[y,y+h]]
 		print('Physical box here')
 		print(f'{x} {y} {x+w} {y+h}')
 		self.detailed_data=data
 		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
+		download_script_button = pn.widgets.Button(name='Download Script', button_type='primary')
+
+	
 		save_numpy_button.on_click(self.save_data)
+		download_script_button.on_click(self.download_script)
 		if self.range_mode.value=="dynamic-acc":
 			vmin,vmax=np.min(data),np.max(data)
 			self.range_min.value = min(self.range_min.value, vmin)
@@ -485,14 +490,34 @@ class Slice(param.Parameterized):
 		self.showDialog(
             pn.Column(
                 self.file_name_input, 
-                save_numpy_button,
+                pn.Row(save_numpy_button,download_script_button),
                 pn.pane.Bokeh(p),
                 sizing_mode="stretch_both"
             ), 
             width=1024, height=768, name="Details"
         )
 
-  
+	def download_script(self,event):
+		url=self.data_url
+		rounded_logic_box = [
+    [int(self.logic_box[0][0]), int(self.logic_box[0][1]), self.logic_box[0][2]],  
+    [int(self.logic_box[1][0] ), int(self.logic_box[1][1] ), self.logic_box[1][2]] 
+]
+		python_file_content = f"""
+import OpenVisus
+import numpy as np
+
+data_url="{url}"
+db=OpenVisus.LoadDataset(data_url)
+data=db.read(time={self.timestep.value},logic_box={rounded_logic_box})
+np.savez('selected_data',data=data)
+"""
+		file_path = './download_script.py'
+
+		with open(file_path, 'w') as file:
+			file.write(python_file_content)
+		ShowInfoNotification('Script to download selected data saved!')
+		print("Script saved successfully.") 
 
 	def save_data(self, event):
 		if self.detailed_data is not None:
@@ -825,7 +850,7 @@ class Slice(param.Parameterized):
 
 		logger.info(f"id={self.id} LoadDataset url={url}...")
 		db=LoadDataset(url=url) 
-
+		self.data_url=url
 		# update the GUI too
 		self.db    =db
 		self.access=db.createAccess()
