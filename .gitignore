@@ -9,5 +9,7 @@ dist/
 build
 .workflow
 .vscode
+**/*.npz
+**/*.npy
 
 

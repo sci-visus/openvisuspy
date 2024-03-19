@@ -32,14 +32,19 @@ if __name__.startswith('bokeh'):
 	if "load" in query_params:
 		body=json.loads(base64.b64decode(query_params['load']).decode("utf-8"))
 		slice.setSceneBody(body)
+  
 	elif "dataset" in query_params:
 		scene_name=query_params["dataset"]
 		slice.scene.value=scene_name
 
 	if False:
 		app = ProbeTool(slice).getMainLayout()
-	else:
-		app = slice.getMainLayout()
+	else:			
 
+		app = slice.getMainLayout()
+		# template = pn.template.MaterialTemplate(title='NASA Petascale Data Exploration')
+		# template.main.append(app)
+# template.servable()
 	app.servable()
+
 

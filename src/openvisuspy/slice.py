@@ -40,7 +40,7 @@ EPSILON = 0.001
 
 DEFAULT_SHOW_OPTIONS={
 	"top": [
-		["open_button","save_button","info_button","copy_url_button",  "scene", "timestep", "timestep_delta", "palette",  "color_mapper_type", "resolution", "view_dependent", "num_refinements"],
+		[ "scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","num_refinements"],
 		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 	],
 	"bottom": [
@@ -186,8 +186,8 @@ class Canvas:
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.fig.xaxis.axis_label  = 'X'
-		self.fig.yaxis.axis_label  = 'Y'		
+		self.fig.xaxis.axis_label  = x
+		self.fig.yaxis.axis_label  = y		
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
@@ -250,14 +250,14 @@ class Canvas:
 				self.last_renderer.get("dtype",None)==dtype,
 				self.last_renderer.get("color_bar",None)==color_bar
 			]):
-				self.last_renderer["source"].data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]}
+				self.last_renderer["source"].data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
 			else:
 				self.createFigure()
-				source = bokeh.models.ColumnDataSource(data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]})
+				source = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
 				if img.dtype==np.uint32:	
-					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh") 
+					self.fig.image_rgba("image", source=source, x="x", y="y", dw="dw", dh="dh") 
 				else:
-					self.fig.image("image", source=source, x="X", y="Y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+					self.fig.image("image", source=source, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 				self.fig.add_layout(color_bar, 'right')
 				self.last_renderer={
 					"source": source,
@@ -277,28 +277,28 @@ class Slice(param.Parameterized):
 	scene_body             = pn.widgets.TextAreaInput(name='Current',sizing_mode="stretch_width",height=520,)
 
 	# core query
-	scene                  = pn.widgets.Select             (name="Scene", options=[], width=120)
+	scene                  = pn.widgets.Select             (name="Scene", options=[], width=120)	
 	timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
-	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 1, 32, 64, 128], value=1, width=50)
+	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
 	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
 	resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=20, end=99,  sizing_mode="stretch_width")
-	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
+	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=False,width=80)
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
 	offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# palette thingy
-	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="user", width=120)
-	range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=0)
-	range_max              = pn.widgets.FloatInput         (name="Max", width=80,value=300)
+	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic-acc"], value="dynamic-acc", width=120)
+	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
+	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
 
 	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
 	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=60)
 	
 	# play thingy
-	play_button            = pn.widgets.Button             (name="Play", width=8)
-	play_sec               = pn.widgets.Select             (name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
+	play_button            = pn.widgets.Button             (name="Play", width=10,sizing_mode='stretch_width')
+	play_sec               = pn.widgets.Select             (name="Frame delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01,width=120)
 
 	# bottom status bar
 	request                = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
@@ -405,7 +405,7 @@ class Slice(param.Parameterized):
 		self.color_mapper_type.param.watch(SafeCallback(onColorMapperTypeChange),"value", onlychanged=True,queued=True)
 		
 		self.resolution.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
-		self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
+		# self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
 		self.num_refinements.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
@@ -468,7 +468,7 @@ class Slice(param.Parameterized):
 			logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
 		p = figure(x_range=(self.selected_physic_box[0][0], self.selected_physic_box[0][1]), y_range=(self.selected_physic_box[1][0], self.selected_physic_box[1][1]))
 		palette_name = self.palette.value_name 
-		mapper = LinearColorMapper(palette=palette_name, low=self.range_min.value, high=self.range_max.value)
+		mapper = LinearColorMapper(palette=palette_name, low=np.min(self.detailed_data), high=np.max(self.detailed_data))
         
 		data_flipped = data # Flip data to match imshow orientation
 		source = ColumnDataSource(data=dict(image=[data_flipped]))
@@ -857,7 +857,7 @@ class Slice(param.Parameterized):
 
 		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
 		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
-		self.view_dependent.value = bool(scene.get('view-dependent', True))
+		self.view_dependent.value = bool(scene.get('view-dependent', False))
 
 		resolution=int(scene.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
@@ -873,7 +873,7 @@ class Slice(param.Parameterized):
 		self.offset.start=offset_range[0]
 		self.offset.end  =offset_range[1]
 		self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
-		self.offset.value=self.offset.value=float(scene.get("offset",default_offset_value))
+		self.offset.value=float(scene.get("offset",default_offset_value))
 		self.setQueryLogicBox(([0]*self.getPointDim(),[int(it) for it in self.db.getLogicSize()]))
 
 		self.play_sec.value=float(scene.get("play-sec",0.01))
@@ -884,7 +884,7 @@ class Slice(param.Parameterized):
 		assert(len(self.metadata_range))==2
 		self.color_map=None
 
-		self.range_mode.value=scene.get("range-mode","user")
+		self.range_mode.value=scene.get("range-mode","dynamic-acc")
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
@@ -1063,13 +1063,14 @@ class Slice(param.Parameterized):
 	def startPlay(self):
 		logger.info(f"id={self.id}::startPlay")
 		self.play.is_playing = True
+		self.play_button.label = "Stop"
 		self.play.t1 = time.time()
 		self.play.wait_render_id = None
 		self.play.num_refinements = self.num_refinements.value
 		self.num_refinements.value = 1
 		self.setWidgetsDisabled(True)
 		self.play_button.disabled = False
-		self.play_button.label = "Stop"
+		
 
 	# stopPlay
 	def stopPlay(self):
