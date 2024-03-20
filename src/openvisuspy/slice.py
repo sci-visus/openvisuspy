@@ -310,7 +310,8 @@ class Slice(param.Parameterized):
 	save_button            = pn.widgets.Button   (icon="file-download",width=20)
 	copy_url_button        = pn.widgets.Button   (icon="copy",width=20)
 	logout_button          = pn.widgets.Button   (icon="logout",width=20)
-
+	vmin=None
+	vmax=None
 	# internal use only
 	save_button_helper = pn.widgets.TextInput(visible=False)
 	copy_url_button_helper = pn.widgets.TextInput(visible=False)
@@ -443,11 +444,9 @@ class Slice(param.Parameterized):
 
 	# showDetails
 	def showDetails(self,evt=None):
-		from matplotlib.figure import Figure
 		import openvisuspy as ovy
 		import panel as pn
 		import numpy as np
-		from matplotlib.colors import LinearSegmentedColormap
 
 		x,y,h,w=evt.new
 		logic_box=self.toLogic([x,y,w,h])
@@ -462,15 +461,22 @@ class Slice(param.Parameterized):
 		self.detailed_data=data
 		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
 		download_script_button = pn.widgets.Button(name='Download Script', button_type='primary')
-
+		apply_colormap_button = pn.widgets.Button(name='Click here to Apply this colormap to main dashboard', button_type='primary')
+    
+		apply_min_colormap_button = pn.widgets.Button(name=' Apply Min Range', button_type='primary')
+		apply_max_colormap_button = pn.widgets.Button(name='Apply Max Range', button_type='primary')
 	
 		save_numpy_button.on_click(self.save_data)
 		download_script_button.on_click(self.download_script)
+		apply_colormap_button.on_click(self.apply_cmap)
+		apply_max_colormap_button.on_click(self.apply_max_cmap)
+		apply_min_colormap_button .on_click(self.apply_min_cmap)
+		self.vmin,self.vmax=np.min(data),np.max(data)
 		if self.range_mode.value=="dynamic-acc":
-			vmin,vmax=np.min(data),np.max(data)
-			self.range_min.value = min(self.range_min.value, vmin)
-			self.range_max.value = max(self.range_max.value, vmax)
-			logger.info(f"Updating range with selected area vmin={vmin} vmax={vmax}")
+			self.vmin,self.vmax=np.min(data),np.max(data)
+			self.range_min.value = min(self.range_min.value, self.vmin)
+			self.range_max.value = max(self.range_max.value, self.vmax)
+			logger.info(f"Updating range with selected area vmin={self.vmin} vmax={self.vmax}")
 		p = figure(x_range=(self.selected_physic_box[0][0], self.selected_physic_box[0][1]), y_range=(self.selected_physic_box[1][0], self.selected_physic_box[1][1]))
 		palette_name = self.palette.value_name 
 		mapper = LinearColorMapper(palette=palette_name, low=np.min(self.detailed_data), high=np.max(self.detailed_data))
@@ -491,12 +497,32 @@ class Slice(param.Parameterized):
             pn.Column(
                 self.file_name_input, 
                 pn.Row(save_numpy_button,download_script_button),
-                pn.pane.Bokeh(p),
+                pn.Row(pn.pane.Bokeh(p),pn.Column(pn.Row(apply_min_colormap_button ,apply_max_colormap_button ),apply_colormap_button)),
                 sizing_mode="stretch_both"
             ), 
             width=1024, height=768, name="Details"
         )
+	def apply_min_cmap(self,event):
+		self.range_min.value=self.vmin
+		self.range_mode.value="user"
+		print('new min range applied')
+		ShowInfoNotification('New min range applied successfully')
 
+	def apply_max_cmap(self,event):
+		self.range_max.value=self.vmax
+		self.range_mode.value="user"
+		print('new min range applied')
+		ShowInfoNotification('New max range applied successfully')
+  
+	def apply_cmap(self,event):
+		self.range_min.value=self.vmin
+		self.range_max.value=self.vmax
+		self.range_mode.value="user"
+		print('new range applied')
+		ShowInfoNotification('New Colormap Range applied successfully')
+		self.refresh()
+
+     
 	def download_script(self,event):
 		url=self.data_url
 		rounded_logic_box = [
@@ -512,7 +538,7 @@ db=OpenVisus.LoadDataset(data_url)
 data=db.read(time={self.timestep.value},logic_box={rounded_logic_box})
 np.savez('selected_data',data=data)
 """
-		file_path = './download_script.py'
+		file_path = f'./download_script_{rounded_logic_box[0][0]}_{rounded_logic_box[0][1]}.py'
 
 		with open(file_path, 'w') as file:
 			file.write(python_file_content)
