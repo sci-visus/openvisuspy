@@ -446,6 +446,7 @@ class Slice(param.Parameterized):
 	def showDetails(self,evt=None):
 		import openvisuspy as ovy
 		import panel as pn
+		import colorcet
 		import numpy as np
 
 		x,y,h,w=evt.new
@@ -461,16 +462,19 @@ class Slice(param.Parameterized):
 		self.detailed_data=data
 		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
 		download_script_button = pn.widgets.Button(name='Download Script', button_type='primary')
-		apply_colormap_button = pn.widgets.Button(name='Click here to Apply this colormap to main dashboard', button_type='primary')
+		apply_colormap_button = pn.widgets.Button(name='Click here to Replace All Range', button_type='primary')
     
-		apply_min_colormap_button = pn.widgets.Button(name=' Apply Min Range', button_type='primary')
-		apply_max_colormap_button = pn.widgets.Button(name='Apply Max Range', button_type='primary')
-	
+		apply_min_colormap_button = pn.widgets.Button(name='Replace Min Range', button_type='primary')
+		apply_max_colormap_button = pn.widgets.Button(name='Replace Max Range', button_type='primary')
+		apply_avg_min_colormap_button = pn.widgets.Button(name='Apply Average Min', button_type='primary')
+		apply_avg_max_colormap_button = pn.widgets.Button(name='Apply Average Max', button_type='primary')
 		save_numpy_button.on_click(self.save_data)
 		download_script_button.on_click(self.download_script)
 		apply_colormap_button.on_click(self.apply_cmap)
 		apply_max_colormap_button.on_click(self.apply_max_cmap)
 		apply_min_colormap_button .on_click(self.apply_min_cmap)
+		apply_avg_max_colormap_button.on_click(self.apply_avg_max_cmap)
+		apply_avg_min_colormap_button .on_click(self.apply_avg_min_cmap)
 		self.vmin,self.vmax=np.min(data),np.max(data)
 		if self.range_mode.value=="dynamic-acc":
 			self.vmin,self.vmax=np.min(data),np.max(data)
@@ -478,7 +482,8 @@ class Slice(param.Parameterized):
 			self.range_max.value = max(self.range_max.value, self.vmax)
 			logger.info(f"Updating range with selected area vmin={self.vmin} vmax={self.vmax}")
 		p = figure(x_range=(self.selected_physic_box[0][0], self.selected_physic_box[0][1]), y_range=(self.selected_physic_box[1][0], self.selected_physic_box[1][1]))
-		palette_name = self.palette.value_name 
+		palette_name = self.palette.value_name if self.palette.value_name.endswith("256") else "Turbo256"
+
 		mapper = LinearColorMapper(palette=palette_name, low=np.min(self.detailed_data), high=np.max(self.detailed_data))
         
 		data_flipped = data # Flip data to match imshow orientation
@@ -497,7 +502,13 @@ class Slice(param.Parameterized):
             pn.Column(
                 self.file_name_input, 
                 pn.Row(save_numpy_button,download_script_button),
-                pn.Row(pn.pane.Bokeh(p),pn.Column(pn.Row(apply_min_colormap_button ,apply_max_colormap_button ),apply_colormap_button)),
+                pn.Row(pn.pane.Bokeh(p),pn.Column(
+                    pn.pane.Markdown(f"#### Palette Used: {palette_name}"),
+                    pn.pane.Markdown(f"#### New Min/Max Found.."),
+                    pn.pane.Markdown(f"#### Min: {self.vmin}, Max: {self.vmax}"),
+                    pn.Row(apply_min_colormap_button ,apply_max_colormap_button ),
+                    pn.Row(apply_avg_min_colormap_button,apply_avg_max_colormap_button),
+                    apply_colormap_button)),
                 sizing_mode="stretch_both"
             ), 
             width=1024, height=768, name="Details"
@@ -513,6 +524,20 @@ class Slice(param.Parameterized):
 		self.range_mode.value="user"
 		print('new min range applied')
 		ShowInfoNotification('New max range applied successfully')
+  
+	def apply_avg_min_cmap(self,event):
+		new_avg_min=(self.range_min.value+self.vmin)/2
+		self.range_min.value=round(new_avg_min, 4)
+		self.range_mode.value="user"
+		print('new min range applied')
+		ShowInfoNotification('Average Min range applied successfully')
+
+	def apply_avg_max_cmap(self,event):
+		new_avg_max=(self.range_max.value+self.vmax)/2
+		self.range_max.value=round(new_avg_max, 4)
+		self.range_mode.value="user"
+		print('new average max range applied')
+		ShowInfoNotification('Average Max range applied successfully')
   
 	def apply_cmap(self,event):
 		self.range_min.value=self.vmin
