@@ -99,7 +99,7 @@ class Canvas:
 
 		# I need to fix the aspect ratio 
 		if self.pdim==2 and [self.last_W,self.last_H]!=[W,H]:
-			x+=0.5*w # changing x+=0.5*w to x only, same for y+=0.5*h
+			x+=0.5*w
 			y+=0.5*h
 			if (w/W) > (h/H): 
 				h=w*(H/W) 
@@ -133,9 +133,8 @@ class Canvas:
 		self.wheel_zoom_tool        = bokeh.models.WheelZoomTool()
 		self.box_select_tool        = bokeh.models.BoxSelectTool()
 		self.box_select_tool_helper = bokeh.models.TextInput()
-		self.reset_fig= bokeh.models.ResetTool()
 
-		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool]) 
+		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.box_select_tool]) 
 		self.fig.toolbar_location="right" 
 		self.fig.toolbar.active_scroll = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
@@ -146,8 +145,8 @@ class Canvas:
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
-		self.fig.yaxis.axis_label  = "Latitude"               if old is None else old.xaxis.axis_label
-		self.fig.xaxis.axis_label  = "Longitude"               if old is None else old.yaxis.axis_label
+		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
+		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
 		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
 
@@ -187,8 +186,8 @@ class Canvas:
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.fig.xaxis.axis_label  = 'Longitude'
-		self.fig.yaxis.axis_label  = 'Latitude'	
+		self.fig.xaxis.axis_label  = x
+		self.fig.yaxis.axis_label  = y		
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
@@ -251,14 +250,14 @@ class Canvas:
 				self.last_renderer.get("dtype",None)==dtype,
 				self.last_renderer.get("color_bar",None)==color_bar
 			]):
-				self.last_renderer["source"].data={"image":[img], "Longitude":[x], "Latitude":[y], "dw":[w], "dh":[h]}
+				self.last_renderer["source"].data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
 			else:
 				self.createFigure()
-				source = bokeh.models.ColumnDataSource(data={"image":[img], "Longitude":[x], "Latitude":[y], "dw":[w], "dh":[h]})
+				source = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
 				if img.dtype==np.uint32:	
-					self.fig.image_rgba("image", source=source, x="Longitude", y="Latitude", dw="dw", dh="dh") 
+					self.fig.image_rgba("image", source=source, x="x", y="y", dw="dw", dh="dh") 
 				else:
-					self.fig.image("image", source=source, x="Longitude", y="Latitude", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+					self.fig.image("image", source=source, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 				self.fig.add_layout(color_bar, 'right')
 				self.last_renderer={
 					"source": source,
@@ -282,7 +281,7 @@ class Slice(param.Parameterized):
 	timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
 	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
 	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
-	resolution             = pn.widgets.IntSlider          (name='Resolution', value=21, start=20, end=99,  sizing_mode="stretch_width")
+	resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=20, end=99,  sizing_mode="stretch_width")
 	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=False,width=80)
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
@@ -290,7 +289,7 @@ class Slice(param.Parameterized):
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# palette thingy
-	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic","dynamic-acc"], value="dynamic-acc", width=120)
+	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic-acc"], value="dynamic-acc", width=120)
 	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
 	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
 
@@ -316,7 +315,7 @@ class Slice(param.Parameterized):
 	# internal use only
 	save_button_helper = pn.widgets.TextInput(visible=False)
 	copy_url_button_helper = pn.widgets.TextInput(visible=False)
-	file_name_input=  pn.widgets.TextInput(name="Numpy_File", value='test',placeholder='Numpy File Name to save')
+	file_name_input=  pn.widgets.TextInput(name="Numpy_File", placeholder='Numpy File Name')
 
 
 	# constructor
@@ -407,7 +406,7 @@ class Slice(param.Parameterized):
 		self.color_mapper_type.param.watch(SafeCallback(onColorMapperTypeChange),"value", onlychanged=True,queued=True)
 		
 		self.resolution.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
-		self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
+		# self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
 		self.num_refinements.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
@@ -442,64 +441,43 @@ class Slice(param.Parameterized):
 
 		self.start()
 
+
 	# showDetails
 	def showDetails(self,evt=None):
 		import openvisuspy as ovy
 		import panel as pn
+		import colorcet
 		import numpy as np
-		import sys
-		from pympler import asizeof
 
-
-		x,y,w,h=evt.new
-		z=int(self.offset.value)
+		x,y,h,w=evt.new
 		logic_box=self.toLogic([x,y,w,h])
 		self.logic_box=logic_box
-		new_res=self.db.getMaxResolution()-6
-  
-		selected_size_in_mb = 0
-		max_attempts = 6 
-
-		for _ in range(max_attempts):
-			self.region_data = list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), endh=new_res, timestep=self.timestep.value, field=self.field.value, logic_box=logic_box, num_refinements=1))[0]["data"]			
-			size_in_bytes = asizeof.asizeof(self.region_data)
-			selected_size_in_mb = size_in_bytes / (1024**2)
-			
-			if selected_size_in_mb < 10 :
-				new_res += 1
-			else:
-				break  
-
-		print(f'Data Size: {selected_size_in_mb} ')
-		print(f'Resolution Selected: {new_res}')
+		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
 		print('Selected logic box here...')
 		print(self.logic_box)
 		self.selected_logic_box=self.logic_box
 		self.selected_physic_box=[[x,x+w],[y,y+h]]
 		print('Physical box here')
-		print(f'{x} {y} {x+w} {y+h} ')
-		self.detailed_data=self.region_data
+		print(f'{x} {y} {x+w} {y+h}')
+		self.detailed_data=data
 		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
 		download_script_button = pn.widgets.Button(name='Download Script', button_type='primary')
-		apply_colormap_button = pn.widgets.Button(name='Replace Existing Range', button_type='primary')
+		apply_colormap_button = pn.widgets.Button(name='Click here to Replace All Range', button_type='primary')
     
 		apply_min_colormap_button = pn.widgets.Button(name='Replace Min Range', button_type='primary')
 		apply_max_colormap_button = pn.widgets.Button(name='Replace Max Range', button_type='primary')
 		apply_avg_min_colormap_button = pn.widgets.Button(name='Apply Average Min', button_type='primary')
 		apply_avg_max_colormap_button = pn.widgets.Button(name='Apply Average Max', button_type='primary')
-		add_range_button=pn.widgets.Button(name='Add This Range',button_type='primary')
-		
 		save_numpy_button.on_click(self.save_data)
-		add_range_button.on_click(self.add_range)
 		download_script_button.on_click(self.download_script)
 		apply_colormap_button.on_click(self.apply_cmap)
 		apply_max_colormap_button.on_click(self.apply_max_cmap)
 		apply_min_colormap_button .on_click(self.apply_min_cmap)
 		apply_avg_max_colormap_button.on_click(self.apply_avg_max_cmap)
 		apply_avg_min_colormap_button .on_click(self.apply_avg_min_cmap)
-		self.vmin,self.vmax=np.min(self.region_data),np.max(self.region_data)
+		self.vmin,self.vmax=np.min(data),np.max(data)
 		if self.range_mode.value=="dynamic-acc":
-			self.vmin,self.vmax=np.min(self.region_data),np.max(self.region_data)
+			self.vmin,self.vmax=np.min(data),np.max(data)
 			self.range_min.value = min(self.range_min.value, self.vmin)
 			self.range_max.value = max(self.range_max.value, self.vmax)
 			logger.info(f"Updating range with selected area vmin={self.vmin} vmax={self.vmax}")
@@ -508,16 +486,16 @@ class Slice(param.Parameterized):
 
 		mapper = LinearColorMapper(palette=palette_name, low=np.min(self.detailed_data), high=np.max(self.detailed_data))
         
-		data_flipped = self.region_data 
-		print(f'Data Shape:::: {data_flipped.shape}')		
+		data_flipped = data # Flip data to match imshow orientation
 		source = ColumnDataSource(data=dict(image=[data_flipped]))
 		dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
 		dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
 		p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
 		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
 		p.add_layout(color_bar, 'right')
-		p.xaxis.axis_label = "Longitude"
-		p.yaxis.axis_label = "Latitude"
+		p.xaxis.axis_label = "X"
+		p.yaxis.axis_label = "Y"
+
 
         # Display using Panel
 		self.showDialog(
@@ -525,32 +503,22 @@ class Slice(param.Parameterized):
                 self.file_name_input, 
                 pn.Row(save_numpy_button,download_script_button),
                 pn.Row(pn.pane.Bokeh(p),pn.Column(
-                    pn.pane.Markdown(f"#### Expected Data Size: {round(selected_size_in_mb,4)} MB"),
                     pn.pane.Markdown(f"#### Palette Used: {palette_name}"),
                     pn.pane.Markdown(f"#### New Min/Max Found.."),
                     pn.pane.Markdown(f"#### Min: {self.vmin}, Max: {self.vmax}"),
+                    pn.Row(apply_min_colormap_button ,apply_max_colormap_button ),
                     pn.Row(apply_avg_min_colormap_button,apply_avg_max_colormap_button),
-                    add_range_button,
                     apply_colormap_button)),
-                
                 sizing_mode="stretch_both"
             ), 
-            width=1048, height=900, name="Details"
+            width=1024, height=768, name="Details"
         )
-
 	def apply_min_cmap(self,event):
 		self.range_min.value=self.vmin
 		self.range_mode.value="user"
 		print('new min range applied')
 		ShowInfoNotification('New min range applied successfully')
-	def add_range(self,event):
-		if self.range_max.value<self.vmax:
-			self.range_max.value=self.vmax
-		if self.range_min.value>self.vmin:
-			self.range_min.value=self.vmin
-		print('Range added successfully')
-		ShowInfoNotification('Range Added successfully')
-     
+
 	def apply_max_cmap(self,event):
 		self.range_max.value=self.vmax
 		self.range_mode.value="user"
@@ -604,10 +572,8 @@ np.savez('selected_data',data=data)
 
 	def save_data(self, event):
 		if self.detailed_data is not None:
-			if self.file_name_input.value:
-				file_name = f"{self.file_name_input.value}.npz"
-			else:
-				file_name = "test_region.npz"			
+			file_name = f"{self.file_name_input.value}.npz"
+			print(file_name)
 			np.savez(file_name, data=self.detailed_data, lon_lat=self.selected_physic_box)
 			ShowInfoNotification('Data Saved successfully to current directory!')
 			print("Data saved successfully.") 
@@ -969,13 +935,13 @@ np.savez('selected_data',data=data)
 		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.view_dependent.value = bool(scene.get('view-dependent', False))
 
-		resolution=int(scene.get("resolution", -10))
+		resolution=int(scene.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
 
 		self.field.value=scene.get("field", self.db.getField().name)
-		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 1))
+		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 2))
 
 		self.direction.value = int(scene.get("direction", 2))
 
@@ -1173,7 +1139,7 @@ np.savez('selected_data',data=data)
 	def startPlay(self):
 		logger.info(f"id={self.id}::startPlay")
 		self.play.is_playing = True
-		self.play_button.name = "Stop"
+		self.play_button.label = "Stop"
 		self.play.t1 = time.time()
 		self.play.wait_render_id = None
 		self.play.num_refinements = self.num_refinements.value
@@ -1190,7 +1156,7 @@ np.savez('selected_data',data=data)
 		self.num_refinements.value = self.play.num_refinements
 		self.setWidgetsDisabled(False)
 		self.play_button.disabled = False
-		self.play_button.name = "Play"
+		self.play_button.label = "Play"
 
 	# playNextIfNeeded
 	def playNextIfNeeded(self):
@@ -1330,8 +1296,8 @@ np.savez('selected_data',data=data)
 
 			# in dynamic mode, I need to use the data range
 			if mode=="dynamic":
-				self.range_min.value = round(data_range[0],6) # I am trying to avoid too many refreshes
-				self.range_max.value = round(data_range[1],6)
+				self.range_min.value = data_range[0]
+				self.range_max.value = data_range[1]
 				
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
