@@ -477,6 +477,9 @@ class Slice(param.Parameterized):
 		apply_avg_max_colormap_button.on_click(self.apply_avg_max_cmap)
 		apply_avg_min_colormap_button .on_click(self.apply_avg_min_cmap)
 		self.vmin,self.vmax=np.min(data),np.max(data)
+		add_range_button=pn.widgets.Button(name='Add This Range',button_type='primary')
+		add_range_button.on_click(self.add_range)
+
 		if self.range_mode.value=="dynamic-acc":
 			self.vmin,self.vmax=np.min(data),np.max(data)
 			self.range_min.value = min(self.range_min.value, self.vmin)
