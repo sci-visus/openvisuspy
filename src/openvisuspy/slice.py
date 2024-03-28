@@ -99,7 +99,7 @@ class Canvas:
 
 		# I need to fix the aspect ratio 
 		if self.pdim==2 and [self.last_W,self.last_H]!=[W,H]:
-			x+=0.5*w
+			x+=0.5*w # changing x+=0.5*w to x only, same for y+=0.5*h
 			y+=0.5*h
 			if (w/W) > (h/H): 
 				h=w*(H/W) 
@@ -133,8 +133,9 @@ class Canvas:
 		self.wheel_zoom_tool        = bokeh.models.WheelZoomTool()
 		self.box_select_tool        = bokeh.models.BoxSelectTool()
 		self.box_select_tool_helper = bokeh.models.TextInput()
+		self.reset_fig= bokeh.models.ResetTool()
 
-		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.box_select_tool]) 
+		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool]) 
 		self.fig.toolbar_location="right" 
 		self.fig.toolbar.active_scroll = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
@@ -281,7 +282,7 @@ class Slice(param.Parameterized):
 	timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
 	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
 	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
-	resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=20, end=99,  sizing_mode="stretch_width")
+	resolution             = pn.widgets.IntSlider          (name='Resolution', value=21, start=20, end=99,  sizing_mode="stretch_width")
 	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=False,width=80)
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
@@ -289,7 +290,7 @@ class Slice(param.Parameterized):
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# palette thingy
-	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic-acc"], value="dynamic-acc", width=120)
+	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic","dynamic-acc"], value="dynamic-acc", width=120)
 	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
 	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
 
@@ -315,7 +316,7 @@ class Slice(param.Parameterized):
 	# internal use only
 	save_button_helper = pn.widgets.TextInput(visible=False)
 	copy_url_button_helper = pn.widgets.TextInput(visible=False)
-	file_name_input=  pn.widgets.TextInput(name="Numpy_File", placeholder='Numpy File Name')
+	file_name_input=  pn.widgets.TextInput(name="Numpy_File", value='test',placeholder='Numpy File Name to save')
 
 
 	# constructor
@@ -441,15 +442,15 @@ class Slice(param.Parameterized):
 
 		self.start()
 
-
 	# showDetails
 	def showDetails(self,evt=None):
 		import openvisuspy as ovy
 		import panel as pn
-		import colorcet
 		import numpy as np
 
-		x,y,h,w=evt.new
+
+		x,y,w,h=evt.new
+		z=int(self.offset.value)
 		logic_box=self.toLogic([x,y,w,h])
 		self.logic_box=logic_box
 		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
@@ -462,7 +463,7 @@ class Slice(param.Parameterized):
 		self.detailed_data=data
 		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
 		download_script_button = pn.widgets.Button(name='Download Script', button_type='primary')
-		apply_colormap_button = pn.widgets.Button(name='Click here to Replace All Range', button_type='primary')
+		apply_colormap_button = pn.widgets.Button(name='Replace Existing Range', button_type='primary')
     
 		apply_min_colormap_button = pn.widgets.Button(name='Replace Min Range', button_type='primary')
 		apply_max_colormap_button = pn.widgets.Button(name='Replace Max Range', button_type='primary')
@@ -506,19 +507,28 @@ class Slice(param.Parameterized):
                     pn.pane.Markdown(f"#### Palette Used: {palette_name}"),
                     pn.pane.Markdown(f"#### New Min/Max Found.."),
                     pn.pane.Markdown(f"#### Min: {self.vmin}, Max: {self.vmax}"),
-                    pn.Row(apply_min_colormap_button ,apply_max_colormap_button ),
                     pn.Row(apply_avg_min_colormap_button,apply_avg_max_colormap_button),
+                    add_range_button,
                     apply_colormap_button)),
+                
                 sizing_mode="stretch_both"
             ), 
-            width=1024, height=768, name="Details"
+            width=1048, height=748, name="Details"
         )
+
 	def apply_min_cmap(self,event):
 		self.range_min.value=self.vmin
 		self.range_mode.value="user"
 		print('new min range applied')
 		ShowInfoNotification('New min range applied successfully')
-
+	def add_range(self,event):
+		if self.range_max.value<self.vmax:
+			self.range_max.value=self.vmax
+		if self.range_min.value>self.vmin:
+			self.range_min.value=self.vmin
+		print('Range added successfully')
+		ShowInfoNotification('Range Added successfully')
+     
 	def apply_max_cmap(self,event):
 		self.range_max.value=self.vmax
 		self.range_mode.value="user"
@@ -572,8 +582,10 @@ np.savez('selected_data',data=data)
 
 	def save_data(self, event):
 		if self.detailed_data is not None:
-			file_name = f"{self.file_name_input.value}.npz"
-			print(file_name)
+			if self.file_name_input.value:
+				file_name = f"{self.file_name_input.value}.npz"
+			else:
+				file_name = "test_region.npz"			
 			np.savez(file_name, data=self.detailed_data, lon_lat=self.selected_physic_box)
 			ShowInfoNotification('Data Saved successfully to current directory!')
 			print("Data saved successfully.") 
@@ -935,7 +947,7 @@ np.savez('selected_data',data=data)
 		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.view_dependent.value = bool(scene.get('view-dependent', False))
 
-		resolution=int(scene.get("resolution", -6))
+		resolution=int(scene.get("resolution", -10))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
@@ -1139,7 +1151,7 @@ np.savez('selected_data',data=data)
 	def startPlay(self):
 		logger.info(f"id={self.id}::startPlay")
 		self.play.is_playing = True
-		self.play_button.label = "Stop"
+		self.play_button.name = "Stop"
 		self.play.t1 = time.time()
 		self.play.wait_render_id = None
 		self.play.num_refinements = self.num_refinements.value
@@ -1156,7 +1168,7 @@ np.savez('selected_data',data=data)
 		self.num_refinements.value = self.play.num_refinements
 		self.setWidgetsDisabled(False)
 		self.play_button.disabled = False
-		self.play_button.label = "Play"
+		self.play_button.name = "Play"
 
 	# playNextIfNeeded
 	def playNextIfNeeded(self):
@@ -1296,8 +1308,8 @@ np.savez('selected_data',data=data)
 
 			# in dynamic mode, I need to use the data range
 			if mode=="dynamic":
-				self.range_min.value = data_range[0]
-				self.range_max.value = data_range[1]
+				self.range_min.value = round(data_range[0],6) # I am trying to avoid too many refreshes
+				self.range_max.value = round(data_range[1],6)
 				
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
