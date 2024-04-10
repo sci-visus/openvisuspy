@@ -974,8 +974,9 @@ np.savez('selected_data',data=data)
 		self.metadata_range = list(scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To]))
 		assert(len(self.metadata_range))==2
 		self.color_map=None
-
+		self.range_mode.value="dynamic"
 		self.range_mode.value=scene.get("range-mode","dynamic-acc")
+		
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
