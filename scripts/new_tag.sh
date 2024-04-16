@@ -11,5 +11,5 @@ git push origin $TAG
 git push origin
 
 rm -f dist/*  
-python -m build .
-python -m twine upload --username "${PYPI_USERNAME}"  --password "${PYPI_PASSWORD}" --skip-existing "dist/*.whl" --verbose 
+python3 -m build .
+python3 -m twine upload --username "${PYPI_USERNAME}"  --password "${PYPI_PASSWORD}" --skip-existing "dist/*.whl" --verbose 
