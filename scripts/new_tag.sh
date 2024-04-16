@@ -12,4 +12,6 @@ git push origin
 
 rm -f dist/*  
 python3 -m build .
-python3 -m twine upload --username "${PYPI_USERNAME}"  --password "${PYPI_PASSWORD}" --skip-existing "dist/*.whl" --verbose 
+
+# this does not work in WSL2, use windows to just to the upload
+python3 -m twine upload --username "${PYPI_USERNAME}"  --password "${PYPI_PASSWORD}" --non-interactive --verbose  --skip-existing --verbose "dist/*.whl" 
