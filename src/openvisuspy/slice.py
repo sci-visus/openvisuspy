@@ -40,7 +40,7 @@ EPSILON = 0.001
 
 DEFAULT_SHOW_OPTIONS={
 	"top": [
-		[ "scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","num_refinements"],
+		[ "scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements"],
 		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 	],
 	"bottom": [
