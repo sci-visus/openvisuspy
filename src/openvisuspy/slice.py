@@ -956,7 +956,7 @@ np.savez('selected_data',data=data)
 		self.resolution.value = resolution
 
 		self.field.value=scene.get("field", self.db.getField().name)
-		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 2))
+		self.num_refinements.value=int(scene.get("num-refinements", 1))
 
 		self.direction.value = int(scene.get("direction", 2))
 
