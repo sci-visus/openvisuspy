@@ -946,7 +946,7 @@ np.savez('selected_data',data=data)
 			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
 		self.direction.options=directions
 
-		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
+		self.timestep_delta.value=int(scene.get("timestep-delta", 64))
 		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.view_dependent.value = bool(scene.get('view-dependent', True))
 
