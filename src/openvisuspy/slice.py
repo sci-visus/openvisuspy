@@ -283,7 +283,7 @@ class Slice(param.Parameterized):
 	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
 	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
 	resolution             = pn.widgets.IntSlider          (name='Resolution', value=28, start=20, end=99,  sizing_mode="stretch_width")
-	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=False,width=80)
+	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
 	offset                 = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
@@ -946,7 +946,7 @@ np.savez('selected_data',data=data)
 			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
 		self.direction.options=directions
 
-		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
+		self.timestep_delta.value=int(scene.get("timestep-delta", 64))
 		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.view_dependent.value = bool(scene.get('view-dependent', False))
 
@@ -964,7 +964,7 @@ np.savez('selected_data',data=data)
 		self.offset.start=offset_range[0]
 		self.offset.end  =offset_range[1]
 		self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
-		self.offset.value=float(scene.get("offset",default_offset_value))
+		self.offset.value=float(scene.get("offset",1))
 		self.setQueryLogicBox(([0]*self.getPointDim(),[int(it) for it in self.db.getLogicSize()]))
 
 		self.play_sec.value=float(scene.get("play-sec",0.01))
@@ -975,7 +975,7 @@ np.savez('selected_data',data=data)
 		assert(len(self.metadata_range))==2
 		self.color_map=None
 		self.range_mode.value="dynamic"
-		self.range_mode.value=scene.get("range-mode","dynamic-acc")
+		self.range_mode.value=scene.get("range-mode","user")
 		
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
