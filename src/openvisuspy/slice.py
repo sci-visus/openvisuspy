@@ -282,17 +282,17 @@ class Slice(param.Parameterized):
 	timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
 	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
 	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
-	resolution             = pn.widgets.IntSlider          (name='Resolution', value=21, start=20, end=99,  sizing_mode="stretch_width")
+	resolution             = pn.widgets.IntSlider          (name='Resolution', value=28, start=20, end=99,  sizing_mode="stretch_width")
 	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=False,width=80)
 	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
 	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
-	offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
+	offset                 = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
 	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 
 	# palette thingy
-	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic","dynamic-acc"], value="dynamic-acc", width=120)
-	range_min              = pn.widgets.FloatInput         (name="Min", width=80)
-	range_max              = pn.widgets.FloatInput         (name="Max", width=80)
+	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic","dynamic-acc"], value="user", width=120)
+	range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=33)
+	range_max              = pn.widgets.FloatInput         (name="Max", width=80,value=38)
 
 	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
 	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=60)
@@ -950,7 +950,7 @@ np.savez('selected_data',data=data)
 		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.view_dependent.value = bool(scene.get('view-dependent', False))
 
-		resolution=int(scene.get("resolution", -10))
+		resolution=int(scene.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
