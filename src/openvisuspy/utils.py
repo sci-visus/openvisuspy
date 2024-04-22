@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
 
-DEFAULT_PALETTE="Viridis256"
+DEFAULT_PALETTE="Turbo256"
 
 import colorcet
 
@@ -445,6 +445,13 @@ def GetPalettes():
 		if value and len(value)>=256:
 			ret[name]=value
 
+
+	for name in sorted(colorcet.palette):
+		value=getattr(colorcet.palette,name,None)
+		if value and len(value)>=256:
+			# stupid criteria but otherwise I am getting too much palettes
+			if len(name)>12: continue
+			ret[name]=value
 	return ret
 
 # ////////////////////////////////////////////////////////
