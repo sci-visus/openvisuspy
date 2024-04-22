@@ -12,15 +12,11 @@ from urllib.parse import urlparse, urlencode
 
 import numpy as np
 
-
 import bokeh
 import bokeh.models
 import bokeh.events
 import bokeh.plotting
 import bokeh.models.callbacks
-from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, ColorBar, LinearColorMapper
-from bokeh.transform import transform
 
 import param 
 
@@ -30,7 +26,7 @@ from panel import Column,Row,GridBox,Card
 from panel.pane import HTML,JSON,Bokeh
 
 from .utils   import *
-from .backend import Aborted,LoadDataset,ExecuteBoxQuery,QueryNode
+from .backend import Aborted,LoadDataset,ExecuteBoxQuery
 
 
 logger = logging.getLogger(__name__)
@@ -42,9 +38,13 @@ DEFAULT_SHOW_OPTIONS={
 	"top": [
 		[ "open_button","save_button","info_button","copy_url_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements"],
 		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+
 	],
 	"bottom": [
-		["request","response"]
+		[
+			"request",
+			"response"
+		]
 	]
 }
 
@@ -136,10 +136,11 @@ class Canvas:
 		self.reset_fig= bokeh.models.ResetTool()
 
 		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool]) 
+
 		self.fig.toolbar_location="right" 
-		self.fig.toolbar.active_scroll = self.wheel_zoom_tool
+		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
-		self.fig.toolbar.active_inspect = None
+		self.fig.toolbar.active_inspect = self.over_tool
 		self.fig.toolbar.active_tap     = None
 
 		# try to preserve the old status
@@ -190,6 +191,7 @@ class Canvas:
 		self.fig.xaxis.axis_label  ='X'
 		self.fig.yaxis.axis_label  = 'Y'		
 
+
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
 		try:
@@ -221,27 +223,27 @@ class Canvas:
 		# NOTE: the event will be fired inside onIdle
 
 	# setImage
-	def showData(self, data, viewport,color_bar=None):
+	def showData(self, pdim, data, viewport, color_bar=None):
 
 		x,y,w,h=viewport
+		self.pdim=pdim
+		assert(pdim==1 or pdim==2)
+		self.fig.xaxis.formatter.use_scientific = (pdim!=1)
+		self.fig.yaxis.formatter.use_scientific = (pdim!=1)
 
-		# 1D signal
-		if len(data.shape)==1:
-			self.pdim=1
-			self.wheel_zoom_tool.dimensions="width"
-			vmin,vmax=np.min(data),np.max(data)
-			self.fig.y_range.start=0.5*(vmin+vmax)-1.2*0.5*(vmax-vmin)
-			self.fig.y_range.end  =0.5*(vmin+vmax)+1.2*0.5*(vmax-vmin)
+		# 1D signal (eventually with an extra channel for filters)
+		if pdim==1:
+			assert(len(data.shape) in [1,2])
+			if len(data.shape)==2: data=data[:,0]
 			self.fig.renderers.clear()
+
 			xs=np.arange(x,x+w,w/data.shape[0])
 			ys=data
 			self.fig.line(xs,ys)
-			
+
 		# 2d image (eventually multichannel)
 		else:	
 			assert(len(data.shape) in [2,3])
-			self.pdim=2
-			self.wheel_zoom_tool.dimensions="both"
 			img=ConvertDataForRendering(data)
 			dtype=img.dtype
 			
@@ -312,8 +314,6 @@ class Slice(param.Parameterized):
 		self.copy_url_button_helper = pn.widgets.TextInput(visible=False)
 		self.file_name_input=  pn.widgets.TextInput(name="Numpy_File", value='test',placeholder='Numpy File Name to save')
 
-
-
 		self.on_change_callbacks={}
 
 		self.num_hold=0
@@ -323,9 +323,6 @@ class Slice(param.Parameterized):
 	
 		self.db = None
 		self.access = None
-		self.detailed_data=None
-		self.selected_physic_box=None
-		self.selected_logic_box=None
 
 		# translate and scale for each dimension
 		self.logic_to_physic        = [(0.0, 1.0)] * 3
@@ -481,22 +478,22 @@ class Slice(param.Parameterized):
 		palette_name = self.palette.value_name if self.palette.value_name.endswith("256") else "Turbo256"
 
 		mapper = LinearColorMapper(palette=palette_name, low=np.min(self.detailed_data), high=np.max(self.detailed_data))
+
         
 		data_flipped = data # Flip data to match imshow orientation
-		source = ColumnDataSource(data=dict(image=[data_flipped]))
-		dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
-		dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
-		p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
-		color_bar = ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
+		source = bokeh.models.ColumnDataSource(data=dict(image=[data_flipped]))
+		dw = abs(selected_physic_box[0][1] -selected_physic_box[0][0])
+		dh = abs(selected_physic_box[1][1] - selected_physic_box[1][0])
+		p.image(image='image', x=selected_physic_box[0][0], y=selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
+		color_bar = bokeh.models.ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
 		p.add_layout(color_bar, 'right')
 		p.xaxis.axis_label = "X"
 		p.yaxis.axis_label = "Y"
 
-
-        # Display using Panel
 		self.showDialog(
             pn.Column(
                 self.file_name_input, 
+
                 pn.Row(save_numpy_button,download_script_button),
                 pn.Row(pn.pane.Bokeh(p),pn.Column(
                     pn.pane.Markdown(f"#### Palette Used: {palette_name}"),
@@ -586,6 +583,7 @@ np.savez('selected_data',data=data)
 			print("Data saved successfully.") 
 		else:
 			print("No data to save.")
+
 	# open
 	def showOpen(self):
 
@@ -664,14 +662,12 @@ np.savez('selected_data',data=data)
 
 		self.idle_callback = None
 		self.color_bar     = None
-		self.query_node    = None
 
 		self.t1=time.time()
 		self.aborted       = Aborted()
 		self.new_job       = False
 		self.current_img   = None
 		self.last_job_pushed =time.time()
-		self.query_node=QueryNode()
 
 		self.canvas = Canvas(self.id)
 		self.canvas.on_event(ViewportUpdate,              SafeCallback(self.onCanvasViewportChange))
@@ -748,11 +744,13 @@ np.savez('selected_data',data=data)
 	# stop
 	def stop(self):
 		self.aborted.setTrue()
-		self.query_node.stop()
+		if self.db:
+			self.db.stop()
 
 	# start
 	def start(self):
-		self.query_node.start()
+		if self.db:
+			self.db.start()
 		if not self.idle_callback:
 			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 30)
 		self.refresh()
@@ -916,7 +914,7 @@ np.savez('selected_data',data=data)
 
 		timesteps=self.db.getTimesteps()
 		self.timestep.start = timesteps[ 0]
-		self.timestep.end   = timesteps[-1]
+		self.timestep.end   = max(timesteps[-1],self.timestep.start+1) # bokeh fixes: start cannot be equals to end
 		self.timestep.step  = 1
 
 		self.field.options=list(self.db.getFields())
@@ -927,15 +925,13 @@ np.savez('selected_data',data=data)
 			logic_to_physic=scene["logic-to-physic"]
 			self.setLogicToPhysic(logic_to_physic)
 		else:
-			physic_box = self.db.inner.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
-			physic_box = [(float(physic_box[I]), float(physic_box[I + 1])) for I in range(0, pdim * 2, 2)]
+			physic_box=self.db.getPhysicBox()
 			self.setPhysicBox(physic_box)
 
 		if "directions" in scene:
 			directions=scene["directions"]
 		else:
-			directions = self.db.inner.idxfile.axis.strip().split()
-			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
+			directions=self.db.getAxis()
 		self.direction.options=directions
 
 		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
@@ -947,6 +943,7 @@ np.savez('selected_data',data=data)
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
 		self.field.value=scene.get("field", self.db.getField().name)
+
 		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 2))
 
 		self.direction.value = int(scene.get("direction", 2))
@@ -961,12 +958,12 @@ np.savez('selected_data',data=data)
 		self.play_sec.value=float(scene.get("play-sec",0.01))
 		self.palette.value_name=scene.get("palette",DEFAULT_PALETTE)
 
-		db_field = self.db.getField(self.field.value)
-		self.metadata_range = list(scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To]))
+		self.metadata_range = list(scene.get("metadata-range",self.db.getFieldRange()))
 		assert(len(self.metadata_range))==2
 		self.color_map=None
 		self.range_mode.value=scene.get("range-mode","dynamic")
 		
+
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
@@ -1079,9 +1076,11 @@ np.savez('selected_data',data=data)
 	def toPhysic(self, value):
 		dir = self.direction.value
 		pdim = self.getPointDim()
+
 		vt = [self.logic_to_physic[I][0] for I in range(pdim)]
 		vs = [self.logic_to_physic[I][1] for I in range(pdim)]
 		p1,p2=value
+
 		p1 = [vs[I] * p1[I] + vt[I] for I in range(pdim)]
 		p2 = [vs[I] * p2[I] + vt[I] for I in range(pdim)]
 
@@ -1108,7 +1107,8 @@ np.savez('selected_data',data=data)
 		pdim = self.getPointDim()
 		dir = self.direction.value
 		vt = [self.logic_to_physic[I][0] for I in range(pdim)]
-		vs = [self.logic_to_physic[I][1] for I in range(pdim)]
+		vs = [self.logic_to_physic[I][1] for I in range(pdim)]		
+
 		x,y,w,h=value
 		p1=[x  ,y  ]
 		p2=[x+w,y+h]
@@ -1124,6 +1124,9 @@ np.savez('selected_data',data=data)
 			p2.insert(dir, 0)
 
 		assert(len(p1)==pdim and len(p2)==pdim)
+
+
+
 		p1 = [(p1[I] - vt[I]) / vs[I] for I in range(pdim)]
 		p2 = [(p2[I] - vt[I]) / vs[I] for I in range(pdim)]
 
@@ -1131,7 +1134,7 @@ np.savez('selected_data',data=data)
 		if pdim == 3:
 			p1[dir] = int((self.offset.value  - vt[dir]) / vs[dir])
 			p2[dir] = p1[dir]+1 
-		
+			
 		return [p1, p2]
 
 	# togglePlay
@@ -1297,6 +1300,8 @@ np.savez('selected_data',data=data)
 			f"Max Res: {endh}/{maxh}"
 		])
 
+		pdim = self.getPointDim()
+
 		# refresh the range
 		if True:
 
@@ -1304,7 +1309,7 @@ np.savez('selected_data',data=data)
 			if mode=="dynamic":
 				self.range_min.value = data_range[0] 
 				self.range_max.value = data_range[1]
-				
+
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
 				if self.range_min.value==self.range_max.value:
@@ -1313,11 +1318,27 @@ np.savez('selected_data',data=data)
 				else:
 					self.range_min.value = min(self.range_min.value, data_range[0])
 					self.range_max.value = max(self.range_max.value, data_range[1])
+
 			# update the color bar
 			low =cdouble(self.range_min.value)
 			high=cdouble(self.range_max.value)
-			print(f'Min Value: {low} ;  Max Value: {high}')
 
+		#
+		if pdim==1:
+			self.canvas.pan_tool.dimensions="width"
+			self.canvas.wheel_zoom_tool.dimensions="width"
+			if mode in ["dynamic","dynamic-acc"]:
+				self.canvas.fig.y_range.start=int(self.range_min.value)
+				self.canvas.fig.y_range.end  =int(self.range_max.value)			
+			elif mode=="user":
+				self.canvas.fig.y_range.start=int(self.range_min.value)
+				self.canvas.fig.y_range.end  =int(self.range_max.value)			
+			elif mode=="metadata":
+				self.range_min.value = self.metadata_range[0]
+				self.range_max.value = self.metadata_range[1]
+		else:
+			self.canvas.wheel_zoom_tool.dimensions="both"
+			self.canvas.pan_tool.dimensions="both"
 
 		# regenerate colormap
 		if self.color_bar is None:
@@ -1333,10 +1354,10 @@ np.savez('selected_data',data=data)
 				bokeh.models.LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
 			)
 
-		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} data-range={data_range} range={[low,high]}")
+		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} mode={mode} np-array-range={data_range} widget-range={[low,high]}")
 
 		# update the image
-		self.canvas.showData(data, self.toPhysic(logic_box), color_bar=self.color_bar)
+		self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar=self.color_bar)
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)
@@ -1371,7 +1392,7 @@ np.savez('selected_data',data=data)
 
 		# abort the last one
 		self.aborted.setTrue()
-		self.query_node.waitIdle()
+		self.db.waitIdle()
 		num_refinements = self.num_refinements.value
 		if num_refinements==0:
 			num_refinements={
@@ -1424,7 +1445,7 @@ np.savez('selected_data',data=data)
 		self.request.value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
 		self.response.value="Running..."
 
-		self.query_node.pushJob(
+		self.db.pushJob(
 			self.db, 
 			access=self.access,
 			timestep=timestep, 
@@ -1451,8 +1472,8 @@ np.savez('selected_data',data=data)
 		if self.canvas and  self.canvas.getWidth()>0 and self.canvas.getHeight()>0:
 			self.playNextIfNeeded()
 
-		if self.query_node:
-			result=self.query_node.popResult(last_only=True) 
+		if self.db:
+			result=self.db.popResult(last_only=True) 
 			if result is not None: 
 				self.gotNewData(result)
 			self.pushJobIfNeeded()

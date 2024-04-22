@@ -2,6 +2,8 @@
 import numpy as np
 import os,sys,logging,asyncio,time,json,xmltodict,urllib
 import urllib.request
+import boto3
+import urllib.parse 
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -48,11 +50,7 @@ def IsJupyter():
 def IsPanelServe():
 	return "panel.command.serve" in sys.modules 
 
-# ///////////////////////////////////////////////
-def GetBackend():
-	ret=os.environ.get("VISUS_BACKEND", "py" if IsPyodide() else "cpp")
-	assert(ret=="cpp" or ret=="py")
-	return ret
+
 
 # ///////////////////////////////////////////////////////////////////
 def Touch(filename):
@@ -75,7 +73,10 @@ def LoadJSON(value):
 		if username and password: 
 			auth = HTTPBasicAuth(username, password) if username else None
 		response = requests.get(url, auth=auth)
-		body = response.body.decode('utf-8') 
+		try:
+			body = response.body.decode('utf-8') 
+		except:
+			body = response.content.decode('utf-8') 
 		return json.loads(body)
 	
 	if os.path.isfile(value):
@@ -89,6 +90,51 @@ def LoadJSON(value):
 
 	raise Exception(f"{value} not supported")
 
+# ///////////////////////////////////////////////////////////////////
+def DownloadFile(url, cache_dir=os.environ.get("VISUS_CACHE",os.path.expanduser("~/visus/cache")),verify=False):
+
+	os.makedirs(cache_dir,exist_ok=True)
+	logger.info(f"downloading url={url} verify={verify}")
+
+	if not url.startswith("http"):
+		return url # already local
+		
+	# need to download trhe file
+	parsed=urllib.parse.urlparse(url)
+	q=urllib.parse.parse_qs(parsed.query)
+	endpoint_url=os.environ.get("AWS_ENDPOINT_URL",q.get("endpoint_url",[""])[0])
+
+	default_ports={"http":80,"https":443}
+	local_filename=os.path.join(cache_dir,f"{parsed.scheme}/{parsed.hostname}/{parsed.port if parsed.port else default_ports[parsed.scheme]}{parsed.path}")
+
+	if os.path.isfile(local_filename):
+		logger.info(f"Using cached file for url={url} local_filename={local_filename}")
+		return local_filename
+
+	if endpoint_url:
+		profile=os.environ.get("AWS_PROFILE",q.get("profile",[None])[0])
+		bucket_name,key=url[len(endpoint_url)+1:].split("?")[0].split("/",maxsplit=1)
+		assert("access_key" not in q) # TODO, for now use the profile
+		assert("secret_key" not in q)
+
+		session=boto3.session.Session(profile_name=profile)
+		resource=session.resource('s3', endpoint_url=endpoint_url,verify=verify)
+		bucket = resource.Bucket(bucket_name)
+		os.makedirs(os.path.dirname(local_filename),exist_ok=True)
+		bucket.download_file(key,local_filename)
+	else:
+		from urllib.request import urlretrieve
+		urlretrieve(url, local_filename)
+
+	return local_filename
+# ///////////////////////////////////////////////////////////////////
+import OpenVisus as ov
+
+def PointToPyList(value):
+	return [value[I] for I in range(value.getPointDim())]
+
+def BoxToPyList(value):
+	return [PointToPyList(value.p1),PointToPyList(value.p2)]
 
 # ///////////////////////////////////////////////////////////////////
 def SaveJSON(filename,d):
@@ -138,8 +184,8 @@ def AddAsyncLoop(name, fn, msec):
 					t1=time.time()
 			try:
 				await fn()
-			except Exception as ex:
-				logger.info(f"ERROR {fn} : {ex}")
+			except:
+				logger.error(f"\n\n# ****************** ERROR {fn} : {traceback.format_exc()}")
 			await SleepMsec(msec)
 
 	return asyncio.create_task(MyLoop())
@@ -399,18 +445,18 @@ def GetPalettes():
 		if value and len(value)>=256:
 			ret[name]=value
 
+
 	for name in sorted(colorcet.palette):
 		value=getattr(colorcet.palette,name,None)
 		if value and len(value)>=256:
 			# stupid criteria but otherwise I am getting too much palettes
 			if len(name)>12: continue
 			ret[name]=value
-
 	return ret
 
 # ////////////////////////////////////////////////////////
 def ShowInfoNotification(msg):  
-    pn.state.notifications.clear()
+    pn.state.notifications.clear() # DO I need this?
     pn.state.notifications.info(msg)
 
 # ////////////////////////////////////////////////////////

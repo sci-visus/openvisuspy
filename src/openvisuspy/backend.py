@@ -1,12 +1,108 @@
 import os,sys,copy,math,time,logging,types,requests,zlib,xmltodict,urllib,queue,types,threading
 import numpy as np
 
-from . utils import *
+import OpenVisus as ov
 
+from . utils import *
 logger = logging.getLogger(__name__)
 
-# //////////////////////////////////////////////////////////////////////////
-class BaseDataset:
+
+# ///////////////////////////////////////////////////////////////////
+class Aborted:
+	
+	# constructor
+	def __init__(self,value=False):
+		self.ov_aborted=ov.Aborted()
+		if value: self.ov_aborted.setTrue()
+
+	# setTrue
+	def setTrue(self):
+		self.ov_aborted.setTrue()
+
+# ///////////////////////////////////////////////////////////////////
+class Stats:
+	
+	# constructor
+	def __init__(self):
+		self.lock = threading.Lock()
+		self.num_running=0
+		
+	# isRunning
+	def isRunning(self):
+		with self.lock:
+			return self.num_running>0
+
+	# readStats
+	def readStats(self):
+
+		io =ov.File.global_stats()
+		net=ov.NetService.global_stats()
+
+		ret= {
+			"io": {
+				"r":io.getReadBytes(),
+				"w":io.getWriteBytes(),
+				"n":io.getNumOpen(),
+			},
+			"net":{
+				"r":net.getReadBytes(), 
+				"w":net.getWriteBytes(),
+				"n":net.getNumRequests(),
+			}
+		}
+
+		ov.File      .global_stats().resetStats()
+		ov.NetService.global_stats().resetStats()
+
+		return ret
+			
+
+	# startCollecting
+	def startCollecting(self):
+		with self.lock:
+			self.num_running+=1
+			if self.num_running>1: return
+		self.T1=time.time()
+		self.readStats()
+			
+	# stopCollecting
+	def stopCollecting(self):
+		with self.lock:
+			self.num_running-=1
+			if self.num_running>0: return
+		self.printStatistics()
+
+	# printStatistics
+	def printStatistics(self):
+		sec=max(time.time()-self.T1,1e-8)
+		stats=self.readStats()
+		logger.info(f"Stats::printStatistics enlapsed={sec} seconds" )
+		for k,v in stats.items():
+			w,r,n=v['w'],v['r'],v['n']
+			logger.info(" ".join([f"  {k:4}",
+						f"r={HumanSize(r)} r_sec={HumanSize(r/sec)}/sec",
+						f"w={HumanSize(w)} w_sec={HumanSize(w/sec)}/se ",
+						f"n={n:,} n_sec={int(n/sec):,}/sec"]))
+
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////
+class BaseDataset(object):
+
+	# shared by all instances (and must remain this way!)
+	stats=Stats()
+
+	# constructor
+	def __init__(self,url):
+		self.url=url
+		self.iqueue=queue.Queue()
+		self.oqueue=queue.Queue()
+		self.wait_for_oqueue=False
+		self.thread=None
+
+	# getUrl
+	def getUrl(self):
+		return self.url      
 
 	# getAlignedBox
 	def getAlignedBox(self, logic_box, endh, slice_dir:int=None):
@@ -27,20 +123,199 @@ class BaseDataset:
 		
 		num_pixels=[(p2[I]-p1[I])//delta[I] for I in range(pdim)]
 
-
 		#  force to be a slice?
 		# REMOVE THIS!!!
 		if pdim==3 and slice_dir is not None:
 			offset=p1[slice_dir]
 			p2[slice_dir]=offset+0
 			p2[slice_dir]=offset+1
-		
 		# print(f"getAlignedBox logic_box={logic_box} endh={endh} slice_dir={slice_dir} (p1,p2)={(p1,p2)} delta={delta} num_pixels={num_pixels}")
-
 		return (p1,p2), delta, num_pixels
 
+	# disableOutputQueue
+	def disableOutputQueue(self):
+		self.oqueue=None
+
+	# start
+	def start(self):
+		# already running
+		if not self.thread is None:
+			return
+		self.thread = threading.Thread(target=self._threadLoop,daemon=True)
+		self.thread.start()
+
+	# stop
+	def stop(self):
+		self.iqueue.join()
+		self.iqueue.put((None,None))
+		if self.thread is not None:
+			self.thread.join()
+			self.thread=None
+
+	# waitIdle
+	def waitIdle(self):
+		self.iqueue.join()
+
+	# pushJob
+	def pushJob(self, db, **kwargs):
+		self.iqueue.put([db,kwargs])
+
+	# popResult
+	def popResult(self, last_only=True):
+		assert self.oqueue is not None
+		ret=None
+		while not self.oqueue.empty():
+			ret=self.oqueue.get()
+			self.oqueue.task_done()
+			if not last_only: break
+		return ret
+
+	# _threadLoop
+	def _threadLoop(self):
+
+		logger.info("entering _threadLoop ...")
+
+		is_aborted=ov.Aborted()
+		is_aborted.setTrue()
+
+		T1=None
+		while True:
+
+			if T1 is None or (time.time()-T1)>5.0:
+				logger.info("_threadLoop is Alive")
+				T1=time.time()
+
+			db, kwargs=self.iqueue.get()
+			if db is None: 
+				logger.info("exiting _threadLoop...")
+				return 
+			
+			self.stats.startCollecting() 
+
+			access=kwargs['access'];del kwargs['access']
+			query=db.createBoxQuery(**kwargs)
+			db.beginBoxQuery(query)
+			while db.isQueryRunning(query):
+				try:
+					result=db.executeBoxQuery(access, query)
+				except:
+					if not self.aborted == is_aborted:
+						logger.error(f"# ***************** db.executeBoxQuery failed {traceback.format_exc()}")
+					break
+
+				if result is None: 
+					break
+				
+				if self.aborted == is_aborted:
+					break 
+
+				
+				db.nextBoxQuery(query)
+				result["running"]=db.isQueryRunning(query)
+
+				if self.oqueue:
+					self.oqueue.put(result)
+					if self.wait_for_oqueue:
+						self.oqueue.join()
+				
+				time.sleep(0.01)
+
+				# remove me
+				# break
+
+			logger.info("Query finished")
+			self.iqueue.task_done()
+			self.stats.stopCollecting()
+
+
+# //////////////////////////////////////////////////////////////////////////
+class OpenVisusDataset(BaseDataset):
+
+	# constructor
+	def __init__(self,url):
+		super().__init__(url)
+
+		# handle security
+		if all([
+				url.startswith("http"),
+				"mod_visus" in url,
+			  "MODVISUS_USERNAME" in os.environ,
+				"MODVISUS_PASSWORD" in os.environ,
+				"~auth_username" not in url,
+				"~auth_password" not in url,
+		 	]) :
+
+			url=url + f"&~auth_username={os.environ['MODVISUS_USERNAME']}&~auth_password={os.environ['MODVISUS_PASSWORD']}"
+
+		self.db=ov.LoadDataset(url)
+
+
+	# getPointDim
+	def getPointDim(self):
+		return self.db.getPointDim()
+
+	# getLogicBox
+	def getLogicBox(self):
+		return self.db.getLogicBox()
+
+	# getMaxResolution
+	def getMaxResolution(self):
+		return self.db.getMaxResolution()
+
+	# getBitmask
+	def getBitmask(self):
+		return self.db.getBitmask().toString()
+
+	# getLogicSize
+	def getLogicSize(self):
+		return self.db.getLogicSize()
+	
+	# getTimesteps
+	def getTimesteps(self):
+		return self.db.getTimesteps() 
+
+	# getTimestep
+	def getTimestep(self):
+		return self.db.getTime()
+
+	# getFields
+	def getFields(self):
+		return self.db.getFields()
+
+	# createAccess
+	def createAccess(self):
+		return self.db.createAccess()
+
+	# getField
+	def getField(self,field:str=None):
+		if field is None: field=self.db.getField().name
+		return self.db.getField(field).name
+
+	# getFieldRange
+	def getFieldRange(self,field:str=None):
+		if field is None: field=self.getField()
+		field = self.db.getField(field)
+		return [field.getDTypeRange().From, field.getDTypeRange().To]
+
+	# getDatasetBody
+	def getDatasetBody(self):
+		return self.db.getDatasetBody()
+
+	# getPhysicBox
+	def getPhysicBox(self):
+		pdim=self.getPointDim()
+		ret = self.db.db.idxfile.bounds.toAxisAlignedBox().toString().strip().split()
+		ret = [(float(ret[I]), float(ret[I + 1])) for I in range(0, pdim * 2, 2)]
+		return ret
+
+	# getAxis
+	def getAxis(self):
+		ret = self.db.db.idxfile.axis.strip().split()
+		ret = {it: I for I, it in enumerate(ret)} if ret else  {'X':0,'Y':1,'Z':2}
+		return ret
+
 	# createBoxQuery
-	def createBoxQuery(self,
+	def createBoxQuery(self, 		
 		timestep=None, 
 		field=None, 
 		logic_box=None,
@@ -48,8 +323,7 @@ class BaseDataset:
 		endh=None, 
 		num_refinements=1, 
 		aborted=None,
-		full_dim=False,
-	):
+		full_dim=False):
 
 		pdim=self.getPointDim()
 		assert pdim in [1,2,3]
@@ -62,7 +336,7 @@ class BaseDataset:
 			timestep=self.getTimestep()
 
 		if field is None:
-			field=self.getField()
+			field=self.db.getField()
 
 		if logic_box is None:
 			logic_box=self.getLogicBox()
@@ -129,56 +403,76 @@ class BaseDataset:
 			[int(it) for it in logic_box[1]]
 		]
 
-		query=types.SimpleNamespace()
-		query.logic_box=logic_box
-		query.timestep=timestep
-		query.field=field
-		query.end_resolutions=end_resolutions
-		query.slice_dir=slice_dir
-		query.aborted=aborted
-		query.t1=time.time()
-		query.cursor=0
+		self.t1=time.time()
+		self.cursor=0
+		self.slice_dir=slice_dir
+		self.aborted=aborted
+		
+		query  = self.db.createBoxQuery(
+			ov.BoxNi(ov.PointNi(logic_box[0]), ov.PointNi(logic_box[1])), 
+			self.db.getField(field), 
+			timestep, 
+			ord('r'), 
+			aborted.ov_aborted)
+
+		if not query:
+			return None
+
+		# important
+		query.enableFilters()
+
+		for H in end_resolutions:
+			query.end_resolutions.push_back(H)
+
 		return query
 
 	# beginBoxQuery
 	def beginBoxQuery(self,query):
-		logger.info(f"beginBoxQuery timestep={query.timestep} field={query.field} logic_box={query.logic_box} end_resolutions={query.end_resolutions}")	
-		query.cursor=0	
+		if query is None: return
+		logic_box=BoxToPyList(query.logic_box)
+		logger.info(f"beginBoxQuery timestep={query.time} field={query.field} logic_box={logic_box} end_resolutions={[I for I in query.end_resolutions]}")	
+		self.cursor=0	
+		self.db.beginBoxQuery(query)
 
-	# isQueryRunning (if cursor==0 , means I have to begin, if cursor==1 means I have the first level ready etc)
+	# isRunning
 	def isQueryRunning(self,query):
-		return query is not None and query.cursor>=0 and query.cursor<len(query.end_resolutions)
-		
-	 # getQueryCurrentResolution
-	def getQueryCurrentResolution(self,query):
-		if query is None: return -1
-		last=query.cursor-1
-		return query.end_resolutions[last]  if last>=0 and last<len(query.end_resolutions) else -1
+		if query is None: return False
+		return query.isRunning() 
 
-	# returnBoxQueryData
-	def returnBoxQueryData(self,access, query, data):
-		
-		if query is None or data is None:
+	# getCurrentResolution
+	def getCurrentResolution(self, query):
+		return query.getCurrentResolution() if self.isQueryRunning(query) else -1
+
+	# executeBoxQuery
+	def executeBoxQuery(self,access, query):
+		assert self.isQueryRunning(query)
+		if not self.db.executeBoxQuery(access, query):
+			return None
+		data=ov.Array.toNumPy(query.buffer, bShareMem=False) 
+
+		if data is None:
 			logger.info(f"read done {query} {data}")
 			return None
 
 		# is a slice? I need to reduce the size (i.e. from 3d data to 2d data)
-		if query.slice_dir is not None:
+		slice_dir=self.slice_dir
+		if slice_dir is not None:
 			dims=list(reversed(data.shape))
-			assert dims[query.slice_dir]==1
-			del dims[query.slice_dir]
+			assert dims[slice_dir]==1
+			del dims[slice_dir]
 			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
 			data=data.reshape(list(reversed(dims)))
 
-		H=self.getQueryCurrentResolution(query)
-		msec=int(1000*(time.time()-query.t1))
-		logger.info(f"got data cursor={query.cursor} end_resolutions{query.end_resolutions} timestep={query.timestep} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={query.logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
-		
+		logic_box=BoxToPyList(query.logic_box)
+		H=self.getCurrentResolution(query)
+		msec=int(1000*(time.time()-self.t1))
+		logger.info(f"got data cursor={self.cursor} end_resolutions{[I for I in query.end_resolutions]} timestep={query.time} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
+
 		return {
-			"I": query.cursor,
-			"timestep": query.timestep,
+			"I": self.cursor,
+			"timestep": query.time,
 			"field": query.field, 
-			"logic_box": query.logic_box, 
+			"logic_box": logic_box,
 			"H": H, 
 			"data": data,
 			"msec": msec,
@@ -187,15 +481,244 @@ class BaseDataset:
 	# nextBoxQuery
 	def nextBoxQuery(self,query):
 		if not self.isQueryRunning(query): return
-		query.cursor+=1
+		self.db.nextBoxQuery(query)
+		if not self.isQueryRunning(query): return
+		self.cursor+=1
 
-# //////////////////////////////////////////////////
-from .utils import GetBackend
-backend=GetBackend()
 
-logger.info(f"openvisuspy backend={backend}")
+# //////////////////////////////////////////////////////////////////////////
+def GuessBitmask(N):
+		ret="V"
+		while N>1: 
+			ret,N=ret+"0", (N>>1)
+		logger.info(f"bitmask={ret}")
+		return ret
 
-if backend=="py":
-	from .backend_py import *
-else:
-	from .backend_cpp import *
+# ////////////////////////////////////////////////////////////////////
+def ReplaceExtWith(filename, suffix):
+	return os.path.splitext(filename)[0]+suffix
+
+# ////////////////////////////////////////////////////////////////////
+class Signal1DDataset(BaseDataset):
+
+	# constructor
+	def __init__(self,url):
+		super().__init__(url)
+		assert(".npz" in url or ".npy" in url)
+		self.cursor=-1
+		filename=DownloadFile(url)
+		logger.info(f"url={url} filename={filename}")
+
+		if ".npz" in filename:
+			signal=np.load(filename,mmap_mode="r")["data"]
+		else:
+			signal=np.load(filename,mmap_mode="r")
+
+		info_filename=ReplaceExtWith(filename, ".json")
+
+		# need to read all the array
+		if not os.path.isfile(info_filename):
+				SaveJSON(info_filename,{
+					"bitmask": GuessBitmask(signal.shape[0]),
+					"dtype": str(signal.dtype),
+					"shape": signal.shape,
+					"vmin": str(np.min(signal)), # Object of type int64 is not JSON serializable
+					"vmax": str(np.max(signal))
+				})
+		
+		info=LoadJSON(info_filename)
+		self.bitmask=info["bitmask"]
+		assert(info["dtype"]=="int64")
+		# assert(info["shape"]==signal.shape)
+		self.vmin=int(info["vmin"]) # TODO, what if float
+		self.vmax=int(info["vmax"])
+		
+		endh=len(self.bitmask)-1
+		self.levels=[signal]
+		logger.info(f"signal endh={endh} shape={signal.shape} dtype={signal.dtype}")
+		
+		# out of 4 samples I am keeping min,Max
+		H=endh
+		while self.levels[0].shape[0]>1024:
+			H-=1
+
+			# generate cache
+			cached_filename=  ReplaceExtWith(filename, f".{H}.npy")
+			if not os.path.isfile(cached_filename):
+				cur=self.levels[0]
+				filtered=np.copy(cur[::2])
+				logger.info(f"Computing filter H={H} shape={filtered.shape} dtype={filtered.dtype} ")
+				for I in range(0,4*(cur.shape[0]//4),4):
+					v=list(cur[I:I+4])
+					vmin,vmax=np.min(v),np.max(v)
+					filtered[I//2+0:I//2+2]=[vmin,vmax] if v.index(vmin)<v.index(vmax) else [vmax,vmin]
+				os.makedirs(os.path.dirname(cached_filename),exist_ok=True)
+				np.save(cached_filename, filtered)
+				logger.info(f"saved filtered cached_filename={cached_filename}")
+			
+			# load from cache
+			filtered=np.load(cached_filename, mmap_mode="r") # all mem mapped
+			self.levels=[filtered]+self.levels
+				
+		while len(self.levels)!=(endh+1):
+			self.levels=[None]+self.levels
+
+		logger.info("ComputeFilter done")
+
+	# getPointDim
+	def getPointDim(self):
+		return 1
+
+	# getLogicBox
+	def getLogicBox(self):
+		p1,p2=[0],[self.levels[-1].shape[0]]
+		return [p1,p2]
+
+	# getPhysicBox
+	def getPhysicBox(self):
+		return [[0,self.levels[-1].shape[0]]]
+
+	# getMaxResolution
+	def getMaxResolution(self):
+		return len(self.bitmask)-1
+
+	# getBitmask
+	def getBitmask(self):
+		return self.bitmask
+
+	# getLogicSize
+	def getLogicSize(self):
+		N=1<<(len(self.bitmask)-1)
+		return [N]
+	
+	# getTimesteps
+	def getTimesteps(self):
+		return [0]
+
+	# getTimestep
+	def getTimestep(self):
+		return 0
+
+	# getFields
+	def getFields(self):
+		return ["data"]
+
+	# createAccess
+	def createAccess(self):
+		return True # no need for access
+
+	# getField
+	def getField(self,field=None):
+		return "data"
+
+	# getFieldRange
+	def getFieldRange(self,field:str=None):
+		return [self.vmin,self.vmax]
+
+	# getDatasetBody
+	def getDatasetBody(self):
+		return self.url
+
+	# getAxis
+	def getAxis(self):
+		return {'X':0,'Y':1,'Z':2}
+
+	# createBoxQuery
+	def createBoxQuery(self, 		
+		timestep=None, 
+		field=None, 
+		logic_box=None,
+		max_pixels=None, 
+		endh=None, 
+		num_refinements=1, 
+		aborted=None,
+		full_dim=False
+	):
+
+		self.cursor=-1
+		self.aborted=Aborted()	
+		self.endh =self.getMaxResolution()
+		self.x1=logic_box[0][0] # in pixel coordinates
+		self.x2=logic_box[1][0]
+		self.step=1
+		self.num_pixels=(self.x2-self.x1)//self.step
+
+		while True:
+			logger.info(f"max_pixels={max_pixels} maxh={self.getMaxResolution()} endh={self.endh} level={self.levels[self.endh].shape} x1={self.x1} y2={self.x2} step={self.step} numpixels={self.num_pixels}")
+
+			if self.endh<=1 or self.levels[self.endh-1] is None:
+				break
+
+			# user specified max num_pixels
+			if max_pixels:
+				assert(max_pixels and not endh)
+				if self.num_pixels <= (1.2*max_pixels):
+					break
+			# user specified a specific curve
+			else:
+				assert(endh and not max_pixels)
+				if self.endh==endh:
+					break
+
+			self.endh-=1
+			self.step*=2
+			self.x1=(self.x1//self.step)*self.step
+			self.x2=(self.x2//self.step)*self.step
+			self.num_pixels=(self.x2-self.x1)//self.step
+
+		return True # no need to create a query
+
+	# beginBoxQuery
+	def beginBoxQuery(self,query):
+		self.cursor=0
+
+	# isQueryRunning
+	def isQueryRunning(self,query):
+		return self.cursor==0
+
+	# getCurrentResolution
+	def getCurrentResolution(self, query):
+		return len(self.bitmask)-1 # always at full resolution
+
+	# executeBoxQuery
+	def executeBoxQuery(self,access, query):
+		assert self.isQueryRunning(query)
+		lvl=self.levels[self.endh]
+		x1=int(self.x1//self.step)
+		x2=int(self.x2//self.step)
+		# logger.info(f"lvl shape={lvl.shape} dtype={lvl.dtype} x1={x1} x2={x2} step={self.step}")
+		return {
+			"I": self.cursor,
+			"timestep": self.getTimestep(),
+			"field": self.getField(), 
+			"logic_box": [[self.x1],[self.x2]],
+			"H": self.endh, 
+			"data": lvl[x1:x2],
+			"msec": 0,
+			}
+
+	# nextBoxQuery
+	def nextBoxQuery(self,query):
+		self.cursor=-1
+
+
+# ///////////////////////////////////////////////////////////////////
+def LoadDataset(url):
+	if ".npz" in url or ".npy" in url:
+		return Signal1DDataset(url)
+	else:
+		return OpenVisusDataset(url)
+	
+
+# ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+def ExecuteBoxQuery(db,*args,**kwargs):
+	access=kwargs['access'];del kwargs['access']
+	query=db.createBoxQuery(*args,**kwargs)
+	I,N=0,len([I for I in query.end_resolutions])
+	db.beginBoxQuery(query)
+	while db.isQueryRunning(query):
+		result=db.executeBoxQuery(access, query)
+		if result is None: break
+		db.nextBoxQuery(query)
+		result["running"]=db.isQueryRunning(query)
+		yield result
