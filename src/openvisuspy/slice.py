@@ -270,57 +270,49 @@ class Canvas:
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
-
-	# whenever some new result is available
-	render_id              = pn.widgets.IntSlider          (name="RenderId", value=0)
-
-		# current scene as JSON
-	scene_body             = pn.widgets.TextAreaInput(name='Current',sizing_mode="stretch_width",height=520,)
-
-	# core query
-	scene                  = pn.widgets.Select             (name="Scene", options=[], width=120)	
-	timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
-	timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
-	field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
-	resolution             = pn.widgets.IntSlider          (name='Resolution', value=28, start=20, end=99,  sizing_mode="stretch_width")
-	view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
-	num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
-	direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
-	offset                 = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
-	viewport               = pn.widgets.TextInput          (name="Viewport",value="")
-
-	# palette thingy
-	range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic","dynamic-acc"], value="user", width=120)
-	range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=33)
-	range_max              = pn.widgets.FloatInput         (name="Max", width=80,value=38)
-
-	palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
-	color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=60)
-	
-	# play thingy
-	play_button            = pn.widgets.Button             (name="Play", width=10,sizing_mode='stretch_width')
-	play_sec               = pn.widgets.Select             (name="Frame delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01,width=120)
-
-	# bottom status bar
-	request                = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
-	response               = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
-
-	# toolbar thingy
-	info_button            = pn.widgets.Button   (icon="info-circle",width=20)
-	open_button            = pn.widgets.Button   (icon="file-upload",width=20)
-	save_button            = pn.widgets.Button   (icon="file-download",width=20)
-	copy_url_button        = pn.widgets.Button   (icon="copy",width=20)
-	logout_button          = pn.widgets.Button   (icon="logout",width=20)
-	vmin=None
-	vmax=None
-	# internal use only
-	save_button_helper = pn.widgets.TextInput(visible=False)
-	copy_url_button_helper = pn.widgets.TextInput(visible=False)
-	file_name_input=  pn.widgets.TextInput(name="Numpy_File", value='test',placeholder='Numpy File Name to save')
+	def __init__(self): # just so that we can get new instances in each session
+		super().__init__()  
+		self.render_id = pn.widgets.IntSlider(name="RenderId", value=0)
+		# current scene as json
+		self.scene_body = pn.widgets.TextAreaInput(name='Current', sizing_mode="stretch_width", height=520)
+		# core query
+		self.scene = pn.widgets.Select(name="Scene", options=[], width=120)
+		self.timestep = pn.widgets.IntSlider(name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
+		self.timestep_delta = pn.widgets.Select(name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
+		self.field = pn.widgets.Select(name='Field', options=[], value='data', width=80)
+		self.resolution = pn.widgets.IntSlider(name='Resolution', value=28, start=20, end=99, sizing_mode="stretch_width")
+		self.view_dependent = pn.widgets.Select(name="ViewDep", options={"Yes": True, "No": False}, value=True, width=80)
+		self.num_refinements = pn.widgets.IntSlider(name='#Ref', value=0, start=0, end=4, width=80)
+		self.direction = pn.widgets.Select(name='Direction', options={'X': 0, 'Y': 1, 'Z': 2}, value=2, width=80)
+		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
+		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
+		# palette  
+		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="user", width=120)
+		self.range_min = pn.widgets.FloatInput(name="Min", width=80, value=33)
+		self.range_max = pn.widgets.FloatInput(name="Max", width=80, value=38)
+		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis", ncols=5, width=180)
+		self.color_mapper_type = pn.widgets.Select(name="Mapper", options=["linear", "log"], width=60)
+		self.play_button = pn.widgets.Button(name="Play", width=10, sizing_mode='stretch_width')
+		self.play_sec = pn.widgets.Select(name="Frame delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01, width=120)
+		self.request = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
+		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
+		# toolbar
+		self.info_button = pn.widgets.Button(icon="info-circle", width=20)	
+		self.open_button = pn.widgets.Button(icon="file-upload", width=20)
+		self.save_button = pn.widgets.Button(icon="file-download", width=20)
+		self.copy_url_button = pn.widgets.Button(icon="copy", width=20)
+		self.logout_button = pn.widgets.Button(icon="logout", width=20)
+		self.save_button_helper = pn.widgets.TextInput(visible=False)
+		self.copy_url_button_helper = pn.widgets.TextInput(visible=False)
+		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
+		self.vmin=None
+		self.vmax=None
+		# internal use only
+		self.save_button_helper = pn.widgets.TextInput(visible=False)
+		self.copy_url_button_helper = pn.widgets.TextInput(visible=False)
+		self.file_name_input=  pn.widgets.TextInput(name="Numpy_File", value='test',placeholder='Numpy File Name to save')
 
 
-	# constructor
-	def __init__(self):
 
 		self.on_change_callbacks={}
 
@@ -328,7 +320,7 @@ class Slice(param.Parameterized):
 		global SLICE_ID
 		self.id=SLICE_ID
 		SLICE_ID += 1
-		
+	
 		self.db = None
 		self.access = None
 		self.detailed_data=None
@@ -356,16 +348,16 @@ class Slice(param.Parameterized):
 
 		def onTimestepDeltaChange(evt):
 			if bool(getattr(self,"setting_timestep_delta",False)): return
-			setattr("setting_timestep_delta",True)
+			setattr(self,"setting_timestep_delta",True)
 			value=int(evt.new)
 			A = self.timestep.start
 			B = self.timestep.end
-			T = self.getTimestep()
+			T = self.timestep.value
 			T = A + value * int((T - A) / value)
 			T = min(B, max(A, T))
 			self.timestep.step = value
-			self.setTimestep(T)
-			setattr("setting_timestep_delta",False)
+			self.timestep.value=T
+			setattr(self,"setting_timestep_delta",False)
 		self.timestep_delta.param.watch(SafeCallback(onTimestepDeltaChange),"value", onlychanged=True,queued=True)
 
 		def onFieldChange(evt):
