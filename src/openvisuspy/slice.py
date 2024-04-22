@@ -40,7 +40,7 @@ EPSILON = 0.001
 
 DEFAULT_SHOW_OPTIONS={
 	"top": [
-		[ "scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements"],
+		[ "open_button","save_button","info_button","copy_url_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements"],
 		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 	],
 	"bottom": [
@@ -187,8 +187,8 @@ class Canvas:
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.fig.xaxis.axis_label  = x
-		self.fig.yaxis.axis_label  = y		
+		self.fig.xaxis.axis_label  ='X'
+		self.fig.yaxis.axis_label  = 'Y'		
 
 	# getWidth (this is number of pixels along X for the canvas)
 	def getWidth(self):
@@ -251,14 +251,14 @@ class Canvas:
 				self.last_renderer.get("dtype",None)==dtype,
 				self.last_renderer.get("color_bar",None)==color_bar
 			]):
-				self.last_renderer["source"].data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]}
+				self.last_renderer["source"].data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]}
 			else:
 				self.createFigure()
-				source = bokeh.models.ColumnDataSource(data={"image":[img], "x":[x], "y":[y], "dw":[w], "dh":[h]})
+				source = bokeh.models.ColumnDataSource(data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]})
 				if img.dtype==np.uint32:	
-					self.fig.image_rgba("image", source=source, x="x", y="y", dw="dw", dh="dh") 
+					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh") 
 				else:
-					self.fig.image("image", source=source, x="x", y="y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
+					self.fig.image("image", source=source, x="X", y="Y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 				self.fig.add_layout(color_bar, 'right')
 				self.last_renderer={
 					"source": source,
@@ -287,10 +287,10 @@ class Slice(param.Parameterized):
 		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
 		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
 		# palette  
-		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="user", width=120)
-		self.range_min = pn.widgets.FloatInput(name="Min", width=80, value=33)
-		self.range_max = pn.widgets.FloatInput(name="Max", width=80, value=38)
-		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis", ncols=5, width=180)
+		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic", width=120)
+		self.range_min = pn.widgets.FloatInput(name="Min", width=80)
+		self.range_max = pn.widgets.FloatInput(name="Max", width=80)
+		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis256", ncols=5, width=180)
 		self.color_mapper_type = pn.widgets.Select(name="Mapper", options=["linear", "log"], width=60)
 		self.play_button = pn.widgets.Button(name="Play", width=10, sizing_mode='stretch_width')
 		self.play_sec = pn.widgets.Select(name="Frame delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01, width=120)
@@ -399,7 +399,7 @@ class Slice(param.Parameterized):
 		self.color_mapper_type.param.watch(SafeCallback(onColorMapperTypeChange),"value", onlychanged=True,queued=True)
 		
 		self.resolution.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
-		# self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
+		self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
 		self.num_refinements.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
 
@@ -946,9 +946,6 @@ np.savez('selected_data',data=data)
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
-		self.range_mode.value=str("user")
-		self.range_min.value=33
-		self.range_max.value=38
 		self.field.value=scene.get("field", self.db.getField().name)
 		self.num_refinements.value=int(scene.get("num-refinements", 1))
 
@@ -958,7 +955,7 @@ np.savez('selected_data',data=data)
 		self.offset.start=offset_range[0]
 		self.offset.end  =offset_range[1]
 		self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
-		self.offset.value=float(scene.get("offset",1))
+		self.offset.value=float(scene.get("offset",default_offset_value))
 		self.setQueryLogicBox(([0]*self.getPointDim(),[int(it) for it in self.db.getLogicSize()]))
 
 		self.play_sec.value=float(scene.get("play-sec",0.01))
@@ -968,8 +965,7 @@ np.savez('selected_data',data=data)
 		self.metadata_range = list(scene.get("metadata-range",[db_field.getDTypeRange().From, db_field.getDTypeRange().To]))
 		assert(len(self.metadata_range))==2
 		self.color_map=None
-		self.range_mode.value="dynamic"
-		self.range_mode.value=scene.get("range-mode","user")
+		self.range_mode.value=scene.get("range-mode","dynamic")
 		
 
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
