@@ -954,7 +954,9 @@ np.savez('selected_data',data=data)
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
-
+		self.range_mode.value=str("user")
+		self.range_min.value=33
+		self.range_max.value=38
 		self.field.value=scene.get("field", self.db.getField().name)
 		self.num_refinements.value=int(scene.get("num-refinements", 1))
 
