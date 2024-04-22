@@ -938,7 +938,7 @@ np.savez('selected_data',data=data)
 			directions = {it: I for I, it in enumerate(directions)} if directions else  {'X':0,'Y':1,'Z':2}
 		self.direction.options=directions
 
-		self.timestep_delta.value=int(scene.get("timestep-delta", 64))
+		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
 		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
 		self.view_dependent.value = bool(scene.get('view-dependent', True))
 
@@ -947,7 +947,7 @@ np.savez('selected_data',data=data)
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
 		self.field.value=scene.get("field", self.db.getField().name)
-		self.num_refinements.value=int(scene.get("num-refinements", 1))
+		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 2))
 
 		self.direction.value = int(scene.get("direction", 2))
 
@@ -1302,8 +1302,8 @@ np.savez('selected_data',data=data)
 
 			# in dynamic mode, I need to use the data range
 			if mode=="dynamic":
-				self.range_min.value = round(data_range[0],6) # I am trying to avoid too many refreshes
-				self.range_max.value = round(data_range[1],6)
+				self.range_min.value = data_range[0] 
+				self.range_max.value = data_range[1]
 				
 			# in data accumulation mode I am accumulating the range
 			if mode=="dynamic-acc":
