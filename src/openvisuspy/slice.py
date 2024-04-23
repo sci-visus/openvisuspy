@@ -140,7 +140,7 @@ class Canvas:
 		self.fig.toolbar_location="right" 
 		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
-		self.fig.toolbar.active_inspect = self.over_tool
+		self.fig.toolbar.active_inspect = self.over_tool #will bring this back
 		self.fig.toolbar.active_tap     = None
 
 		# try to preserve the old status
@@ -942,7 +942,7 @@ np.savez('selected_data',data=data)
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
-		self.field.value=scene.get("field", self.db.getField().name)
+		self.field.value=scene.get("field", self.db.getField())
 
 		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 2))
 
