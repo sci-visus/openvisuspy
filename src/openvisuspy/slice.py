@@ -17,7 +17,8 @@ import bokeh.models
 import bokeh.events
 import bokeh.plotting
 import bokeh.models.callbacks
-
+from bokeh.models import LinearColorMapper, ColorBar
+from bokeh.plotting import figure
 import param 
 
 import panel as pn
@@ -482,9 +483,9 @@ class Slice(param.Parameterized):
         
 		data_flipped = data # Flip data to match imshow orientation
 		source = bokeh.models.ColumnDataSource(data=dict(image=[data_flipped]))
-		dw = abs(selected_physic_box[0][1] -selected_physic_box[0][0])
-		dh = abs(selected_physic_box[1][1] - selected_physic_box[1][0])
-		p.image(image='image', x=selected_physic_box[0][0], y=selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
+		dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
+		dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
+		p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
 		color_bar = bokeh.models.ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
 		p.add_layout(color_bar, 'right')
 		p.xaxis.axis_label = "X"
