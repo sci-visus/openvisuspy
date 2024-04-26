@@ -141,7 +141,7 @@ class Canvas:
 		self.fig.toolbar_location="right" 
 		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
-		self.fig.toolbar.active_inspect = self.over_tool #will bring this back
+		# self.fig.toolbar.active_inspect = self.over_tool #will bring this back
 		self.fig.toolbar.active_tap     = None
 
 		# try to preserve the old status
@@ -1481,6 +1481,7 @@ np.savez('selected_data',data=data)
 
 
 
-
+# backward compatible
+Slices=Slice
 
 
