@@ -1,11 +1,11 @@
 
 [project]
 name = "openvisuspy"
-version = "1.0.36"
+version = "1.0.41"
 authors = [{ name="OpenVisus developers"},]
 description = "openvisuspy"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.9"
 
 [project.urls]
 "Homepage" = "https://github.com/sci-visus/openvisuspy"

@@ -1343,7 +1343,7 @@ np.savez('selected_data',data=data)
 
 		# regenerate colormap
 		if self.color_bar is None:
-			print('NONE COLORMAP')
+			# print('NONE COLORMAP')
 			color_mapper_type=self.color_mapper_type.value
 			assert(color_mapper_type in ["linear","log"])
 			is_log=color_mapper_type=="log"
