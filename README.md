@@ -42,14 +42,14 @@ In Windows:
 
 ```bash
 .venv\Scripts\activate
-python.exe -m panel serve ./app --dev --args ./dashboards.json
+python.exe -m panel serve ./app --dev --args ./json/dashboards.json
 ```
 
 In MacOs/Linux:
 
 ```bash
 source .venv/bin/activate
-python.exe -m panel serve ./app --dev --args dashboards.json
+python.exe -m panel serve ./app --dev --args ./json/dashboards.json
 ```
 
 ## Notebooks
@@ -96,7 +96,7 @@ set VISUS_NETSERVICE_VERBOSE=1
 set VISUS_VERBOSE_DISKACCESS=0
 set VISUS_CACHE=c:/tmp/visus-cache
 
-python.exe -m panel serve ./app --dev --args ./dashboards.debug.json
+python.exe -m panel serve ./app --dev --args ./json/dashboards.debug.json
 ```
 
 Deploy binaries
