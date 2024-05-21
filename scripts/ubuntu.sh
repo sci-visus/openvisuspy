@@ -1,11 +1,11 @@
 #!/bin/bash
 
+python3 -m pip install --upgrade pip
+python3 -m pip install hatch build keyring
+
 # disable keyring
 export PYTHON_KEYRING_BACKEND="keyring.backends.null.Keyring"
 python3 -m keyring --disable
-
-python3 -m pip install --upgrade pip
-python3 -m pip install hatch build keyring
 
 # will get the version from `pyproject.toml`
 python3 -m build . --wheel
