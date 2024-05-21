@@ -24,7 +24,6 @@ if [[ "${GIT_TAG}" != "" ]] ; then
 
   # publish to DockerHub
   docker build --build-arg="OPENVISUS_VERSION=${OPENVISUS_VERSION}" --build-arg="GIT_TAG=${GIT_TAG}" --tag nsdf/openvisuspy:${GIT_TAG} ./
-  echo ${DOCKER_TOKEN} | docker login -u=${DOCKER_USERNAME} --password-stdin
   docker push nsdf/openvisuspy:${GIT_TAG}
   docker push nsdf/openvisuspy:latest
 

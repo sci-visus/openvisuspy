@@ -4,8 +4,6 @@ on: [push]
 env:
   PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
   PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-  DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
 
 
 jobs:
@@ -17,7 +15,14 @@ jobs:
       matrix:
         python-version: [ '3.9', '3.10'] 
     steps:
+      
       - uses: actions/checkout@v2
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
