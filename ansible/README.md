@@ -42,6 +42,7 @@ ansible-playbook ./playbook-benchmark-node.yml
 
 # (OPTIONAL) Run single command
 ansible --become-user root --become all -m shell -a 'docker ps'
+ansible --become-user root --become all -m shell -a 'du -hs /mnt/data/visus-cache'
 
 # (OPTIONAL) Generate short urls
 for it in $(ansible  all  --list-hosts | tail -n +2); do 

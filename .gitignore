@@ -13,5 +13,6 @@ build
 **/*.npy
 ansible/inventory.ini
 ansible/notebooks
+notebooks/remove-me/
 
 

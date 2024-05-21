@@ -8,6 +8,9 @@ import urllib.parse
 import requests
 from requests.auth import HTTPBasicAuth
 
+import urllib3
+urllib3.disable_warnings()
+
 from pprint import pprint
 
 logger = logging.getLogger(__name__)
@@ -89,6 +92,23 @@ def LoadJSON(value):
 		return json.loads(body)
 
 	raise Exception(f"{value} not supported")
+
+# ///////////////////////////////////////////////////////////////////
+def DownloadObject(src,dst, aws_access_key_id='any',aws_secret_access_key='any', endpoint_url='https://maritime.sealstorage.io/api/v0/s3'):
+    if os.path.isfile(dst): return
+    print(f"DownloadObject {src} -> {dst}")
+    assert(src.startswith("s3://"))
+    session = boto3.session.Session()
+    s3_client = session.client(
+        service_name='s3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        endpoint_url=endpoint_url, 
+        verify=False
+    )
+    __bucket,__name=src[len("s3://"):].split("/",maxsplit=1)
+    os.makedirs(os.path.dirname(dst),exist_ok=True)
+    s3_client.download_file(__bucket,__name,dst) 
 
 # ///////////////////////////////////////////////////////////////////
 def DownloadFile(url, cache_dir=os.environ.get("VISUS_CACHE",os.path.expanduser("~/visus/cache")),verify=False):
