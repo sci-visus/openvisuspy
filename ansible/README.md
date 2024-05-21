@@ -1,6 +1,6 @@
 # Instructions
 
-Debug locally:
+## Debug locally
 
 ```bash 
 cd ansible
@@ -18,7 +18,7 @@ sudo docker-compose up
 # http://127.0.0.1/chess2
 ```
 
-Deploy with ansible:
+## Deploy with Ansible
 
 ```bash
 
@@ -58,7 +58,11 @@ done
 # (OPTIONAL) Remove all containers:
 ansible-playbook ./playbook-remove-containers.yml 
 
-# (OPTIONAL) deploy 
+# precache
+ansible-playbook ./playbook-precache-data.yml 
+
+# finally deploy 
+# ansible --become-user root --become all -m shell -a 'rm -Rf /root/deploy/notebooks'
 ansible-playbook ./playbook-deploy-node.yml 
 ```
 

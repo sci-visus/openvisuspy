@@ -15,8 +15,9 @@
 
     - name: Copy notebooks
       copy:
-        src: ./notebooks/
+        src: "{{ item }}"
         dest: /root/deploy/notebooks/
+      with_fileglob: "./notebooks/*.ipynb"
 
     # persistent directory
     - name: Creates data directory
