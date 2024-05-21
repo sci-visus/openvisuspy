@@ -1,7 +1,7 @@
 #!/bin/bash
 
 python3 -m pip install --upgrade pip
-python3 -m pip install hatch build
+python3 -m pip install hatch build keyring.alt
 
 # will get the version from `pyproject.toml`
 python3 -m build . --wheel
