@@ -84,7 +84,7 @@ def LoadJSON(value):
 		with open(url, "r") as f:  body=f.read()
 		return json.loads(body)
 		
-	elif issintance(value,str):
+	elif isinstance(value,str):
 		body=value
 		return json.loads(body)
 

@@ -5,8 +5,7 @@ RUN python3 -m pip install --upgrade pip
 COPY requirements.txt ./
 RUN python3 -m pip install -r requirements.txt
 
-ARG OPENVISUS_VERSION
-RUN python3 -m pip install OpenVisusNoGui==$OPENVISUS_VERSION
+RUN python3 -m pip install --upgrade OpenVisusNoGui
 
 ARG GIT_TAG
 RUN python3 -m pip install openvisuspy==$GIT_TAG

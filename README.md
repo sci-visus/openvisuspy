@@ -88,13 +88,15 @@ python test/test-vtkvolume.py
 Use env variables as needed
 
 ```bash
-export PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;.\src
-export BOKEH_ALLOW_WS_ORIGIN=*
-export BOKEH_LOG_LEVEL=debug
-export VISUS_CPP_VERBOSE=1
-export VISUS_NETSERVICE_VERBOSE=1
-export VISUS_VERBOSE_DISKACCESS=0
-export VISUS_CACHE=c:/tmp/visus-cache
+set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;.\src
+set BOKEH_ALLOW_WS_ORIGIN=*
+set BOKEH_LOG_LEVEL=debug
+set VISUS_CPP_VERBOSE=1
+set VISUS_NETSERVICE_VERBOSE=1
+set VISUS_VERBOSE_DISKACCESS=0
+set VISUS_CACHE=c:/tmp/visus-cache
+
+python.exe -m panel serve ./app --dev --args ./dashboards.debug.json
 ```
 
 Deploy binaries
