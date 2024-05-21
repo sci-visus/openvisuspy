@@ -8,8 +8,8 @@ RUN python3 -m pip install -r requirements.txt
 ARG OPENVISUS_VERSION
 RUN python3 -m pip install OpenVisusNoGui==$OPENVISUS_VERSION
 
-ARG OPENVISUSPY_VERSION
-RUN python3 -m pip install openvisuspy==$OPENVISUSPY_VERSION
+ARG GIT_TAG
+RUN python3 -m pip install openvisuspy==$GIT_TAG
 
 RUN mkdir -p /home/notebooks
 

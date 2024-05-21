@@ -101,23 +101,31 @@ Deploy binaries
 
 ```bash
 
+
+
 # commit a new tagget version
-VERSION=$(python3 ./scripts/new_tag.py)
+GIT_TAG=$(python3 ./scripts/new_tag.py)
 
 # GitHub
-git commit -a -m "New tag ($VERSION)" 
-git tag -a ${VERSION} -m "${VERSION}"
-git push origin ${VERSION}
+git commit -a -m "New tag ($GIT_TAG)" 
+git tag -a ${GIT_TAG} -m "${GIT_TAG}"
+git push origin ${GIT_TAG}
 git push origin
 
-# PyPi (upload does not work in WSL2, use windows to just to the upload)
+# upload (for Windows use the prompt)
+# python3 -m pip install hatch 
 rm -f ./dist/*  
 python3 -m build . --wheel
-python3 -m twine upload --username "${PYPI_USERNAME}"  --password "${PYPI_PASSWORD}" --non-interactive --verbose  --skip-existing --verbose "dist/*.whl" 
+hatch publish --yes --no-prompt --user ${PYPI_USERNAME} --client-key ${PYPI_PASSWORD}
+
+# get latest OpenVisusNoGui
+python3 -m pip install --upgrade OpenVisusNoGui 
+OPENVISUS_VERSION=$(python3 -c "from importlib.metadata import version;print(version('OpenVisusNoGui'))")
 
 # Docker
-sudo docker build --build-arg="OPENVISUS_VERSION=2.2.133" --build-arg="OPENVISUSPY_VERSION=${VERSION}" --tag nsdf/openvisuspy:${VERSION} ./
-sudo docker run -it --rm -p 8888:8888 -v ./notebooks:/home/notebooks nsdf/openvisuspy:${VERSION}
-sudo docker push nsdf/openvisuspy:${VERSION}
+sudo docker build --build-arg="OPENVISUS_VERSION=${OPENVISUS_VERSION}" --build-arg="GIT_TAG=${GIT_TAG}" --tag nsdf/openvisuspy:${GIT_TAG} ./
+sudo docker run -it --rm -p 8888:8888 -v ./notebooks:/home/notebooks nsdf/openvisuspy:${GIT_TAG}
+sudo docker push nsdf/openvisuspy:${GIT_TAG}
+sudo docker push nsdf/openvisuspy:latest
 ```
 
