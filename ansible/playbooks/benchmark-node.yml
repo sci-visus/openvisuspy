@@ -1,0 +1,20 @@
+
+---
+- hosts: all
+  become: false
+  gather_facts: yes
+
+  tasks:
+
+    - name: Run geekbench
+      ansible.builtin.shell: |
+        curl -Ls https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz | tar xvz
+        ./Geekbench-4.4.4-Linux/geekbench_x86_64
+
+    - name: Run ookla
+      ansible.builtin.shell: |
+        curl -Ls https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash
+        apt-get install speedtest
+        speedtest --progress=no --accept-gdpr --accept-license
+
+

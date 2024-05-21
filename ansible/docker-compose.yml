@@ -1,0 +1,50 @@
+services:
+
+  # (BACKEND) old dashboard
+  chess1_service:
+    image: docker.io/nsdf/nsdf-chess:0.1
+    ports:
+      - "10334:10334"
+    environment:
+      - VISUS_CACHE=/mnt/data/visus-cache
+    volumes:
+      - /mnt/data:/mnt/data
+
+  # (BACKEND) jupyter lab
+  jupyterlab_service:
+    image: docker.io/nsdf/openvisuspy:1.0.56
+    ports:
+      - "8888:8888"
+    environment:
+      - VISUS_CACHE=/mnt/data/visus-cache
+    volumes:
+      - /home/notebooks:/home/notebooks
+      - /mnt/data:/mnt/data
+    command: jupyter lab --allow-root --notebook-dir="/home/notebooks" --port 8888 --NotebookApp.token='' --NotebookApp.allow_origin='*' --ip '0.0.0.0'
+
+  # (BACKEND) new dashboard
+  # sudo docker run --rm -it -v /mnt/data:/mnt/data -w /usr/local/lib/python3.10/site-packages/openvisuspy -p 10335:10335 docker.io/nsdf/openvisuspy:1.0.55 bash
+  chess2_service:
+    image: docker.io/nsdf/openvisuspy:1.0.56
+    ports:
+      - "10335:10335"
+    environment:
+      - BOKEH_ALLOW_WS_ORIGIN=*
+      - BOKEH_RESOURCES=cdn
+      - PYTHONUNBUFFERED=True
+      - VISUS_CPP_VERBOSE=0
+      - VISUS_NETSERVICE_VERBOSE=0
+      - VISUS_VERBOSE_DISKACCESS=0
+      - VISUS_CACHE=/mnt/data/visus-cache
+    volumes:
+      - /mnt/data:/mnt/data
+    working_dir: /usr/local/lib/python3.10/site-packages/openvisuspy
+    command: python3 -m panel serve ./app --port 10335 --address 0.0.0.0 --allow-websocket-origin='*' --use-xheaders --num-procs 0 --args ./json/dashboards.json
+
+  # (FRONTEND) nginx
+  nginx_service:
+    image: nginx
+    ports:
+        - 80:80
+    volumes:
+        - /root/deploy/nginx.conf:/etc/nginx/conf.d/default.conf

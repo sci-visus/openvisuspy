@@ -1,0 +1,37 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+
+    # prepare for docker-compose up
+    - name: Copy files to node
+      copy:
+        src: "{{item}}"
+        dest: /root/deploy/
+      loop:
+        - ../docker-compose.yml
+        - ../nginx.conf
+
+    # persistent directory
+    - name: Creates data directory
+      ansible.builtin.file:
+        path: /mnt/data
+        state: directory
+
+    # docker-compose down
+    - name: docker-compose down
+      docker_compose:
+        project_src: /root/deploy
+        state: absent
+      ignore_errors: yes
+
+    # docker-compose up
+    - name: docker-compose up
+      community.docker.docker_compose:
+        project_src: /root/deploy
+        remove_orphans: true
+        recreate: always
+        pull: true
+        restarted: true
