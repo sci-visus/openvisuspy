@@ -1,0 +1,26 @@
+#!/bin/bash
+
+python3 -m pip install --upgrade pip
+python3 -m pip install hatch build
+
+# will get the version from `pyproject.toml`
+python3 -m build . --wheel
+
+# get OpenVisus version
+python3 -m pip install --upgrade OpenVisusNoGui 
+OPENVISUS_VERSION=$(python3 -c "from importlib.metadata import version;print(version('OpenVisusNoGui'))")
+
+GIT_TAG=`git describe --tags --exact-match 2>/dev/null || true`
+
+if [[ "${GIT_TAG}" != "" ]] ; then
+
+  # publish to PyPi
+  hatch publish --yes --no-prompt --user ${{ secrets.PYPI_USERNAME }} --client-key ${{ secrets.PYPI_TOKEN }}
+
+  # publish to DockerHub
+  docker build --build-arg="OPENVISUS_VERSION=${OPENVISUS_VERSION}" --build-arg="GIT_TAG=${GIT_TAG}" --tag nsdf/openvisuspy:${GIT_TAG} ./
+  echo ${{ secrets.DOCKER_TOKEN }} | docker login -u=${{ secrets.DOCKER_USERNAME }} --password-stdin
+  docker push nsdf/openvisuspy:${GIT_TAG}
+  docker push nsdf/openvisuspy:latest
+
+fi
