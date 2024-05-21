@@ -97,9 +97,7 @@ export VISUS_VERBOSE_DISKACCESS=0
 export VISUS_CACHE=c:/tmp/visus-cache
 ```
 
-Deploy new binaries
-
-- **Update the `PROJECT_VERSION` inside `pyproject.toml`**
+Deploy binaries
 
 ```bash
 
@@ -113,8 +111,8 @@ git push origin ${VERSION}
 git push origin
 
 # PyPi (upload does not work in WSL2, use windows to just to the upload)
-rm -f dist/*  
-python3 -m build .
+rm -f ./dist/*  
+python3 -m build . --wheel
 python3 -m twine upload --username "${PYPI_USERNAME}"  --password "${PYPI_PASSWORD}" --non-interactive --verbose  --skip-existing --verbose "dist/*.whl" 
 
 # Docker
