@@ -17,24 +17,7 @@ jobs:
           architecture: x64
       - run: |
           set -ex
-          GIT_TAG=`git describe --tags --exact-match 2>/dev/null || true`
-          if [[ "${GIT_TAG}" != "" ]] ; then
-            python3 -m pip install --upgrade pip
-            python3 -m pip install hatch 
-            python3 -m build . --wheel
-            hatch publish --yes --no-prompt --user ${{ secrets.PYPI_USERNAME }} --client-key ${{ secrets.PYPI_TOKEN }}
-
-            # get last OpenVisus version
-            python3 -m pip install --upgrade OpenVisusNoGui 
-            OPENVISUS_VERSION=$(python3 -c "from importlib.metadata import version;print(version('OpenVisusNoGui'))")
-
-            # build and publish docker
-            docker build --build-arg="OPENVISUS_VERSION=${OPENVISUS_VERSION}" --build-arg="GIT_TAG=${GIT_TAG}" --tag nsdf/openvisuspy:${GIT_TAG} ./
-            echo ${{ secrets.DOCKER_TOKEN }} | docker login -u=${{ secrets.DOCKER_USERNAME }} --password-stdin
-            docker push nsdf/openvisuspy:${GIT_TAG}
-            docker push nsdf/openvisuspy:latest
-
-          fi
+          source scripts/ubuntu.sh
 
 
 

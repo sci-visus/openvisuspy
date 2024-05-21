@@ -106,26 +106,9 @@ Deploy binaries
 # commit a new tagget version
 GIT_TAG=$(python3 ./scripts/new_tag.py)
 
-# GitHub
 git commit -a -m "New tag ($GIT_TAG)" 
 git tag -a ${GIT_TAG} -m "${GIT_TAG}"
 git push origin ${GIT_TAG}
 git push origin
-
-# upload (for Windows use the prompt)
-# python3 -m pip install hatch 
-rm -f ./dist/*  
-python3 -m build . --wheel
-hatch publish --yes --no-prompt --user ${PYPI_USERNAME} --client-key ${PYPI_PASSWORD}
-
-# get latest OpenVisusNoGui
-python3 -m pip install --upgrade OpenVisusNoGui 
-OPENVISUS_VERSION=$(python3 -c "from importlib.metadata import version;print(version('OpenVisusNoGui'))")
-
-# Docker
-sudo docker build --build-arg="OPENVISUS_VERSION=${OPENVISUS_VERSION}" --build-arg="GIT_TAG=${GIT_TAG}" --tag nsdf/openvisuspy:${GIT_TAG} ./
-sudo docker run -it --rm -p 8888:8888 -v ./notebooks:/home/notebooks nsdf/openvisuspy:${GIT_TAG}
-sudo docker push nsdf/openvisuspy:${GIT_TAG}
-sudo docker push nsdf/openvisuspy:latest
 ```
 
