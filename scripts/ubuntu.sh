@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PYTHON_KEYRING_BACKEND="keyring.backends.null.Keyring"
+
 python3 -m pip install --upgrade pip
 python3 -m pip install hatch build keyring
 
