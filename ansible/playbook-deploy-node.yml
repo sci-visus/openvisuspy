@@ -5,14 +5,18 @@
 
   tasks:
 
-    # prepare for docker-compose up
     - name: Copy files to node
       copy:
         src: "{{item}}"
         dest: /root/deploy/
       loop:
-        - ../docker-compose.yml
-        - ../nginx.conf
+        - ./docker-compose.yml
+        - ./nginx.conf
+
+    - name: Copy notebooks
+      copy:
+        src: ./notebooks/
+        dest: /root/deploy/notebooks/
 
     # persistent directory
     - name: Creates data directory

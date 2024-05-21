@@ -11,5 +11,7 @@ build
 .vscode
 **/*.npz
 **/*.npy
+ansible/inventory.ini
+ansible/notebooks
 
 
