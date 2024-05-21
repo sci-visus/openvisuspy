@@ -14,7 +14,7 @@ services:
   # (BACKEND) new dashboard
   # sudo docker run --rm -it -v /mnt/data:/mnt/data -w /usr/local/lib/python3.10/site-packages/openvisuspy -p 10335:10335 docker.io/nsdf/openvisuspy:1.0.55 bash
   chess2_service:
-    image: docker.io/nsdf/openvisuspy:1.0.56
+    image: docker.io/nsdf/openvisuspy:1.0.58
     ports:
       - "10335:10335"
     environment:
@@ -33,7 +33,7 @@ services:
 
   # (BACKEND) jupyter lab
   jupyterlab_service:
-    image: docker.io/nsdf/openvisuspy:1.0.56
+    image: docker.io/nsdf/openvisuspy:1.0.58
     ports:
       - "8888:8888"
     environment:
