@@ -27,6 +27,7 @@
         state: latest
         update_cache: true
 
+
     - name: Add Docker GPG Key
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
@@ -49,9 +50,12 @@
         dest: /usr/local/bin/docker-compose
         mode: 'a+x'
 
+    # this need to be fixed...
     - name: install docker modules
       ansible.builtin.pip:
         name: 
         - docker==6.1.3 
-        - docker-compose 
+        - docker-compose==1.29.2
+        - urllib3==1.26.18
+        - awscli
         extra_args: --upgrade
