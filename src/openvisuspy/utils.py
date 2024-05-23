@@ -461,17 +461,16 @@ def ConvertDataForRendering(data, normalize_float=True):
 def GetPalettes():
 	ret = {}
 	for name in bokeh.palettes.__palettes__:
-		value=getattr(bokeh.palettes,name,None)
-		if value and len(value)>=256:
-			ret[name]=value
+		colors=getattr(bokeh.palettes,name,None)
+		if colors and len(colors)>=256:
+			ret[name]=colors
 
-
-	for name in sorted(colorcet.palette):
-		value=getattr(colorcet.palette,name,None)
-		if value and len(value)>=256:
-			# stupid criteria but otherwise I am getting too much palettes
-			if len(name)>12: continue
-			ret[name]=value
+	if True:
+		for name in sorted(colorcet.palette):
+			if name.startswith("CET_") or len(name)>20: continue # stupid criteria but otherwise I am getting too much palettes
+			colors=getattr(colorcet.palette,name,None)
+			if colors and len(colors)>=256:
+				ret[name]=colors
 	return ret
 
 # ////////////////////////////////////////////////////////

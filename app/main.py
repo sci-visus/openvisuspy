@@ -46,6 +46,7 @@ if __name__.startswith('bokeh'):
     pn.extension(
         "ipywidgets",
         "floatpanel",
+        "codeeditor",
         log_level="DEBUG",
         notifications=True,
         sizing_mode="stretch_width"

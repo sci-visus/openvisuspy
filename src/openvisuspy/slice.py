@@ -29,26 +29,9 @@ from panel.pane import HTML,JSON,Bokeh
 from .utils   import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery
 
-
 logger = logging.getLogger(__name__)
 
-SLICE_ID=0
-EPSILON = 0.001
-
-DEFAULT_SHOW_OPTIONS={
-	"top": [
-		[ "open_button","save_button","info_button","copy_url_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements"],
-		["field","direction", "offset", "range_mode", "range_min",  "range_max"]
-
-	],
-	"bottom": [
-		[
-			"request",
-			"response"
-		]
-	]
-}
-
+# ////////////////////////////////////////////////////////////////////////////////////
 class ViewportUpdate: 
 	pass
 
@@ -60,6 +43,7 @@ class Canvas:
 		self.id=id
 		self.fig=None
 		self.pdim=2
+		self.__next_tick_callbacks={}
 
 		# events
 		self.events={
@@ -73,54 +57,49 @@ class Canvas:
 		self.createFigure() 
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
-		self.last_W=0
-		self.last_H=0
-		self.last_viewport=None
 		self.setViewport([0,0,256,256])
 		
-	# onIdle
-	def onIdle(self):
+	# __onFigureSizeChange
+	def __onFigureSizeChange(self, attr, old, new):
+		logger.info(f"W={self.getWidth()} H={self.getHeight()}")
+		# this does not work in Jupyter
+		# add_next_tick_callback
+		# pn.state.curdoc.add_timeout_callback(,200)
+		self.__next_tick_callbacks["__onFigureSizeChange"]=lambda: self.setViewport(self.getViewport())
 		
-		# I need to wait until I get a decent size
-		W,H=self.getWidth(),self.getHeight()
-		if W==0 or H==0:  
-			return
-
-		# some zoom in/out or panning happened (handled by bokeh) 
-		# note: no need to fix the aspect ratio in this case
+	# __onBokehViewportChange
+	def __onBokehViewportChange(self):
 		x=self.fig.x_range.start
 		w=self.fig.x_range.end-x
-
 		y=self.fig.y_range.start
 		h=self.fig.y_range.end-y
-
-		# nothing todo
-		if [x,y,w,h]==self.last_viewport and [self.last_W,self.last_H]==[W,H]:
-			return
-
-		# I need to fix the aspect ratio 
-		if self.pdim==2 and [self.last_W,self.last_H]!=[W,H]:
-			x+=0.5*w # changing x+=0.5*w to x only, same for y+=0.5*h
-			y+=0.5*h
-			if (w/W) > (h/H): 
-				h=w*(H/W) 
-			else: 
-				w=h*(W/H)
-			x-=0.5*w
-			y-=0.5*h
-
-		self.last_W=W
-		self.last_H=H
-		self.last_viewport=[x,y,w,h]
-
-		if not all([
-			self.fig.x_range.start==x, self.fig.x_range.end==x+w,
-			self.fig.y_range.start==y, self.fig.y_range.end==y+h
-		]):
-			self.fig.x_range.start, self.fig.x_range.end = x,x+w
-			self.fig.y_range.start, self.fig.y_range.end = y,y+h
-
+		logger.info(f"viewport={x,y,w,h}")
 		[fn(None) for fn in self.events[ViewportUpdate]]
+
+	# __fixAspectRatioIfNeeded
+	def __fixAspectRatioIfNeeded(self, value):
+
+		W=self.getWidth()
+		H=self.getHeight()
+
+		# does not apply to 1d signal
+		if self.pdim==2 and W>0 and H>0:
+			x,y,w,h=value
+			cx=x+0.5*w 
+			cy=y+0.5*h
+			ratio=W/H
+			w,h=(w,w/ratio) if (w/W) > (h/H) else (h*ratio,h)
+			x1=cx-0.5*w
+			y1=cy-0.5*h
+			value=(x1,y1,w,h)
+		
+		return value
+
+	# onIdle
+	def onIdle(self):
+		for k,fn in self.__next_tick_callbacks.items(): 
+			fn()
+		self.__next_tick_callbacks={}
 
 	# on_event
 	def on_event(self, evt, callback):
@@ -152,6 +131,15 @@ class Canvas:
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
 		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
 		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
+
+		# track changes in the viewport
+		from bokeh.events import RangesUpdate
+		self.fig.on_event(RangesUpdate, self.__onBokehViewportChange)
+
+		# tracl changes in the size
+		# see https://github.com/bokeh/bokeh/issues/9136
+		self.fig.on_change('inner_width',  self.__onFigureSizeChange)
+		self.fig.on_change('inner_height', self.__onFigureSizeChange)
 
 		# replace the figure from the fig_layout (so that later on I can replace it)
 		self.fig_layout[:]=[]
@@ -217,13 +205,11 @@ class Canvas:
 
 	  # setViewport
 	def setViewport(self,value):
-		x,y,w,h=value
-		self.last_W,self.last_H=0,0 # force a fix viewport
+		x,y,w,h=self.__fixAspectRatioIfNeeded(value)
 		self.fig.x_range.start, self.fig.x_range.end = x, x+w
 		self.fig.y_range.start, self.fig.y_range.end = y, y+h
-		# NOTE: the event will be fired inside onIdle
 
-	# setImage
+	# showData
 	def showData(self, pdim, data, viewport, color_bar=None):
 
 		x,y,w,h=viewport
@@ -273,55 +259,34 @@ class Canvas:
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
-	def __init__(self): # just so that we can get new instances in each session
+
+	ID=0
+
+	EPSILON = 0.001
+
+
+	show_options={
+		"top": [
+			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements"],
+			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+
+		],
+		"bottom": [
+			["request","response"]
+		]
+	}
+
+
+	# constructor
+	def __init__(self): 
 		super().__init__()  
-		self.render_id = pn.widgets.IntSlider(name="RenderId", value=0)
-		# current scene as json
-		self.scene_body = pn.widgets.TextAreaInput(name='Current', sizing_mode="stretch_width", height=520)
-		# core query
-		self.scene = pn.widgets.Select(name="Scene", options=[], width=120)
-		self.timestep = pn.widgets.IntSlider(name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
-		self.timestep_delta = pn.widgets.Select(name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
-		self.field = pn.widgets.Select(name='Field', options=[], value='data', width=80)
-		self.resolution = pn.widgets.IntSlider(name='Resolution', value=28, start=20, end=99, sizing_mode="stretch_width")
-		self.view_dependent = pn.widgets.Select(name="ViewDep", options={"Yes": True, "No": False}, value=True, width=80)
-		self.num_refinements = pn.widgets.IntSlider(name='#Ref', value=0, start=0, end=4, width=80)
-		self.direction = pn.widgets.Select(name='Direction', options={'X': 0, 'Y': 1, 'Z': 2}, value=2, width=80)
-		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
-		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
-		# palette  
-		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic", width=120)
-		self.range_min = pn.widgets.FloatInput(name="Min", width=80)
-		self.range_max = pn.widgets.FloatInput(name="Max", width=80)
-		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis256", ncols=5, width=180)
-		self.color_mapper_type = pn.widgets.Select(name="Mapper", options=["linear", "log"], width=60)
-		self.play_button = pn.widgets.Button(name="Play", width=10, sizing_mode='stretch_width')
-		self.play_sec = pn.widgets.Select(name="Frame delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01, width=120)
-		self.request = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
-		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
-		# toolbar
-		self.info_button = pn.widgets.Button(icon="info-circle", width=20)	
-		self.open_button = pn.widgets.Button(icon="file-upload", width=20)
-		self.save_button = pn.widgets.Button(icon="file-download", width=20)
-		self.copy_url_button = pn.widgets.Button(icon="copy", width=20)
-		self.logout_button = pn.widgets.Button(icon="logout", width=20)
-		self.save_button_helper = pn.widgets.TextInput(visible=False)
-		self.copy_url_button_helper = pn.widgets.TextInput(visible=False)
-		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
+		
+		self.id=Slice.ID+1
+		Slice.ID += 1
+		self.job_id=0
+
 		self.vmin=None
 		self.vmax=None
-		# internal use only
-		self.save_button_helper = pn.widgets.TextInput(visible=False)
-		self.copy_url_button_helper = pn.widgets.TextInput(visible=False)
-		self.file_name_input=  pn.widgets.TextInput(name="Numpy_File", value='test',placeholder='Numpy File Name to save')
-
-		self.on_change_callbacks={}
-
-		self.num_hold=0
-		global SLICE_ID
-		self.id=SLICE_ID
-		SLICE_ID += 1
-	
 		self.db = None
 		self.access = None
 
@@ -330,114 +295,110 @@ class Slice(param.Parameterized):
 		self.metadata_range         = [0.0, 255.0]
 		self.scenes                 = {}
 
-		self.scene_body.stylesheets=[""".bk-input {background-color: rgb(48, 48, 64);color: white;font-size: small;}"""]
+		self.aborted       = Aborted()
+		self.new_job       = False
+		self.current_img   = None
+		self.last_job_pushed =time.time()
 
 		self.createGui()
 
-		def onSceneChange(evt): 
-			logger.info(f"onSceneChange {evt}")
-			body=self.scenes[evt.new]
-			self.setSceneBody(body)
-		self.scene.param.watch(SafeCallback(onSceneChange),"value", onlychanged=True,queued=True)
+	# createMenuButton
+	def createMenuButton(self):
+	
+		main_button = pn.widgets.MenuButton(
+			name='File', items=[('Open', 'open'), ('Save', 'save'), ('Info', 'info'),('Copy url','copy-url'), None, ('Logout', 'lgout')], 
+			button_type='primary')
 
-		def onTimestepChange(evt):
-			self.refresh()
-		self.timestep.param.watch(SafeCallback(onTimestepChange), "value", onlychanged=True,queued=True)
+		action_helper       = pn.widgets.TextInput(visible=False)
+		save_button_helper = pn.widgets.TextInput(visible=False)
+		copy_url_button_helper = pn.widgets.TextInput(visible=False)
 
-		def onTimestepDeltaChange(evt):
-			if bool(getattr(self,"setting_timestep_delta",False)): return
-			setattr(self,"setting_timestep_delta",True)
-			value=int(evt.new)
-			A = self.timestep.start
-			B = self.timestep.end
-			T = self.timestep.value
-			T = A + value * int((T - A) / value)
-			T = min(B, max(A, T))
-			self.timestep.step = value
-			self.timestep.value=T
-			setattr(self,"setting_timestep_delta",False)
-		self.timestep_delta.param.watch(SafeCallback(onTimestepDeltaChange),"value", onlychanged=True,queued=True)
+		# onClicked
+		def onClicked(action):
+			action_helper.value=action # this is needed for the javascript part
 
-		def onFieldChange(evt):
-			self.refresh()
-		self.field.param.watch(SafeCallback(onFieldChange),"value", onlychanged=True,queued=True)
+			if action=="info":
+				self.showInfo()
+				return
 
-		def onPaletteChange(evt):
-			self.color_bar=None
-			self.refresh()
-		self.palette.param.watch(SafeCallback(onPaletteChange),"value_name", onlychanged=True,queued=True)
+			if action=="open":
+				self.showOpen()
 
-		def onRangeModeChange(evt):
-			mode=evt.new
-			self.color_map=None
+			if action=="save":
+				body=self.save()
+				save_button_helper.value=body # this is needed for the javascript part
+				return
 
-			if mode == "metadata":   
-				self.range_min.value = self.metadata_range[0]
-				self.range_max.value = self.metadata_range[1]
+			if action=="copy-url":
+				copy_url_button_helper.value=self.getShareableUrl() # this is needed for the javascript part
+				ShowInfoNotification('Copy url done')
+				return
 
-			if mode == "dynamic-acc":
-				self.range_min.value = 0.0
-				self.range_max.value = 0.0
-			
-			self.range_min.disabled = False if mode == "user" else True
-			self.range_max.disabled = False if mode == "user" else True
-			self.refresh()
-		self.range_mode.param.watch(SafeCallback(onRangeModeChange),"value", onlychanged=True,queued=True)
+		main_button.on_click(SafeCallback(lambda evt: onClicked(evt.new)))
+		main_button.js_on_click(args={
+			"action_helper":action_helper,
+			"save_button_helper":save_button_helper,
+			"copy_url_button_helper": copy_url_button_helper
+			}, code="""
 
-		def onRangeChange(evt):
-			self.color_map=None
-			self.color_bar=None
-			self.refresh()
-		self.range_min.param.watch(SafeCallback(onRangeChange),"value", onlychanged=True,queued=True)
-		self.range_max.param.watch(SafeCallback(onRangeChange),"value", onlychanged=True,queued=True)
+					function jsCallFunction() {
+						
+						console.log("jsCallFunction value="+action_helper.value);
 
-		def onColorMapperTypeChange(evt):
-			self.color_bar=None 
-			self.refresh()
-		self.color_mapper_type.param.watch(SafeCallback(onColorMapperTypeChange),"value", onlychanged=True,queued=True)
-		
-		self.resolution.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
-		self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
+						if (action_helper.value=="save") {
+							console.log("save_button_helper.value=" + save_button_helper.value);
+							const link = document.createElement("a");
+							const file = new Blob([save_button_helper.value], { type: 'text/plain' });
+							link.href = URL.createObjectURL(file);
+							link.download = "save_scene.json";
+							link.click();
+							URL.revokeObjectURL(link.href);
+							return
+						}
 
-		self.num_refinements.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
+						if (action_helper.value=="copy-url") {
+							console.log("copy_url_button_helper.value=" + copy_url_button_helper.value);
+							navigator.clipboard.writeText(copy_url_button_helper.value);
+							return;
+						}				
 
-		def onDirectionChange(evt):
-			value=evt.new
-			logger.debug(f"id={self.id} value={value}")
-			pdim = self.getPointDim()
-			if pdim in (1,2): value = 2 # direction value does not make sense in 1D and 2D
-			dims = [int(it) for it in self.db.getLogicSize()]
+						if (action_helper.value=="logout") {
+							console.log("window.location.href="+window.location.href);
+							window.location=window.location.href + "/logout";
+						}
 
-			# default behaviour is to guess the offset
-			offset_value,offset_range=self.guessOffset(value)
-			self.offset.start=offset_range[0]
-			self.offset.end  =offset_range[1]
-			self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
-			self.offset.value=offset_value
-			self.setQueryLogicBox(([0]*pdim,dims))
-			self.refresh()
-		self.direction.param.watch(SafeCallback(onDirectionChange),"value", onlychanged=True,queued=True)
+					}
 
-		self.offset.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True)
+					setTimeout(jsCallFunction,300);
+					""")
 
-		self.info_button.on_click(SafeCallback(lambda evt: self.showInfo()))
-		self.open_button.on_click(SafeCallback(lambda evt: self.showOpen()))
-		self.save_button.on_click(SafeCallback(lambda evt: self.save()))
-		self.copy_url_button.on_click(SafeCallback(lambda evt: self.copyUrl()))
-		self.play_button.on_click(SafeCallback(lambda evt: self.togglePlay()))
+		return pn.Row(
+			main_button,
+			action_helper, 
+			save_button_helper, 
+			copy_url_button_helper,
+			max_width=120,
+			align=('start', 'end'))
 
-		self.setShowOptions(DEFAULT_SHOW_OPTIONS)
-
-		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.showDetails))
-
-		self.start()
+	# createColorBar
+	def createColorBar(self):
+		color_mapper_type=self.color_mapper_type.value
+		assert(color_mapper_type in ["linear","log"])
+		is_log=color_mapper_type=="log"
+		low =cdouble(self.range_min.value)
+		high=cdouble(self.range_max.value)
+		mapper_low =max(Slice.EPSILON, low ) if is_log else low
+		mapper_high=max(Slice.EPSILON, high) if is_log else high
+		self.color_bar = bokeh.models.ColorBar(color_mapper = 
+			bokeh.models.LogColorMapper   (palette=self.palette.value, low=mapper_low, high=mapper_high) if is_log else 
+			bokeh.models.LinearColorMapper(palette=self.palette.value, low=mapper_low, high=mapper_high)
+		)
 
 	# showDetails
 	def showDetails(self,evt=None):
 		import openvisuspy as ovy
 		import panel as pn
 		import numpy as np
-
 
 		x,y,w,h=evt.new
 		z=int(self.offset.value)
@@ -480,7 +441,6 @@ class Slice(param.Parameterized):
 
 		mapper = LinearColorMapper(palette=palette_name, low=np.min(self.detailed_data), high=np.max(self.detailed_data))
 
-        
 		data_flipped = data # Flip data to match imshow orientation
 		source = bokeh.models.ColumnDataSource(data=dict(image=[data_flipped]))
 		dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
@@ -548,9 +508,8 @@ class Slice(param.Parameterized):
 		self.range_mode.value="user"
 		print('new range applied')
 		ShowInfoNotification('New Colormap Range applied successfully')
-		self.refresh()
-
-     
+		self.refresh("apply_cmap")
+ 
 	def download_script(self,event):
 		url=self.data_url
 		rounded_logic_box = [
@@ -613,49 +572,46 @@ np.savez('selected_data',data=data)
 	# save
 	def save(self):
 		body=json.dumps(self.getSceneBody(),indent=2)
-		self.save_button_helper.value=body
 		ShowInfoNotification('Save done')
 		print(body)
+		return body
 
-	# copy url
-	def copyUrl(self):
-		self.copy_url_button_helper.value=self.getShareableUrl()
-		ShowInfoNotification('Copy url done')
 
-	
 	# createGui
 	def createGui(self):
 
-		self.save_button.js_on_click(args={"source":self.save_button_helper}, code="""
-			function jsSave() {
-				console.log('Test scene values');
-				console.log(source.value);
-				const link = document.createElement("a");
-				const file = new Blob([source.value], { type: 'text/plain' });
-				link.href = URL.createObjectURL(file);
-				link.download = "save_scene.json";
-				link.click();
-				URL.revokeObjectURL(link.href);
-			}
-			setTimeout(jsSave,300);
-		""")
+		# just so that we can get new instances in each session
+		self.render_id = pn.widgets.IntSlider(name="RenderId", value=0)
 
+		# current scene as json
+		self.scene_body = pn.widgets.CodeEditor(name='Current', sizing_mode="stretch_width", height=520,language="json")
+		self.scene_body.stylesheets=[""".bk-input {background-color: rgb(48, 48, 64);color: white;font-size: small;}"""]
+		
+		# core query
+		self.scene = pn.widgets.Select(name="Scene", options=[], width=120)
+		self.timestep = pn.widgets.IntSlider(name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
+		self.timestep_delta = pn.widgets.Select(name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
+		self.field = pn.widgets.Select(name='Field', options=[], value='data', width=80)
+		self.resolution = pn.widgets.IntSlider(name='Resolution', value=28, start=20, end=99, sizing_mode="stretch_width")
+		self.view_dependent = pn.widgets.Select(name="ViewDep", options={"Yes": True, "No": False}, value=True, width=80)
+		self.num_refinements = pn.widgets.IntSlider(name='#Ref', value=0, start=0, end=4, width=80)
+		self.direction = pn.widgets.Select(name='Direction', options={'X': 0, 'Y': 1, 'Z': 2}, value=2, width=80)
+		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
+		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
+		
+		# palette  
+		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic", width=120)
+		self.range_min = pn.widgets.FloatInput(name="Min", width=80)
+		self.range_max = pn.widgets.FloatInput(name="Max", width=80)
+		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis256", ncols=3, width=180)
+		self.color_mapper_type = pn.widgets.Select(name="Mapper", options=["linear", "log"], width=60)
+		self.play_button = pn.widgets.Button(name="Play", width=10)
+		self.play_sec = pn.widgets.Select(name="Delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01, width=90)
+		self.request = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
+		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
 
-		self.copy_url_button.js_on_click(args={"source": self.copy_url_button_helper}, code="""
-			function jsCopyUrl() {
-				console.log(source);
-				navigator.clipboard.writeText(source.value);
-			} 
-			setTimeout(jsCopyUrl,300);
-		""")
-
-		self.logout_button = pn.widgets.Button(icon="logout",width=20)
-		self.logout_button.js_on_click(args={"source": self.logout_button}, code="""
-			console.log("logging out...")
-			window.location=window.location.href + "/logout";
-		""")
-
-		# for icons see https://tabler.io/icons
+		# file_name_input
+		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
 
 		# play time
 		self.play = types.SimpleNamespace()
@@ -664,46 +620,117 @@ np.savez('selected_data',data=data)
 		self.idle_callback = None
 		self.color_bar     = None
 
-		self.t1=time.time()
-		self.aborted       = Aborted()
-		self.new_job       = False
-		self.current_img   = None
-		self.last_job_pushed =time.time()
-
 		self.canvas = Canvas(self.id)
 		self.canvas.on_event(ViewportUpdate,              SafeCallback(self.onCanvasViewportChange))
 		self.canvas.on_event(bokeh.events.Tap           , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap     , SafeCallback(self.onCanvasDoubleTap))
+		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.showDetails))
 
-		self.top_layout=Column(sizing_mode="stretch_width")
+		self.menu_button=self.createMenuButton()
 
-		self.middle_layout=Column(
-			Row(self.canvas.fig_layout, sizing_mode='stretch_both'),
-			sizing_mode='stretch_both'
-		)
+		# watch for scene change
+		def onSceneChange(evt): 
+			logger.info(f"onSceneChange {evt}")
+			body=self.scenes[evt.new]
+			self.setSceneBody(body)
+		self.scene.param.watch(SafeCallback(onSceneChange),"value", onlychanged=True,queued=True)
 
-		self.bottom_layout=Column(sizing_mode="stretch_width")
+		# watch for time change
+		def onTimestepChange(evt):
+			self.refresh(reason="onTimestepChange")
+		self.timestep.param.watch(SafeCallback(onTimestepChange), "value", onlychanged=True,queued=True)
+
+		def onTimestepDeltaChange(evt):
+			if bool(getattr(self,"setting_timestep_delta",False)): return
+			setattr(self,"setting_timestep_delta",True)
+			value=int(evt.new)
+			A = self.timestep.start
+			B = self.timestep.end
+			T = self.timestep.value
+			T = A + value * int((T - A) / value)
+			T = min(B, max(A, T))
+			self.timestep.step = value
+			self.timestep.value=T
+			setattr(self,"setting_timestep_delta",False)
+		self.timestep_delta.param.watch(SafeCallback(onTimestepDeltaChange),"value", onlychanged=True,queued=True)
+
+		# watch for field range
+		def onFieldChange(evt):
+			self.refresh("onFieldChange")
+		self.field.param.watch(SafeCallback(onFieldChange),"value", onlychanged=True,queued=True)
+
+		# watch for palette change
+		def onPaletteChange(evt):
+			self.createColorBar()
+			self.refresh("onPaletteChange")
+		self.palette.param.watch(SafeCallback(onPaletteChange),"value_name", onlychanged=True,queued=True)
+
+		# watch for range mode change
+		def onRangeModeChange(evt):
+			mode=evt.new
+			if mode == "metadata":   
+				self.range_min.value = self.metadata_range[0]
+				self.range_max.value = self.metadata_range[1]
+			if mode == "dynamic-acc":
+				self.range_min.value = 0.0
+				self.range_max.value = 0.0
+			self.range_min.disabled = False if mode == "user" else True
+			self.range_max.disabled = False if mode == "user" else True
+			self.refresh("onRangeModeChange")
+		self.range_mode.param.watch(SafeCallback(onRangeModeChange),"value", onlychanged=True,queued=True)
+
+		# watch for user range change
+		def onUserRangeChange(evt):
+			mode=self.range_mode.value
+			if mode!="user": return
+			self.refresh("onUserRangeChange")
+		self.range_min.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
+		self.range_max.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
+
+		# watch for color bar change
+		def onColorMapperTypeChange(evt):
+			self.createColorBar()
+			self.refresh("onColorMapperTypeChange")
+		self.color_mapper_type.param.watch(SafeCallback(onColorMapperTypeChange),"value", onlychanged=True,queued=True)
+		
+		self.resolution.param.watch(SafeCallback(lambda evt: self.refresh("resolution.param.watch")),"value", onlychanged=True,queued=True)
+		self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh("view_dependent.param.watch")),"value", onlychanged=True,queued=True)
+
+		self.num_refinements.param.watch(SafeCallback(lambda evt: self.refresh("num_refinements.param.watch")),"value", onlychanged=True,queued=True)
+
+		def onDirectionChange(evt):
+			value=evt.new
+			logger.debug(f"id={self.id} value={value}")
+			pdim = self.getPointDim()
+			if pdim in (1,2): value = 2 # direction value does not make sense in 1D and 2D
+			dims = [int(it) for it in self.db.getLogicSize()]
+
+			# default behaviour is to guess the offset
+			offset_value,offset_range=self.guessOffset(value)
+			self.offset.start=offset_range[0]
+			self.offset.end  =offset_range[1]
+			self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
+			self.offset.value=offset_value
+			self.setQueryLogicBox(([0]*pdim,dims))
+			self.refresh("onDirectionChange")
+		self.direction.param.watch(SafeCallback(onDirectionChange),"value", onlychanged=True,queued=True)
+
+		self.offset.param.watch(SafeCallback(lambda evt: self.refresh("offset.param.watch")),"value", onlychanged=True,queued=True)
+
+		self.play_button.on_click(SafeCallback(lambda evt: self.togglePlay()))
 
 		self.dialogs=Column()
 		self.dialogs.visible=False
+		self.main_layout=Column(sizing_mode="stretch_both")
 
-		self.main_layout=Column(
-			self.top_layout,
-			self.middle_layout,
-			self.bottom_layout, 
-
-			self.dialogs,
-			self.copy_url_button_helper,
-			self.save_button_helper,
-
-			sizing_mode="stretch_both"
-		)
+		self.setShowOptions(Slice.show_options)
+		self.start()
 
 	# onCanvasViewportChange
 	def onCanvasViewportChange(self, evt):
 		x,y,w,h=self.canvas.getViewport()
 		self.viewport.value=f"{x} {y} {w} {h}" # this way someone from the outside can watch for changes
-		self.refresh()
+		self.refresh("onCanvasViewportChange")
 
 	# onCanvasSingleTap
 	def onCanvasSingleTap(self, evt):
@@ -721,18 +748,23 @@ np.savez('selected_data',data=data)
 	# setShowOptions
 	def setShowOptions(self, value):
 		self.show_options=value
-		for layout, position in ((self.top_layout,"top"),(self.bottom_layout,"bottom")):
-			layout.clear()
-			for row in value.get(position,[[]]):
-				v=[]
-				for widget in row:
-					if isinstance(widget,str):
-						widget=getattr(self, widget.replace("-","_"),None)
-					if widget:
-						v.append(widget)
-				if v: layout.append(Row(*v,sizing_mode="stretch_width"))
 
-		# bottom
+		# top
+		top=[]
+		for row in value.get("top",[[]]):
+			top.append(Row(*[getattr(self, it.replace("-","_"),None) for it in row if  isinstance(it,str) and getattr(self, it.replace("-","_"),None)],sizing_mode="stretch_width"))
+
+		bottom=[]
+		for row in value.get("bottom",[[]]):
+			bottom.append(Row(*[getattr(self, it.replace("-","_"),None) for it in row if  isinstance(it,str) and getattr(self, it.replace("-","_"),None)],sizing_mode="stretch_width"))
+
+		self.main_layout[:]=[
+			*top,
+			self.canvas.fig_layout,
+			*bottom,
+			self.dialogs,
+		]
+
 
 	# getShareableUrl
 	def getShareableUrl(self):
@@ -754,7 +786,7 @@ np.savez('selected_data',data=data)
 			self.db.start()
 		if not self.idle_callback:
 			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 30)
-		self.refresh()
+		self.refresh("self.start")
 
 	# getMainLayout
 	def getMainLayout(self):
@@ -768,7 +800,7 @@ np.savez('selected_data',data=data)
 	def setLogicToPhysic(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		self.logic_to_physic = value
-		self.refresh()
+		self.refresh("self.setLogicToPhysic")
 
 	# getPhysicBox
 	def getPhysicBox(self):
@@ -821,15 +853,9 @@ np.savez('selected_data',data=data)
 			}
 		}
 
-	# hold
-	def hold(self):
-		self.num_hold=getattr(self,"num_hold",0) + 1
-		# if self.num_hold==1: self.doc.hold()
 
-	# unhold
-	def unhold(self):
-		self.num_hold-=1
-		# if self.num_hold==0: self.doc.unhold()
+
+
 
 	# load
 	def load(self, value):
@@ -961,22 +987,17 @@ np.savez('selected_data',data=data)
 
 		self.metadata_range = list(scene.get("metadata-range",self.db.getFieldRange()))
 		assert(len(self.metadata_range))==2
-		self.color_map=None
 		self.range_mode.value=scene.get("range-mode","dynamic")
 		
-
-
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
 		viewport=scene.get("viewport",None)
 		if viewport is not None:
 			self.canvas.setViewport(viewport)
 
-		show_options=scene.get("show-options",DEFAULT_SHOW_OPTIONS)
+		show_options=scene.get("show-options",Slice.show_options)
 		self.setShowOptions(show_options)
-
 		self.start()
-
 		logger.info(f"id={self.id} END\n")
 
 
@@ -1033,7 +1054,7 @@ np.savez('selected_data',data=data)
 	def setViewDependent(self, value):
 		logger.debug(f"id={self.id} value={value}")
 		self.view_dependent.value = value
-		self.refresh()
+		self.refresh("self.setViewDependent")
 
 	# getLogicAxis (depending on the projection XY is the slice plane Z is the orthogoal direction)
 	def getLogicAxis(self):
@@ -1223,7 +1244,8 @@ np.savez('selected_data',data=data)
 		return self.db.getPointDim() if self.db else 2
 
 	# refresh
-	def refresh(self):
+	def refresh(self,reason=None):
+		logger.info(f"reason={reason}")
 		self.aborted.setTrue()
 		self.new_job=True
 
@@ -1236,7 +1258,7 @@ np.savez('selected_data',data=data)
 	def setQueryLogicBox(self,value):
 		viewport=self.toPhysic(value)
 		self.canvas.setViewport(viewport)
-		self.refresh()
+		self.refresh("setQueryLogicBox")
   
 	# getLogicCenter
 	def getLogicCenter(self):
@@ -1341,21 +1363,16 @@ np.savez('selected_data',data=data)
 			self.canvas.wheel_zoom_tool.dimensions="both"
 			self.canvas.pan_tool.dimensions="both"
 
-		# regenerate colormap
-		if self.color_bar is None:
-			# print('NONE COLORMAP')
-			color_mapper_type=self.color_mapper_type.value
-			assert(color_mapper_type in ["linear","log"])
-			is_log=color_mapper_type=="log"
-			palette=self.palette.value
-			mapper_low =max(EPSILON, low ) if is_log else low
-			mapper_high=max(EPSILON, high) if is_log else high
-			self.color_bar = bokeh.models.ColorBar(color_mapper = 
-				bokeh.models.LogColorMapper   (palette=palette, low=mapper_low, high=mapper_high) if is_log else 
-				bokeh.models.LinearColorMapper(palette=palette, low=mapper_low, high=mapper_high)
-			)
+		color_mapper_type=self.color_mapper_type.value
+		assert(color_mapper_type in ["linear","log"])
+		is_log=color_mapper_type=="log"
+		mapper_low =max(Slice.EPSILON, low ) if is_log else low
+		mapper_high=max(Slice.EPSILON, high) if is_log else high
 
-		logger.debug(f"id={self.id}::rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} mode={mode} np-array-range={data_range} widget-range={[low,high]}")
+		self.color_bar.color_mapper.low = mapper_low
+		self.color_bar.color_mapper.high = mapper_high
+		
+		logger.debug(f"id={self.id} job_id={self.job_id} rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} mode={mode} np-array-range={data_range} widget-range={[low,high]}")
 
 		# update the image
 		self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar=self.color_bar)
@@ -1438,7 +1455,8 @@ np.savez('selected_data',data=data)
 		self.scene_body.value=json.dumps(self.getSceneBody(),indent=2)
 		
 		logger.debug("# ///////////////////////////////")
-		logger.debug(f"id={self.id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
+		self.job_id+=1
+		logger.debug(f"id={self.id} job_id={self.job_id} pushing new job query_logic_box={query_logic_box} max_pixels={max_pixels} endh={endh}..")
 
 		timestep=int(self.timestep.value)
 		field=self.field.value

@@ -85,9 +85,12 @@ python test/test-vtkvolume.py
 
 ## Developers only
 
-Use env variables as needed
+Debug mode in Windows
 
 ```bash
+.venv\Scripts\activate
+
+set PATH=c:\Python310;%PATH%
 set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;.\src
 set BOKEH_ALLOW_WS_ORIGIN=*
 set BOKEH_LOG_LEVEL=debug
@@ -97,6 +100,7 @@ set VISUS_VERBOSE_DISKACCESS=0
 set VISUS_CACHE=c:/tmp/visus-cache
 
 python.exe -m panel serve ./app --dev --args ./json/dashboards.debug.json
+python.exe -m jupyter lab notebooks/ov-dashboards.ipynb
 ```
 
 Deploy binaries

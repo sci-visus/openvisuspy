@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 import numpy as np
 from statistics import mean, median
 
-from .slice  import  Slice, EPSILON
+from .slice  import  Slice
 from .backend import ExecuteBoxQuery
 from .utils   import *
 
@@ -337,7 +337,7 @@ class ProbeTool(param.Parameterized):
 
 			for it in ys:
 				if self.slice.color_mapper_type.value=="log":
-					it = [max(EPSILON, value) for value in it]
+					it = [max(Slice.EPSILON, value) for value in it]
 				self.renderers[probe]["fig"].append(
 					self.fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
