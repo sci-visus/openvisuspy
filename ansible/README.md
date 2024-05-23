@@ -7,6 +7,8 @@ cd ansible
 
 ln -s ../notebooks /mnt/data/notebooks
 
+# ****REMEMBER to change openvisuspy version in docker-compose if needed***
+
 sudo docker-compose up chess1_service
 sudo docker-compose up chess2_service
 sudo docker-compose up jupyterlab_service
@@ -38,7 +40,7 @@ ansible all -m ping
 ansible-playbook ./playbook-setup-node.yml 
 
 # (OPTIONAL) benchmark node
-ansible-playbook ./playbook-benchmark-node.yml
+ansible-playbook ./playbook-benchmark-node.yml --verbose
 
 # (OPTIONAL) Run single command
 ansible --become-user root --become all -m shell -a 'docker ps'
@@ -62,7 +64,9 @@ ansible-playbook ./playbook-remove-containers.yml
 ansible-playbook ./playbook-precache-data.yml 
 
 # finally deploy 
+# ****REMEMBER to change openvisuspy version in docker-compose if needed***
 # ansible --become-user root --become all -m shell -a 'rm -Rf /root/deploy/notebooks'
 ansible-playbook ./playbook-deploy-node.yml 
+# ansible-playbook ./playbook-deploy-node.yml  -l hetzner
 ```
 

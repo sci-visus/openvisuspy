@@ -38,6 +38,7 @@ class ProbeTool(param.Parameterized):
 	# constructor
 	def __init__(self, slice):
 		self.slice=slice
+		
 		self.probes = {}
 		self.renderers = {"offset": None}
 		for dir in range(3):
@@ -50,16 +51,7 @@ class ProbeTool(param.Parameterized):
 					"fig": []     # or probe fig
 				}
 		self.createGui()
-		
-		# to add probes
-		slice.canvas.on_event(bokeh.events.DoubleTap,SafeCallback(self.onCanvasDoubleTap))
 
-		self.slice.offset.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True) # display the new offset
-		self.slice.scene.param.watch(SafeCallback(lambda evt: self.recompute()),"value", onlychanged=True,queued=True)
-		self.slice.direction.param.watch(SafeCallback(lambda evt: self.recompute()),"value", onlychanged=True,queued=True)
-
-		# new data, important for the range
-		self.slice.render_id.param.watch(SafeCallback(lambda evt: self.refresh()), "value", onlychanged=True,queued=True) 
 
 	# createFigure
 	def createFigure(self):
@@ -106,6 +98,16 @@ class ProbeTool(param.Parameterized):
 			self.buttons.append(button)
 
 		self.createFigure()
+
+		# to add probes
+		self.slice.canvas.on_event(bokeh.events.DoubleTap,SafeCallback(self.onCanvasDoubleTap))
+
+		self.slice.offset.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True) # display the new offset
+		self.slice.scene.param.watch(SafeCallback(lambda evt: self.recompute()),"value", onlychanged=True,queued=True)
+		self.slice.direction.param.watch(SafeCallback(lambda evt: self.recompute()),"value", onlychanged=True,queued=True)
+
+		# new data, important for the range
+		self.slice.render_id.param.watch(SafeCallback(lambda evt: self.refresh()), "value", onlychanged=True,queued=True) 
 
 		self.main_layout = pn.Row(
 			self.slice.getMainLayout(),

@@ -43,6 +43,7 @@ class DashboardApp:
 
 # ////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
+
     pn.extension(
         "ipywidgets",
         "floatpanel",
