@@ -29,6 +29,8 @@ from panel.pane import HTML,JSON,Bokeh
 from .utils   import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery
 
+from .show_details import ShowDetails
+
 logger = logging.getLogger(__name__)
 
 # ////////////////////////////////////////////////////////////////////////////////////
@@ -53,6 +55,7 @@ class Canvas:
 			ViewportUpdate: []
 		}
 
+		self.box_select_tool_helper = bokeh.models.TextInput(visible=False)
 		self.fig_layout=Row(sizing_mode="stretch_both")	
 		self.createFigure() 
 
@@ -112,8 +115,7 @@ class Canvas:
 		self.pan_tool               = bokeh.models.PanTool()
 		self.wheel_zoom_tool        = bokeh.models.WheelZoomTool()
 		self.box_select_tool        = bokeh.models.BoxSelectTool()
-		self.box_select_tool_helper = bokeh.models.TextInput()
-		self.reset_fig= bokeh.models.ResetTool()
+		self.reset_fig              = bokeh.models.ResetTool()
 
 		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool]) 
 
@@ -142,38 +144,40 @@ class Canvas:
 		self.fig.on_change('inner_height', self.__onFigureSizeChange)
 
 		# replace the figure from the fig_layout (so that later on I can replace it)
-		self.fig_layout[:]=[]
-		self.fig_layout.append(Bokeh(self.fig))
-		
+		self.fig_layout[:]=[
+			Bokeh(self.fig),
+			self.box_select_tool_helper,
+		]
 		self.enableSelection()
-
 		self.last_renderer={}
 
 	# enableSelection
 	def enableSelection(self,use_python_events=False):
-		if use_python_events:
-			# python event DOES NOT work
-			self.fig.on_event(bokeh.events.SelectionGeometry, lambda s: print("JHERE"))
-		else:
-			def handleSelectionGeometry(attr,old,new):
-				j=json.loads(new)
-				x,y=float(j["x0"]),float(j["y0"])
-				w,h=float(j["x1"])-x,float(j["y1"])-y
-				evt=types.SimpleNamespace()
-				evt.new=[x,y,w,h]
-				[fn(evt) for fn in self.events[bokeh.events.SelectionGeometry]]
-				logger.info(f"HandleSeletionGeometry {evt}")
 
-			self.box_select_tool_helper.on_change('value', handleSelectionGeometry)
+		"""
+		Implementing in javascript since this DOES NOT WORK
+		self.fig.on_event(bokeh.events.SelectionGeometry, lambda s: print("JHERE"))
+		"""
 
-			self.fig.js_on_event(bokeh.events.SelectionGeometry, bokeh.models.callbacks.CustomJS(
-				args=dict(widget=self.box_select_tool_helper), 
-				code="""
-					console.log("Setting widget value for selection...");
-					widget.value=JSON.stringify(cb_obj.geometry, undefined, 2);
-					console.log("Setting widget value for selection DONE");
-					"""
-			))	
+		def handleSelectionGeometry(attr,old,new):
+			j=json.loads(new)
+			x,y=float(j["x0"])  ,float(j["y0"])
+			w,h=float(j["x1"])-x,float(j["y1"])-y
+			evt=types.SimpleNamespace()
+			evt.new=[x,y,w,h]
+			[fn(evt) for fn in self.events[bokeh.events.SelectionGeometry]]
+			logger.info(f"HandleSeletionGeometry {evt}")
+
+		self.box_select_tool_helper.on_change('value', handleSelectionGeometry)
+
+		self.fig.js_on_event(bokeh.events.SelectionGeometry, bokeh.models.callbacks.CustomJS(
+			args=dict(widget=self.box_select_tool_helper), 
+			code="""
+				console.log("Setting widget value for selection...");
+				widget.value=JSON.stringify(cb_obj.geometry, undefined, 2);
+				console.log("Setting widget value for selection DONE");
+				"""
+		))	
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
@@ -394,155 +398,6 @@ class Slice(param.Parameterized):
 			bokeh.models.LinearColorMapper(palette=self.palette.value, low=mapper_low, high=mapper_high)
 		)
 
-	# showDetails
-	def showDetails(self,evt=None):
-		import openvisuspy as ovy
-		import panel as pn
-		import numpy as np
-
-		x,y,w,h=evt.new
-		z=int(self.offset.value)
-		logic_box=self.toLogic([x,y,w,h])
-		self.logic_box=logic_box
-		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
-		print('Selected logic box here...')
-		print(self.logic_box)
-		self.selected_logic_box=self.logic_box
-		self.selected_physic_box=[[x,x+w],[y,y+h]]
-		print('Physical box here')
-		print(f'{x} {y} {x+w} {y+h}')
-		self.detailed_data=data
-		save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
-		download_script_button = pn.widgets.Button(name='Download Script', button_type='primary')
-		apply_colormap_button = pn.widgets.Button(name='Replace Existing Range', button_type='primary')
-    
-		apply_min_colormap_button = pn.widgets.Button(name='Replace Min Range', button_type='primary')
-		apply_max_colormap_button = pn.widgets.Button(name='Replace Max Range', button_type='primary')
-		apply_avg_min_colormap_button = pn.widgets.Button(name='Apply Average Min', button_type='primary')
-		apply_avg_max_colormap_button = pn.widgets.Button(name='Apply Average Max', button_type='primary')
-		save_numpy_button.on_click(self.save_data)
-		download_script_button.on_click(self.download_script)
-		apply_colormap_button.on_click(self.apply_cmap)
-		apply_max_colormap_button.on_click(self.apply_max_cmap)
-		apply_min_colormap_button .on_click(self.apply_min_cmap)
-		apply_avg_max_colormap_button.on_click(self.apply_avg_max_cmap)
-		apply_avg_min_colormap_button .on_click(self.apply_avg_min_cmap)
-		self.vmin,self.vmax=np.min(data),np.max(data)
-		add_range_button=pn.widgets.Button(name='Add This Range',button_type='primary')
-		add_range_button.on_click(self.add_range)
-
-		if self.range_mode.value=="dynamic-acc":
-			self.vmin,self.vmax=np.min(data),np.max(data)
-			self.range_min.value = min(self.range_min.value, self.vmin)
-			self.range_max.value = max(self.range_max.value, self.vmax)
-			logger.info(f"Updating range with selected area vmin={self.vmin} vmax={self.vmax}")
-		p = figure(x_range=(self.selected_physic_box[0][0], self.selected_physic_box[0][1]), y_range=(self.selected_physic_box[1][0], self.selected_physic_box[1][1]))
-		palette_name = self.palette.value_name if self.palette.value_name.endswith("256") else "Turbo256"
-
-		mapper = LinearColorMapper(palette=palette_name, low=np.min(self.detailed_data), high=np.max(self.detailed_data))
-
-		data_flipped = data # Flip data to match imshow orientation
-		source = bokeh.models.ColumnDataSource(data=dict(image=[data_flipped]))
-		dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
-		dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
-		p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
-		color_bar = bokeh.models.ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
-		p.add_layout(color_bar, 'right')
-		p.xaxis.axis_label = "X"
-		p.yaxis.axis_label = "Y"
-
-		self.showDialog(
-            pn.Column(
-                self.file_name_input, 
-
-                pn.Row(save_numpy_button,download_script_button),
-                pn.Row(pn.pane.Bokeh(p),pn.Column(
-                    pn.pane.Markdown(f"#### Palette Used: {palette_name}"),
-                    pn.pane.Markdown(f"#### New Min/Max Found.."),
-                    pn.pane.Markdown(f"#### Min: {self.vmin}, Max: {self.vmax}"),
-                    pn.Row(apply_avg_min_colormap_button,apply_avg_max_colormap_button),
-                    add_range_button,
-                    apply_colormap_button)),
-                
-                sizing_mode="stretch_both"
-            ), 
-            width=1048, height=748, name="Details"
-        )
-
-	def apply_min_cmap(self,event):
-		self.range_min.value=self.vmin
-		self.range_mode.value="user"
-		print('new min range applied')
-		ShowInfoNotification('New min range applied successfully')
-	def add_range(self,event):
-		if self.range_max.value<self.vmax:
-			self.range_max.value=self.vmax
-		if self.range_min.value>self.vmin:
-			self.range_min.value=self.vmin
-		print('Range added successfully')
-		ShowInfoNotification('Range Added successfully')
-     
-	def apply_max_cmap(self,event):
-		self.range_max.value=self.vmax
-		self.range_mode.value="user"
-		print('new min range applied')
-		ShowInfoNotification('New max range applied successfully')
-  
-	def apply_avg_min_cmap(self,event):
-		new_avg_min=(self.range_min.value+self.vmin)/2
-		self.range_min.value=round(new_avg_min, 4)
-		self.range_mode.value="user"
-		print('new min range applied')
-		ShowInfoNotification('Average Min range applied successfully')
-
-	def apply_avg_max_cmap(self,event):
-		new_avg_max=(self.range_max.value+self.vmax)/2
-		self.range_max.value=round(new_avg_max, 4)
-		self.range_mode.value="user"
-		print('new average max range applied')
-		ShowInfoNotification('Average Max range applied successfully')
-  
-	def apply_cmap(self,event):
-		self.range_min.value=self.vmin
-		self.range_max.value=self.vmax
-		self.range_mode.value="user"
-		print('new range applied')
-		ShowInfoNotification('New Colormap Range applied successfully')
-		self.refresh("apply_cmap")
- 
-	def download_script(self,event):
-		url=self.data_url
-		rounded_logic_box = [
-    [int(self.logic_box[0][0]), int(self.logic_box[0][1]), self.logic_box[0][2]],  
-    [int(self.logic_box[1][0] ), int(self.logic_box[1][1] ), self.logic_box[1][2]] 
-]
-		python_file_content = f"""
-import OpenVisus
-import numpy as np
-
-data_url="{url}"
-db=OpenVisus.LoadDataset(data_url)
-data=db.read(time={self.timestep.value},logic_box={rounded_logic_box})
-np.savez('selected_data',data=data)
-"""
-		file_path = f'./download_script_{rounded_logic_box[0][0]}_{rounded_logic_box[0][1]}.py'
-
-		with open(file_path, 'w') as file:
-			file.write(python_file_content)
-		ShowInfoNotification('Script to download selected data saved!')
-		print("Script saved successfully.") 
-
-	def save_data(self, event):
-		if self.detailed_data is not None:
-			if self.file_name_input.value:
-				file_name = f"{self.file_name_input.value}.npz"
-			else:
-				file_name = "test_region.npz"			
-			np.savez(file_name, data=self.detailed_data, lon_lat=self.selected_physic_box)
-			ShowInfoNotification('Data Saved successfully to current directory!')
-			print("Data saved successfully.") 
-		else:
-			print("No data to save.")
 
 	# open
 	def showOpen(self):
@@ -575,7 +430,6 @@ np.savez('selected_data',data=data)
 		ShowInfoNotification('Save done')
 		print(body)
 		return body
-
 
 	# createGui
 	def createGui(self):
@@ -621,10 +475,10 @@ np.savez('selected_data',data=data)
 		self.color_bar     = None
 
 		self.canvas = Canvas(self.id)
-		self.canvas.on_event(ViewportUpdate,              SafeCallback(self.onCanvasViewportChange))
-		self.canvas.on_event(bokeh.events.Tap           , SafeCallback(self.onCanvasSingleTap))
-		self.canvas.on_event(bokeh.events.DoubleTap     , SafeCallback(self.onCanvasDoubleTap))
-		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.showDetails))
+		self.canvas.on_event(ViewportUpdate                , SafeCallback(self.onCanvasViewportChange))
+		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
+		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
+		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
 
 		self.menu_button=self.createMenuButton()
 
@@ -1000,6 +854,9 @@ np.savez('selected_data',data=data)
 		self.start()
 		logger.info(f"id={self.id} END\n")
 
+	# onCanvasSelectionGeometry
+	def onCanvasSelectionGeometry(self, evt):
+		ShowDetails(self,*evt.new)
 
 	# showInfo
 	def showInfo(self):
