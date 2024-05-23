@@ -26,15 +26,6 @@ class Probe:
 # //////////////////////////////////////////////////////////////////////////////////////
 class ProbeTool(param.Parameterized):
 
-	# widgets
-	slider_x_pos         = pn.widgets.FloatSlider     (name="X coordinate", value=0.0, start=0.0, end=1.0, step=1.0, width=160)
-	slider_y_pos         = pn.widgets.FloatSlider     (name="Y coordinate", value=0, start=0, end=1, step=1, width=160)
-	slider_z_range       = pn.widgets.RangeSlider     (name="Range", start=0.0, end=1.0, value=(0.0, 1.0), width=250,format="0.001")
-	slider_num_points_x  = pn.widgets.IntSlider       (name="#x", start=1, end=8, step=1, value=2, width=60)
-	slider_num_points_y  = pn.widgets.IntSlider       (name="#y", start=1, end=8, step=1, value=2, width=60)
-	slider_z_res         = pn.widgets.IntSlider       (name="Res", start=20, end=99, step=1, value=24, width=60)
-	slider_z_op          = pn.widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg")
-
 	# constructor
 	def __init__(self, slice):
 		self.slice=slice
@@ -53,9 +44,38 @@ class ProbeTool(param.Parameterized):
 		self.createGui()
 
 
-	# createFigure
-	def createFigure(self):
+	# createGui
+	def createGui(self):
 
+		self.slot = None
+		self.button_css = [None] * len(COLORS)
+		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
+
+		# widgets
+		self.slider_x_pos         = pn.widgets.FloatSlider     (name="X coordinate", value=0.0, start=0.0, end=1.0, step=1.0, width=160)
+		self.slider_y_pos         = pn.widgets.FloatSlider     (name="Y coordinate", value=0, start=0, end=1, step=1, width=160)
+		self.slider_z_range       = pn.widgets.RangeSlider     (name="Range", start=0.0, end=1.0, value=(0.0, 1.0), width=250,format="0.001")
+		self.slider_num_points_x  = pn.widgets.IntSlider       (name="#x", start=1, end=8, step=1, value=2, width=60)
+		self.slider_num_points_y  = pn.widgets.IntSlider       (name="#y", start=1, end=8, step=1, value=2, width=60)
+		self.slider_z_res         = pn.widgets.IntSlider       (name="Res", start=20, end=99, step=1, value=24, width=60)
+		self.slider_z_op          = pn.widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg")
+
+		self.slider_x_pos.param.watch              (SafeCallback(lambda new: self.onProbeXYChange()),    "value_throttled", onlychanged=True,queued=True)
+		self.slider_y_pos.param.watch              (SafeCallback(lambda new: self.onProbeXYChange()),    "value_throttled", onlychanged=True,queued=True)
+		self.slider_z_range.param.watch            (SafeCallback(lambda evt: self.recomputeAllProbes()), "value_throttled", onlychanged=True,queued=True)
+		self.slider_num_points_x.param.watch       (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
+		self.slider_num_points_y.param.watch       (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
+		self.slider_z_res.param.watch              (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
+		self.slider_z_op.param.watch               (SafeCallback(lambda evt: self.recomputeAllProbes()), "value",           onlychanged=True,queued=True)
+
+		# create buttons
+		self.buttons = []
+		for slot, color in enumerate(COLORS):
+			button=pn.widgets.Button(name=color, sizing_mode="stretch_width")
+			button.on_click(SafeCallback(lambda evt, slot=slot: self.onProbeButtonClick(slot)))
+			self.buttons.append(button)
+
+		# create figure
 		x1, x2 = self.slider_z_range.value
 		y1, y2 = (self.slice.color_bar.color_mapper.low, self.slice.color_bar.color_mapper.high) if self.slice.color_bar else (0.0,1.0)
 
@@ -75,44 +95,17 @@ class ProbeTool(param.Parameterized):
 		self.fig_placeholder[:]=[]
 		self.fig_placeholder.append(self.fig)
 
-	# createGui
-	def createGui(self):
-
-		self.slot = None
-		self.button_css = [None] * len(COLORS)
-		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
-
-		self.slider_x_pos.param.watch(SafeCallback(lambda new: self.onProbeXYChange()), "value_throttled", onlychanged=True,queued=True)
-		self.slider_y_pos.param.watch(SafeCallback(lambda new: self.onProbeXYChange()), "value_throttled", onlychanged=True,queued=True)
-		self.slider_z_range.param.watch(SafeCallback(lambda evt: self.recompute()), "value_throttled", onlychanged=True,queued=True)
-		self.slider_num_points_x.param.watch(SafeCallback(lambda evt: self.recompute()), 'value_throttled', onlychanged=True,queued=True)
-		self.slider_num_points_y.param.watch(SafeCallback(lambda evt: self.recompute()), 'value_throttled', onlychanged=True,queued=True)
-		self.slider_z_res.param.watch(SafeCallback(lambda evt: self.recompute()), 'value_throttled', onlychanged=True,queued=True)
-		self.slider_z_op.param.watch(SafeCallback(lambda evt: self.recompute()), "value", onlychanged=True,queued=True)
-
-		# create buttons
-		self.buttons = []
-		for slot, color in enumerate(COLORS):
-			button=pn.widgets.Button(name=color, sizing_mode="stretch_width")
-			button.on_click(SafeCallback(lambda evt, slot=slot: self.onProbeButtonClick(slot)))
-			self.buttons.append(button)
-
-		self.createFigure()
-
 		# to add probes
 		self.slice.canvas.on_event(bokeh.events.DoubleTap,SafeCallback(self.onCanvasDoubleTap))
 
-		self.slice.offset.param.watch(SafeCallback(lambda evt: self.refresh()),"value", onlychanged=True,queued=True) # display the new offset
-		self.slice.scene.param.watch(SafeCallback(lambda evt: self.recompute()),"value", onlychanged=True,queued=True)
-		self.slice.direction.param.watch(SafeCallback(lambda evt: self.recompute()),"value", onlychanged=True,queued=True)
+		self.slice.offset.param.watch(    SafeCallback(lambda evt: self.refreshGui()),"value", onlychanged=True,queued=True) # display the new offset
+		self.slice.scene.param.watch(     SafeCallback(lambda evt: self.recomputeAllProbes()),"value", onlychanged=True,queued=True)
+		self.slice.direction.param.watch(SafeCallback(lambda evt: self.recomputeAllProbes()),"value", onlychanged=True,queued=True)
 
 		# new data, important for the range
-		self.slice.render_id.param.watch(SafeCallback(lambda evt: self.refresh()), "value", onlychanged=True,queued=True) 
+		self.slice.render_id.param.watch(SafeCallback(lambda evt: self.refreshGui()), "value", onlychanged=True,queued=True) 
 
-		self.main_layout = pn.Row(
-			self.slice.getMainLayout(),
-				pn.Column(
-					pn.Row(
+		top_row=pn.Row(
 						self.slider_x_pos,
 						self.slider_y_pos,
 						self.slider_z_range,
@@ -121,11 +114,18 @@ class ProbeTool(param.Parameterized):
 						self.slider_num_points_x,
 						self.slider_num_points_y,
 						sizing_mode="stretch_width"
-					),
-					pn.Row(
-						*[button for button in self.buttons], 
-						sizing_mode="stretch_width"
-					),
+					)
+
+		button_row=pn.Row(
+				*[button for button in self.buttons], 
+				sizing_mode="stretch_width"
+			)
+
+		self.main_layout = pn.Row(
+			self.slice.getMainLayout(),
+				pn.Column(
+					top_row,
+					button_row,
 					self.fig_placeholder,
 					sizing_mode="stretch_both"
 				)
@@ -178,7 +178,7 @@ class ProbeTool(param.Parameterized):
 			if not probe.enabled and probe.pos is not None:
 				self.addProbe(probe)
 
-		self.refresh()
+		self.refreshGui()
 
 	# findProbe
 	def findProbe(self, probe):
@@ -343,7 +343,7 @@ class ProbeTool(param.Parameterized):
 				self.renderers[probe]["fig"].append(
 					self.fig.line(xs, it, line_width=2, legend_label=color, line_color=color))
 
-		self.refresh()
+		self.refreshGui()
 
 	# removeProbe
 	def removeProbe(self, probe):
@@ -357,10 +357,10 @@ class ProbeTool(param.Parameterized):
 		self.renderers[probe]["fig"] = []
 
 		probe.enabled = False
-		self.refresh()
+		self.refreshGui()
 
-	# refresh
-	def refresh(self):
+	# refreshGui
+	def refreshGui(self):
 
 		# changing y_scale DOES NOT WORK (!!!)
 		# self.fig.y_scale=bokeh.models.scales.LogScale() if self.slice.color_mapper_type.value=="log" else bokeh.models.scales.LinearScale()
@@ -439,10 +439,10 @@ class ProbeTool(param.Parameterized):
 			line_width=1, color="black")
 
 
-	# recompute
-	def recompute(self):
+	# recomputeAllProbes
+	def recomputeAllProbes(self):
 		
-		self.refresh()
+		self.refreshGui()
 
 		# remove all old probes
 		was_enabled = {}

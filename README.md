@@ -101,6 +101,9 @@ set VISUS_CACHE=c:/tmp/visus-cache
 
 python.exe -m panel serve ./app --dev --args ./json/dashboards.debug.json
 python.exe -m jupyter lab notebooks/ov-dashboards.ipynb
+
+
+python.exe -m panel serve ./app --dev --args "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-intro&cached=arco" --probe
 ```
 
 Deploy binaries
