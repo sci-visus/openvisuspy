@@ -112,12 +112,10 @@ def ShowDetails(self,x,y,w,h):
 	logic_box=self.toLogic([x,y,w,h])
 	self.logic_box=logic_box
 	data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
-	logger.info('Selected logic box here...')
-	logger.info(self.logic_box)
+	
 	self.selected_logic_box=self.logic_box
 	self.selected_physic_box=[[x,x+w],[y,y+h]]
-	logger.info('Physical box here')
-	logger.info(f'{x} {y} {x+w} {y+h}')
+	logger.info(f'ShowDetails({x} {y} {x+w} {y+h}) logic_box={self.logic_box}...')
 	self.detailed_data=data
 
 	save_numpy_button = pn.widgets.Button(name='Save Data as Numpy', button_type='primary')
@@ -171,14 +169,8 @@ def ShowDetails(self,x,y,w,h):
 		pn.Column(
 				self.file_name_input, 
 				pn.Row(save_numpy_button,download_script_button),
-				pn.Row(pn.pane.Bokeh(p),pn.Column(
-						pn.pane.Markdown(f"#### Palette Used: {palette_name}"),
-						pn.pane.Markdown(f"#### New Min/Max Found.."),
-						pn.pane.Markdown(f"#### Min: {self.vmin}, Max: {self.vmax}"),
-						pn.Row(apply_avg_min_colormap_button,apply_avg_max_colormap_button),
-						add_range_button,
-						apply_colormap_button)),
+				pn.Row(apply_avg_min_colormap_button,apply_avg_max_colormap_button,add_range_button,apply_colormap_button),
+				pn.Row(pn.pane.Bokeh(p,sizing_mode="stretch_both")),
 				sizing_mode="stretch_both"
-		), 
-		width=1048, height=748, name="Details"
-	)
+		)
+		, width=900, height=800, name=f"Palette: {palette_name} Min: {self.vmin}, Max: {self.vmax}")

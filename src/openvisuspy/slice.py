@@ -62,16 +62,18 @@ class Canvas:
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
 		self.setViewport([0,0,256,256])
 		
-	# __onFigureSizeChange
-	def __onFigureSizeChange(self, attr, old, new):
-		logger.info(f"W={self.getWidth()} H={self.getHeight()}")
+	# onFigureSizeChange
+	def onFigureSizeChange(self, __attr, __old, __new):
+		W,H=self.getWidth(),self.getHeight()
+		logger.info(f"W={W} H={H}")
+		if W==0 or H==0: return
 		# this does not work in Jupyter
 		# add_next_tick_callback
 		# pn.state.curdoc.add_timeout_callback(,200)
-		self.__next_tick_callbacks["__onFigureSizeChange"]=lambda: self.setViewport(self.getViewport())
+		self.__next_tick_callbacks["onFigureSizeChange"]=lambda: self.setViewport(self.getViewport())
 		
 	# __onBokehViewportChange
-	def __onBokehViewportChange(self):
+	def __onBokehViewportChange(self,evt=None):
 		x=self.fig.x_range.start
 		w=self.fig.x_range.end-x
 		y=self.fig.y_range.start
@@ -140,8 +142,8 @@ class Canvas:
 
 		# tracl changes in the size
 		# see https://github.com/bokeh/bokeh/issues/9136
-		self.fig.on_change('inner_width',  self.__onFigureSizeChange)
-		self.fig.on_change('inner_height', self.__onFigureSizeChange)
+		self.fig.on_change('inner_width',  self.onFigureSizeChange)
+		self.fig.on_change('inner_height', self.onFigureSizeChange)
 
 		# replace the figure from the fig_layout (so that later on I can replace it)
 		self.fig_layout[:]=[
@@ -268,7 +270,6 @@ class Slice(param.Parameterized):
 
 	EPSILON = 0.001
 
-
 	show_options={
 		"top": [
 			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements"],
@@ -279,7 +280,6 @@ class Slice(param.Parameterized):
 			["request","response"]
 		]
 	}
-
 
 	# constructor
 	def __init__(self): 
@@ -308,14 +308,16 @@ class Slice(param.Parameterized):
 
 	# createMenuButton
 	def createMenuButton(self):
+
+
+		action_helper          = pn.widgets.TextInput(visible=False)
+		save_button_helper     = pn.widgets.TextInput(visible=False)
+		copy_url_button_helper = pn.widgets.TextInput(visible=False)
 	
 		main_button = pn.widgets.MenuButton(
-			name='File', items=[('Open', 'open'), ('Save', 'save'), ('Info', 'info'),('Copy url','copy-url'), None, ('Logout', 'lgout')], 
+			name="File", items=[('Open', 'open'), ('Save', 'save'), ('Info', 'info'),('Copy url','copy-url'), None, ("Force Resize","resize"), None, ('Logout', 'lgout')], 
 			button_type='primary')
 
-		action_helper       = pn.widgets.TextInput(visible=False)
-		save_button_helper = pn.widgets.TextInput(visible=False)
-		copy_url_button_helper = pn.widgets.TextInput(visible=False)
 
 		# onClicked
 		def onClicked(action):
@@ -336,6 +338,10 @@ class Slice(param.Parameterized):
 			if action=="copy-url":
 				copy_url_button_helper.value=self.getShareableUrl() # this is needed for the javascript part
 				ShowInfoNotification('Copy url done')
+				return
+
+			if action=="resize":
+				self.canvas.onFigureSizeChange(None,None,None)
 				return
 
 		main_button.on_click(SafeCallback(lambda evt: onClicked(evt.new)))
@@ -603,14 +609,22 @@ class Slice(param.Parameterized):
 	def setShowOptions(self, value):
 		self.show_options=value
 
-		# top
-		top=[]
-		for row in value.get("top",[[]]):
-			top.append(Row(*[getattr(self, it.replace("-","_"),None) for it in row if  isinstance(it,str) and getattr(self, it.replace("-","_"),None)],sizing_mode="stretch_width"))
+		# [0,1) means 1 timestep
+		num_timesteps=max(1,len(self.db.getTimesteps())-1) if self.db else 1
+	
+		def CreateWidgets(row):
+			ret=[]
+			for it in row:
+				widget=getattr(self, it.replace("-","_"),None)
+				if widget:
+					if num_timesteps==1 and widget in [self.timestep, self.timestep_delta, self.play_sec,self.play_button]:
+						continue
+					ret.append(widget)
+					
+			return ret
 
-		bottom=[]
-		for row in value.get("bottom",[[]]):
-			bottom.append(Row(*[getattr(self, it.replace("-","_"),None) for it in row if  isinstance(it,str) and getattr(self, it.replace("-","_"),None)],sizing_mode="stretch_width"))
+		top   =[Row(*CreateWidgets(row),sizing_mode="stretch_width") for row in value.get("top"   ,[[]])]
+		bottom=[Row(*CreateWidgets(row),sizing_mode="stretch_width") for row in value.get("bottom",[[]])]
 
 		self.main_layout[:]=[
 			*top,
@@ -618,7 +632,6 @@ class Slice(param.Parameterized):
 			*bottom,
 			self.dialogs,
 		]
-
 
 	# getShareableUrl
 	def getShareableUrl(self):
@@ -706,10 +719,6 @@ class Slice(param.Parameterized):
 				"viewport": self.canvas.getViewport()
 			}
 		}
-
-
-
-
 
 	# load
 	def load(self, value):
@@ -856,7 +865,9 @@ class Slice(param.Parameterized):
 
 	# onCanvasSelectionGeometry
 	def onCanvasSelectionGeometry(self, evt):
+		ShowInfoNotification('Reading data. Please wait...')
 		ShowDetails(self,*evt.new)
+		ShowInfoNotification('Data ready')
 
 	# showInfo
 	def showInfo(self):
