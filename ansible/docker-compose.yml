@@ -6,14 +6,14 @@ services:
     ports:
       - "10334:10334"
     environment:
-      - VISUS_CACHE=/mnt/data/visus-cache
+      - VISUS_CACHE=${VISUS_CACHE}
     volumes:
       - /mnt/data:/mnt/data
 
   # (BACKEND) new dashboard
   # sudo docker run --rm -it -v /mnt/data:/mnt/data -w /usr/local/lib/python3.10/site-packages/openvisuspy -p 10335:10335 docker.io/nsdf/openvisuspy:1.0.55 bash
   chess2_service:
-    image: docker.io/nsdf/openvisuspy:1.0.60
+    image: docker.io/nsdf/openvisuspy:1.0.61
     ports:
       - "10335:10335"
     environment:
@@ -23,7 +23,7 @@ services:
       - VISUS_CPP_VERBOSE=0
       - VISUS_NETSERVICE_VERBOSE=0
       - VISUS_VERBOSE_DISKACCESS=0
-      - VISUS_CACHE=/mnt/data/visus-cache
+      - VISUS_CACHE=${VISUS_CACHE}
     volumes:
       - /mnt/data:/mnt/data
     working_dir: /usr/local/lib/python3.10/site-packages/openvisuspy
@@ -32,15 +32,16 @@ services:
 
   # (BACKEND) jupyter lab
   jupyterlab_service:
-    image: docker.io/nsdf/openvisuspy:1.0.60
+    image: docker.io/nsdf/openvisuspy:1.0.61
     ports:
       - "8888:8888"
     environment:
-      - VISUS_CACHE=/mnt/data/visus-cache
+      - VISUS_CACHE=${VISUS_CACHE}
+      - NSDF_TOKEN=${NSDF_TOKEN}
     volumes:
       - ./notebooks:/home/notebooks
       - /mnt/data:/mnt/data
-    command: jupyter lab --allow-root --notebook-dir="/home/notebooks" --port 8888 --NotebookApp.token='' --NotebookApp.allow_origin='*' --ip '0.0.0.0'
+    command: jupyter lab --allow-root --notebook-dir="/home/notebooks" --port 8888 --NotebookApp.token='${NSDF_TOKEN}' --NotebookApp.allow_origin='*' --ip '0.0.0.0'
 
   # (FRONTEND) nginx
   nginx_service:

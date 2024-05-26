@@ -9,12 +9,12 @@ ln -s ../notebooks /mnt/data/notebooks
 
 # ****REMEMBER to change openvisuspy version in docker-compose if needed***
 
-sudo docker-compose up chess1_service
-sudo docker-compose up chess2_service
-sudo docker-compose up jupyterlab_service
+sudo docker-compose --env-file ./.env up # chess1_service
+sudo docker-compose --env-file ./.env up # chess2_service
+sudo docker-compose --env-file ./.env up # jupyterlab_service
 
 # all together
-sudo docker-compose up 
+sudo docker-compose --env-file ./.envup 
 # http://127.0.0.1/
 # http://127.0.0.1/chess1
 # http://127.0.0.1/chess2
@@ -48,7 +48,7 @@ ansible --become-user root --become all -m shell -a 'du -hs /mnt/data/visus-cach
 
 # (OPTIONAL) Generate short urls
 for it in $(ansible  all  --list-hosts | tail -n +2); do 
-  echo $(python3 scritps/shorten.py "http://$it:8888") "http://$it:8888"
+  echo $(python3 ../scritps/shorten.py "http://$it:8888") "http://$it:8888"
 done
 
 # (OPTIONAL) clean up notebooks

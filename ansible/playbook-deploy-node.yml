@@ -12,12 +12,19 @@
       loop:
         - ./docker-compose.yml
         - ./nginx.conf
+        - ./.env
 
     - name: Copy notebooks
       copy:
         src: "{{ item }}"
         dest: /root/deploy/notebooks/
       with_fileglob: "./notebooks/*.ipynb"
+
+    - name: Copy NASA notebooks
+      copy:
+        src: "{{ item }}"
+        dest: /root/deploy/notebooks/nasa/
+      with_fileglob: "./notebooks/nasa/*.ipynb"
 
     # persistent directory
     - name: Creates data directory

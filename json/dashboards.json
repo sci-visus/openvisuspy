@@ -1,6 +1,12 @@
 {
   "datasets": [
 
+    {
+      "name": "chess-intro",
+      "url": "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-intro&cached=arco",
+      "color-mapper-type": "linear"
+    },    
+
     {"name":"david",  "url":"http://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=idx"},
     {"name":"2kbit1", "url":"http://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=idx"},
     {"name":"retina", "url":"http://atlantis.sci.utah.edu/mod_visus?dataset=rabbit&cached=idx"},
@@ -12,11 +18,6 @@
     {"name":"NASA Vertical Ocean Velocity(W)",    "url":"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_w/llc2160_w.idx?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
     {"name":"NASA Temperature(theta)",            "url":"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_theta/llc2160_theta.idx?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
 
-    {
-      "name": "chess-intro",
-      "url": "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-intro&cached=arco",
-      "color-mapper-type": "linear"
-    },    
     {
       "name": "chess-recon_combined_1_2_3_fullres_zip",
       "url": "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-recon_combined_1_2_3_fullres_zip&cached=arco",
