@@ -45,7 +45,7 @@ class Canvas:
 		self.id=id
 		self.fig=None
 		self.pdim=2
-		self.__next_tick_callbacks={}
+		self.scheduled_callbacks={}
 
 		# events
 		self.events={
@@ -61,19 +61,25 @@ class Canvas:
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
 		self.setViewport([0,0,256,256])
-		
+
+	# addNextTick
+	def scheduleCallback(self, name, msec, callback):
+		if False:
+			# this does not work in Jupyter
+			# add_next_tick_callback
+			pn.state.curdoc.add_timeout_callback(callback,200)
+		else:
+			self.scheduled_callbacks[name]={"msec":msec,"callback":callback,"t1":time.time()}
+
 	# onFigureSizeChange
 	def onFigureSizeChange(self, __attr, __old, __new):
 		W,H=self.getWidth(),self.getHeight()
-		logger.info(f"W={W} H={H}")
+		logger.info(f"onFigureSizeChange W={W} H={H}")
 		if W==0 or H==0: return
-		# this does not work in Jupyter
-		# add_next_tick_callback
-		# pn.state.curdoc.add_timeout_callback(,200)
-		self.__next_tick_callbacks["onFigureSizeChange"]=lambda: self.setViewport(self.getViewport())
+		self.scheduleCallback("onFigureSizeChange", 600, lambda: self.setViewport(self.getViewport()))
 		
-	# __onBokehViewportChange
-	def __onBokehViewportChange(self,evt=None):
+	# onFigureRangesUpdate
+	def onFigureRangesUpdate(self,evt=None):
 		x=self.fig.x_range.start
 		w=self.fig.x_range.end-x
 		y=self.fig.y_range.start
@@ -102,9 +108,16 @@ class Canvas:
 
 	# onIdle
 	def onIdle(self):
-		for k,fn in self.__next_tick_callbacks.items(): 
-			fn()
-		self.__next_tick_callbacks={}
+		next={}
+		t2=time.time()
+		for name, it in self.scheduled_callbacks.items(): 
+			callback=it["callback"]
+			msec=it["msec"]
+			if (t2-it["t1"])*1000>msec:
+				callback()
+			else:
+				next[name]=it
+		self.scheduled_callbacks=next
 
 	# on_event
 	def on_event(self, evt, callback):
@@ -138,7 +151,7 @@ class Canvas:
 
 		# track changes in the viewport
 		from bokeh.events import RangesUpdate
-		self.fig.on_event(RangesUpdate, self.__onBokehViewportChange)
+		self.fig.on_event(RangesUpdate, self.onFigureRangesUpdate)
 
 		# tracl changes in the size
 		# see https://github.com/bokeh/bokeh/issues/9136
@@ -315,7 +328,7 @@ class Slice(param.Parameterized):
 		copy_url_button_helper = pn.widgets.TextInput(visible=False)
 	
 		main_button = pn.widgets.MenuButton(
-			name="File", items=[('Open', 'open'), ('Save', 'save'), ('Info', 'info'),('Copy Url','copy-url'), None, ("Force Resize","resize"), None, ('Logout', 'lgout')], 
+			name="File", items=[('Open', 'open'), ('Save', 'save'), ('Show Metadata', 'metadata'),('Copy Url','copy-url'), None, ("Refresh All","refresh-all"), None, ('Logout', 'logout')], 
 			button_type='primary')
 
 
@@ -323,8 +336,8 @@ class Slice(param.Parameterized):
 		def onClicked(action):
 			action_helper.value=action # this is needed for the javascript part
 
-			if action=="info":
-				self.showInfo()
+			if action=="metadata":
+				self.showMetadata()
 				return
 
 			if action=="open":
@@ -337,11 +350,11 @@ class Slice(param.Parameterized):
 
 			if action=="copy-url":
 				copy_url_button_helper.value=self.getShareableUrl() # this is needed for the javascript part
-				ShowInfoNotification('Copy Url done')
+				ShowInfoNotification(f'Copy Url done {copy_url_button_helper.value}')
 				return
 
-			if action=="resize":
-				self.canvas.onFigureSizeChange(None,None,None)
+			if action=="refresh-all":
+				self.refreshAll()
 				return
 
 		main_button.on_click(SafeCallback(lambda evt: onClicked(evt.new)))
@@ -379,7 +392,7 @@ class Slice(param.Parameterized):
 
 					}
 
-					setTimeout(jsCallFunction,600);
+					setTimeout(jsCallFunction,300);
 					""")
 
 		return pn.Row(
@@ -389,6 +402,16 @@ class Slice(param.Parameterized):
 			copy_url_button_helper,
 			max_width=120,
 			align=('start', 'end'))
+
+	# refreshAll
+	def refreshAll(self):
+		def refreshAllLater():
+			viewport=self.canvas.getViewport()
+			self.canvas.setViewport(viewport)
+			self.refresh("refreshAll")
+			self.probe_tool.recomputeAllProbes()
+		# better wait until all the event cycles are consumed
+		self.canvas.scheduleCallback("refreshAll",1000, refreshAllLater)
 
 	# createColorBar
 	def createColorBar(self):
@@ -411,12 +434,11 @@ class Slice(param.Parameterized):
 		body=json.dumps(self.getBody(),indent=2)
 		self.scene_body.value=body
 
-		def onLoadClick(evt):
-			body=value.decode('ascii')
-			self.scene_body.value=body
+		def onFileInputChange(evt):
+			self.scene_body.value=file_input.value.decode('ascii')
 			ShowInfoNotification('Load done. Press `Eval`')
 		file_input = pn.widgets.FileInput(description="Load", accept=".json")
-		file_input.param.watch(SafeCallback(onLoadClick),"value", onlychanged=True,queued=True)
+		file_input.param.watch(SafeCallback(onFileInputChange),"value", onlychanged=True,queued=True)
 
 		def onEvalClick(evt):
 			self.setBody(json.loads(self.scene_body.value))
@@ -526,11 +548,8 @@ class Slice(param.Parameterized):
 			self.refresh("onDirectionChange")
 		self.direction.param.watch(SafeCallback(onDirectionChange),"value", onlychanged=True,queued=True)
 
-
 		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
 		self.offset.param.watch(SafeCallback(lambda evt: self.refresh("offset.param.watch")),"value", onlychanged=True,queued=True)
-
-		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
 		
 		# palette  
 		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic", width=120)
@@ -547,8 +566,8 @@ class Slice(param.Parameterized):
 			self.refresh("onRangeModeChange")
 		self.range_mode.param.watch(SafeCallback(onRangeModeChange),"value", onlychanged=True,queued=True)
 
-		self.range_min = pn.widgets.FloatInput(name="Min", width=80)
-		self.range_max = pn.widgets.FloatInput(name="Max", width=80)
+		self.range_min = pn.widgets.FloatInput(name="Min", width=80,value=0.0)
+		self.range_max = pn.widgets.FloatInput(name="Max", width=80,value=0.0) # NOTE: in dynamic mode I need an empty range
 		def onUserRangeChange(evt):
 			mode=self.range_mode.value
 			if mode!="user": return
@@ -605,7 +624,7 @@ class Slice(param.Parameterized):
 	# onCanvasViewportChange
 	def onCanvasViewportChange(self, evt):
 		x,y,w,h=self.canvas.getViewport()
-		self.viewport.value=f"{x} {y} {w} {h}" # this way someone from the outside can watch for changes
+
 		self.refresh("onCanvasViewportChange")
 
 	# onCanvasSingleTap
@@ -773,11 +792,9 @@ class Slice(param.Parameterized):
 
 		if self.scenes:
 			first_scene_name=list(self.scenes)[0]
-			# I am not getting the event since it didn't change
-			if False:
-				self.scene.value=first_scene_name
-			else:
-				self.setBody(self.scenes[first_scene_name])
+			self.setBody(self.scenes[first_scene_name])
+		else:
+			self.refreshAll()
 
 	# setBody
 	def setBody(self, body):
@@ -875,7 +892,10 @@ class Slice(param.Parameterized):
 		self.metadata_range = list(body.get("metadata-range",self.db.getFieldRange()))
 		assert(len(self.metadata_range))==2
 		self.range_mode.value=body.get("range-mode","dynamic")
-		
+
+		self.range_min.value = body.get("range-min",0.0)
+		self.range_max.value = body.get("range-max",0.0)
+
 		self.color_mapper_type.value = body.get("color-mapper-type","linear")	
 
 		viewport=body.get("viewport",None)
@@ -893,49 +913,55 @@ class Slice(param.Parameterized):
 
 		logger.info(f"id={self.id} END\n")
 
+		self.refreshAll()
+
 	# onCanvasSelectionGeometry
 	def onCanvasSelectionGeometry(self, evt):
 		ShowInfoNotification('Reading data. Please wait...')
 		ShowDetails(self,*evt.new)
 		ShowInfoNotification('Data ready')
 
-	# showInfo
-	def showInfo(self):
+	# showMetadata
+	def showMetadata(self):
 
 		logger.debug(f"Show info")
 		body=self.scenes[self.scene.value]
 		metadata=body["scene"].get("metadata", [])
+		if not metadata:
+			self.showDialog(HTML(f"<div><pre><code>No metadata</code></pre></div>",sizing_mode="stretch_width",height=400))
 
-		cards=[]
-		for I, item in enumerate(metadata):
+		else:
 
-			type = item["type"]
-			filename = item.get("filename",f"metadata_{I:02d}.bin")
+			cards=[]
+			for I, item in enumerate(metadata):
 
-			if type == "b64encode":
-				# binary encoded in string
-				body = base64.b64decode(item["encoded"]).decode("utf-8")
-				body = io.StringIO(body)
-				body.seek(0)
-				internal_panel=HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width",height=400)
-			elif type=="json-object":
-				obj=item["object"]
-				file = io.StringIO(json.dumps(obj))
-				file.seek(0)
-				internal_panel=JSON(obj,name="Object",depth=3, sizing_mode="stretch_width",height=400) 
-			else:
-				continue
+				type = item["type"]
+				filename = item.get("filename",f"metadata_{I:02d}.bin")
 
-			cards.append(Card(
-					internal_panel,
-					pn.widgets.FileDownload(file, embed=True, filename=filename,align="end"),
-					title=filename,
-					collapsed=(I>0),
-					sizing_mode="stretch_width"
+				if type == "b64encode":
+					# binary encoded in string
+					body = base64.b64decode(item["encoded"]).decode("utf-8")
+					body = io.StringIO(body)
+					body.seek(0)
+					internal_panel=HTML(f"<div><pre><code>{body}</code></pre></div>",sizing_mode="stretch_width",height=400)
+				elif type=="json-object":
+					obj=item["object"]
+					file = io.StringIO(json.dumps(obj))
+					file.seek(0)
+					internal_panel=JSON(obj,name="Object",depth=3, sizing_mode="stretch_width",height=400) 
+				else:
+					continue
+
+				cards.append(Card(
+						internal_panel,
+						pn.widgets.FileDownload(file, embed=True, filename=filename,align="end"),
+						title=filename,
+						collapsed=(I>0),
+						sizing_mode="stretch_width"
+					)
 				)
-			)
 
-		self.showDialog(*cards)
+			self.showDialog(*cards)
 
 	# showDialog
 	def showDialog(self, *args,**kwargs):
@@ -1224,25 +1250,23 @@ class Slice(param.Parameterized):
 		pdim = self.getPointDim()
 
 		# refresh the range
-		if True:
+		# in dynamic mode, I need to use the data range
+		if mode=="dynamic":
+			self.range_min.value = data_range[0] 
+			self.range_max.value = data_range[1]
 
-			# in dynamic mode, I need to use the data range
-			if mode=="dynamic":
-				self.range_min.value = data_range[0] 
-				self.range_max.value = data_range[1]
+		# in data accumulation mode I am accumulating the range
+		if mode=="dynamic-acc":
+			if self.range_min.value>=self.range_max.value:
+				self.range_min.value=data_range[0]
+				self.range_max.value=data_range[1]
+			else:
+				self.range_min.value = min(self.range_min.value, data_range[0])
+				self.range_max.value = max(self.range_max.value, data_range[1])
 
-			# in data accumulation mode I am accumulating the range
-			if mode=="dynamic-acc":
-				if self.range_min.value==self.range_max.value:
-					self.range_min.value=data_range[0]
-					self.range_max.value=data_range[1]
-				else:
-					self.range_min.value = min(self.range_min.value, data_range[0])
-					self.range_max.value = max(self.range_max.value, data_range[1])
-
-			# update the color bar
-			low =cdouble(self.range_min.value)
-			high=cdouble(self.range_max.value)
+		# update the color bar
+		low =cdouble(self.range_min.value)
+		high=cdouble(self.range_max.value)
 
 		#
 		if pdim==1:
