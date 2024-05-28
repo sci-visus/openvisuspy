@@ -271,7 +271,7 @@ class Slice(param.Parameterized):
 
 	show_options={
 		"top": [
-			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements"],
+			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements", "show_probe"],
 			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 
 		],
@@ -303,13 +303,12 @@ class Slice(param.Parameterized):
 		self.current_img   = None
 		self.last_job_pushed =time.time()
 
-		self.probe_tool=None
-
+		
+    
 		self.createGui()
 
 	# createMenuButton
 	def createMenuButton(self):
-
 
 		action_helper          = pn.widgets.TextInput(visible=False)
 		save_button_helper     = pn.widgets.TextInput(visible=False)
@@ -444,6 +443,23 @@ class Slice(param.Parameterized):
 	# createGui
 	def createGui(self):
 
+		self.play = types.SimpleNamespace()
+		self.play.is_playing = False
+
+		self.idle_callback = None
+		self.color_bar     = None
+
+		self.menu_button=self.createMenuButton()
+
+		self.dialogs=Column()
+		self.dialogs.visible=False
+
+		self.central_layout  = Column(sizing_mode="stretch_both")
+
+		self.main_layout=Row(
+			self.central_layout,
+			sizing_mode="stretch_both")
+
 		# just so that we can get new instances in each session
 		self.render_id = pn.widgets.IntSlider(name="RenderId", value=0)
 
@@ -453,57 +469,18 @@ class Slice(param.Parameterized):
 		
 		# core query
 		self.scene = pn.widgets.Select(name="Scene", options=[], width=120)
-		self.timestep = pn.widgets.IntSlider(name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
-		self.timestep_delta = pn.widgets.Select(name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
-		self.field = pn.widgets.Select(name='Field', options=[], value='data', width=80)
-		self.resolution = pn.widgets.IntSlider(name='Resolution', value=28, start=20, end=99, sizing_mode="stretch_width")
-		self.view_dependent = pn.widgets.Select(name="ViewDep", options={"Yes": True, "No": False}, value=True, width=80)
-		self.num_refinements = pn.widgets.IntSlider(name='#Ref', value=0, start=0, end=4, width=80)
-		self.direction = pn.widgets.Select(name='Direction', options={'X': 0, 'Y': 1, 'Z': 2}, value=2, width=80)
-		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
-		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
-		
-		# palette  
-		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic=acc", width=120)
-		self.range_min = pn.widgets.FloatInput(name="Min", width=80)
-		self.range_max = pn.widgets.FloatInput(name="Max", width=80)
-		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis256", ncols=3, width=180)
-		self.color_mapper_type = pn.widgets.Select(name="Mapper", options=["linear", "log"], width=60)
-		self.play_button = pn.widgets.Button(name="Play", width=10)
-		self.play_sec = pn.widgets.Select(name="Delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01, width=90)
-		self.request = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
-		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
-
-		# file_name_input
-		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
-
-		# play time
-		self.play = types.SimpleNamespace()
-		self.play.is_playing = False
-
-		self.idle_callback = None
-		self.color_bar     = None
-
-		self.canvas = Canvas(self.id)
-		self.canvas.on_event(ViewportUpdate                , SafeCallback(self.onCanvasViewportChange))
-		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
-		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
-		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
-
-		self.menu_button=self.createMenuButton()
-
-		# watch for scene change
 		def onSceneChange(evt): 
 			logger.info(f"onSceneChange {evt}")
 			body=self.scenes[evt.new]
 			self.setBody(body)
 		self.scene.param.watch(SafeCallback(onSceneChange),"value", onlychanged=True,queued=True)
 
-		# watch for time change
+		self.timestep = pn.widgets.IntSlider(name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
 		def onTimestepChange(evt):
 			self.refresh(reason="onTimestepChange")
 		self.timestep.param.watch(SafeCallback(onTimestepChange), "value", onlychanged=True,queued=True)
 
+		self.timestep_delta = pn.widgets.Select(name="Speed", options=[1, 2, 4, 8, 16, 32, 64, 128], value=1, width=50)
 		def onTimestepDeltaChange(evt):
 			if bool(getattr(self,"setting_timestep_delta",False)): return
 			setattr(self,"setting_timestep_delta",True)
@@ -518,50 +495,20 @@ class Slice(param.Parameterized):
 			setattr(self,"setting_timestep_delta",False)
 		self.timestep_delta.param.watch(SafeCallback(onTimestepDeltaChange),"value", onlychanged=True,queued=True)
 
-		# watch for field range
+		self.field = pn.widgets.Select(name='Field', options=[], value='data', width=80)
 		def onFieldChange(evt):
 			self.refresh("onFieldChange")
 		self.field.param.watch(SafeCallback(onFieldChange),"value", onlychanged=True,queued=True)
 
-		# watch for palette change
-		def onPaletteChange(evt):
-			self.createColorBar()
-			self.refresh("onPaletteChange")
-		self.palette.param.watch(SafeCallback(onPaletteChange),"value_name", onlychanged=True,queued=True)
-
-		# watch for range mode change
-		def onRangeModeChange(evt):
-			mode=evt.new
-			if mode == "metadata":   
-				self.range_min.value = self.metadata_range[0]
-				self.range_max.value = self.metadata_range[1]
-			if mode == "dynamic-acc":
-				self.range_min.value = 0.0
-				self.range_max.value = 0.0
-			self.range_min.disabled = False if mode == "user" else True
-			self.range_max.disabled = False if mode == "user" else True
-			self.refresh("onRangeModeChange")
-		self.range_mode.param.watch(SafeCallback(onRangeModeChange),"value", onlychanged=True,queued=True)
-
-		# watch for user range change
-		def onUserRangeChange(evt):
-			mode=self.range_mode.value
-			if mode!="user": return
-			self.refresh("onUserRangeChange")
-		self.range_min.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
-		self.range_max.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
-
-		# watch for color bar change
-		def onColorMapperTypeChange(evt):
-			self.createColorBar()
-			self.refresh("onColorMapperTypeChange")
-		self.color_mapper_type.param.watch(SafeCallback(onColorMapperTypeChange),"value", onlychanged=True,queued=True)
-		
+		self.resolution = pn.widgets.IntSlider(name='Resolution', value=28, start=20, end=99, sizing_mode="stretch_width")
 		self.resolution.param.watch(SafeCallback(lambda evt: self.refresh("resolution.param.watch")),"value", onlychanged=True,queued=True)
+
+		self.view_dependent = pn.widgets.Select(name="ViewDep", options={"Yes": True, "No": False}, value=True, width=80)
 		self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh("view_dependent.param.watch")),"value", onlychanged=True,queued=True)
 
+		self.num_refinements = pn.widgets.IntSlider(name='#Ref', value=0, start=0, end=4, width=80)
 		self.num_refinements.param.watch(SafeCallback(lambda evt: self.refresh("num_refinements.param.watch")),"value", onlychanged=True,queued=True)
-
+		self.direction = pn.widgets.Select(name='Direction', options={'X': 0, 'Y': 1, 'Z': 2}, value=2, width=80)
 		def onDirectionChange(evt):
 			value=evt.new
 			logger.debug(f"id={self.id} value={value}")
@@ -579,16 +526,81 @@ class Slice(param.Parameterized):
 			self.refresh("onDirectionChange")
 		self.direction.param.watch(SafeCallback(onDirectionChange),"value", onlychanged=True,queued=True)
 
+
+		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
 		self.offset.param.watch(SafeCallback(lambda evt: self.refresh("offset.param.watch")),"value", onlychanged=True,queued=True)
 
+		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
+		
+		# palette  
+		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic=acc", width=120)
+		def onRangeModeChange(evt):
+			mode=evt.new
+			if mode == "metadata":   
+				self.range_min.value = self.metadata_range[0]
+				self.range_max.value = self.metadata_range[1]
+			if mode == "dynamic-acc":
+				self.range_min.value = 0.0
+				self.range_max.value = 0.0
+			self.range_min.disabled = False if mode == "user" else True
+			self.range_max.disabled = False if mode == "user" else True
+			self.refresh("onRangeModeChange")
+		self.range_mode.param.watch(SafeCallback(onRangeModeChange),"value", onlychanged=True,queued=True)
+
+		self.range_min = pn.widgets.FloatInput(name="Min", width=80)
+		self.range_max = pn.widgets.FloatInput(name="Max", width=80)
+		def onUserRangeChange(evt):
+			mode=self.range_mode.value
+			if mode!="user": return
+			self.refresh("onUserRangeChange")
+		self.range_min.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
+		self.range_max.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
+
+		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis256", ncols=3, width=180)
+		def onPaletteChange(evt):
+			self.createColorBar()
+			self.refresh("onPaletteChange")
+		self.palette.param.watch(SafeCallback(onPaletteChange),"value_name", onlychanged=True,queued=True)
+
+		self.color_mapper_type = pn.widgets.Select(name="Mapper", options=["linear", "log"], width=60)
+		def onColorMapperTypeChange(evt):
+			self.createColorBar()
+			self.refresh("onColorMapperTypeChange")
+		self.color_mapper_type.param.watch(SafeCallback(onColorMapperTypeChange),"value", onlychanged=True,queued=True)
+
+		self.play_button = pn.widgets.Button(name="Play", width=10)
 		self.play_button.on_click(SafeCallback(lambda evt: self.togglePlay()))
 
-		self.dialogs=Column()
-		self.dialogs.visible=False
-		self.main_layout=Column(sizing_mode="stretch_both")
+		self.play_sec = pn.widgets.Select(name="Delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01, width=90)
+		self.request = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
+		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
+
+		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
+
+		self.canvas = Canvas(self.id)
+		self.canvas.on_event(ViewportUpdate                , SafeCallback(self.onCanvasViewportChange))
+		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
+		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
+		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
+
+		# probe_tool
+		from .probe import ProbeTool
+		self.probe_tool=ProbeTool(self)
+		
+		self.show_probe=pn.widgets.Toggle(name='Probe',value=False, width=60, align=('start', 'end'), button_style='outline', button_type='primary')
+		self.show_probe.param.watch(SafeCallback(lambda evt: self.setShowProbe(evt.new)),"value")
 
 		self.setShowOptions(Slice.show_options)
 		self.start()
+
+	# setShowProbe
+	def setShowProbe(self, value):
+		self.show_probe.value=value
+		if value:
+			self.main_layout[:]=[self.central_layout,self.probe_tool.getMainLayout()]
+			self.probe_tool.recomputeAllProbes()
+		else:
+			self.main_layout[:]=[self.central_layout]
 
 	# onCanvasViewportChange
 	def onCanvasViewportChange(self, evt):
@@ -630,11 +642,11 @@ class Slice(param.Parameterized):
 		top   =[Row(*CreateWidgets(row),sizing_mode="stretch_width") for row in value.get("top"   ,[[]])]
 		bottom=[Row(*CreateWidgets(row),sizing_mode="stretch_width") for row in value.get("bottom",[[]])]
 
-		self.main_layout[:]=[
-			*top,
-			self.canvas.fig_layout,
-			*bottom,
-			self.dialogs,
+		self.central_layout[:]=[
+					*top,
+					self.canvas.fig_layout,
+					*bottom,
+					self.dialogs,
 		]
 
 	# getShareableUrl
@@ -726,11 +738,8 @@ class Slice(param.Parameterized):
 			}
 		}
 
-		if self.probe_tool:
-			sub=self.probe_tool.getBody()
-			ret["scene"]["tools"]={
-				"probe" : sub
-			}
+		if self.probe_tool.getActiveProbes():
+			ret["scene"]["probe_tool"]=self.probe_tool.getBody()
 
 		return ret
 
@@ -864,7 +873,7 @@ class Slice(param.Parameterized):
 
 		self.metadata_range = list(scene.get("metadata-range",self.db.getFieldRange()))
 		assert(len(self.metadata_range))==2
-		self.range_mode.value=scene.get("range-mode","dynamic")
+		self.range_mode.value=scene.get("range-mode","dynamic-acc")
 		
 		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
 
@@ -872,10 +881,11 @@ class Slice(param.Parameterized):
 		if viewport is not None:
 			self.canvas.setViewport(viewport)
 
-		if self.probe_tool:
-			sub=scene.get("tools",{}).get("probe",{})
-			self.probe_tool.setBody(sub)
-
+		# probe_tool
+		sub=scene.get("probe_tool",{})
+		self.show_probe.value=True if sub else False
+		self.probe_tool.setBody(sub)
+			
 		show_options=scene.get("show-options",Slice.show_options)
 		self.setShowOptions(show_options)
 		self.start()

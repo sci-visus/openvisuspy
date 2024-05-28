@@ -41,13 +41,9 @@ if __name__.startswith('bokeh'):
     main_layout = slice.getMainLayout()
 
     # in case you want to enable the probe
-    if "--probe" in sys.argv or cbool(query_params.get("probe",False))==True:
-        slice.probe_tool=ProbeTool(slice)
-        main_layout = pn.Row(
-            main_layout,
-            slice.probe_tool.getMainLayout(),
-            sizing_mode="stretch_both"
-        )
+    if False:
+        if "--probe" in sys.argv or cbool(query_params.get("probe",False))==True:
+            pass
 
     main_layout.servable()
 
