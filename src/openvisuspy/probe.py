@@ -92,8 +92,6 @@ class ProbeTool(param.Parameterized):
 						probe.enabled=True
 						break
 
-		self.recomputeAllProbes()
-
 	# createFigure
 	def createFigure(self):
 
@@ -478,6 +476,8 @@ class ProbeTool(param.Parameterized):
 	def recomputeAllProbes(self):
 		
 		self.z_res.end = self.slice.db.getMaxResolution()
+
+		self.drawSliceOffset()
 
 		# remove all old probes
 		was_enabled = self.removeAllProbes()

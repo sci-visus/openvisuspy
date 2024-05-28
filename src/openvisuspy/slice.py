@@ -379,7 +379,7 @@ class Slice(param.Parameterized):
 
 					}
 
-					setTimeout(jsCallFunction,300);
+					setTimeout(jsCallFunction,600);
 					""")
 
 		return pn.Row(
@@ -533,7 +533,7 @@ class Slice(param.Parameterized):
 		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
 		
 		# palette  
-		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic=acc", width=120)
+		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic", width=120)
 		def onRangeModeChange(evt):
 			mode=evt.new
 			if mode == "metadata":   
@@ -735,6 +735,7 @@ class Slice(param.Parameterized):
 				"range-min": cdouble(self.range_min.value), # Object of type float32 is not JSON serializable
 				"range-max": cdouble(self.range_max.value),
 				"viewport": self.canvas.getViewport(),
+				"show_probe": self.show_probe.value,
 			}
 		}
 
@@ -779,22 +780,22 @@ class Slice(param.Parameterized):
 				self.setBody(self.scenes[first_scene_name])
 
 	# setBody
-	def setBody(self, scene):
+	def setBody(self, body):
 
 		logger.info(f"# //////////////////////////////////////////#")
-		logger.info(f"id={self.id} {scene} START")
+		logger.info(f"id={self.id} {body} START")
 
 		# TODO!
 		# self.stop()
 
-		assert(isinstance(scene,dict))
-		assert(len(scene)==1 and list(scene.keys())==["scene"])
+		assert(isinstance(body,dict))
+		assert(len(body)==1 and list(body.keys())==["scene"])
 
 		# go one level inside
-		scene=scene["scene"]
+		body=body["scene"]
 
 		# the url should come from first load (for security reasons)
-		name=scene["name"]
+		name=body["name"]
 
 		assert(name in self.scenes)
 		default_scene=self.scenes[name]["scene"]
@@ -802,7 +803,7 @@ class Slice(param.Parameterized):
 		urls=default_scene.get("urls",{})
 
 		# special case, I want to force the dataset to be local (case when I have a local dashboards and remove dashboards)
-		if "urls" in scene:
+		if "urls" in body:
 
 			if "--prefer" in sys.argv:
 				prefer = sys.argv[sys.argv.index("--prefer") + 1]
@@ -834,61 +835,62 @@ class Slice(param.Parameterized):
 
 		pdim = self.getPointDim()
 
-		if "logic-to-physic" in scene:
-			logic_to_physic=scene["logic-to-physic"]
+		if "logic-to-physic" in body:
+			logic_to_physic=body["logic-to-physic"]
 			self.setLogicToPhysic(logic_to_physic)
 		else:
 			physic_box=self.db.getPhysicBox()
 			self.setPhysicBox(physic_box)
 
-		if "directions" in scene:
-			directions=scene["directions"]
+		if "directions" in body:
+			directions=body["directions"]
 		else:
 			directions=self.db.getAxis()
 		self.direction.options=directions
 
-		self.timestep_delta.value=int(scene.get("timestep-delta", 1))
-		self.timestep.value=int(scene.get("timestep", self.db.getTimesteps()[0]))
-		self.view_dependent.value = bool(scene.get('view-dependent', True))
+		self.timestep_delta.value=int(body.get("timestep-delta", 1))
+		self.timestep.value=int(body.get("timestep", self.db.getTimesteps()[0]))
+		self.view_dependent.value = bool(body.get('view-dependent', True))
 
-		resolution=int(scene.get("resolution", -6))
+		resolution=int(body.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
-		self.field.value=scene.get("field", self.db.getField())
+		self.field.value=body.get("field", self.db.getField())
 
-		self.num_refinements.value=int(scene.get("num-refinements", 1 if pdim==1 else 2))
+		self.num_refinements.value=int(body.get("num-refinements", 1 if pdim==1 else 2))
 
-		self.direction.value = int(scene.get("direction", 2))
+		self.direction.value = int(body.get("direction", 2))
 
 		default_offset_value,offset_range=self.guessOffset(self.direction.value)
 		self.offset.start=offset_range[0]
 		self.offset.end  =offset_range[1]
 		self.offset.step=1e-16 if self.offset.editable and offset_range[2]==0.0 else offset_range[2] #  problem with editable slider and step==0
-		self.offset.value=float(scene.get("offset",default_offset_value))
+		self.offset.value=float(body.get("offset",default_offset_value))
 		self.setQueryLogicBox(([0]*self.getPointDim(),[int(it) for it in self.db.getLogicSize()]))
 
-		self.play_sec.value=float(scene.get("play-sec",0.01))
-		self.palette.value_name=scene.get("palette",DEFAULT_PALETTE)
+		self.play_sec.value=float(body.get("play-sec",0.01))
+		self.palette.value_name=body.get("palette",DEFAULT_PALETTE)
 
-		self.metadata_range = list(scene.get("metadata-range",self.db.getFieldRange()))
+		self.metadata_range = list(body.get("metadata-range",self.db.getFieldRange()))
 		assert(len(self.metadata_range))==2
-		self.range_mode.value=scene.get("range-mode","dynamic-acc")
+		self.range_mode.value=body.get("range-mode","dynamic")
 		
-		self.color_mapper_type.value = scene.get("color-mapper-type","linear")	
+		self.color_mapper_type.value = body.get("color-mapper-type","linear")	
 
-		viewport=scene.get("viewport",None)
+		viewport=body.get("viewport",None)
 		if viewport is not None:
 			self.canvas.setViewport(viewport)
 
 		# probe_tool
-		sub=scene.get("probe_tool",{})
-		self.show_probe.value=True if sub else False
-		self.probe_tool.setBody(sub)
+		self.show_probe.value=body.get("show_probe",False)
+		self.probe_tool.setBody(body.get("probe_tool",{}))
 			
-		show_options=scene.get("show-options",Slice.show_options)
+		show_options=body.get("show-options",Slice.show_options)
+
 		self.setShowOptions(show_options)
 		self.start()
+
 		logger.info(f"id={self.id} END\n")
 
 	# onCanvasSelectionGeometry
