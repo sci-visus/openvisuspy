@@ -5,45 +5,11 @@ import base64
 import json
 import panel as pn
 
-from openvisuspy import SetupLogger, Slice, ProbeTool, GetQueryParams
+from openvisuspy import SetupLogger, Slice, ProbeTool,cbool
 
-# /////////////////////////////////////////////////////////////////////////////////
-class DashboardApp:
-
-    # constructor
-    def __init__(self, config):
-        self.slice = Slice()
-        self.slice.load(config)
-        self.setup_logging()
-        self.setup_layout()
-
-    # setup_logging
-    def setup_logging(self):
-        log_filename = os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME", "/tmp/openvisuspy-dashboards.log")
-        self.logger = SetupLogger(log_filename=log_filename, logging_level=logging.DEBUG)
-
-    # setup_layout
-    def setup_layout(self):
-        query_params = GetQueryParams()
-        if "load" in query_params:
-            body = json.loads(base64.b64decode(query_params['load']).decode("utf-8"))
-            self.slice.setSceneBody(body)
-        elif "dataset" in query_params:
-            scene_name = query_params["dataset"]
-            self.slice.scene.value = scene_name
-
-        # in case you want to enable the probe
-        if "--probe" in sys.argv:
-            self.app = ProbeTool(self.slice).getMainLayout()
-        else:
-            self.app = self.slice.getMainLayout()
-
-    def servable(self):
-        return self.app
 
 # ////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
-
 
     pn.extension(
         "ipywidgets",
@@ -53,6 +19,35 @@ if __name__.startswith('bokeh'):
         notifications=True,
         sizing_mode="stretch_width"
     )
-    config = sys.argv[1] 
-    app_instance = DashboardApp(config)
-    app_instance.servable().servable()
+
+    query_params = {k: v for k,v in pn.state.location.query_params.items()}
+
+    log_filename = os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME", "/tmp/openvisuspy-dashboards.log")
+    logger = SetupLogger(log_filename=log_filename, logging_level=logging.DEBUG)
+
+    slice = Slice()
+    slice.load(sys.argv[1])
+
+    # load a whole scene
+    if "load" in query_params:
+        body = json.loads(base64.b64decode(query_params['load']).decode("utf-8"))
+        slice.setBody(body)
+
+    # select from list of choices
+    elif "dataset" in query_params:
+        scene_name = query_params["dataset"]
+        slice.scene.value = scene_name
+
+    main_layout = slice.getMainLayout()
+
+    # in case you want to enable the probe
+    if "--probe" in sys.argv or cbool(query_params.get("probe",False))==True:
+        slice.probe_tool=ProbeTool(slice)
+        main_layout = pn.Row(
+            main_layout,
+            slice.probe_tool.getMainLayout(),
+            sizing_mode="stretch_both"
+        )
+
+    main_layout.servable()
+

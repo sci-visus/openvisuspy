@@ -4,6 +4,10 @@ import os,sys,logging,asyncio,time,json,xmltodict,urllib
 import urllib.request
 import boto3
 import urllib.parse 
+import sys, contextlib, urllib
+from urllib.parse import urlencode          
+from urllib.request import urlopen
+	
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -482,9 +486,6 @@ def ShowInfoNotification(msg):
 def GetCurrentUrl():
 	return pn.state.location.href
 
-# //////////////////////////////////////////////////////////////////////////////////////
-def GetQueryParams():
-	return {k: v for k,v in pn.state.location.query_params.items()}
 
 # ////////////////////////////////////////////////////////
 import traceback
@@ -501,3 +502,10 @@ def AddPeriodicCallback(fn, period, name="AddPeriodicCallback"):
 	#else:
 
 	return pn.state.add_periodic_callback(lambda fn=fn: CallPeriodicFunction(fn), period=period)
+
+
+# //////////////////////////////////////////////////////
+def GetShortUrl(url):
+	request_url = 'http://tinyurl.com/api-create.php?' + urllib.parse.urlencode({'url':url})   
+	with contextlib.closing(urllib.request.urlopen(request_url)) as response:   
+		return response.read().decode('utf-8 ') 

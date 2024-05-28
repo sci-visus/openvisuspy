@@ -19,8 +19,11 @@ import panel as pn
 # //////////////////////////////////////////////////////////////////////////////////////
 class Probe:
 
-	def __init__(self):
-		self.pos = None
+	# constructor
+	def __init__(self, dir, slot):
+		self.dir     = dir
+		self.slot    = slot
+		self.pos     = None
 		self.enabled = True
 
 # //////////////////////////////////////////////////////////////////////////////////////
@@ -34,8 +37,8 @@ class ProbeTool(param.Parameterized):
 		self.renderers = {"offset": None}
 		for dir in range(3):
 			self.probes[dir] = []
-			for I in range(len(COLORS)):
-				probe = Probe()
+			for slot in range(len(COLORS)):
+				probe = Probe(dir, slot)
 				self.probes[dir].append(probe)
 				self.renderers[probe] = {
 					"canvas": [], # i am drwing on slice.canva s
@@ -44,6 +47,52 @@ class ProbeTool(param.Parameterized):
 		self.createGui()
 
 
+	# getBody
+	def getBody(self):
+
+		v=[]
+		for dir in range(3):
+			for probe in self.probes[dir]:
+				if probe.enabled and probe.pos is not None:
+					v.append({"dir": dir, "slot": probe.slot, "pos":probe.pos})
+
+		ret= {
+				"x":              self.x_pos.value, 
+				"y":              self.y_pos.value,
+				"nx":             self.num_points_x.value, 
+				"ny":             self.num_points_y.value, 
+				"z1":             self.z_range.value[0],
+				"z2":             self.z_range.value[1],
+				"op":             self.z_op.value,
+				"res":            self.z_res.value,
+				"probes":         v,
+			}
+
+		return ret
+
+	# recomputeAllProbes
+	def setBody(self, body):
+		self.slot=None
+		self.removeAllProbes()
+
+		self.x_pos.value         = body.get("x",0)
+		self.y_pos.value         = body.get("y",0)
+		self.num_points_x.value  = body.get("nx",2)
+		self.num_points_y.value  = body.get("ny",2)
+		self.z_range.value       = (body.get("z1",0.0),body.get("z2",0.0))
+		self.z_op.value          = body.get("z_op","avg")
+		self.z_res.value         = body.get("z_res",24)
+
+		for dir in range(3):
+			for probe in self.probes[dir]:
+				for it in body.get("probes",[]):
+					if probe.dir==it["dir"] and probe.slot==it["slot"]:
+						probe.pos=it["pos"]
+						probe.enabled=True
+						break
+
+		self.recomputeAllProbes()
+		
 	# createGui
 	def createGui(self):
 
@@ -52,21 +101,21 @@ class ProbeTool(param.Parameterized):
 		self.fig_placeholder = pn.Column(sizing_mode='stretch_both')
 
 		# widgets
-		self.slider_x_pos         = pn.widgets.FloatSlider     (name="X coordinate", value=0.0, start=0.0, end=1.0, step=1.0, width=160)
-		self.slider_y_pos         = pn.widgets.FloatSlider     (name="Y coordinate", value=0, start=0, end=1, step=1, width=160)
-		self.slider_z_range       = pn.widgets.RangeSlider     (name="Range", start=0.0, end=1.0, value=(0.0, 1.0), width=250,format="0.001")
-		self.slider_num_points_x  = pn.widgets.IntSlider       (name="#x", start=1, end=8, step=1, value=2, width=60)
-		self.slider_num_points_y  = pn.widgets.IntSlider       (name="#y", start=1, end=8, step=1, value=2, width=60)
-		self.slider_z_res         = pn.widgets.IntSlider       (name="Res", start=20, end=99, step=1, value=24, width=60)
-		self.slider_z_op          = pn.widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg")
+		self.x_pos         = pn.widgets.FloatSlider     (name="X coordinate", value=0.0, start=0.0, end=1.0, step=1.0, width=160)
+		self.y_pos         = pn.widgets.FloatSlider     (name="Y coordinate", value=0.0, start=0.0, end=1.0, step=1.0, width=160)
+		self.num_points_x  = pn.widgets.IntSlider       (name="#x", start=1, end=8, step=1, value=2, width=60)
+		self.num_points_y  = pn.widgets.IntSlider       (name="#y", start=1, end=8, step=1, value=2, width=60)
+		self.z_range       = pn.widgets.RangeSlider     (name="Range", start=0.0, end=1.0, value=(0.0, 1.0), width=250,format="0.001")
+		self.z_res         = pn.widgets.IntSlider       (name="Res", start=20, end=99, step=1, value=24, width=60)
+		self.z_op          = pn.widgets.RadioButtonGroup(name="", options=["avg", "mM", "med", "*"], value="avg")
 
-		self.slider_x_pos.param.watch              (SafeCallback(lambda new: self.onProbeXYChange()),    "value_throttled", onlychanged=True,queued=True)
-		self.slider_y_pos.param.watch              (SafeCallback(lambda new: self.onProbeXYChange()),    "value_throttled", onlychanged=True,queued=True)
-		self.slider_z_range.param.watch            (SafeCallback(lambda evt: self.recomputeAllProbes()), "value_throttled", onlychanged=True,queued=True)
-		self.slider_num_points_x.param.watch       (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
-		self.slider_num_points_y.param.watch       (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
-		self.slider_z_res.param.watch              (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
-		self.slider_z_op.param.watch               (SafeCallback(lambda evt: self.recomputeAllProbes()), "value",           onlychanged=True,queued=True)
+		self.x_pos.param.watch              (SafeCallback(lambda new: self.onProbeXYChange()),    "value_throttled", onlychanged=True,queued=True)
+		self.y_pos.param.watch              (SafeCallback(lambda new: self.onProbeXYChange()),    "value_throttled", onlychanged=True,queued=True)
+		self.z_range.param.watch            (SafeCallback(lambda evt: self.recomputeAllProbes()), "value_throttled", onlychanged=True,queued=True)
+		self.num_points_x.param.watch       (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
+		self.num_points_y.param.watch       (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
+		self.z_res.param.watch              (SafeCallback(lambda evt: self.recomputeAllProbes()), 'value_throttled', onlychanged=True,queued=True)
+		self.z_op.param.watch               (SafeCallback(lambda evt: self.recomputeAllProbes()), "value",           onlychanged=True,queued=True)
 
 		# create buttons
 		self.buttons = []
@@ -76,7 +125,7 @@ class ProbeTool(param.Parameterized):
 			self.buttons.append(button)
 
 		# create figure
-		x1, x2 = self.slider_z_range.value
+		x1, x2 = self.z_range.value
 		y1, y2 = (self.slice.color_bar.color_mapper.low, self.slice.color_bar.color_mapper.high) if self.slice.color_bar else (0.0,1.0)
 
 		self.fig=bokeh.plotting.figure(
@@ -106,13 +155,13 @@ class ProbeTool(param.Parameterized):
 		self.slice.render_id.param.watch(SafeCallback(lambda evt: self.refreshGui()), "value", onlychanged=True,queued=True) 
 
 		top_row=pn.Row(
-						self.slider_x_pos,
-						self.slider_y_pos,
-						self.slider_z_range,
-						self.slider_z_op,
-						self.slider_z_res,
-						self.slider_num_points_x,
-						self.slider_num_points_y,
+						self.x_pos,
+						self.y_pos,
+						self.z_range,
+						self.z_op,
+						self.z_res,
+						self.num_points_x,
+						self.num_points_y,
 						sizing_mode="stretch_width"
 					)
 
@@ -121,15 +170,12 @@ class ProbeTool(param.Parameterized):
 				sizing_mode="stretch_width"
 			)
 
-		self.main_layout = pn.Row(
-			self.slice.getMainLayout(),
-				pn.Column(
+		self.main_layout = pn.Column(
 					top_row,
 					button_row,
 					self.fig_placeholder,
 					sizing_mode="stretch_both"
 				)
-		)
 
 	# getMainLayout
 	def getMainLayout(self):
@@ -146,7 +192,7 @@ class ProbeTool(param.Parameterized):
 		slot = self.slot
 		if slot is None: return
 		probe = self.probes[dir][slot]
-		probe.pos = (self.slider_x_pos.value, self.slider_y_pos.value)
+		probe.pos = (self.x_pos.value, self.y_pos.value)
 		self.addProbe(probe)
 
 	# onCanvasDoubleTap
@@ -216,15 +262,15 @@ class ProbeTool(param.Parameterized):
 		# here is all in physical coordinates
 		assert (probe.pos is not None)
 		x, y = probe.pos
-		z1, z2 = self.slider_z_range.value
+		z1, z2 = self.z_range.value
 		p1 = (x, y, z1)
 		p2 = (x, y, z2)
 
 		# logger.info(f"Add Probe vs={vs} vt={vt} p1={p1} p2={p2}")
 
 		# automatically update the XY slider values
-		self.slider_x_pos.value = x
-		self.slider_y_pos.value = y
+		self.x_pos.value = x
+		self.y_pos.value = y
 
 		# keep the status for later
 
@@ -234,7 +280,7 @@ class ProbeTool(param.Parameterized):
 
 		# compute delta
 		Delta = [1, 1, 1]
-		endh = self.slider_z_res.value
+		endh = self.z_res.value
 		maxh = self.slice.db.getMaxResolution()
 		bitmask = self.slice.db.getBitmask()
 		for K in range(maxh, endh, -1):
@@ -251,10 +297,10 @@ class ProbeTool(param.Parameterized):
 			return int(Delta[idx] * (p[idx] // Delta[idx]))
 
 		P1[X] = Align(X, P1)
-		P2[X] = Align(X, P2) + (self.slider_num_points_x.value) * Delta[X]
+		P2[X] = Align(X, P2) + (self.num_points_x.value) * Delta[X]
 
 		P1[Y] = Align(Y, P1)
-		P2[Y] = Align(Y, P2) + (self.slider_num_points_y.value) * Delta[Y]
+		P2[Y] = Align(Y, P2) + (self.num_points_y.value) * Delta[Y]
 
 		P1[Z] = Align(Z, P1)
 		P2[Z] = Align(Z, P2) + Delta[Z]
@@ -320,7 +366,7 @@ class ProbeTool(param.Parameterized):
 					ys.append(list(data[Z, Y, :]))
 
 		if True:
-			op = self.slider_z_op.value
+			op = self.z_op.value
 
 			if op == "avg":
 				ys = [[mean(p) for p in zip(*ys)]]
@@ -377,31 +423,31 @@ class ProbeTool(param.Parameterized):
 		Y1,Y2=(pbox[Y][0],pbox[Y][1])
 		Z1,Z2=(pbox[Z][0],pbox[Z][1]) if pdim==3 else (0,1)
 
-		self.slider_z_res.end = self.slice.db.getMaxResolution()
+		self.z_res.end = self.slice.db.getMaxResolution()
 
-		if self.slider_x_pos.name!=titles[0]:
-			self.slider_x_pos.name = titles[0]
-			self.slider_x_pos.start = X1
-			self.slider_x_pos.end   = X2
-			self.slider_x_pos.step  = (X2 - X1) / 10000
-			self.slider_x_pos.value  = X1
+		if self.x_pos.name!=titles[0]:
+			self.x_pos.name = titles[0]
+			self.x_pos.start = X1
+			self.x_pos.end   = X2
+			self.x_pos.step  = (X2 - X1) / 10000
+			self.x_pos.value  = X1
 
-		if self.slider_y_pos.name!=titles[1]:
-			self.slider_y_pos.name = titles[1]
-			self.slider_y_pos.start = Y1
-			self.slider_y_pos.end   = Y2
-			self.slider_y_pos.step  = (Y2 - Y1) / 10000
-			self.slider_y_pos.value  = Y1
+		if self.y_pos.name!=titles[1]:
+			self.y_pos.name = titles[1]
+			self.y_pos.start = Y1
+			self.y_pos.end   = Y2
+			self.y_pos.step  = (Y2 - Y1) / 10000
+			self.y_pos.value  = Y1
 
-		if self.slider_z_range.name!=titles[2]:
-			self.slider_z_range.name = titles[2]
-			self.slider_z_range.start = Z1 
-			self.slider_z_range.end   = Z2
-			self.slider_z_range.step  = (Z2 - Z1) / 10000
-			self.slider_z_range.value    = (Z1,Z2)
+		if self.z_range.name!=titles[2]:
+			self.z_range.name = titles[2]
+			self.z_range.start = Z1 
+			self.z_range.end   = Z2
+			self.z_range.step  = (Z2 - Z1) / 10000
+			self.z_range.value    = (Z1,Z2)
 
-		z1, z2 = self.slider_z_range.value
-		self.fig.xaxis.axis_label = self.slider_z_range.name
+		z1, z2 = self.z_range.value
+		self.fig.xaxis.axis_label = self.z_range.name
 		self.fig.x_range.start = z1
 		self.fig.x_range.end   = z2
 
@@ -438,6 +484,14 @@ class ProbeTool(param.Parameterized):
 			[self.fig.y_range.start, self.fig.y_range.end],
 			line_width=1, color="black")
 
+	# removeAllProbes
+	def removeAllProbes(self):
+		was_enabled = {}
+		for dir in range(3):
+			for probe in self.probes[dir]:
+				was_enabled[probe] = probe.enabled
+				self.removeProbe(probe)
+		return was_enabled
 
 	# recomputeAllProbes
 	def recomputeAllProbes(self):
@@ -445,11 +499,7 @@ class ProbeTool(param.Parameterized):
 		self.refreshGui()
 
 		# remove all old probes
-		was_enabled = {}
-		for dir in range(3):
-			for probe in self.probes[dir]:
-				was_enabled[probe] = probe.enabled
-				self.removeProbe(probe)
+		was_enabled = self.removeAllProbes()
 
 		# restore enabled
 		for dir in range(3):
@@ -459,6 +509,5 @@ class ProbeTool(param.Parameterized):
 		# add the probes only if sibile
 		dir = self.slice.direction.value
 		for slot, probe in enumerate(self.probes[dir]):
-	
 			if probe.pos is not None and probe.enabled:
 				self.addProbe(probe)

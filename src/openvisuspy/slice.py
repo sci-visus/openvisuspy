@@ -260,7 +260,6 @@ class Canvas:
 					"dtype":img.dtype,
 					"color_bar":color_bar
 				}
-    
 
 
 # ////////////////////////////////////////////////////////////////////////////////////
@@ -304,6 +303,8 @@ class Slice(param.Parameterized):
 		self.current_img   = None
 		self.last_job_pushed =time.time()
 
+		self.probe_tool=None
+
 		self.createGui()
 
 	# createMenuButton
@@ -315,7 +316,7 @@ class Slice(param.Parameterized):
 		copy_url_button_helper = pn.widgets.TextInput(visible=False)
 	
 		main_button = pn.widgets.MenuButton(
-			name="File", items=[('Open', 'open'), ('Save', 'save'), ('Info', 'info'),('Copy url','copy-url'), None, ("Force Resize","resize"), None, ('Logout', 'lgout')], 
+			name="File", items=[('Open', 'open'), ('Save', 'save'), ('Info', 'info'),('Copy Url','copy-url'), None, ("Force Resize","resize"), None, ('Logout', 'lgout')], 
 			button_type='primary')
 
 
@@ -337,7 +338,7 @@ class Slice(param.Parameterized):
 
 			if action=="copy-url":
 				copy_url_button_helper.value=self.getShareableUrl() # this is needed for the javascript part
-				ShowInfoNotification('Copy url done')
+				ShowInfoNotification('Copy Url done')
 				return
 
 			if action=="resize":
@@ -408,6 +409,9 @@ class Slice(param.Parameterized):
 	# open
 	def showOpen(self):
 
+		body=json.dumps(self.getBody(),indent=2)
+		self.scene_body.value=body
+
 		def onLoadClick(evt):
 			body=value.decode('ascii')
 			self.scene_body.value=body
@@ -416,7 +420,7 @@ class Slice(param.Parameterized):
 		file_input.param.watch(SafeCallback(onLoadClick),"value", onlychanged=True,queued=True)
 
 		def onEvalClick(evt):
-			self.setSceneBody(json.loads(self.scene_body.value))
+			self.setBody(json.loads(self.scene_body.value))
 			ShowInfoNotification('Eval done')
 		eval_button = pn.widgets.Button(name="Eval", align='end')
 		eval_button.on_click(SafeCallback(onEvalClick))
@@ -432,7 +436,7 @@ class Slice(param.Parameterized):
 
 	# save
 	def save(self):
-		body=json.dumps(self.getSceneBody(),indent=2)
+		body=json.dumps(self.getBody(),indent=2)
 		ShowInfoNotification('Save done')
 		print(body)
 		return body
@@ -460,7 +464,7 @@ class Slice(param.Parameterized):
 		self.viewport = pn.widgets.TextInput(name="Viewport", value="")
 		
 		# palette  
-		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic", width=120)
+		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic=acc", width=120)
 		self.range_min = pn.widgets.FloatInput(name="Min", width=80)
 		self.range_max = pn.widgets.FloatInput(name="Max", width=80)
 		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis256", ncols=3, width=180)
@@ -492,7 +496,7 @@ class Slice(param.Parameterized):
 		def onSceneChange(evt): 
 			logger.info(f"onSceneChange {evt}")
 			body=self.scenes[evt.new]
-			self.setSceneBody(body)
+			self.setBody(body)
 		self.scene.param.watch(SafeCallback(onSceneChange),"value", onlychanged=True,queued=True)
 
 		# watch for time change
@@ -634,12 +638,14 @@ class Slice(param.Parameterized):
 		]
 
 	# getShareableUrl
-	def getShareableUrl(self):
-		body=self.getSceneBody()
+	def getShareableUrl(self, short=True):
+		body=self.getBody()
 		load_s=base64.b64encode(json.dumps(body).encode('utf-8')).decode('ascii')
 		current_url=GetCurrentUrl()
 		o=urlparse(current_url)
-		return o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})		
+		ret=o.scheme + "://" + o.netloc + o.path + '?' + urlencode({'load': load_s})		
+		ret=GetShortUrl(ret) if short else ret
+		return ret
 
 	# stop
 	def stop(self):
@@ -689,9 +695,9 @@ class Slice(param.Parameterized):
 		T = [LinearMapping(0, dims[I], *value[I]) for I in range(len(dims))]
 		self.setLogicToPhysic(T)
 		
-	# getSceneBody
-	def getSceneBody(self):
-		return {
+	# getBody
+	def getBody(self):
+		ret={
 			"scene" : {
 				"name": self.scene.value, 
 				
@@ -716,9 +722,17 @@ class Slice(param.Parameterized):
 				"range-mode": self.range_mode.value,
 				"range-min": cdouble(self.range_min.value), # Object of type float32 is not JSON serializable
 				"range-max": cdouble(self.range_max.value),
-				"viewport": self.canvas.getViewport()
+				"viewport": self.canvas.getViewport(),
 			}
 		}
+
+		if self.probe_tool:
+			sub=self.probe_tool.getBody()
+			ret["scene"]["tools"]={
+				"probe" : sub
+			}
+
+		return ret
 
 	# load
 	def load(self, value):
@@ -753,10 +767,10 @@ class Slice(param.Parameterized):
 			if False:
 				self.scene.value=first_scene_name
 			else:
-				self.setSceneBody(self.scenes[first_scene_name])
+				self.setBody(self.scenes[first_scene_name])
 
-	# setSceneBody
-	def setSceneBody(self, scene):
+	# setBody
+	def setBody(self, scene):
 
 		logger.info(f"# //////////////////////////////////////////#")
 		logger.info(f"id={self.id} {scene} START")
@@ -857,6 +871,10 @@ class Slice(param.Parameterized):
 		viewport=scene.get("viewport",None)
 		if viewport is not None:
 			self.canvas.setViewport(viewport)
+
+		if self.probe_tool:
+			sub=scene.get("tools",{}).get("probe",{})
+			self.probe_tool.setBody(sub)
 
 		show_options=scene.get("show-options",Slice.show_options)
 		self.setShowOptions(show_options)
@@ -1320,7 +1338,7 @@ class Slice(param.Parameterized):
 				max_pixels=int(canvas_w*canvas_h*coeff)
 			
 		# new scene body
-		self.scene_body.value=json.dumps(self.getSceneBody(),indent=2)
+		self.scene_body.value=json.dumps(self.getBody(),indent=2)
 		
 		logger.debug("# ///////////////////////////////")
 		self.job_id+=1
