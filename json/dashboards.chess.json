@@ -1,0 +1,3393 @@
+{
+  "datasets": [
+
+    {
+      "name": "chess-intro",
+      "color-mapper-type": "linear",
+      "range-mode": "user",
+      "range-min": 9600,
+      "range-max": 14855,
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/chess-intro/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+    },   
+
+    {
+      "name": "3scans_HKLI",
+      "color-mapper-type": "log",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/3scans_HKLI/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+    },
+
+    {
+      "name": "ff1_000231",
+      "color-mapper-type": "log",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/ff1_000231/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+    },
+
+    {
+      "name": "recon_combined_1_2_3_fullres",
+      "color-mapper-type": "linear",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/recon_combined_1_2_3_fullres/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+    },
+
+    {
+      "name": "reconstructed_data",
+      "color-mapper-type": "linear",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/reconstructed_data/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+    },
+
+    {
+      "name": "test-k",
+      "color-mapper-type": "linear",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/test-k/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
+    },
+
+    {
+      "name": "mg1y-1-nf-0_1",
+      "color-mapper-type": "linear",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/mg1y-1-nf-0_1/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3",
+      "metadata": [
+        {
+          "type": "json-object",
+          "filename": "/dev/null",
+          "query": "{\"Technique\": \"Tomography\"}",
+          "records": [
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1694619926,
+              "Description": "Tomo test",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "n/a",
+              "SampleGeometry": "n/a",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501d91ad2f7654ee374b797",
+              "dataset": "/2021-3/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1694619926714200274,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/tmp",
+              "DataLocationMeta": "/tmp",
+              "DataLocationRaw": "/tmp",
+              "DataLocationReduced": "/tmp",
+              "DataLocationScratch": "/tmp",
+              "Date": 1693492165,
+              "Description": "None",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Valentin",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed",
+                "Stratasys3DPrinter",
+                "Other"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "Cr0.31Mo0.07Mn0.02Fe0.52Ni0.08",
+              "SampleCommonName": "316 stainless steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                8.839,
+                8.839,
+                4.5973
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501f46bd2f7654ee374ba9b",
+              "dataset": "/2021-3//z-3234-A/tenstom_1304r-1",
+              "did": 1694631587704540138,
+              "path": "/tmp"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "shanks-3731-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-2",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/ti-2-exsitu_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationRaw": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "Date": 1694706299,
+              "Description": "Test for Kate",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Shanks",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "Steel",
+              "SampleGeometry": "N/A",
+              "SampleMatPedHeatTreatment": "N/A",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "ti-2-exsitu",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "ShanksKS"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65032a84d2f7654ee374db59",
+              "dataset": "/2023-2/3A/shanks-3731-a/ti-2-exsitu",
+              "did": 1694706300389174919,
+              "path": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"
+            },
+            {
+              "Alignment": false,
+              "AttenMaterial": [
+                "Steel"
+              ],
+              "AttenThickness": 0,
+              "BTR": "1111-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 16.8,
+              "BeamSlitHorizontalSize": 4,
+              "BeamSlitVerticalPosition": 1.99,
+              "BeamSlitVerticalSize": 3,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "CHEXS_NSF"
+              ],
+              "CESRConditions": [
+                "9x5BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/testuser-1111-a_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/test-1/73",
+              "DataLocationRaw": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73",
+              "DataLocationReduced": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/reduced_data/test-1/73",
+              "DataLocationScratch": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/scratch_data/test-1/73",
+              "Date": 1696887592,
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                ""
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "UserAB",
+              "Facility": "CHESS",
+              "Furnace": [
+                ""
+              ],
+              "GuardSlitHorizontalPosition": 8.34,
+              "GuardSlitHorizontalSize": 6,
+              "GuardSlitVerticalPosition": -5.04,
+              "GuardSlitVerticalSize": 3,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                ""
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "MechanicalTestType": [
+                ""
+              ],
+              "Monochromator": [
+                "DoubleCrystalBraggSi111"
+              ],
+              "PI": "testuser",
+              "Processing": [
+                ""
+              ],
+              "SampleChemicalFormula": "None",
+              "SampleCommonName": "None",
+              "SampleGeometry": "Plate",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "test-1",
+              "SampleSpaceGroup": 194,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.9511,
+                2.9511,
+                4.6843,
+                90,
+                90,
+                120
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "DasA",
+                "KoJYP",
+                "ShanksKS"
+              ],
+              "SupplementaryTechnique": [
+                ""
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65044fb9d2f7654ee374dd56",
+              "dataset": "/2023-3//1111-a/test-1",
+              "did": 1696887592493703144,
+              "path": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698154283,
+              "Description": "Test after DB update",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7309c38372310c70476",
+              "dataset": "/2023-1/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1698154283811315250,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698153933,
+              "Description": "Test after update DB",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                "2.5"
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7999c38372310c7048c",
+              "dataset": "/2023-1//z-3234-A/tenstom_1304r-1",
+              "did": 1698154390721440961,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            }
+          ]
+        },
+        {
+          "type": "json-object",
+          "filename": "generated-nsdf-convert.json",
+          "object": {
+            "id": "19",
+            "name": "mg1y-1-nf-0_1",
+            "src": "/nfs/chess/raw/2023-3/id3a/berman-3804-a/mg1y-1-nf-0/1/nf/nf_*.tif",
+            "dst": "/mnt/data1/nsdf/workflow/umich/datasets/mg1y-1-nf-0_1/visus.idx",
+            "compression": "zip",
+            "arco": "8mb",
+            "conversion_start": "2023-11-09 09:13:32.677838",
+            "conversion_end": "2023-11-09 09:14:16.756699",
+            "error_msg": "None",
+            "remote_url": "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=umich/mg1y-1-nf-0_1&cached=arco"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "mg1y-1-nf-0_2",
+      "color-mapper-type": "linear",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/mg1y-1-nf-0_2/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3",
+      "metadata": [
+        {
+          "type": "json-object",
+          "filename": "/dev/null",
+          "query": "{\"Technique\": \"Tomography\"}",
+          "records": [
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1694619926,
+              "Description": "Tomo test",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "n/a",
+              "SampleGeometry": "n/a",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501d91ad2f7654ee374b797",
+              "dataset": "/2021-3/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1694619926714200274,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/tmp",
+              "DataLocationMeta": "/tmp",
+              "DataLocationRaw": "/tmp",
+              "DataLocationReduced": "/tmp",
+              "DataLocationScratch": "/tmp",
+              "Date": 1693492165,
+              "Description": "None",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Valentin",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed",
+                "Stratasys3DPrinter",
+                "Other"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "Cr0.31Mo0.07Mn0.02Fe0.52Ni0.08",
+              "SampleCommonName": "316 stainless steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                8.839,
+                8.839,
+                4.5973
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501f46bd2f7654ee374ba9b",
+              "dataset": "/2021-3//z-3234-A/tenstom_1304r-1",
+              "did": 1694631587704540138,
+              "path": "/tmp"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "shanks-3731-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-2",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/ti-2-exsitu_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationRaw": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "Date": 1694706299,
+              "Description": "Test for Kate",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Shanks",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "Steel",
+              "SampleGeometry": "N/A",
+              "SampleMatPedHeatTreatment": "N/A",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "ti-2-exsitu",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "ShanksKS"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65032a84d2f7654ee374db59",
+              "dataset": "/2023-2/3A/shanks-3731-a/ti-2-exsitu",
+              "did": 1694706300389174919,
+              "path": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"
+            },
+            {
+              "Alignment": false,
+              "AttenMaterial": [
+                "Steel"
+              ],
+              "AttenThickness": 0,
+              "BTR": "1111-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 16.8,
+              "BeamSlitHorizontalSize": 4,
+              "BeamSlitVerticalPosition": 1.99,
+              "BeamSlitVerticalSize": 3,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "CHEXS_NSF"
+              ],
+              "CESRConditions": [
+                "9x5BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/testuser-1111-a_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/test-1/73",
+              "DataLocationRaw": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73",
+              "DataLocationReduced": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/reduced_data/test-1/73",
+              "DataLocationScratch": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/scratch_data/test-1/73",
+              "Date": 1696887592,
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                ""
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "UserAB",
+              "Facility": "CHESS",
+              "Furnace": [
+                ""
+              ],
+              "GuardSlitHorizontalPosition": 8.34,
+              "GuardSlitHorizontalSize": 6,
+              "GuardSlitVerticalPosition": -5.04,
+              "GuardSlitVerticalSize": 3,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                ""
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "MechanicalTestType": [
+                ""
+              ],
+              "Monochromator": [
+                "DoubleCrystalBraggSi111"
+              ],
+              "PI": "testuser",
+              "Processing": [
+                ""
+              ],
+              "SampleChemicalFormula": "None",
+              "SampleCommonName": "None",
+              "SampleGeometry": "Plate",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "test-1",
+              "SampleSpaceGroup": 194,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.9511,
+                2.9511,
+                4.6843,
+                90,
+                90,
+                120
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "DasA",
+                "KoJYP",
+                "ShanksKS"
+              ],
+              "SupplementaryTechnique": [
+                ""
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65044fb9d2f7654ee374dd56",
+              "dataset": "/2023-3//1111-a/test-1",
+              "did": 1696887592493703144,
+              "path": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698154283,
+              "Description": "Test after DB update",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7309c38372310c70476",
+              "dataset": "/2023-1/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1698154283811315250,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698153933,
+              "Description": "Test after update DB",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                "2.5"
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7999c38372310c7048c",
+              "dataset": "/2023-1//z-3234-A/tenstom_1304r-1",
+              "did": 1698154390721440961,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            }
+          ]
+        },
+        {
+          "type": "json-object",
+          "filename": "generated-nsdf-convert.json",
+          "object": {
+            "id": "20",
+            "name": "mg1y-1-nf-0_2",
+            "src": "/nfs/chess/raw/2023-3/id3a/berman-3804-a/mg1y-1-nf-0/2/nf/nf_*.tif",
+            "dst": "/mnt/data1/nsdf/workflow/umich/datasets/mg1y-1-nf-0_2/visus.idx",
+            "compression": "zip",
+            "arco": "8mb",
+            "conversion_start": "2023-11-09 09:14:27.347995",
+            "conversion_end": "2023-11-09 09:15:11.452373",
+            "error_msg": "None",
+            "remote_url": "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=umich/mg1y-1-nf-0_2&cached=arco"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "mg1y-1-tomo_1",
+      "color-mapper-type": "linear",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/mg1y-1-tomo_1/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3",
+      "metadata": [
+        {
+          "type": "json-object",
+          "filename": "/dev/null",
+          "query": "{\"Technique\": \"Tomography\"}",
+          "records": [
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1694619926,
+              "Description": "Tomo test",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "n/a",
+              "SampleGeometry": "n/a",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501d91ad2f7654ee374b797",
+              "dataset": "/2021-3/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1694619926714200274,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/tmp",
+              "DataLocationMeta": "/tmp",
+              "DataLocationRaw": "/tmp",
+              "DataLocationReduced": "/tmp",
+              "DataLocationScratch": "/tmp",
+              "Date": 1693492165,
+              "Description": "None",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Valentin",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed",
+                "Stratasys3DPrinter",
+                "Other"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "Cr0.31Mo0.07Mn0.02Fe0.52Ni0.08",
+              "SampleCommonName": "316 stainless steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                8.839,
+                8.839,
+                4.5973
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501f46bd2f7654ee374ba9b",
+              "dataset": "/2021-3//z-3234-A/tenstom_1304r-1",
+              "did": 1694631587704540138,
+              "path": "/tmp"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "shanks-3731-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-2",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/ti-2-exsitu_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationRaw": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "Date": 1694706299,
+              "Description": "Test for Kate",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Shanks",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "Steel",
+              "SampleGeometry": "N/A",
+              "SampleMatPedHeatTreatment": "N/A",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "ti-2-exsitu",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "ShanksKS"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65032a84d2f7654ee374db59",
+              "dataset": "/2023-2/3A/shanks-3731-a/ti-2-exsitu",
+              "did": 1694706300389174919,
+              "path": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"
+            },
+            {
+              "Alignment": false,
+              "AttenMaterial": [
+                "Steel"
+              ],
+              "AttenThickness": 0,
+              "BTR": "1111-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 16.8,
+              "BeamSlitHorizontalSize": 4,
+              "BeamSlitVerticalPosition": 1.99,
+              "BeamSlitVerticalSize": 3,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "CHEXS_NSF"
+              ],
+              "CESRConditions": [
+                "9x5BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/testuser-1111-a_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/test-1/73",
+              "DataLocationRaw": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73",
+              "DataLocationReduced": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/reduced_data/test-1/73",
+              "DataLocationScratch": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/scratch_data/test-1/73",
+              "Date": 1696887592,
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                ""
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "UserAB",
+              "Facility": "CHESS",
+              "Furnace": [
+                ""
+              ],
+              "GuardSlitHorizontalPosition": 8.34,
+              "GuardSlitHorizontalSize": 6,
+              "GuardSlitVerticalPosition": -5.04,
+              "GuardSlitVerticalSize": 3,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                ""
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "MechanicalTestType": [
+                ""
+              ],
+              "Monochromator": [
+                "DoubleCrystalBraggSi111"
+              ],
+              "PI": "testuser",
+              "Processing": [
+                ""
+              ],
+              "SampleChemicalFormula": "None",
+              "SampleCommonName": "None",
+              "SampleGeometry": "Plate",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "test-1",
+              "SampleSpaceGroup": 194,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.9511,
+                2.9511,
+                4.6843,
+                90,
+                90,
+                120
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "DasA",
+                "KoJYP",
+                "ShanksKS"
+              ],
+              "SupplementaryTechnique": [
+                ""
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65044fb9d2f7654ee374dd56",
+              "dataset": "/2023-3//1111-a/test-1",
+              "did": 1696887592493703144,
+              "path": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698154283,
+              "Description": "Test after DB update",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7309c38372310c70476",
+              "dataset": "/2023-1/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1698154283811315250,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698153933,
+              "Description": "Test after update DB",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                "2.5"
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7999c38372310c7048c",
+              "dataset": "/2023-1//z-3234-A/tenstom_1304r-1",
+              "did": 1698154390721440961,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            }
+          ]
+        },
+        {
+          "type": "json-object",
+          "filename": "generated-nsdf-convert.json",
+          "object": {
+            "id": "10",
+            "name": "mg1y-1-tomo_1",
+            "src": "/nfs/chess/raw/2023-3/id3a/berman-3804-a/mg1y-1-tomo/1/nf/nf_*.tif",
+            "dst": "/mnt/data1/nsdf/workflow/umich/datasets/mg1y-1-tomo_1/visus.idx",
+            "compression": "zip",
+            "arco": "8mb",
+            "conversion_start": "2023-11-09 09:10:55.549117",
+            "conversion_end": "2023-11-09 09:10:57.983787",
+            "error_msg": "None",
+            "remote_url": "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=umich/mg1y-1-tomo_1&cached=arco"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "mg1y-1-tomo_2",
+      "color-mapper-type": "linear",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/mg1y-1-tomo_2/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3",
+      "metadata": [
+        {
+          "type": "json-object",
+          "filename": "/dev/null",
+          "query": "{\"Technique\": \"Tomography\"}",
+          "records": [
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1694619926,
+              "Description": "Tomo test",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "n/a",
+              "SampleGeometry": "n/a",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501d91ad2f7654ee374b797",
+              "dataset": "/2021-3/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1694619926714200274,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/tmp",
+              "DataLocationMeta": "/tmp",
+              "DataLocationRaw": "/tmp",
+              "DataLocationReduced": "/tmp",
+              "DataLocationScratch": "/tmp",
+              "Date": 1693492165,
+              "Description": "None",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Valentin",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed",
+                "Stratasys3DPrinter",
+                "Other"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "Cr0.31Mo0.07Mn0.02Fe0.52Ni0.08",
+              "SampleCommonName": "316 stainless steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                8.839,
+                8.839,
+                4.5973
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501f46bd2f7654ee374ba9b",
+              "dataset": "/2021-3//z-3234-A/tenstom_1304r-1",
+              "did": 1694631587704540138,
+              "path": "/tmp"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "shanks-3731-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-2",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/ti-2-exsitu_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationRaw": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "Date": 1694706299,
+              "Description": "Test for Kate",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Shanks",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "Steel",
+              "SampleGeometry": "N/A",
+              "SampleMatPedHeatTreatment": "N/A",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "ti-2-exsitu",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "ShanksKS"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65032a84d2f7654ee374db59",
+              "dataset": "/2023-2/3A/shanks-3731-a/ti-2-exsitu",
+              "did": 1694706300389174919,
+              "path": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"
+            },
+            {
+              "Alignment": false,
+              "AttenMaterial": [
+                "Steel"
+              ],
+              "AttenThickness": 0,
+              "BTR": "1111-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 16.8,
+              "BeamSlitHorizontalSize": 4,
+              "BeamSlitVerticalPosition": 1.99,
+              "BeamSlitVerticalSize": 3,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "CHEXS_NSF"
+              ],
+              "CESRConditions": [
+                "9x5BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/testuser-1111-a_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/test-1/73",
+              "DataLocationRaw": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73",
+              "DataLocationReduced": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/reduced_data/test-1/73",
+              "DataLocationScratch": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/scratch_data/test-1/73",
+              "Date": 1696887592,
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                ""
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "UserAB",
+              "Facility": "CHESS",
+              "Furnace": [
+                ""
+              ],
+              "GuardSlitHorizontalPosition": 8.34,
+              "GuardSlitHorizontalSize": 6,
+              "GuardSlitVerticalPosition": -5.04,
+              "GuardSlitVerticalSize": 3,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                ""
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "MechanicalTestType": [
+                ""
+              ],
+              "Monochromator": [
+                "DoubleCrystalBraggSi111"
+              ],
+              "PI": "testuser",
+              "Processing": [
+                ""
+              ],
+              "SampleChemicalFormula": "None",
+              "SampleCommonName": "None",
+              "SampleGeometry": "Plate",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "test-1",
+              "SampleSpaceGroup": 194,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.9511,
+                2.9511,
+                4.6843,
+                90,
+                90,
+                120
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "DasA",
+                "KoJYP",
+                "ShanksKS"
+              ],
+              "SupplementaryTechnique": [
+                ""
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65044fb9d2f7654ee374dd56",
+              "dataset": "/2023-3//1111-a/test-1",
+              "did": 1696887592493703144,
+              "path": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698154283,
+              "Description": "Test after DB update",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7309c38372310c70476",
+              "dataset": "/2023-1/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1698154283811315250,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698153933,
+              "Description": "Test after update DB",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                "2.5"
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7999c38372310c7048c",
+              "dataset": "/2023-1//z-3234-A/tenstom_1304r-1",
+              "did": 1698154390721440961,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            }
+          ]
+        },
+        {
+          "type": "json-object",
+          "filename": "generated-nsdf-convert.json",
+          "object": {
+            "id": "11",
+            "name": "mg1y-1-tomo_2",
+            "src": "/nfs/chess/raw/2023-3/id3a/berman-3804-a/mg1y-1-tomo/2/nf/nf_*.tif",
+            "dst": "/mnt/data1/nsdf/workflow/umich/datasets/mg1y-1-tomo_2/visus.idx",
+            "compression": "zip",
+            "arco": "8mb",
+            "conversion_start": "2023-11-09 09:11:08.142221",
+            "conversion_end": "2023-11-09 09:11:10.398112",
+            "error_msg": "None",
+            "remote_url": "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=umich/mg1y-1-tomo_2&cached=arco"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "zx30-c3-nf-0_1",
+      "color-mapper-type": "linear",
+      "url": "https://maritime.sealstorage.io/api/v0/s3/utah/chess/arco/zx30-c3-nf-0_1/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3",
+      "metadata": [
+        {
+          "type": "json-object",
+          "filename": "/dev/null",
+          "query": "{\"Technique\": \"Tomography\"}",
+          "records": [
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1694619926,
+              "Description": "Tomo test",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "n/a",
+              "SampleGeometry": "n/a",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501d91ad2f7654ee374b797",
+              "dataset": "/2021-3/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1694619926714200274,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2021-3",
+              "DataLocationBeamtimeNotes": "/tmp",
+              "DataLocationMeta": "/tmp",
+              "DataLocationRaw": "/tmp",
+              "DataLocationReduced": "/tmp",
+              "DataLocationScratch": "/tmp",
+              "Date": 1693492165,
+              "Description": "None",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Valentin",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed",
+                "Stratasys3DPrinter",
+                "Other"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "Cr0.31Mo0.07Mn0.02Fe0.52Ni0.08",
+              "SampleCommonName": "316 stainless steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                8.839,
+                8.839,
+                4.5973
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6501f46bd2f7654ee374ba9b",
+              "dataset": "/2021-3//z-3234-A/tenstom_1304r-1",
+              "did": 1694631587704540138,
+              "path": "/tmp"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "shanks-3731-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-2",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/ti-2-exsitu_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationRaw": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2023-2/id3a/shanks-3731-a/ti-2-exsitu/reduced",
+              "Date": 1694706299,
+              "Description": "Test for Kate",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Shanks",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "ReferenceCalibrantSampleName": "",
+              "ReferenceCalibrantScanNumber": 0,
+              "ReferenceEnergyScanNumber": 0,
+              "ReferenceEnergyScanSampleName": "",
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "Steel",
+              "SampleGeometry": "N/A",
+              "SampleMatPedHeatTreatment": "N/A",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "ti-2-exsitu",
+              "SampleSpaceGroup": 136,
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "ShanksKS"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65032a84d2f7654ee374db59",
+              "dataset": "/2023-2/3A/shanks-3731-a/ti-2-exsitu",
+              "did": 1694706300389174919,
+              "path": "/nfs/chess/raw/2023-2/id3a/shanks-3731-a/ti-2-exsitu/"
+            },
+            {
+              "Alignment": false,
+              "AttenMaterial": [
+                "Steel"
+              ],
+              "AttenThickness": 0,
+              "BTR": "1111-a",
+              "BeamEnergy": 41.991,
+              "BeamSlitHorizontalPosition": 16.8,
+              "BeamSlitHorizontalSize": 4,
+              "BeamSlitVerticalPosition": 1.99,
+              "BeamSlitVerticalSize": 3,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "CHEXS_NSF"
+              ],
+              "CESRConditions": [
+                "9x5BunchMode"
+              ],
+              "Calibration": false,
+              "Cycle": "2023-3",
+              "DataLocationBeamtimeNotes": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/testuser-1111-a_notebook.txt",
+              "DataLocationMeta": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/metadata/test-1/73",
+              "DataLocationRaw": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73",
+              "DataLocationReduced": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/reduced_data/test-1/73",
+              "DataLocationScratch": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/scratch_data/test-1/73",
+              "Date": 1696887592,
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                ""
+              ],
+              "EnergyScan": false,
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "UserAB",
+              "Facility": "CHESS",
+              "Furnace": [
+                ""
+              ],
+              "GuardSlitHorizontalPosition": 8.34,
+              "GuardSlitHorizontalSize": 6,
+              "GuardSlitVerticalPosition": -5.04,
+              "GuardSlitVerticalSize": 3,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                ""
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": false,
+              "MechanicalTestType": [
+                ""
+              ],
+              "Monochromator": [
+                "DoubleCrystalBraggSi111"
+              ],
+              "PI": "testuser",
+              "Processing": [
+                ""
+              ],
+              "SampleChemicalFormula": "None",
+              "SampleCommonName": "None",
+              "SampleGeometry": "Plate",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "test-1",
+              "SampleSpaceGroup": 194,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.9511,
+                2.9511,
+                4.6843,
+                90,
+                90,
+                120
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "DasA",
+                "KoJYP",
+                "ShanksKS"
+              ],
+              "SupplementaryTechnique": [
+                ""
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "65044fb9d2f7654ee374dd56",
+              "dataset": "/2023-3//1111-a/test-1",
+              "did": 1696887592493703144,
+              "path": "/nfs/chess/aux/cycles/2023-3/id3a/testuser-1111-a/raw_data/test-1/73"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698154283,
+              "Description": "Test after DB update",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                2.5
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7309c38372310c70476",
+              "dataset": "/2023-1/3A/z-3234-A/tenstom_1304r-1",
+              "did": 1698154283811315250,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            },
+            {
+              "Affiliation": [
+                "AirForce"
+              ],
+              "Alignment": false,
+              "AttenThickness": 0,
+              "BTR": "z-3234-A",
+              "BeamEnergy": 45,
+              "BeamSlitHorizontalPosition": 0,
+              "BeamSlitHorizontalSize": 0,
+              "BeamSlitVerticalPosition": 0,
+              "BeamSlitVerticalSize": 0,
+              "Beamline": [
+                "3A"
+              ],
+              "BeamlineFundingPartner": [
+                "MSNC_AFRL"
+              ],
+              "BeamlineSetupDocument": "",
+              "CESRConditions": [
+                "9BunchMode"
+              ],
+              "Calibration": false,
+              "CalibrationDocument": "",
+              "Cycle": "2023-1",
+              "DataLocationBeamtimeNotes": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata/low_ic0_log.txt",
+              "DataLocationMeta": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/metadata",
+              "DataLocationRaw": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1",
+              "DataLocationReduced": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/reduced",
+              "DataLocationScratch": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1/scratch",
+              "Date": 1698153933,
+              "Description": "Test after update DB",
+              "Detectors": [
+                "Retiga"
+              ],
+              "EnergyFoil": [
+                "scrn"
+              ],
+              "EnergyScan": false,
+              "EnergyScanDocument": "",
+              "ExperimentType": [
+                "Imaging"
+              ],
+              "Experimenters": "",
+              "Facility": "CHESS",
+              "Focusing": [
+                "Collimator"
+              ],
+              "Furnace": [
+                "RAMSII"
+              ],
+              "GuardSlitHorizontalPosition": 0,
+              "GuardSlitHorizontalSize": 0,
+              "GuardSlitVerticalPosition": 0,
+              "GuardSlitVerticalSize": 0,
+              "InSitu": false,
+              "InsertionDevice": [
+                "CCU"
+              ],
+              "MaterialSafetyHazardousSamples": false,
+              "MechanicalGrips": [
+                "Wedge"
+              ],
+              "MechanicalLoadFrame": [
+                "RAMSII"
+              ],
+              "MechanicalTest": true,
+              "MechanicalTestType": [
+                "Tension"
+              ],
+              "Monochromator": [
+                "MultiLayer15HE"
+              ],
+              "PI": "Verberg",
+              "PreSlitHorizontalPosition": 0,
+              "PreSlitHorizontalSize": 0,
+              "PreSlitVerticalPosition": 0,
+              "PreSlitVerticalSize": 0,
+              "Processing": [
+                "NISTTestBed"
+              ],
+              "SampleChemicalFormula": "freetext",
+              "SampleCommonName": "steel",
+              "SampleGeometry": "RAMSII Tensile sample",
+              "SampleMatPedHeatTreatment": "None",
+              "SampleMatPedProcessingRoute": "None",
+              "SampleName": "tenstom_1304r-1",
+              "SampleSpaceGroup": 136,
+              "SampleState": [
+                "Powder"
+              ],
+              "SampleUnitCell": [
+                "2.5"
+              ],
+              "Schema": "ID3A",
+              "SchemaFile": "/mnt/chessdata/dev/schemas/ID3A.json",
+              "StaffScientist": [
+                "NygrenKE"
+              ],
+              "Technique": [
+                "Tomography"
+              ],
+              "UndulatorScan": false,
+              "User": "test",
+              "_id": "6537c7999c38372310c7048c",
+              "dataset": "/2023-1//z-3234-A/tenstom_1304r-1",
+              "did": 1698154390721440961,
+              "path": "/nfs/chess/scratch/user/rv43/2021-3/id3a/z-3234-A/tenstom_1304r-1"
+            }
+          ]
+        },
+        {
+          "type": "json-object",
+          "filename": "generated-nsdf-convert.json",
+          "object": {
+            "id": "79",
+            "name": "zx30-c3-nf-0_1",
+            "src": "/nfs/chess/raw/2023-3/id3a/berman-3804-a/zx30-c3-nf-0/1/nf/nf_*.tif",
+            "dst": "/mnt/data1/nsdf/workflow/umich/datasets/zx30-c3-nf-0_1/visus.idx",
+            "compression": "zip",
+            "arco": "8mb",
+            "conversion_start": "2023-11-10 12:59:30.776739",
+            "conversion_end": "2023-11-10 13:00:27.375876",
+            "error_msg": "None",
+            "remote_url": "https://nsdf01.classe.cornell.edu/mod_visus?action=readdataset&dataset=umich/zx30-c3-nf-0_1&cached=arco"
+          }
+        }
+      ]
+    }
+  ]
+}

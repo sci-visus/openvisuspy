@@ -1,0 +1,54 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+
+    # data directory (mainly for cache)
+    - name: Creates data directory
+      ansible.builtin.file:
+        path: /mnt/data
+        state: directory
+
+    - name: Copy files to node
+      copy:
+        src: "{{item}}"
+        dest: /root/
+      loop:
+        - ../docker-compose.yml
+        - ../.env
+        - ../nginx.conf
+
+    - name: Copy json
+      copy:
+        src: "{{ item }}"
+        dest: /root/json/
+      with_fileglob: "../json/*.json"
+
+    - name: Copy notebooks
+      copy:
+        src: "{{ item }}"
+        dest: /root/notebooks/
+      with_fileglob: "../notebooks/*.ipynb"
+
+    - name: Copy NASA notebooks
+      copy:
+        src: "{{ item }}"
+        dest: /root/notebooks/nasa/
+      with_fileglob: "../notebooks/nasa/*.ipynb"
+
+    - name: docker-compose down
+      docker_compose:
+        project_src: /root
+        state: absent
+      ignore_errors: yes
+
+    # docker-compose up
+    - name: docker-compose up
+      community.docker.docker_compose:
+        project_src: /root
+        remove_orphans: true
+        recreate: always
+        pull: true
+        restarted: true

@@ -39,11 +39,5 @@ if __name__.startswith('bokeh'):
         slice.scene.value = scene_name
 
     main_layout = slice.getMainLayout()
-
-    # in case you want to enable the probe
-    if False:
-        if "--probe" in sys.argv or cbool(query_params.get("probe",False))==True:
-            pass
-
     main_layout.servable()
 

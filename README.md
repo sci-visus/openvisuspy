@@ -76,14 +76,87 @@ jupyter nbconvert --clear-output --inplace notebooks/test-panel.ipynb
 jupyter trust notebooks/test-panel.ipynb  
 ```
 
-## Volume rendering
+
+
+## Docker Compose
+
+Create an `.env` file with a token:
+
+```bash
+cat <<EOF > .env
+NSDF_TOKEN=whatever-but-secure
+EOF
+```
+
+```bash 
+# sudo docker-compose up chess1_service
+# sudo docker-compose up chess2_service
+# sudo docker-compose up jupyterlab_service
+
+sudo docker-compose up 
+```
+
+You can check if it's working going to any of the URL:
+
+- http://localhost/chess1
+- http://localhost/chess2
+- http://localhost/lab
+
+
+
+## Deploy using ansible
+
+
+Create an ``./inventory.ini` file. For example
+
+```ini
+[all:vars]
+ansible_ssh_connection=ssh 
+ansible_ssh_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+[my_vps]
+127.0.0.1
+```
+
+Run the ansible playbooks:
+
+```bash
+
+# this is needed for WSL2
+export ANSIBLE_CONFIG=${PWD}/ansible.cfg
+
+# check connectivity
+ansible all -m ping
+
+# Run single command
+ansible --become-user root --become all -m shell -a 'docker ps'
+
+# Clean up notebooks
+for it in $(find ./notebooks/*.ipynb) ; do
+  jupyter nbconvert --clear-output --inplace ${it}
+  jupyter trust ${it}
+done
+
+#   --tags "configuration,packages"
+#   --limit=<hostname>
+#   -l <group-name>
+#   -vvv
+ansible-playbook ./ansible/00-setup-node.yml 
+ansible-playbook ./ansible/01-benchmark.yml --verbose
+ansible-playbook ./ansible/02-remove-all-containers.yml 
+ansible-playbook ./ansible/03-precache-data.yml -vvv --limit hetzner
+ansible-playbook ./ansible/04-run.yml 
+```
+
+## Test Volume rendering
 
 ```bash
 python test/test-pyvista.py
 python test/test-vtkvolume.py 
 ```
 
-## Developers only
+## Debug openvisuspy
 
 Debug mode in Windows
 
@@ -91,7 +164,7 @@ Debug mode in Windows
 .venv\Scripts\activate
 
 set PATH=c:\Python310;%PATH%
-set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;.\src
+
 set BOKEH_ALLOW_WS_ORIGIN=*
 set BOKEH_LOG_LEVEL=debug
 set VISUS_CPP_VERBOSE=1
@@ -99,9 +172,13 @@ set VISUS_NETSERVICE_VERBOSE=1
 set VISUS_VERBOSE_DISKACCESS=0
 set VISUS_CACHE=c:/tmp/visus-cache
 
-python.exe -m panel serve ./app --dev --args ./json/dashboards.debug.json
-python.exe -m jupyter lab notebooks/ov-dashboards.ipynb
+set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;.\src
 
+# dashboards
+python.exe -m panel serve ./app --dev --args ./json/dashboards.debug.json
+
+# jupyter lab
+python.exe -m jupyter lab notebooks/ov-dashboards.ipynb
 
 python.exe -m panel serve ./app --dev --args "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-intro&cached=arco" --probe
 ```
@@ -111,4 +188,6 @@ Deploy binaries
 ```bash
 ./scripts/new_tag.sh
 ```
+
+
 

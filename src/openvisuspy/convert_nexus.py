@@ -10,12 +10,13 @@ import OpenVisus as ov
 class ConvertNexus:
 
 	# constructor
-	def __init__(self,src, dst, compression="raw",streamable=None):
+	def __init__(self,src, dst, compression="raw",streamable=None, arco="modvisus"):
 		self.src=src
 		self.dst=dst
 		self.streamable=streamable
 		self.compression=compression
 		self.num_bin_fields=0
+		self.arco=arco
 
 	@staticmethod
 	def traverse(cur,nrec=0):
@@ -108,6 +109,7 @@ class ConvertNexus:
 					fields=[ov_field], 
 					compression="raw",
 					physic_box=ov.BoxNd.fromString(idx_physic_box),
+					arco=self.arco,
 					axis=idx_axis
 				)
 
