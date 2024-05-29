@@ -33,9 +33,6 @@ from .show_details import ShowDetails
 
 logger = logging.getLogger(__name__)
 
-# ////////////////////////////////////////////////////////////////////////////////////
-class ViewportUpdate: 
-	pass
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Canvas:
@@ -45,15 +42,7 @@ class Canvas:
 		self.id=id
 		self.fig=None
 		self.pdim=2
-		self.scheduled_callbacks={}
-
-		# events
-		self.events={
-			bokeh.events.Tap: [],
-			bokeh.events.DoubleTap: [],
-			bokeh.events.SelectionGeometry: [],
-			ViewportUpdate: []
-		}
+		self.events={}
 
 		self.box_select_tool_helper = bokeh.models.TextInput(visible=False)
 		self.fig_layout=Row(sizing_mode="stretch_both")	
@@ -62,30 +51,9 @@ class Canvas:
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
 		self.setViewport([0,0,256,256])
 
-	# addNextTick
-	def scheduleCallback(self, name, msec, callback):
-		if False:
-			# this does not work in Jupyter
-			# add_next_tick_callback
-			pn.state.curdoc.add_timeout_callback(callback,200)
-		else:
-			self.scheduled_callbacks[name]={"msec":msec,"callback":callback,"t1":time.time()}
-
 	# onFigureSizeChange
 	def onFigureSizeChange(self, __attr, __old, __new):
-		W,H=self.getWidth(),self.getHeight()
-		logger.info(f"onFigureSizeChange W={W} H={H}")
-		if W==0 or H==0: return
-		self.scheduleCallback("onFigureSizeChange", 600, lambda: self.setViewport(self.getViewport()))
-		
-	# onFigureRangesUpdate
-	def onFigureRangesUpdate(self,evt=None):
-		x=self.fig.x_range.start
-		w=self.fig.x_range.end-x
-		y=self.fig.y_range.start
-		h=self.fig.y_range.end-y
-		logger.info(f"viewport={x,y,w,h}")
-		[fn(None) for fn in self.events[ViewportUpdate]]
+		self.setViewport(self.getViewport())
 
 	# __fixAspectRatioIfNeeded
 	def __fixAspectRatioIfNeeded(self, value):
@@ -108,19 +76,12 @@ class Canvas:
 
 	# onIdle
 	def onIdle(self):
-		next={}
-		t2=time.time()
-		for name, it in self.scheduled_callbacks.items(): 
-			callback=it["callback"]
-			msec=it["msec"]
-			if (t2-it["t1"])*1000>msec:
-				callback()
-			else:
-				next[name]=it
-		self.scheduled_callbacks=next
+		pass
 
 	# on_event
 	def on_event(self, evt, callback):
+		if not evt in self.events:
+			self.events[evt]=[]
 		self.events[evt].append(callback)
 
 	# createFigure
@@ -146,12 +107,10 @@ class Canvas:
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
-		self.fig.on_event(bokeh.events.Tap      , lambda evt: [fn(evt) for fn in self.events[bokeh.events.Tap      ]])
-		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events[bokeh.events.DoubleTap]])
 
-		# track changes in the viewport
-		from bokeh.events import RangesUpdate
-		self.fig.on_event(RangesUpdate, self.onFigureRangesUpdate)
+		self.fig.on_event(bokeh.events.Tap      ,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.Tap,[]) ])
+		self.fig.on_event(bokeh.events.DoubleTap,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.DoubleTap,[])])
+		self.fig.on_event(bokeh.events.RangesUpdate,   lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.RangesUpdate,[])])
 
 		# tracl changes in the size
 		# see https://github.com/bokeh/bokeh/issues/9136
@@ -405,13 +364,10 @@ class Slice(param.Parameterized):
 
 	# refreshAll
 	def refreshAll(self):
-		def refreshAllLater():
-			viewport=self.canvas.getViewport()
-			self.canvas.setViewport(viewport)
-			self.refresh("refreshAll")
-			self.probe_tool.recomputeAllProbes()
-		# better wait until all the event cycles are consumed
-		self.canvas.scheduleCallback("refreshAll",1000, refreshAllLater)
+		viewport=self.canvas.getViewport()
+		self.canvas.setViewport(viewport)
+		self.refresh("refreshAll")
+		self.probe_tool.recomputeAllProbes()
 
 	# createColorBar
 	def createColorBar(self):
@@ -597,7 +553,7 @@ class Slice(param.Parameterized):
 		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
 
 		self.canvas = Canvas(self.id)
-		self.canvas.on_event(ViewportUpdate                , SafeCallback(self.onCanvasViewportChange))
+		self.canvas.on_event(bokeh.events.RangesUpdate     , SafeCallback(self.onCanvasViewportChange))
 		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
 		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
@@ -624,7 +580,6 @@ class Slice(param.Parameterized):
 	# onCanvasViewportChange
 	def onCanvasViewportChange(self, evt):
 		x,y,w,h=self.canvas.getViewport()
-
 		self.refresh("onCanvasViewportChange")
 
 	# onCanvasSingleTap
