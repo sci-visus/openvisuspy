@@ -38,11 +38,12 @@
         dest: /root/notebooks/nasa/
       with_fileglob: "../notebooks/nasa/*.ipynb"
 
-    - name: docker-compose down
-      docker_compose:
-        project_src: /root
-        state: absent
-      ignore_errors: yes
+    # not needed unless you change services
+    #- name: docker-compose down
+    #  docker_compose:
+    #    project_src: /root
+    #    state: absent
+    #  ignore_errors: yes
 
     # docker-compose up
     - name: docker-compose up

@@ -104,8 +104,15 @@ You can check if it's working going to any of the URL:
 
 
 
-## Deploy using ansible
+## Ansible
 
+Create an `.env` file with a token:
+
+```bash
+cat <<EOF > .env
+NSDF_TOKEN=whatever-but-secure
+EOF
+```
 
 Create an ``./inventory.ini` file. For example
 
@@ -145,11 +152,11 @@ done
 ansible-playbook ./ansible/00-setup-node.yml 
 ansible-playbook ./ansible/01-benchmark.yml --verbose
 ansible-playbook ./ansible/02-remove-all-containers.yml 
-ansible-playbook ./ansible/03-precache-data.yml -vvv --limit hetzner
-ansible-playbook ./ansible/04-run.yml 
+ansible-playbook ./ansible/03-precache-data.yml -vvv     --limit hetzner
+ansible-playbook ./ansible/04-run.yml                    --limit hetzner
 ```
 
-## Test Volume rendering
+## Volume Rendering
 
 ```bash
 python test/test-pyvista.py
@@ -187,6 +194,8 @@ Deploy binaries
 
 ```bash
 ./scripts/new_tag.sh
+
+# you may want to change the tag in docker-compose.yml too
 ```
 
 

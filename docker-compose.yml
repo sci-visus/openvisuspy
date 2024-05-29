@@ -12,7 +12,7 @@ services:
 
   # New Dashboard
   chess2_service:
-    image: docker.io/nsdf/openvisuspy:1.0.63
+    image: docker.io/nsdf/openvisuspy:1.0.64
     ports:
       - "10335:10335"
     environment:
@@ -31,7 +31,7 @@ services:
 
   # Jupyter Lab
   jupyterlab_service:
-    image: docker.io/nsdf/openvisuspy:1.0.63
+    image: docker.io/nsdf/openvisuspy:1.0.64
     ports:
       - "8888:8888"
     environment:
