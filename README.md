@@ -89,11 +89,11 @@ EOF
 ```
 
 ```bash 
-# sudo docker-compose up chess1_service
-# sudo docker-compose up chess2_service
-# sudo docker-compose up jupyterlab_service
+# sudo docker compose up chess1_service
+# sudo docker compose up chess2_service
+# sudo docker compose up jupyterlab_service
 
-sudo docker-compose up 
+sudo docker compose up 
 ```
 
 You can check if it's working going to any of the URL:
@@ -136,19 +136,31 @@ export ANSIBLE_CONFIG=${PWD}/ansible.cfg
 # check connectivity
 ansible all -m ping
 
-ansible-playbook ./ansible/setup.yml                  --limit hetzner
-ansible-playbook ./ansible/run.yml                    --limit hetzner --tags "restart"
+ansible-playbook ./ansible/setup.yml  # --tags "restart"
 
 # you can run it later...
 # OPTIONAL, you can even use without precaching (cached=arco will cache blocks on demand)
-ansible-playbook ./ansible/precache.yml               --limit hetzner 
+ansible-playbook ./ansible/precache.yml                
 
 # check docker ps
-ansible --become-user root --become all -m shell -a 'docker-compose ps' --limit hetzner 
-ansible --become-user root --become all -m shell -a 'df -h' --limit hetzner  | grep "/dev/sda1"
+ansible --become-user root --become all -m shell -a 'cd /root/deploy && docker compose ps'  
+ansible --become-user root --become all -m shell -a 'df -h'   | grep "/dev/sda1"
+
+
+# check load balancer
+VPS=$(ansible hetzner --list-hosts | tail -n +2)
+for it in ${VPS} ; do 
+  echo ${it}
+  echo "  HEALTH" $(curl -L -s -o /dev/null -w "%{http_code}" http://$it/health)
+  echo "  LAB   " $(curl -L -s -o /dev/null -w "%{http_code}" http://$it/lab)
+  echo "  CHESS1" $(curl -L -s -o /dev/null -w "%{http_code}" http://$it/chess1)
+  echo "  CHESS2" $(curl -L -s -o /dev/null -w "%{http_code}" http://$it/chess2)
+done
+
+
 
 # ansible-playbook ./ansible/benchmark.yml --verbose
-# ansible-playbook ./ansible/run.yml --limit hetzner --tags "stop"
+# ansible-playbook ./ansible/run.yml  --tags "stop"
 
 # Clean up notebooks
 for it in $(find ./notebooks/*.ipynb) ; do

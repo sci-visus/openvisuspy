@@ -2,6 +2,7 @@ services:
 
   # Old Dashboard
   chess1_service:
+    restart: unless-stopped
     image: docker.io/nsdf/nsdf-chess:0.1
     ports:
       - "10334:10334"
@@ -9,9 +10,15 @@ services:
       - VISUS_CACHE=/mnt/data/visus-cache
     volumes:
       - /mnt/data:/mnt/data
+    healthcheck:
+      test: curl --fail http://localhost:10334 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # New Dashboard
   chess2_service:
+    restart: unless-stopped
     image: docker.io/nsdf/openvisuspy:1.0.64
     ports:
       - "10335:10335"
@@ -27,10 +34,15 @@ services:
       - /mnt/data:/mnt/data
       - ./json/dashboards.chess.json:/root/json/dashboards.json
     command: python3 -m panel serve /usr/local/lib/python3.10/site-packages/openvisuspy/app --port 10335 --address 0.0.0.0 --allow-websocket-origin='*' --use-xheaders --num-procs 0 --args /root/json/dashboards.json
-
+    healthcheck:
+      test: curl --fail http://localhost:10335 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Jupyter Lab
   jupyterlab_service:
+    restart: unless-stopped
     image: docker.io/nsdf/openvisuspy:1.0.64
     ports:
       - "8888:8888"
@@ -41,11 +53,37 @@ services:
       - /mnt/data:/mnt/data
       - ./notebooks:/home/notebooks
     command: jupyter lab --allow-root --notebook-dir="/home/notebooks" --port 8888 --NotebookApp.token='${NSDF_TOKEN}' --NotebookApp.allow_origin='*' --ip '0.0.0.0'
+    healthcheck:
+      test: curl --fail http://localhost:8888 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # nginx
   nginx_service:
+    restart: unless-stopped
     image: nginx
     ports:
       - 80:80
     volumes:
+      - /var/log/nginx:/var/log/nginx
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      chess1_service:
+        condition: service_healthy
+      chess2_service:
+        condition: service_healthy
+      jupyterlab_service:
+        condition: service_healthy
+
+  # autoheal_service
+  # see https://sdr-enthusiasts.gitbook.io/ads-b/useful-extras/auto-restart-unhealthy-containers
+  autoheal_service:
+    image: willfarrell/autoheal:latest
+    tty: true
+    container_name: autoheal
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

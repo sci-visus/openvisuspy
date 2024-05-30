@@ -38,6 +38,12 @@
         dest: /root/deploy/notebooks/nasa/
       with_fileglob: "../notebooks/nasa/*.ipynb"
 
+    # create nginx log directory
+    - name: Creates nginx log directory
+      ansible.builtin.file:
+        path: /var/log/nginx
+        state: directory
+
     - name: Remove all containers 
       ansible.builtin.shell: |
         docker rm -v -f $(docker ps -qa) || true
@@ -58,3 +64,18 @@
       tags:
         - start
         - restart
+
+    - name: Pause for 10 seconds 
+      pause:
+        seconds: 10
+
+    - name: Confirm services are up
+      uri:
+        url: "http://{{ ansible_host }}/{{ item }}"
+        follow_redirects: all
+        status_code: 200
+      loop:
+        - health
+        - lab
+        - chess1
+        - chess2
