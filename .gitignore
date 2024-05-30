@@ -11,6 +11,8 @@ build
 .vscode
 **/*.npz
 **/*.npy
+deploy/.env
+deploy/inventory.ini
 
 
 
