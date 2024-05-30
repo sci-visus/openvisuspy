@@ -136,8 +136,19 @@ export ANSIBLE_CONFIG=${PWD}/ansible.cfg
 # check connectivity
 ansible all -m ping
 
-# Run single command
-ansible --become-user root --become all -m shell -a 'docker ps'
+ansible-playbook ./ansible/setup.yml                  --limit hetzner
+ansible-playbook ./ansible/run.yml                    --limit hetzner --tags "restart"
+
+# you can run it later...
+# OPTIONAL, you can even use without precaching (cached=arco will cache blocks on demand)
+ansible-playbook ./ansible/precache.yml               --limit hetzner 
+
+# check docker ps
+ansible --become-user root --become all -m shell -a 'docker-compose ps' --limit hetzner 
+ansible --become-user root --become all -m shell -a 'df -h' --limit hetzner  | grep "/dev/sda1"
+
+# ansible-playbook ./ansible/benchmark.yml --verbose
+# ansible-playbook ./ansible/run.yml --limit hetzner --tags "stop"
 
 # Clean up notebooks
 for it in $(find ./notebooks/*.ipynb) ; do
@@ -149,11 +160,7 @@ done
 #   --limit=<hostname>
 #   -l <group-name>
 #   -vvv
-ansible-playbook ./ansible/00-setup-node.yml 
-ansible-playbook ./ansible/01-benchmark.yml --verbose
-ansible-playbook ./ansible/02-remove-all-containers.yml 
-ansible-playbook ./ansible/03-precache-data.yml -vvv     --limit hetzner
-ansible-playbook ./ansible/04-run.yml                    --limit hetzner
+
 ```
 
 ## Volume Rendering

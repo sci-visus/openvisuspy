@@ -14,7 +14,7 @@
     - name: Copy files to node
       copy:
         src: "{{item}}"
-        dest: /root/
+        dest: /root/deploy/
       loop:
         - ../docker-compose.yml
         - ../.env
@@ -23,33 +23,38 @@
     - name: Copy json
       copy:
         src: "{{ item }}"
-        dest: /root/json/
+        dest: /root/deploy/json/
       with_fileglob: "../json/*.json"
 
     - name: Copy notebooks
       copy:
         src: "{{ item }}"
-        dest: /root/notebooks/
+        dest: /root/deploy/notebooks/
       with_fileglob: "../notebooks/*.ipynb"
 
     - name: Copy NASA notebooks
       copy:
         src: "{{ item }}"
-        dest: /root/notebooks/nasa/
+        dest: /root/deploy/notebooks/nasa/
       with_fileglob: "../notebooks/nasa/*.ipynb"
 
-    # not needed unless you change services
-    #- name: docker-compose down
-    #  docker_compose:
-    #    project_src: /root
-    #    state: absent
-    #  ignore_errors: yes
+    - name: Remove all containers 
+      ansible.builtin.shell: |
+        docker rm -v -f $(docker ps -qa) || true
+        # optional: remove all images
+        # docker image remove -f $(sudo docker images -a -q) || true
+      tags:
+        - stop
+        - restart
 
     # docker-compose up
     - name: docker-compose up
       community.docker.docker_compose:
-        project_src: /root
+        project_src: /root/deploy
         remove_orphans: true
         recreate: always
         pull: true
         restarted: true
+      tags:
+        - start
+        - restart

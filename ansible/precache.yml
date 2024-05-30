@@ -10,7 +10,6 @@
       environment:
         AWS_ACCESS_KEY_ID: any
         AWS_SECRET_ACCESS_KEY: any
-
       ansible.builtin.shell: |
         aws s3  --no-verify-ssl --endpoint-url https://maritime.sealstorage.io/api/v0/s3 sync --size-only s3://utah/chess/arco/ /mnt/data/visus-cache/DiskAccess/maritime.sealstorage.io/443/zip/api/v0/s3/utah/chess/arco/
         chmod a+rwX -R /mnt/data/visus-cache
