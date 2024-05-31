@@ -6,6 +6,9 @@
 
   tasks:
 
+    # to sync to S3"
+    # aws s3  --no-verify-ssl --profile sealstorage --endpoint-url https://maritime.sealstorage.io/api/v0/s3 sync --size-only .workflow/umich/datasets/   s3://utah/chess/arco/
+
     - name: precache data 
       environment:
         AWS_ACCESS_KEY_ID: any

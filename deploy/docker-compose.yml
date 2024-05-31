@@ -10,6 +10,8 @@ services:
       - VISUS_CACHE=/mnt/data/visus-cache
     volumes:
       - /mnt/data:/mnt/data
+      - ./json/dashboards.chess.json:/root/json/dashboards.json
+    command: python3 -m bokeh serve app --use-xheaders --allow-websocket-origin='*' --port 10334 --num-procs 0 --args /root/json/dashboards.json
     healthcheck:
       test: curl --fail http://localhost:10334 || exit 1
       interval: 10s

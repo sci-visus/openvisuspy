@@ -14,6 +14,9 @@ EOF
 # this is needed for WSL2
 export ANSIBLE_CONFIG=${PWD}/ansible.cfg
 
+ln -s ../notebooks ./notebooks
+ln -s ../json      ./json
+
 sudo docker compose up chess1_service
 sudo docker compose up chess2_service
 sudo docker compose up jupyter_service
@@ -77,6 +80,7 @@ ansible-playbook ./run.yml
 ansible-playbook ./run.yml --tags restart -l 5.161.228.121
 
 # if you need to check all services
+ansible-playbook ./run.yml --tags check
 
 # you can run it later...
 # OPTIONAL, you can even use without precaching (cached=arco will cache blocks on demand)
@@ -89,7 +93,12 @@ ansible --become-user root --become all -m shell -a 'df -h'   | grep "/dev/sda1"
 
 if you want to debug:
 
-```
+```bash
+
+# check connectivity
+ansible-playbook ./run.yml --tags check
+
+# enter in the machine and see `docker compose`
 ssh -i <identity> root@vps-ip
 cd deploy
 docker ps
