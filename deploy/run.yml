@@ -1,0 +1,103 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+
+    # data directory (mainly for cache)
+    - name: Creates data directory
+      ansible.builtin.file:
+        path: /mnt/data
+        state: directory
+
+    - name: Copy files to node
+      copy:
+        src: "{{item}}"
+        dest: /root/deploy/
+      loop:
+        - ./docker-compose.yml
+        - ./.env
+        - ./nginx.conf
+      tags:
+        - copy-files
+
+    - name: Copy json
+      copy:
+        src: "{{ item }}"
+        dest: /root/deploy/json/
+      with_fileglob: "../json/*.json"
+      tags:
+        - copy-files
+
+    # copy html files
+    - name: Copy html files
+      ansible.builtin.copy:
+        src: ./html
+        dest: /root/deploy/
+      tags:
+        - copy-files
+
+    - name: Copy notebooks
+      copy:
+        src: "{{ item }}"
+        dest: /root/deploy/notebooks/
+      with_fileglob: "../notebooks/*.ipynb"
+      tags:
+        - copy-files
+
+    - name: Copy NASA notebooks
+      copy:
+        src: "{{ item }}"
+        dest: /root/deploy/notebooks/nasa/
+      with_fileglob: "../notebooks/nasa/*.ipynb"
+      tags:
+        - copy-files
+
+    # create nginx log directory
+    - name: Creates nginx log directory
+      ansible.builtin.file:
+        path: /var/log/nginx
+        state: directory
+
+    # remove containers
+    - name: Remove all containers 
+      ansible.builtin.shell: |
+        docker rm -v -f $(docker ps -qa) || true
+        # optional: remove all images
+        # docker image remove -f $(sudo docker images -a -q) || true
+      tags:
+        - stop
+        - restart
+
+    # docker-compose up
+    - name: docker-compose up
+      community.docker.docker_compose:
+        project_src: /root/deploy
+        remove_orphans: true
+        recreate: always
+        pull: true
+        restarted: true
+      tags:
+        - start
+        - restart
+
+    - name: Pause for 10 seconds 
+      pause:
+        seconds: 10
+
+    - name: Confirm services are up
+      uri:
+        url: "http://{{ ansible_host }}{{ item }}"
+        follow_redirects: all
+        status_code: 200
+      loop:
+        - :8888/jupyter
+        - :10334
+        - :10335
+        - /health
+        - /jupyter
+        - /chess1
+        - /chess2
+      tags:
+        - check

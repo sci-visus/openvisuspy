@@ -1,0 +1,49 @@
+{
+  "datasets": [
+
+    {
+      "name": "chess-intro",
+      "url": "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-intro&cached=arco",
+      "color-mapper-type": "linear"
+    },    
+
+    {"name":"david",  "url":"http://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=idx"},
+    {"name":"2kbit1", "url":"http://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=idx"},
+    {"name":"retina", "url":"http://atlantis.sci.utah.edu/mod_visus?dataset=rabbit&cached=idx"},
+
+    
+    {"name":"NASA Salinity (Salt)",               "url":"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_salt/salt_llc2160_x_y_depth.idx?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name":"NASA Eastwest Ocean Velocity(u)",    "url":"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_arco/visus.idx?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name":"NASA North-South Ocean Velocity(V)", "url":"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_v/v_llc2160_x_y_depth.idx?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name":"NASA Vertical Ocean Velocity(W)",    "url":"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_w/llc2160_w.idx?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name":"NASA Temperature(theta)",            "url":"https://maritime.sealstorage.io/api/v0/s3/utah/nasa/dyamond/mit_output/llc2160_theta/llc2160_theta.idx?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+
+    {
+      "name": "chess-recon_combined_1_2_3_fullres_zip",
+      "url": "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-recon_combined_1_2_3_fullres_zip&cached=arco",
+      "color-mapper-type": "linear"
+    },
+    {
+      "name": "chess-zip",
+      "url": "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-zip&cached=arco",
+      "color-mapper-type": "log"
+    },
+    {
+      "name": "chess-test-k",
+      "url": "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-test-k&cached=arco",
+      "color-mapper-type": "linear"
+    },
+
+    {"name": "slac-07180816_1648_F0006-00001", "url": "https://maritime.sealstorage.io/api/v0/s3/utah/supercdms-data/CDMS/UMN/R68/Raw/07180816_1648/07180816_1648_F0006/events/00001/banks/SCD0/data.npz?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name": "slac-07180816_1648_F0006-00007", "url": "https://maritime.sealstorage.io/api/v0/s3/utah/supercdms-data/CDMS/UMN/R68/Raw/07180816_1648/07180816_1648_F0006/events/00007/banks/SCD0/data.npz?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name": "slac-07180816_1648_F0006-00012", "url": "https://maritime.sealstorage.io/api/v0/s3/utah/supercdms-data/CDMS/UMN/R68/Raw/07180816_1648/07180816_1648_F0006/events/00012/banks/SCD0/data.npz?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name": "slac-slac-max",                  "url": "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_slac_max/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name": "slac-subsampled",                "url": "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_slac/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name": "slac-periodic",                  "url": "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_periodic/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"},
+    {"name": "slac-signal35M",                 "url": "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_slac/signal35M.npy?access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3&cached=arco"}, 
+
+    {"name": "david_subsampled", "url": "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=arco"},
+    {"name": "2kbit1",           "url": "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=arco"}
+
+  ]
+}

@@ -1,0 +1,14 @@
+
+{
+  "datasets": [
+    
+    {
+      "name": "chess-intro",
+      "url": "https://atlantis.sci.utah.edu/mod_visus?action=readdataset&dataset=chess-intro&cached=arco",
+      "color-mapper-type": "linear"
+    },    
+
+    {"name":"david_subsampled",  "url":"D:/visus-datasets/david_subsampled/visus.idx"},
+    {"name":"2kbit1",  "url":"D:/visus-datasets/2kbit1/zip/hzorder/visus.idx"}
+  ]
+}
