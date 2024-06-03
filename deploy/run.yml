@@ -36,6 +36,7 @@
         src: ./html
         dest: /root/deploy/
       tags:
+        - copy-html-files
         - copy-files
 
     - name: Copy notebooks
