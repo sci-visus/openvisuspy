@@ -1,6 +1,9 @@
 import os,sys,copy,math,time,logging,types,requests,zlib,xmltodict,urllib,queue,types,threading
 import numpy as np
 
+import requests
+from urllib.parse import urlparse, urlunparse
+
 import OpenVisus as ov
 
 from . utils import *
@@ -484,6 +487,49 @@ class OpenVisusDataset(BaseDataset):
 		self.cursor+=1
 
 
+# /////////////////////////////////////////////////////////////////////////////////////////////////
+class PelicanFed:
+
+	def __init__(self, url):
+		self.DiscoveryEndpoint = None
+		self.DirectorEndpoint = None
+		self.RegistryEndpoint = None
+		self.JwksUri = None
+		self.BrokerEndpoint = None
+
+		parsed_url = urlparse(url)
+		self.DiscoveryEndpoint = f"https://{parsed_url.netloc}"
+		config_url = f"https://{parsed_url.netloc}/.well-known/pelican-configuration"
+		response = requests.get(config_url)
+
+		if response.status_code == 200:
+			config = response.json()
+			self.DirectorEndpoint = config.get("director_endpoint")
+			self.RegistryEndpoint = config.get("namespace_registration_endpoint")
+			self.JwksUri = config.get("jwks_uri")
+			self.BrokerEndpoint = config.get("broker_endpoint")
+
+# //////////////////////////////////////////////////////////////////////////
+class PelicanDataset(OpenVisusDataset):
+
+	def __init__(self,url):
+		parsed_url = urlparse(url)
+		self.pelican_fed = PelicanFed(url)
+
+		# The Pelican v7.8 Director has this baked in, but for now we need to hardcode the api endpoints
+		if 'directread' in parsed_url.query:
+			director_query = f"{self.pelican_fed.DirectorEndpoint}/api/v1.0/director/origin/{urlunparse(('', '') + parsed_url[2:])}"
+		else:
+			director_query = f"{self.pelican_fed.DirectorEndpoint}{urlunparse(('', '') + parsed_url[2:])}"
+
+		# Use the discovered endpoints to query the director. In particular, we expect our data
+		# to be accessible at the URL encoded in the Link header.
+		director_resp = requests.get(director_query, allow_redirects=False)
+		data_url = director_resp.headers["Location"]
+
+		# Finally, pass what we've constructed to the OpenVisusDataset constructor
+		super().__init__(data_url)
+
 # //////////////////////////////////////////////////////////////////////////
 def GuessBitmask(N):
 		ret="V"
@@ -709,6 +755,10 @@ class Signal1DDataset(BaseDataset):
 def LoadDataset(url):
 	if ".npz" in url or ".npy" in url:
 		return Signal1DDataset(url)
+
+	elif url.startswith("pelican://"):
+		return PelicanDataset(url)
+		
 	else:
 		return OpenVisusDataset(url)
 	
