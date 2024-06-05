@@ -77,7 +77,7 @@ done
 ansible-playbook ./run.yml  
 
 # if you need to restart
-ansible-playbook ./run.yml --tags restart -l 5.161.228.121
+ansible-playbook ./run.yml --tags restart --limit=5.161.228.121
 
 # if you need to check all services
 ansible-playbook ./run.yml --tags check
