@@ -8,7 +8,7 @@
       "color-mapper-type": "linear"
     },    
 
-    {"name":"david_subsampled",  "url":"D:/visus-datasets/david_subsampled/visus.idx"},
-    {"name":"2kbit1",  "url":"D:/visus-datasets/2kbit1/zip/hzorder/visus.idx"}
+    {"name":"david_subsampled",  "url":"c:/big/visus-datasets/david_subsampled/visus.idx"},
+    {"name":"2kbit1",  "url":"c:/big/visus-datasets/2kbit1/zip/hzorder/visus.idx"}
   ]
 }

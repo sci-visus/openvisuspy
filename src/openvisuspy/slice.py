@@ -828,7 +828,7 @@ class Slice(param.Parameterized):
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 		self.resolution.value = resolution
-		self.field.value=body.get("field", self.db.getField())
+		self.field.value=body.get("field", self.db.getField().name)
 
 		self.num_refinements.value=int(body.get("num-refinements", 1 if pdim==1 else 2))
 

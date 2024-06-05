@@ -288,12 +288,10 @@ class OpenVisusDataset(BaseDataset):
 
 	# getField
 	def getField(self,field:str=None):
-		if field is None: field=self.db.getField().name
-		return self.db.getField(field).name
+		return self.db.getField() if field is None else self.db.getField(field)
 
 	# getFieldRange
 	def getFieldRange(self,field:str=None):
-		if field is None: field=self.getField()
 		field = self.db.getField(field)
 		return [field.getDTypeRange().From, field.getDTypeRange().To]
 
@@ -317,7 +315,7 @@ class OpenVisusDataset(BaseDataset):
 	# createBoxQuery
 	def createBoxQuery(self, 		
 		timestep=None, 
-		field=None, 
+		field:str=None, 
 		logic_box=None,
 		max_pixels=None, 
 		endh=None, 
@@ -336,7 +334,7 @@ class OpenVisusDataset(BaseDataset):
 			timestep=self.getTimestep()
 
 		if field is None:
-			field=self.db.getField()
+			field=self.getField().name
 
 		if logic_box is None:
 			logic_box=self.getLogicBox()
@@ -529,8 +527,9 @@ class Signal1DDataset(BaseDataset):
 		info=LoadJSON(info_filename)
 		self.bitmask=info["bitmask"]
 		assert(info["dtype"]=="int64")
+		self.dtype=signal.dtype
 		# assert(info["shape"]==signal.shape)
-		self.vmin=int(info["vmin"]) # TODO, what if float
+		self.vmin=int(info["vmin"]) 
 		self.vmax=int(info["vmax"])
 		
 		endh=len(self.bitmask)-1
@@ -608,8 +607,12 @@ class Signal1DDataset(BaseDataset):
 		return True # no need for access
 
 	# getField
-	def getField(self,field=None):
-		return "data"
+	def getField(self,field:str=None):
+		from types import SimpleNamespace
+		field=SimpleNamespace()
+		field.name="data"
+		field.dtype=self.dtype
+		return field
 
 	# getFieldRange
 	def getFieldRange(self,field:str=None):
@@ -690,7 +693,7 @@ class Signal1DDataset(BaseDataset):
 		return {
 			"I": self.cursor,
 			"timestep": self.getTimestep(),
-			"field": self.getField(), 
+			"field": self.getField().name, 
 			"logic_box": [[self.x1],[self.x2]],
 			"H": self.endh, 
 			"data": lvl[x1:x2],
