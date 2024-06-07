@@ -9,7 +9,7 @@ class Streamable:
 	arco="4mb"
 
 	# constructor
-	def __init__(self, src_file:h5py.File, dst_file:h5py.File, idx_urls:dict=None, compression=None, arco=None):
+	def __init__(self, src_file:h5py.File, dst_file:h5py.File, idx_urls:dict=None, compression=None, arco=None, timestep=None, field=None):
 		self.src_file=src_file
 		self.dst_file=dst_file
 		assert(idx_urls and "local" in idx_urls) # I need to create local files
@@ -25,6 +25,8 @@ class Streamable:
 		self.idx_datasets={}
 		self.compression=compression or self.compression
 		self.arco=arco or self.arco
+		self.timestep=timestep
+		self.field=field
 	
 	# copyAttribues
 	def copyAttribues(self, src, dst):
@@ -50,10 +52,10 @@ class Streamable:
 			assert(data.shape[0]==1)
 			data=data[0,...]
 
-		basename=src.name.split("/")[-1]
-		ov_field=ov.Field.fromString(f"""{basename} {str(data.dtype)} format(row_major) min({vmin}) max({vmax})""")
+		# use the src name if not overriden from the outside
+		field=self.field if self.field else src.name.split("/")[-1]
+		ov_field=ov.Field.fromString(f"""{field} {str(data.dtype)} format(row_major) min({vmin}) max({vmax})""")
 
-		
 		idx_axis=["X", "Y", "Z"]
 		D,H,W=data.shape
 		idx_physic_box=[0,W,0,H,0,D] 
@@ -70,6 +72,12 @@ class Streamable:
 		idx_axis=" ".join([str(it) for it in idx_axis])
 		idx_physic_box=" ".join([str(it) for it in idx_physic_box])
 
+		create_extra_args={}
+		timestep=None
+		if self.timestep is not None:
+			create_extra_args["time"]=[self.timestep,self.timestep+1,"time_%d/"]
+			timestep=self.timestep
+
 		db=ov.CreateIdx(
 			url=idx_url, 
 			dims=list(reversed(data.shape)), 
@@ -77,12 +85,13 @@ class Streamable:
 			compression="raw", # first I need to write uncompressed
 			physic_box=ov.BoxNd.fromString(idx_physic_box),
 			axis=idx_axis,
-			arco=self.arco
+			arco=self.arco,
+			**create_extra_args
 		)
 		print(f"Created IDX idx_url=[{idx_url}] idx_axis=[{idx_axis}] idx_physic_box=[{idx_physic_box}]")
 
 		t1=time.time()
-		db.write(data)
+		db.write(data,time=timestep,field=ov_field)
 		print(f"Wrote IDX data in {time.time()-t1} seconds")
 
 		if self.compression and self.compression!="raw":
