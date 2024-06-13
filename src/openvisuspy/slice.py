@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 pn.extension(
 	js_files={'html2canvas': 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
 			'dom-to-image':'https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/3.3.0/dom-to-image.min.js',
-			'modern-screenshot': 'https://unpkg.com/modern-screenshot'
+			'modernScreenshot': 'https://unpkg.com/modern-screenshot'
 }
 )
 
