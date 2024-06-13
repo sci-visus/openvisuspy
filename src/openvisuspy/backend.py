@@ -1,6 +1,9 @@
 import os,sys,copy,math,time,logging,types,requests,zlib,xmltodict,urllib,queue,types,threading
 import numpy as np
 
+import requests
+from urllib.parse import urlparse, urlunparse
+
 import OpenVisus as ov
 
 from . utils import *
@@ -288,12 +291,10 @@ class OpenVisusDataset(BaseDataset):
 
 	# getField
 	def getField(self,field:str=None):
-		if field is None: field=self.db.getField().name
-		return self.db.getField(field).name
+		return self.db.getField() if field is None else self.db.getField(field)
 
 	# getFieldRange
 	def getFieldRange(self,field:str=None):
-		if field is None: field=self.getField()
 		field = self.db.getField(field)
 		return [field.getDTypeRange().From, field.getDTypeRange().To]
 
@@ -317,7 +318,7 @@ class OpenVisusDataset(BaseDataset):
 	# createBoxQuery
 	def createBoxQuery(self, 		
 		timestep=None, 
-		field=None, 
+		field:str=None, 
 		logic_box=None,
 		max_pixels=None, 
 		endh=None, 
@@ -336,7 +337,7 @@ class OpenVisusDataset(BaseDataset):
 			timestep=self.getTimestep()
 
 		if field is None:
-			field=self.db.getField()
+			field=self.getField().name
 
 		if logic_box is None:
 			logic_box=self.getLogicBox()
@@ -430,7 +431,7 @@ class OpenVisusDataset(BaseDataset):
 	def beginBoxQuery(self,query):
 		if query is None: return
 		logic_box=BoxToPyList(query.logic_box)
-		logger.info(f"beginBoxQuery timestep={query.time} field={query.field} logic_box={logic_box} end_resolutions={[I for I in query.end_resolutions]}")	
+		logger.info(f"beginBoxQuery timestep={query.time} field={query.field.name} logic_box={logic_box} end_resolutions={[I for I in query.end_resolutions]}")	
 		self.cursor=0	
 		self.db.beginBoxQuery(query)
 
@@ -466,7 +467,7 @@ class OpenVisusDataset(BaseDataset):
 		logic_box=BoxToPyList(query.logic_box)
 		H=self.getCurrentResolution(query)
 		msec=int(1000*(time.time()-self.t1))
-		logger.info(f"got data cursor={self.cursor} end_resolutions{[I for I in query.end_resolutions]} timestep={query.time} field={query.field} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
+		logger.info(f"got data cursor={self.cursor} end_resolutions{[I for I in query.end_resolutions]} timestep={query.time} field={query.field.name} H={H} data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} m={np.min(data)} M={np.max(data)} ms={msec}")
 
 		return {
 			"I": self.cursor,
@@ -485,6 +486,49 @@ class OpenVisusDataset(BaseDataset):
 		if not self.isQueryRunning(query): return
 		self.cursor+=1
 
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////
+class PelicanFed:
+
+	def __init__(self, url):
+		self.DiscoveryEndpoint = None
+		self.DirectorEndpoint = None
+		self.RegistryEndpoint = None
+		self.JwksUri = None
+		self.BrokerEndpoint = None
+
+		parsed_url = urlparse(url)
+		self.DiscoveryEndpoint = f"https://{parsed_url.netloc}"
+		config_url = f"https://{parsed_url.netloc}/.well-known/pelican-configuration"
+		response = requests.get(config_url)
+
+		if response.status_code == 200:
+			config = response.json()
+			self.DirectorEndpoint = config.get("director_endpoint")
+			self.RegistryEndpoint = config.get("namespace_registration_endpoint")
+			self.JwksUri = config.get("jwks_uri")
+			self.BrokerEndpoint = config.get("broker_endpoint")
+
+# //////////////////////////////////////////////////////////////////////////
+class PelicanDataset(OpenVisusDataset):
+
+	def __init__(self,url):
+		parsed_url = urlparse(url)
+		self.pelican_fed = PelicanFed(url)
+
+		# The Pelican v7.8 Director has this baked in, but for now we need to hardcode the api endpoints
+		if 'directread' in parsed_url.query:
+			director_query = f"{self.pelican_fed.DirectorEndpoint}/api/v1.0/director/origin/{urlunparse(('', '') + parsed_url[2:])}"
+		else:
+			director_query = f"{self.pelican_fed.DirectorEndpoint}{urlunparse(('', '') + parsed_url[2:])}"
+
+		# Use the discovered endpoints to query the director. In particular, we expect our data
+		# to be accessible at the URL encoded in the Link header.
+		director_resp = requests.get(director_query, allow_redirects=False)
+		data_url = director_resp.headers["Location"]
+
+		# Finally, pass what we've constructed to the OpenVisusDataset constructor
+		super().__init__(data_url)
 
 # //////////////////////////////////////////////////////////////////////////
 def GuessBitmask(N):
@@ -529,8 +573,9 @@ class Signal1DDataset(BaseDataset):
 		info=LoadJSON(info_filename)
 		self.bitmask=info["bitmask"]
 		assert(info["dtype"]=="int64")
+		self.dtype=signal.dtype
 		# assert(info["shape"]==signal.shape)
-		self.vmin=int(info["vmin"]) # TODO, what if float
+		self.vmin=int(info["vmin"]) 
 		self.vmax=int(info["vmax"])
 		
 		endh=len(self.bitmask)-1
@@ -608,8 +653,12 @@ class Signal1DDataset(BaseDataset):
 		return True # no need for access
 
 	# getField
-	def getField(self,field=None):
-		return "data"
+	def getField(self,field:str=None):
+		from types import SimpleNamespace
+		field=SimpleNamespace()
+		field.name="data"
+		field.dtype=self.dtype
+		return field
 
 	# getFieldRange
 	def getFieldRange(self,field:str=None):
@@ -690,7 +739,7 @@ class Signal1DDataset(BaseDataset):
 		return {
 			"I": self.cursor,
 			"timestep": self.getTimestep(),
-			"field": self.getField(), 
+			"field": self.getField().name, 
 			"logic_box": [[self.x1],[self.x2]],
 			"H": self.endh, 
 			"data": lvl[x1:x2],
@@ -706,6 +755,10 @@ class Signal1DDataset(BaseDataset):
 def LoadDataset(url):
 	if ".npz" in url or ".npy" in url:
 		return Signal1DDataset(url)
+
+	elif url.startswith("pelican://"):
+		return PelicanDataset(url)
+		
 	else:
 		return OpenVisusDataset(url)
 	

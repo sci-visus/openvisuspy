@@ -4,15 +4,22 @@ import os,sys,logging,asyncio,time,json,xmltodict,urllib
 import urllib.request
 import boto3
 import urllib.parse 
+import sys, contextlib, urllib
+from urllib.parse import urlencode          
+from urllib.request import urlopen
+	
 
 import requests
 from requests.auth import HTTPBasicAuth
+
+import urllib3
+urllib3.disable_warnings()
 
 from pprint import pprint
 
 logger = logging.getLogger(__name__)
 
-COLORS = ["lime", "red", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
+COLORS = ["red", "lime", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
 
 DEFAULT_PALETTE="Turbo256"
 
@@ -84,11 +91,28 @@ def LoadJSON(value):
 		with open(url, "r") as f:  body=f.read()
 		return json.loads(body)
 		
-	elif issintance(value,str):
+	elif isinstance(value,str):
 		body=value
 		return json.loads(body)
 
 	raise Exception(f"{value} not supported")
+
+# ///////////////////////////////////////////////////////////////////
+def DownloadObject(src,dst, aws_access_key_id='any',aws_secret_access_key='any', endpoint_url='https://maritime.sealstorage.io/api/v0/s3'):
+    if os.path.isfile(dst): return
+    print(f"DownloadObject {src} -> {dst}")
+    assert(src.startswith("s3://"))
+    session = boto3.session.Session()
+    s3_client = session.client(
+        service_name='s3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        endpoint_url=endpoint_url, 
+        verify=False
+    )
+    __bucket,__name=src[len("s3://"):].split("/",maxsplit=1)
+    os.makedirs(os.path.dirname(dst),exist_ok=True)
+    s3_client.download_file(__bucket,__name,dst) 
 
 # ///////////////////////////////////////////////////////////////////
 def DownloadFile(url, cache_dir=os.environ.get("VISUS_CACHE",os.path.expanduser("~/visus/cache")),verify=False):
@@ -441,17 +465,16 @@ def ConvertDataForRendering(data, normalize_float=True):
 def GetPalettes():
 	ret = {}
 	for name in bokeh.palettes.__palettes__:
-		value=getattr(bokeh.palettes,name,None)
-		if value and len(value)>=256:
-			ret[name]=value
+		colors=getattr(bokeh.palettes,name,None)
+		if colors and len(colors)>=256:
+			ret[name]=colors
 
-
-	for name in sorted(colorcet.palette):
-		value=getattr(colorcet.palette,name,None)
-		if value and len(value)>=256:
-			# stupid criteria but otherwise I am getting too much palettes
-			if len(name)>12: continue
-			ret[name]=value
+	if True:
+		for name in sorted(colorcet.palette):
+			if name.startswith("CET_") or len(name)>20: continue # stupid criteria but otherwise I am getting too much palettes
+			colors=getattr(colorcet.palette,name,None)
+			if colors and len(colors)>=256:
+				ret[name]=colors
 	return ret
 
 # ////////////////////////////////////////////////////////
@@ -463,9 +486,6 @@ def ShowInfoNotification(msg):
 def GetCurrentUrl():
 	return pn.state.location.href
 
-# //////////////////////////////////////////////////////////////////////////////////////
-def GetQueryParams():
-	return {k: v for k,v in pn.state.location.query_params.items()}
 
 # ////////////////////////////////////////////////////////
 import traceback
@@ -482,3 +502,10 @@ def AddPeriodicCallback(fn, period, name="AddPeriodicCallback"):
 	#else:
 
 	return pn.state.add_periodic_callback(lambda fn=fn: CallPeriodicFunction(fn), period=period)
+
+
+# //////////////////////////////////////////////////////
+def GetShortUrl(url):
+	request_url = 'http://tinyurl.com/api-create.php?' + urllib.parse.urlencode({'url':url})   
+	with contextlib.closing(urllib.request.urlopen(request_url)) as response:   
+		return response.read().decode('utf-8 ') 
