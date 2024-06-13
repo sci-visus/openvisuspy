@@ -32,7 +32,12 @@ from .backend import Aborted,LoadDataset,ExecuteBoxQuery
 from .show_details import ShowDetails
 
 logger = logging.getLogger(__name__)
-
+pn.extension(
+	js_files={'html2canvas': 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+			'dom-to-image':'https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/3.3.0/dom-to-image.min.js',
+			'modern-screenshot': 'https://unpkg.com/modern-screenshot'
+}
+)
 
 # ////////////////////////////////////////////////////////////////////////////////////
 class Canvas:
@@ -233,7 +238,6 @@ class Canvas:
 					"color_bar":color_bar
 				}
 
-
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
 
@@ -281,13 +285,18 @@ class Slice(param.Parameterized):
 
 	# createMenuButton
 	def createMenuButton(self):
-
+		pn.extension(
+			js_files={'html2canvas': 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+					'dom-to-image':'https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/3.3.0/dom-to-image.min.js'
+		}
+		)
 		action_helper          = pn.widgets.TextInput(visible=False)
 		save_button_helper     = pn.widgets.TextInput(visible=False)
 		copy_url_button_helper = pn.widgets.TextInput(visible=False)
+		take_screenshot_helper = pn.widgets.TextInput(visible=False)
 	
 		main_button = pn.widgets.MenuButton(
-			name="File", items=[('Open', 'open'), ('Save', 'save'), ('Show Metadata', 'metadata'),('Copy Url','copy-url'), None, ("Refresh All","refresh-all"), None, ('Logout', 'logout')], 
+			name="File", items=[('Open', 'open'), ('Save', 'save'), ('Show Metadata', 'metadata'),('Copy Url','copy-url'),('Take Screenshot', 'takeScreenshot'), None, ("Refresh All","refresh-all"), None, ('Logout', 'logout')], 
 			button_type='primary')
 
 
@@ -311,6 +320,10 @@ class Slice(param.Parameterized):
 				copy_url_button_helper.value=self.getShareableUrl() # this is needed for the javascript part
 				ShowInfoNotification(f'Copy Url done {copy_url_button_helper.value}')
 				return
+			if action=="takeScreenshot":
+				take_screenshot_helper.value='0'
+				return
+
 
 			if action=="refresh-all":
 				self.refreshAll()
@@ -320,7 +333,8 @@ class Slice(param.Parameterized):
 		main_button.js_on_click(args={
 			"action_helper":action_helper,
 			"save_button_helper":save_button_helper,
-			"copy_url_button_helper": copy_url_button_helper
+			"copy_url_button_helper": copy_url_button_helper,
+			"take_screenshot_helper":take_screenshot_helper
 			}, code="""
 
 					function jsCallFunction() {
@@ -342,6 +356,24 @@ class Slice(param.Parameterized):
 							console.log("copy_url_button_helper.value=" + copy_url_button_helper.value);
 							navigator.clipboard.writeText(copy_url_button_helper.value);
 							return;
+						}	
+						if (action_helper.value=="takeScreenshot") {
+						console.log("Take screenshot");
+						window.scrollTo(0, 0);
+						setTimeout(function () {
+							// Capture the screenshot
+							modernScreenshot.domToPng(document.body, { scale: 2 }).then(function (dataUrl) {
+								var downloadLink = document.createElement('a');
+								downloadLink.href = dataUrl;
+								downloadLink.download = 'dashboard_screenshot.png';
+								document.body.appendChild(downloadLink);
+								downloadLink.click();
+								document.body.removeChild(downloadLink);
+							}).catch(function (error) {
+								console.error('Error capturing screenshot:', error);
+							});
+						}, 10);
+
 						}				
 
 						if (action_helper.value=="logout") {
@@ -359,6 +391,7 @@ class Slice(param.Parameterized):
 			action_helper, 
 			save_button_helper, 
 			copy_url_button_helper,
+			take_screenshot_helper,
 			max_width=120,
 			align=('start', 'end'))
 
@@ -551,13 +584,12 @@ class Slice(param.Parameterized):
 		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
 
 		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
-
 		self.canvas = Canvas(self.id)
 		self.canvas.on_event(bokeh.events.RangesUpdate     , SafeCallback(self.onCanvasViewportChange))
 		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
 		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
-
+		
 		# probe_tool
 		from .probe import ProbeTool
 		self.probe_tool=ProbeTool(self)
@@ -567,8 +599,7 @@ class Slice(param.Parameterized):
 
 		self.setShowOptions(Slice.show_options)
 		self.start()
-
-	# setShowProbe
+  
 	def setShowProbe(self, value):
 		self.show_probe.value=value
 		if value:
