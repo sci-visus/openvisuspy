@@ -2,7 +2,7 @@ import xarray as xr
 import numpy  as np
 import pandas as pd
 import concurrent.futures
-
+import time as tms
 import os
 
 # !pip install OpenVisusNoGui
@@ -19,6 +19,7 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
     # constructor
     def __init__(self,db, shape, dtype, timesteps,resolution,fieldname):
         self.db    = db
+        self.start_time_index=self.db.getTimesteps()[0]
         self.shape = shape
         self.fieldname=fieldname
         self.dtype = dtype
@@ -75,20 +76,23 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
 
     def _raw_indexing_method(self, key: tuple) -> np.typing.ArrayLike:
 
-        def fetch_data( time, res, x1, y1, x2, y2, fieldname, max_attempts=5, retry_delay=5):
+        def fetch_data( time, res, x1, y1, x2, y2, fieldname, max_attempts=5, retry_delay=3):
             attempt = 1
+            time_exact=self.start_time_index+time
             while attempt < max_attempts:
                 try:
                     # if attempt>0:
                     #     print(f'Attempt: {attempt} out of {max_attempts}')
-                    d=self.db.read(time=time, max_resolution=res, logic_box=[(x1, y1), (x2, y2)], field=fieldname)
+                    print(f'Time: {time_exact}, max_resolution: {res}, logic_box={x1,x2,y1,y2}, field: {fieldname}')
+                    d=self.db.read(time=time_exact, max_resolution=res, logic_box=[(x1, y1), (x2, y2)], field=fieldname)
                     return d
                 except Exception as e:  # Consider specifying the exception type if possible
                     # print(f"Retry {attempt + 1}/{max_attempts} - Error fetching data: {e}")
                     attempt += 1
-                    time.sleep(retry_delay)
+                    tms.sleep(retry_delay)
                     if attempt == max_attempts:
                         print(f"Failed to fetch data after {max_attempts} attempts")
+                        print(e)
                         return None
 
         def fetch_all_data(t1, t2, res, x1, y1, x2, y2, fieldname, max_workers=8):
@@ -151,7 +155,7 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
             else:
                 if isinstance(t1, int) and isinstance(res,int):
                     x1,x2=self._getXRange(key[3])
-
+                    time_exact=self.start_time_index+t1
                     data=self.db.read(time=t1, max_resolution=res,logic_box=[(x1,y1,z1),(x2,y2,z2)])
                 else:
                     data=self.db.read(logic_box=[(x1,y1,z1),(x2,y2,z2)],field=self.fieldname)                
@@ -307,13 +311,3 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
         except TypeError:
             return False
         return ext.lower()==".idx"
-
-
-
-
-
-
-
-
-
-
