@@ -5,6 +5,7 @@ from bokeh.plotting import figure
 from bokeh.models import LinearColorMapper
 import bokeh.models
 import logging
+from .utils   import *
 
 logger = logging.getLogger(__name__)
 	
@@ -71,7 +72,7 @@ def download_script(self):
 		[int(self.logic_box[1][0] ), int(self.logic_box[1][1] ), self.logic_box[1][2]] 
 	]
 
-	python_file_content = "/n".join([
+	python_file_content = "\n".join([
 		f"import OpenVisus",
 		f"import numpy as np",
 		f"data_url='{url}'",
