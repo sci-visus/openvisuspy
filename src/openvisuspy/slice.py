@@ -319,6 +319,7 @@ class Slice(param.Parameterized):
 
 	# constructor
 	def __init__(self):
+		super().__init__()  
 
 		self.on_change_callbacks={}
 
