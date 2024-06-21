@@ -273,50 +273,50 @@ class Slice(param.Parameterized):
 		super().__init__()  
 
 		# whenever some new result is available
-		render_id              = pn.widgets.IntSlider          (name="RenderId", value=0)
+		self.render_id              = pn.widgets.IntSlider          (name="RenderId", value=0)
 	
 			# current scene as JSON
-		scene_body             = pn.widgets.TextAreaInput(name='Current',sizing_mode="stretch_width",height=520,)
+		self.scene_body             = pn.widgets.TextAreaInput(name='Current',sizing_mode="stretch_width",height=520,)
 	
 		# core query
-		scene                  = pn.widgets.Select             (name="Scene", options=[], width=120)
-		timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
-		timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 1, 32, 64, 128], value=1, width=50)
-		field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
-		resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=20, end=99,  sizing_mode="stretch_width")
-		view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
-		num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
-		direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
-		offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
-		viewport               = pn.widgets.TextInput          (name="Viewport",value="")
+		self.scene                  = pn.widgets.Select             (name="Scene", options=[], width=120)
+		self.timestep               = pn.widgets.IntSlider          (name="Time", value=0, start=0, end=1, step=1, sizing_mode="stretch_width")
+		self.timestep_delta         = pn.widgets.Select             (name="Speed", options=[1, 2, 4, 8, 1, 32, 64, 128], value=1, width=50)
+		self.field                  = pn.widgets.Select             (name='Field', options=[], value='data', width=80)
+		self.resolution             = pn.widgets.IntSlider          (name='Res', value=21, start=20, end=99,  sizing_mode="stretch_width")
+		self.view_dependent         = pn.widgets.Select             (name="ViewDep",options={"Yes":True,"No":False}, value=True,width=80)
+		self.num_refinements        = pn.widgets.IntSlider          (name='#Ref', value=0, start=0, end=4, width=80)
+		self.direction              = pn.widgets.Select             (name='Direction', options={'X':0, 'Y':1, 'Z':2}, value=2, width=80)
+		self.offset                 = pn.widgets.EditableFloatSlider(name="Offset", start=0.0, end=1024.0, step=1.0, value=0.0,  sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
+		self.viewport               = pn.widgets.TextInput          (name="Viewport",value="")
 	
 		# palette thingy
-		range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="user", width=120)
-		range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=0)
-		range_max              = pn.widgets.FloatInput         (name="Max", width=80,value=300)
+		self.range_mode             = pn.widgets.Select             (name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="user", width=120)
+		self.range_min              = pn.widgets.FloatInput         (name="Min", width=80,value=0)
+		self.range_max              = pn.widgets.FloatInput         (name="Max", width=80,value=300)
 	
-		palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
-		color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=60)
+		self.palette                = pn.widgets.ColorMap           (name="Palette", options=GetPalettes(), value_name=DEFAULT_PALETTE, ncols=5,  width=180)
+		self.color_mapper_type      = pn.widgets.Select             (name="Mapper", options=["linear", "log", ],width=60)
 		
 		# play thingy
-		play_button            = pn.widgets.Button             (name="Play", width=8)
-		play_sec               = pn.widgets.Select             (name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
+		self.play_button            = pn.widgets.Button             (name="Play", width=8)
+		self.play_sec               = pn.widgets.Select             (name="Frame delay", options=["0.00", "0.01", "0.1", "0.2", "0.1", "1", "2"], value="0.01")
 	
 		# bottom status bar
-		request                = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
-		response               = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
+		self.request                = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
+		self.response               = pn.widgets.TextInput          (name="", sizing_mode='stretch_width', disabled=False)
 	
 		# toolbar thingy
-		info_button            = pn.widgets.Button   (icon="info-circle",width=20)
-		open_button            = pn.widgets.Button   (icon="file-upload",width=20)
-		save_button            = pn.widgets.Button   (icon="file-download",width=20)
-		copy_url_button        = pn.widgets.Button   (icon="copy",width=20)
-		logout_button          = pn.widgets.Button   (icon="logout",width=20)
+		self.info_button            = pn.widgets.Button   (icon="info-circle",width=20)
+		self.open_button            = pn.widgets.Button   (icon="file-upload",width=20)
+		self.save_button            = pn.widgets.Button   (icon="file-download",width=20)
+		self.copy_url_button        = pn.widgets.Button   (icon="copy",width=20)
+		self.logout_button          = pn.widgets.Button   (icon="logout",width=20)
 	
 		# internal use only
-		save_button_helper = pn.widgets.TextInput(visible=False)
-		copy_url_button_helper = pn.widgets.TextInput(visible=False)
-		file_name_input=  pn.widgets.TextInput(name="Numpy_File", placeholder='Numpy File Name')
+		self.save_button_helper = pn.widgets.TextInput(visible=False)
+		self.copy_url_button_helper = pn.widgets.TextInput(visible=False)
+		self.file_name_input=  pn.widgets.TextInput(name="Numpy_File", placeholder='Numpy File Name')
 	
 	
 		# constructor
