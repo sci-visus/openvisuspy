@@ -449,7 +449,7 @@ class Slice(param.Parameterized):
 		import numpy as np
 		from matplotlib.colors import LinearSegmentedColormap
 
-		x,y,h,w=evt.new
+		x,y,w,h=evt.new
 		logic_box=self.toLogic([x,y,w,h])
 		data=list(ovy.ExecuteBoxQuery(self.db, access=self.db.createAccess(), field=self.field.value,logic_box=logic_box,num_refinements=1))[0]["data"]
 		print('Selected logic box here...')
