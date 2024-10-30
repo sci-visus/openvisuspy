@@ -71,19 +71,14 @@ set VISUS_NETSERVICE_VERBOSE=1
 set VISUS_VERBOSE_DISKACCESS=0
 set VISUS_CACHE=c:/tmp/visus-cache
 
-python -m panel serve app --dev --args "c:/big/visus-datasets/david_subsampled/visus.idx"
-python -m panel serve app --dev --args "c:/big/visus-datasets/2kbit1/zip/hzorder/visus.idx"
-
+python -m panel serve app --dev --args "D:/visus-datasets/david_subsampled/visus.idx"
+python -m panel serve app --dev --args "D:/visus-datasets/2kbit1/zip/hzorder/visus.idx"
 python -m panel serve app --dev --args "D:/visus-datasets/signal1d/visus.idx"
-
 python -m panel serve app --dev --args "D:/visus-datasets/chess/nsdf-group/dashboards.json"
+python -m panel serve app --dev --args "D:/visus-datasets/chess/nsdf-group/datasets/near-field-nexus/visus.idx"
 
-
-python -m panel serve app --dev --args "D:\visus-datasets\chess\nsdf-group\datasets\near-field-nexus\visus.idx"
-
-
-
-
+# example sync view (works in 2d only)
+python -m panel serve app --dev --args "D:/visus-datasets/david_subsampled/visus.idx" "D:/visus-datasets/microscope/bw/visus.idx"
 
 # slac 
 python -m panel serve app --dev --args c:\big\visus-datasets\signal1d_slac\visus.idx   
@@ -91,8 +86,6 @@ python -m panel serve app --dev --args c:\big\visus-datasets\signal1d_slac\visus
 python -m panel serve app --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_slac/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
 
 # slac max
-
-
 python -m panel serve app --dev --args c:\big\visus-datasets\signal1d_slac_max\visus.idx
 
 python -m panel serve app --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/visus-datasets/signal1d_slac_max/visus.idx?cached=arco&access_key=any&secret_key=any&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
@@ -100,13 +93,11 @@ python -m panel serve app --dev --args "https://maritime.sealstorage.io/api/v0/s
 # single signals
 python -m panel serve app --dev --args "https://maritime.sealstorage.io/api/v0/s3/utah/supercdms-data/CDMS/UMN/R68/Raw/07180816_1648/07180816_1648_F0006/events/00135/banks/SCD0/data.npz?profile=sealstorage_ro&endpoint_url=https://maritime.sealstorage.io/api/v0/s3"
 
-
 python -m panel serve app --dev --args "https://raw.githubusercontent.com/nsdf-fabric/nsdf-slac/main/dashboards.json"
 
 # not sure why I cannot cache in arco an IDX that is NON arco
 python -m panel serve app --dev --args "https://atlantis.sci.utah.edu/mod_visus?dataset=david_subsampled&cached=idx" 
 python -m panel serve app --dev --args "https://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1&cached=idx"
-
 ```
 
 ## Run notebooks
