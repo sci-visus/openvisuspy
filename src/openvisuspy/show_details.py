@@ -5,6 +5,10 @@ from bokeh.plotting import figure
 from bokeh.models import LinearColorMapper
 import bokeh.models
 import logging
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.pyplot as plt
+from bokeh.models import ColumnDataSource, ColorBar, LinearColorMapper
+from .utils   import *
 
 logger = logging.getLogger(__name__)
 	
@@ -106,7 +110,7 @@ def ShowDetails(self,x,y,w,h):
 	pdim=self.getPointDim()
 
 	# todo for 2D dataset
-	assert(pdim==3)
+	# assert(pdim==3)
 
 	z=int(self.offset.value)
 	logic_box=self.toLogic([x,y,w,h])
@@ -148,29 +152,48 @@ def ShowDetails(self,x,y,w,h):
 		self.range_min.value = min(self.range_min.value, self.vmin)
 		self.range_max.value = max(self.range_max.value, self.vmax)
 		logger.info(f"Updating range with selected area vmin={self.vmin} vmax={self.vmax}")
-	
-	p = figure(x_range=(self.selected_physic_box[0][0], self.selected_physic_box[0][1]), y_range=(self.selected_physic_box[1][0], self.selected_physic_box[1][1]))
+	fig, ax = plt.subplots()
+
+	p1 = figure(x_range=(0,100), y_range=(0,100))
 	palette_name = self.palette.value_name if self.palette.value_name.endswith("256") else "Turbo256"
 
 	mapper = LinearColorMapper(palette=palette_name, low=np.min(self.detailed_data), high=np.max(self.detailed_data))
 
 	# Flip data to match imshow orientation
-	data_flipped = data 
-	source = bokeh.models.ColumnDataSource(data=dict(image=[data_flipped]))
-	dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
-	dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
-	p.image(image='image', x=self.selected_physic_box[0][0], y=self.selected_physic_box[1][0], dw=dw, dh=dh, color_mapper=mapper, source=source)  
-	color_bar = bokeh.models.ColorBar(color_mapper=mapper, label_standoff=12, location=(0,0))
-	p.add_layout(color_bar, 'right')
-	p.xaxis.axis_label = "X"
-	p.yaxis.axis_label = "Y"
+	data_flipped = data
 
-	self.showDialog(
-		pn.Column(
-				self.file_name_input, 
-				pn.Row(save_numpy_button,download_script_button),
-				pn.Row(apply_avg_min_colormap_button,apply_avg_max_colormap_button,add_range_button,apply_colormap_button),
-				pn.Row(pn.pane.Bokeh(p,sizing_mode="stretch_both")),
-				sizing_mode="stretch_both"
-		)
-		, width=900, height=800, name=f"Palette: {palette_name} Min: {self.vmin}, Max: {self.vmax}")
+	print(type(self.selected_physic_box[0][1]))
+	dw = abs(self.selected_physic_box[0][1] -self.selected_physic_box[0][0])
+	
+	dh = abs(self.selected_physic_box[1][1] - self.selected_physic_box[1][0])
+	x_min, x_max = int(self.selected_physic_box[0][0]), int(self.selected_physic_box[0][1])
+	y_min, y_max = int(self.selected_physic_box[1][0]), int(self.selected_physic_box[1][1])
+	
+	fig, ax = plt.subplots(figsize=(14, 20))
+	im = ax.imshow(data_flipped, cmap='turbo',extent=[x_min, x_max, y_min, y_max], aspect='auto')
+	divider = make_axes_locatable(ax)
+	cax = divider.append_axes("right", size="5%", pad=0.1)  
+	cbar = plt.colorbar(im, cax=cax)
+
+	ax.set_xlim(self.selected_physic_box[0][0], self.selected_physic_box[0][1])
+	ax.set_ylim(self.selected_physic_box[1][1], self.selected_physic_box[1][0])
+
+	ax.set_xlabel("X")  
+	ax.set_ylabel("Y")  
+	plt.tight_layout()
+
+	dialog_layout = pn.Column(
+		self.file_name_input,
+		pn.Row(save_numpy_button, download_script_button),
+		pn.Row(pn.pane.Matplotlib(fig), pn.Column(
+			pn.pane.Markdown(f"#### Palette Used: {palette_name}"),
+			pn.pane.Markdown(f"#### New Min/Max Found.."),
+			pn.pane.Markdown(f"#### Min: {self.vmin}, Max: {self.vmax}"),
+			pn.Row(apply_avg_min_colormap_button, apply_avg_max_colormap_button),
+			add_range_button,
+			apply_colormap_button
+		)),
+		sizing_mode="stretch_both"
+	)
+
+	self.showDialog(dialog_layout, width=1048, height=900, name="Details")
