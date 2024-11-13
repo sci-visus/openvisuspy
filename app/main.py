@@ -7,72 +7,66 @@ import panel as pn
 from openvisuspy import SetupLogger, Slice, ProbeTool, cbool
 import time
 
-# Global synchronization lock and throttle variables
-sync_in_progress = False
-last_sync_time = 0
-throttle_delay = 0.1  # Throttle delay in seconds
+class SliceSynchronizer:
+    def __init__(self, slice1, slice2, throttle_delay=0.05):
+        self.slice1 = slice1
+        self.slice2 = slice2
+        self.sync_in_progress = False
+        self.last_sync_time = 0
+        self.throttle_delay = throttle_delay
 
-# ////////////////////////////////////////////////////////////////////////////
+    def throttle(self, func, *args, **kwargs):
+        """Throttle function calls to limit frequency."""
+        current_time = time.time()
+        if current_time - self.last_sync_time >= self.throttle_delay:
+            self.last_sync_time = current_time
+            func(*args, **kwargs)
 
-def throttle(func, *args, **kwargs):
-    """Throttle function calls to limit frequency."""
-    global last_sync_time
-    current_time = time.time()
-    if current_time - last_sync_time >= throttle_delay:
-        last_sync_time = current_time
-        func(*args, **kwargs)
+    def sync_slices(self, box1=None, box2=None, is_reverse=False):
+        """Synchronize viewports between two slices, with an option to reverse the direction."""
+        if self.sync_in_progress:
+            return
+        self.sync_in_progress = True
+        try:
+            # Set default boxes if not provided
+            if box1 is None:
+                box1 = self.slice1.db.getPhysicBox()
+            if box2 is None:
+                box2 = self.slice2.db.getPhysicBox()
 
-def SyncSlices(slice1, slice2, box1=None, box2=None):
-    """Synchronize from slice1 (original) to slice2 (super-resolution)"""
-    global sync_in_progress
-    if sync_in_progress:
-        return  # Prevent re-entrant synchronization
+            # Determine source and target based on is_reverse flag
+            if is_reverse:
+                (src_box, tgt_box) = (box2, box1)
+                (src_slice, tgt_slice) = (self.slice2, self.slice1)
+            else:
+                (src_box, tgt_box) = (box1, box2)
+                (src_slice, tgt_slice) = (self.slice1, self.slice2)
 
-    sync_in_progress = True
-    try:
-        if box1 is None: 
-            box1 = slice1.db.getPhysicBox()
-        if box2 is None:
-            box2 = slice2.db.getPhysicBox()
+            # Unpack source and target boxes
+            (a, b), (c, d) = src_box
+            (A, B), (C, D) = tgt_box
 
-        # Map box1 to box2
-        (a, b), (c, d) = box1
-        (A, B), (C, D) = box2
+            # Get viewport from the source slice
+            x, y, w, h = src_slice.canvas.getViewport()
 
-        x, y, w, h = slice1.canvas.getViewport()
+            # Map coordinates from source to target
+            x1, x2 = [A + ((value - a) / (b - a)) * (B - A) for value in [x, x + w]]
+            y1, y2 = [C + ((value - c) / (d - c)) * (D - C) for value in [y, y + h]]
 
-        x1, x2 = [A + ((value - a) / (b - a)) * (B - A) for value in [x, x + w]]
-        y1, y2 = [C + ((value - c) / (d - c)) * (D - C) for value in [y, y + h]]
-        slice2.canvas.setViewport([x1, y1, x2 - x1, y2 - y1])
-        slice2.refresh("SyncSlices")
-    finally:
-        sync_in_progress = False
+            # Set the target slice's viewport and refresh
+            tgt_slice.canvas.setViewport([x1, y1, x2 - x1, y2 - y1])
+            tgt_slice.refresh("SyncSlices")
+        finally:
+            self.sync_in_progress = False
 
-def SyncSlicesReverse(slice2, slice1, box1=None, box2=None):
-    """Synchronize from slice2 (super-resolution) to slice1 (original)"""
-    global sync_in_progress
-    if sync_in_progress:
-        return  # Prevent re-entrant synchronization
+    def update_slice2(self, attr, old, new):
+        """Throttle and synchronize slice1 -> slice2."""
+        self.throttle(self.sync_slices, is_reverse=False)
 
-    sync_in_progress = True
-    try:
-        if box1 is None: 
-            box1 = slice1.db.getPhysicBox()
-        if box2 is None:
-            box2 = slice2.db.getPhysicBox()
+    def update_slice1(self, attr, old, new):
+        """Throttle and synchronize slice2 -> slice1 (reverse direction)."""
+        self.throttle(self.sync_slices, is_reverse=True)
 
-        # Map box2 to box1
-        (A, B), (C, D) = box2
-        (a, b), (c, d) = box1
-
-        x, y, w, h = slice2.canvas.getViewport()
-
-        x1, x2 = [a + ((value - A) / (B - A)) * (b - a) for value in [x, x + w]]
-        y1, y2 = [c + ((value - C) / (D - C)) * (d - c) for value in [y, y + h]]
-        slice1.canvas.setViewport([x1, y1, x2 - x1, y2 - y1])
-        slice1.refresh("SyncSlicesReverse")
-    finally:
-        sync_in_progress = False
 
 # ////////////////////////////////////////////////////////////////////////////
 if __name__.startswith('bokeh'):
@@ -115,23 +109,19 @@ if __name__.startswith('bokeh'):
         slice1.setShowOptions(show_options)
         slice2.setShowOptions(show_options)
 
-        # Define update functions with throttling
-        def update_slice2(attr, old, new):
-            throttle(SyncSlices, slice1, slice2)
-
-        def update_slice1(attr, old, new):
-            throttle(SyncSlicesReverse, slice2, slice1)
+        # Initialize the synchronizer
+        synchronizer = SliceSynchronizer(slice1, slice2, throttle_delay = 0.05)
 
         # Watch for viewport changes in slice1 and slice2 using on_change
-        slice1.canvas.fig.x_range.on_change('start', update_slice2)
-        slice1.canvas.fig.x_range.on_change('end', update_slice2)
-        slice1.canvas.fig.y_range.on_change('start', update_slice2)
-        slice1.canvas.fig.y_range.on_change('end', update_slice2)
+        slice1.canvas.fig.x_range.on_change('start', synchronizer.update_slice2)
+        slice1.canvas.fig.x_range.on_change('end', synchronizer.update_slice2)
+        slice1.canvas.fig.y_range.on_change('start', synchronizer.update_slice2)
+        slice1.canvas.fig.y_range.on_change('end', synchronizer.update_slice2)
 
-        slice2.canvas.fig.x_range.on_change('start', update_slice1)
-        slice2.canvas.fig.x_range.on_change('end', update_slice1)
-        slice2.canvas.fig.y_range.on_change('start', update_slice1)
-        slice2.canvas.fig.y_range.on_change('end', update_slice1)
+        slice2.canvas.fig.x_range.on_change('start', synchronizer.update_slice1)
+        slice2.canvas.fig.x_range.on_change('end', synchronizer.update_slice1)
+        slice2.canvas.fig.y_range.on_change('start', synchronizer.update_slice1)
+        slice2.canvas.fig.y_range.on_change('end', synchronizer.update_slice1)
 
         # Layout for both slices
         main_layout = pn.Row(slice1.getMainLayout(), slice2.getMainLayout())
