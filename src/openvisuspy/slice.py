@@ -1,5 +1,6 @@
-
 import os,sys,logging,copy,traceback,colorcet
+
+import bokeh.models
 import base64
 import types
 import logging
@@ -14,6 +15,7 @@ import numpy as np
 
 import bokeh
 import bokeh.models
+from bokeh.models import Button, CustomJS
 import bokeh.events
 import bokeh.plotting
 import bokeh.models.callbacks
@@ -39,17 +41,19 @@ class Canvas:
   
 	# constructor
 	def __init__(self, id):
-		self.id=id
-		self.fig=None
-		self.pdim=2
-		self.events={}
+		self.id=id # A unique identifier 
+		self.fig=None # A Bokeh figure for plotting.
+		self.pdim=2 # point dimension
+		self.events={} # Event handling supporting various kinds of interactions
 
 		self.box_select_tool_helper = bokeh.models.TextInput(visible=False)
 		self.fig_layout=Row(sizing_mode="stretch_both")	
-		self.createFigure() 
+		self.createFigure() # Creates the main figure using Bokeh and adds
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
+		print("--------------- Setviewport default")
 		self.setViewport([0,0,256,256])
+		print("-------------- Setviewport default")
 
 	# onFigureSizeChange
 	def onFigureSizeChange(self, __attr, __old, __new):
@@ -60,6 +64,7 @@ class Canvas:
 
 		W=self.getWidth()
 		H=self.getHeight()
+		print("---------------fixaspectratio before ----------------",W,H)
 
 		# does not apply to 1d signal
 		if self.pdim==2 and W>0 and H>0:
@@ -71,6 +76,7 @@ class Canvas:
 			x1=cx-0.5*w
 			y1=cy-0.5*h
 			value=(x1,y1,w,h)
+			print("--------------fixaspectratio2 Enter IF----------------",value)
 		
 		return value
 
@@ -92,18 +98,27 @@ class Canvas:
 		self.wheel_zoom_tool        = bokeh.models.WheelZoomTool()
 		self.box_select_tool        = bokeh.models.BoxSelectTool()
 		self.reset_fig              = bokeh.models.ResetTool()
+		self.box_zoom_tool          = bokeh.models.BoxZoomTool()
 
-		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool]) 
+		#self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool,self.box_zoom_tool])
+		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool])  
 
 		self.fig.toolbar_location="right" 
 		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
 		# self.fig.toolbar.active_inspect = self.over_tool #will bring this back
 		self.fig.toolbar.active_tap     = None
+		# self.fig.toolbar.
 
 		# try to preserve the old status
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
+		print("xxxxxxxxxx X range Start xxxxxxxxxxxx",self.fig.x_range.start)
+		print("xxxxxxxxxxx X range End xxxxxxxxxxxx",self.fig.x_range.end)
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
+		print("xxxxxxxxx Y range Start xxxxxxxxxxxxxx",self.fig.y_range.start)
+		print("xxxxxxxxxxx Y range End xxxxxxxxxxxx",self.fig.y_range.end)
+
+
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
@@ -114,6 +129,7 @@ class Canvas:
 
 		# tracl changes in the size
 		# see https://github.com/bokeh/bokeh/issues/9136
+
 		self.fig.on_change('inner_width',  self.onFigureSizeChange)
 		self.fig.on_change('inner_height', self.onFigureSizeChange)
 
@@ -175,16 +191,19 @@ class Canvas:
 
 	# getViewport [(x1,x2),(y1,y2)]
 	def getViewport(self):
-		x=self.fig.x_range.start
-		y=self.fig.y_range.start
-		w=self.fig.x_range.end-x
-		h=self.fig.y_range.end-y
+		x=self.fig.x_range.start # The x coordinate of the viewport's bottom-left corner.
+		y=self.fig.y_range.start # The y coordinate of the viewport's bottom-left corner.
+		w=self.fig.x_range.end-x # The width of the viewport along the x axis.
+		h=self.fig.y_range.end-y # The height of the viewport along the y axis.
 		return [x,y,w,h]
 
 	  # setViewport
 	def setViewport(self,value):
+		print("xxxxxxxxxxxx Set Viewport X range before fix Aspect ratio xxxxxxxxxxx",self.fig.x_range.start)
 		x,y,w,h=self.__fixAspectRatioIfNeeded(value)
+		print("x",x,y,w,h)
 		self.fig.x_range.start, self.fig.x_range.end = x, x+w
+		print("xxxxxxxxxxx  Set Viewport X range after fix Aspect ratio xxxxxxxxxxxx",self.fig.x_range.start)
 		self.fig.y_range.start, self.fig.y_range.end = y, y+h
 
 	# showData
@@ -243,7 +262,7 @@ class Slice(param.Parameterized):
 
 	show_options={
 		"top": [
-			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements", "show_probe"],
+			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type","view_dependent", "resolution", "num_refinements", "show_probe"],
 			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 
 		],
@@ -580,9 +599,10 @@ class Slice(param.Parameterized):
 	# onCanvasViewportChange
 	def onCanvasViewportChange(self, evt):
 		x,y,w,h=self.canvas.getViewport()
+		print("I am here")
 		self.refresh("onCanvasViewportChange")
 
-	# onCanvasSingleTap
+	# onCanvasSingleTap # a click on image
 	def onCanvasSingleTap(self, evt):
 		logger.info(f"Single tap {evt}")
 		pass
