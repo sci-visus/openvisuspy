@@ -51,9 +51,8 @@ class Canvas:
 		self.createFigure() # Creates the main figure using Bokeh and adds
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
-		print("--------------- Setviewport default")
 		self.setViewport([0,0,256,256])
-		print("-------------- Setviewport default")
+	
 
 	# onFigureSizeChange
 	def onFigureSizeChange(self, __attr, __old, __new):
@@ -64,7 +63,7 @@ class Canvas:
 
 		W=self.getWidth()
 		H=self.getHeight()
-		print("---------------fixaspectratio before ----------------",W,H)
+		
 
 		# does not apply to 1d signal
 		if self.pdim==2 and W>0 and H>0:
@@ -76,7 +75,7 @@ class Canvas:
 			x1=cx-0.5*w
 			y1=cy-0.5*h
 			value=(x1,y1,w,h)
-			print("--------------fixaspectratio2 Enter IF----------------",value)
+		
 		
 		return value
 
@@ -112,11 +111,8 @@ class Canvas:
 
 		# try to preserve the old status
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
-		print("xxxxxxxxxx X range Start xxxxxxxxxxxx",self.fig.x_range.start)
-		print("xxxxxxxxxxx X range End xxxxxxxxxxxx",self.fig.x_range.end)
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
-		print("xxxxxxxxx Y range Start xxxxxxxxxxxxxx",self.fig.y_range.start)
-		print("xxxxxxxxxxx Y range End xxxxxxxxxxxx",self.fig.y_range.end)
+
 
 
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
@@ -199,11 +195,8 @@ class Canvas:
 
 	  # setViewport
 	def setViewport(self,value):
-		print("xxxxxxxxxxxx Set Viewport X range before fix Aspect ratio xxxxxxxxxxx",self.fig.x_range.start)
 		x,y,w,h=self.__fixAspectRatioIfNeeded(value)
-		print("x",x,y,w,h)
 		self.fig.x_range.start, self.fig.x_range.end = x, x+w
-		print("xxxxxxxxxxx  Set Viewport X range after fix Aspect ratio xxxxxxxxxxxx",self.fig.x_range.start)
 		self.fig.y_range.start, self.fig.y_range.end = y, y+h
 
 	# showData
@@ -245,7 +238,7 @@ class Canvas:
 					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh") 
 				else:
 					self.fig.image("image", source=source, x="X", y="Y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
-				self.fig.add_layout(color_bar, 'right')
+				#self.fig.add_layout(color_bar, 'right')   # comment out to stop showing side color bar
 				self.last_renderer={
 					"source": source,
 					"dtype":img.dtype,
@@ -262,9 +255,8 @@ class Slice(param.Parameterized):
 
 	show_options={
 		"top": [
-			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type","view_dependent", "resolution", "num_refinements", "show_probe"],
-			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
-
+			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "view_dependent", "resolution", "num_refinements", "show_probe"],
+			["field","direction", "offset", "range_mode", "range_min",  "range_max"] 	#removed "color_mapper_type",
 		],
 		"bottom": [
 			["request","response"]
@@ -526,7 +518,7 @@ class Slice(param.Parameterized):
 		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
 		self.offset.param.watch(SafeCallback(lambda evt: self.refresh("offset.param.watch")),"value", onlychanged=True,queued=True)
 		
-		# palette  
+		# palette 
 		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic", width=120)
 		def onRangeModeChange(evt):
 			mode=evt.new
@@ -550,10 +542,12 @@ class Slice(param.Parameterized):
 		self.range_min.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
 		self.range_max.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
 
-		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis256", ncols=3, width=180)
+		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Greys256", ncols=3, width=180)
+
 		def onPaletteChange(evt):
 			self.createColorBar()
 			self.refresh("onPaletteChange")
+
 		self.palette.param.watch(SafeCallback(onPaletteChange),"value_name", onlychanged=True,queued=True)
 
 		self.color_mapper_type = pn.widgets.Select(name="Mapper", options=["linear", "log"], width=60)
@@ -599,7 +593,6 @@ class Slice(param.Parameterized):
 	# onCanvasViewportChange
 	def onCanvasViewportChange(self, evt):
 		x,y,w,h=self.canvas.getViewport()
-		print("I am here")
 		self.refresh("onCanvasViewportChange")
 
 	# onCanvasSingleTap # a click on image
@@ -633,7 +626,7 @@ class Slice(param.Parameterized):
 					
 			return ret
 
-		top   =[Row(*CreateWidgets(row),sizing_mode="stretch_width") for row in value.get("top"   ,[[]])]
+		top   =[Row(*CreateWidgets(row),sizing_mode="fixed") for row in value.get("top"   ,[[]])]
 		bottom=[Row(*CreateWidgets(row),sizing_mode="stretch_width") for row in value.get("bottom",[[]])]
 
 		self.central_layout[:]=[
@@ -818,6 +811,7 @@ class Slice(param.Parameterized):
 		self.access=db.createAccess()
 		self.scene.value=name
 
+
 		timesteps=self.db.getTimesteps()
 		self.timestep.start = timesteps[ 0]
 		self.timestep.end   = max(timesteps[-1],self.timestep.start+1) # bokeh fixes: start cannot be equals to end
@@ -847,7 +841,11 @@ class Slice(param.Parameterized):
 		resolution=int(body.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
-		self.resolution.value = resolution
+
+		#kept max_resolution default (may be change later)
+		#self.resolution.value = resolution
+		self.resolution.value = self.resolution.end
+
 		self.field.value=body.get("field", self.db.getField().name)
 
 		self.num_refinements.value=int(body.get("num-refinements", 1 if pdim==1 else 2))
@@ -1272,7 +1270,7 @@ class Slice(param.Parameterized):
 		logger.debug(f"id={self.id} job_id={self.job_id} rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} mode={mode} np-array-range={data_range} widget-range={[low,high]}")
 
 		# update the image
-		self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar=self.color_bar)
+		self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar= self.color_bar) # self.color_bar
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)

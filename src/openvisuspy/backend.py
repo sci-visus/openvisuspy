@@ -456,13 +456,20 @@ class OpenVisusDataset(BaseDataset):
 			return None
 
 		# is a slice? I need to reduce the size (i.e. from 3d data to 2d data)
-		slice_dir=self.slice_dir
+
+		"""slice_dir=self.slice_dir
+		print("slice_dir",slice_dir)
 		if slice_dir is not None:
+			print("dims1",data.shape)
 			dims=list(reversed(data.shape))
+			print("dims",dims[slice_dir])
 			assert dims[slice_dir]==1
 			del dims[slice_dir]
-			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1] # remove right `1`
-			data=data.reshape(list(reversed(dims)))
+			while len(dims)>2 and dims[-1]==1: dims=dims[0:-1]  #remove right `1`
+			data=data.reshape(list(reversed(dims)))""" # not worked for 2D color_image
+		
+		# 2D color_image
+		data= data.reshape([IT for IT in data.shape if IT > 1])
 
 		logic_box=BoxToPyList(query.logic_box)
 		H=self.getCurrentResolution(query)

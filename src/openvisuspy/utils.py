@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 COLORS = ["red", "lime", "green", "yellow", "orange", "silver", "aqua", "pink", "dodgerblue"]
 
-DEFAULT_PALETTE="Turbo256"
+DEFAULT_PALETTE= None # Default was Turbo256
 
 import colorcet
 

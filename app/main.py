@@ -2,126 +2,51 @@ import os
 import sys
 import logging
 import panel as pn
+import base64
+import json
+
 from openvisuspy import SetupLogger, Slice
 from bokeh.models import CustomJS
 from threading import Timer
+from sync_link import SliceSynchronizer
 
-
-class SliceSynchronizer:
-    def __init__(self, slice1, slice2, scale_factor=1):
-        self.slice1 = slice1
-        self.slice2 = slice2
-        self.scale_factor = scale_factor
-        self.debounce_timer = None  # Timer to debounce refresh calls
-        self.debounce_delay = 0.1  # Delay in seconds for debounce
-
-        # Link ranges with JavaScript callbacks
-        self.link_ranges()
-
-    def link_ranges(self):
-        """Link the x_range and y_range of slice1 and slice2 using JavaScript callbacks."""
-        fig1, fig2 = self.slice1.canvas.fig, self.slice2.canvas.fig
-
-        # JavaScript for synchronizing slice2 based on slice1
-        js_code_slice1_to_slice2 = """
-            fig2.x_range.start = fig1.x_range.start * scale_factor;
-            fig2.x_range.end = fig1.x_range.end * scale_factor;
-            fig2.y_range.start = fig1.y_range.start * scale_factor;
-            fig2.y_range.end = fig1.y_range.end * scale_factor;
-        """
-
-        # JavaScript for synchronizing slice1 based on slice2
-        js_code_slice2_to_slice1 = """
-            fig1.x_range.start = fig2.x_range.start / scale_factor;
-            fig1.x_range.end = fig2.x_range.end / scale_factor;
-            fig1.y_range.start = fig2.y_range.start / scale_factor;
-            fig1.y_range.end = fig2.y_range.end / scale_factor;
-        """
-
-        # Create JavaScript callbacks
-        callback_slice1_to_slice2 = CustomJS(
-            args=dict(fig1=fig1, fig2=fig2, scale_factor=self.scale_factor),
-            code=js_code_slice1_to_slice2
-        )
-        callback_slice2_to_slice1 = CustomJS(
-            args=dict(fig1=fig1, fig2=fig2, scale_factor=self.scale_factor),
-            code=js_code_slice2_to_slice1
-        )
-
-        # Attach JavaScript callbacks for x_range and y_range synchronization
-        fig1.x_range.js_on_change('start', callback_slice1_to_slice2)
-        fig1.x_range.js_on_change('end', callback_slice1_to_slice2)
-        fig1.y_range.js_on_change('start', callback_slice1_to_slice2)
-        fig1.y_range.js_on_change('end', callback_slice1_to_slice2)
-
-        fig2.x_range.js_on_change('start', callback_slice2_to_slice1)
-        fig2.x_range.js_on_change('end', callback_slice2_to_slice1)
-        fig2.y_range.js_on_change('start', callback_slice2_to_slice1)
-        fig2.y_range.js_on_change('end', callback_slice2_to_slice1)
-
-        # Attach Python-side refresh using a timer for debouncing
-        self.attach_refresh(fig1, fig2)
-
-    def attach_refresh(self, fig1, fig2):
-        """Attach Python-side refresh with debouncing."""
-        def trigger_refresh():
-            """Trigger refresh for both slices."""
-            self.slice1.refresh("DebouncedSyncFromSlice2")
-            self.slice2.refresh("DebouncedSyncFromSlice1")
-
-        def debounce_refresh(attr, old, new):
-            """Debounce refresh calls."""
-            if self.debounce_timer:
-                self.debounce_timer.cancel()
-
-            # Schedule the refresh after the debounce delay
-            self.debounce_timer = Timer(self.debounce_delay, trigger_refresh)
-            self.debounce_timer.start()
-
-        # Attach Python refresh debounce to all range changes
-        fig1.x_range.on_change('start', debounce_refresh)
-        fig1.x_range.on_change('end', debounce_refresh)
-        fig1.y_range.on_change('start', debounce_refresh)
-        fig1.y_range.on_change('end', debounce_refresh)
-
-        fig2.x_range.on_change('start', debounce_refresh)
-        fig2.x_range.on_change('end', debounce_refresh)
-        fig2.y_range.on_change('start', debounce_refresh)
-        fig2.y_range.on_change('end', debounce_refresh)
-
+#####################################################################
 
 if __name__.startswith('bokeh'):
-    pn.extension()
+    pn.extension(
+        "ipywidgets",
+        "floatpanel",
+        "codeeditor",
+        log_level="DEBUG",
+        notifications=True,
+    )
+
+    query_params = {k: v for k, v in pn.state.location.query_params.items()}
 
     log_filename = os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME", "/tmp/openvisuspy-dashboards.log")
     logger = SetupLogger(log_filename=log_filename, logging_level=logging.DEBUG)
+
+
+    # Show options for both slices
+    # "resolution" max , "view_dependent" is yes; set Default
+    
+    show_options = {
+            "top": [["scene", "resolution","view_dependent"]], # color_mapper_type, Pallete, field, range mode max min are removed
+            "bottom": [["request", "response"]],
+        }
 
     if len(sys.argv[1:]) == 2:
         # Load slices
         slice1 = Slice()
         slice1.load(sys.argv[1])
-        print("imhere1")
         slice2 = Slice()
         slice2.load(sys.argv[2])
-        print("imhere2")
-
-        # Print initial x_range of both slices
-        fig1 = slice1.canvas.fig
-        fig2 = slice2.canvas.fig
-        print("imhere3")
-        print(f"Initial_x_range_of_slice1: {fig1.x_range.start}, {fig1.x_range.end}")
-        print(f"Initial x_range of slice2: {fig2.x_range.start}, {fig2.x_range.end}")
 
         # Compute scale factor
         box1 = slice1.db.getPhysicBox()
         box2 = slice2.db.getPhysicBox()
         scale_factor = box2[0][1] / box1[0][1]  # Scaling based on x-axis
 
-        # Show options for both slices
-        show_options = {
-            "top": [["palette", "color_mapper_type", "resolution", "field", "range_mode", "range_min", "range_max"]],
-            "bottom": [["request", "response", "view_dependent"]],
-        }
         slice1.setShowOptions(show_options)
         slice2.setShowOptions(show_options)
 
@@ -183,6 +108,17 @@ if __name__.startswith('bokeh'):
         slice = Slice()
         slice.load(sys.argv[1])
 
-        layout = slice.getMainLayout()
-        layout.sizing_mode = 'stretch_both'
-        layout.servable()
+        # Load a whole scene
+        if "load" in query_params:
+            body = json.loads(base64.b64decode(query_params['load']).decode("utf-8"))
+            slice.setBody(body)
+
+        # Select from list of choices
+        elif "dataset" in query_params:
+            scene_name = query_params["dataset"]
+            slice.scene.value = scene_name
+
+        slice.setShowOptions(show_options)
+
+        main_layout = slice.getMainLayout()
+        main_layout.servable()
