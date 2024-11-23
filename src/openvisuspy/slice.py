@@ -40,18 +40,23 @@ logger = logging.getLogger(__name__)
 class Canvas:
   
 	# constructor
-	def __init__(self, id):
-		self.id=id # A unique identifier 
+	def __init__(self, id, ViewChoice=None):
+		self.id=id # A unique identifier
+		self.view_choice = ViewChoice # View Selection
 		self.fig=None # A Bokeh figure for plotting.
 		self.pdim=2 # point dimension
 		self.events={} # Event handling supporting various kinds of interactions
 
 		self.box_select_tool_helper = bokeh.models.TextInput(visible=False)
 		self.fig_layout=Row(sizing_mode="stretch_both")	
+
 		self.createFigure() # Creates the main figure using Bokeh and adds
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
 		self.setViewport([0,0,256,256])
+
+		
+
 	
 
 	# onFigureSizeChange
@@ -99,8 +104,12 @@ class Canvas:
 		self.reset_fig              = bokeh.models.ResetTool()
 		self.box_zoom_tool          = bokeh.models.BoxZoomTool()
 
-		#self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool,self.box_zoom_tool])
-		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool])  
+
+		if self.view_choice  == "SYNC_VIEW": # sync_view bokeh options
+			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool])
+
+		else:
+			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool,self.box_zoom_tool])
 
 		self.fig.toolbar_location="right" 
 		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
@@ -238,7 +247,9 @@ class Canvas:
 					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh") 
 				else:
 					self.fig.image("image", source=source, x="X", y="Y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
-				#self.fig.add_layout(color_bar, 'right')   # comment out to stop showing side color bar
+				
+				if not self.view_choice:
+					self.fig.add_layout(color_bar, 'right')   # to stop showing side color bar in sync_view
 				self.last_renderer={
 					"source": source,
 					"dtype":img.dtype,
@@ -255,8 +266,9 @@ class Slice(param.Parameterized):
 
 	show_options={
 		"top": [
-			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "view_dependent", "resolution", "num_refinements", "show_probe"],
-			["field","direction", "offset", "range_mode", "range_min",  "range_max"] 	#removed "color_mapper_type",
+			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type","view_dependent", "resolution", "num_refinements", "show_probe"],
+			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+
 		],
 		"bottom": [
 			["request","response"]
@@ -264,12 +276,14 @@ class Slice(param.Parameterized):
 	}
 
 	# constructor
-	def __init__(self): 
+	def __init__(self, ViewChoice=None): 
 		super().__init__()  
 		
 		self.id=Slice.ID+1
 		Slice.ID += 1
 		self.job_id=0
+
+		self.view_choice = ViewChoice # passing ViewChoice for sync view
 
 		self.vmin=None
 		self.vmax=None
@@ -565,7 +579,7 @@ class Slice(param.Parameterized):
 
 		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
 
-		self.canvas = Canvas(self.id)
+		self.canvas = Canvas(self.id, self.view_choice)
 		self.canvas.on_event(bokeh.events.RangesUpdate     , SafeCallback(self.onCanvasViewportChange))
 		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
@@ -842,10 +856,11 @@ class Slice(param.Parameterized):
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
 
-		#kept max_resolution default (may be change later)
-		#self.resolution.value = resolution
-		self.resolution.value = self.resolution.end
-
+		if self.canvas.view_choice == "SYNC_VIEW":
+			self.resolution.value = self.resolution.end #kept max_resolution default for sync view
+		else:
+			self.resolution.value = resolution
+		
 		self.field.value=body.get("field", self.db.getField().name)
 
 		self.num_refinements.value=int(body.get("num-refinements", 1 if pdim==1 else 2))
@@ -1136,6 +1151,8 @@ class Slice(param.Parameterized):
 		self.play_button.disabled = value
 		self.play_sec.disabled = value
 
+
+
 	# getPointDim
 	def getPointDim(self):
 		return self.db.getPointDim() if self.db else 2
@@ -1396,5 +1413,6 @@ class Slice(param.Parameterized):
 
 # backward compatible
 Slices=Slice
+
 
 

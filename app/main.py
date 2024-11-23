@@ -5,10 +5,10 @@ import panel as pn
 import base64
 import json
 
+
 from openvisuspy import SetupLogger, Slice
-from bokeh.models import CustomJS
-from threading import Timer
 from sync_link import SliceSynchronizer
+
 
 #####################################################################
 
@@ -36,11 +36,13 @@ if __name__.startswith('bokeh'):
         }
 
     if len(sys.argv[1:]) == 2:
-        # Load slices
-        slice1 = Slice()
+        # Load for Sync Slices view
+        slice1 = Slice(ViewChoice="SYNC_VIEW")
         slice1.load(sys.argv[1])
-        slice2 = Slice()
+
+        slice2 = Slice(ViewChoice="SYNC_VIEW")
         slice2.load(sys.argv[2])
+
 
         # Compute scale factor
         box1 = slice1.db.getPhysicBox()
@@ -118,7 +120,7 @@ if __name__.startswith('bokeh'):
             scene_name = query_params["dataset"]
             slice.scene.value = scene_name
 
-        slice.setShowOptions(show_options)
+        #slice.setShowOptions(show_options)
 
         main_layout = slice.getMainLayout()
         main_layout.servable()
