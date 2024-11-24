@@ -248,10 +248,12 @@ class ProbeTool(param.Parameterized):
 		pbox = self.slice.getPhysicBox()
 		pdim=self.slice.getPointDim()
 		(X, Y, Z), titles = self.slice.getLogicAxis()
+
 		X1,X2=(pbox[X][0],pbox[X][1])
 		Y1,Y2=(pbox[Y][0],pbox[Y][1])
 		Z1,Z2=(pbox[Z][0],pbox[Z][1]) if pdim==3 else (0,1)
 
+		print("----------------- Logic_to_physic:----------------", self.slice.logic_to_physic)
 		vt = [self.slice.logic_to_physic[I][0] for I in range(3)]
 		vs = [self.slice.logic_to_physic[I][1] for I in range(3)]
 

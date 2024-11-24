@@ -1,5 +1,6 @@
-
 import os,sys,logging,copy,traceback,colorcet
+
+import bokeh.models
 import base64
 import types
 import logging
@@ -14,6 +15,7 @@ import numpy as np
 
 import bokeh
 import bokeh.models
+from bokeh.models import Button, CustomJS
 import bokeh.events
 import bokeh.plotting
 import bokeh.models.callbacks
@@ -38,18 +40,24 @@ logger = logging.getLogger(__name__)
 class Canvas:
   
 	# constructor
-	def __init__(self, id):
-		self.id=id
-		self.fig=None
-		self.pdim=2
-		self.events={}
+	def __init__(self, id, ViewChoice=None):
+		self.id=id # A unique identifier
+		self.view_choice = ViewChoice # View Selection
+		self.fig=None # A Bokeh figure for plotting.
+		self.pdim=2 # point dimension
+		self.events={} # Event handling supporting various kinds of interactions
 
 		self.box_select_tool_helper = bokeh.models.TextInput(visible=False)
 		self.fig_layout=Row(sizing_mode="stretch_both")	
-		self.createFigure() 
+
+		self.createFigure() # Creates the main figure using Bokeh and adds
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
 		self.setViewport([0,0,256,256])
+
+		
+
+	
 
 	# onFigureSizeChange
 	def onFigureSizeChange(self, __attr, __old, __new):
@@ -60,6 +68,7 @@ class Canvas:
 
 		W=self.getWidth()
 		H=self.getHeight()
+		
 
 		# does not apply to 1d signal
 		if self.pdim==2 and W>0 and H>0:
@@ -71,6 +80,7 @@ class Canvas:
 			x1=cx-0.5*w
 			y1=cy-0.5*h
 			value=(x1,y1,w,h)
+		
 		
 		return value
 
@@ -92,18 +102,28 @@ class Canvas:
 		self.wheel_zoom_tool        = bokeh.models.WheelZoomTool()
 		self.box_select_tool        = bokeh.models.BoxSelectTool()
 		self.reset_fig              = bokeh.models.ResetTool()
+		self.box_zoom_tool          = bokeh.models.BoxZoomTool()
 
-		self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool]) 
+
+		if self.view_choice  == "SYNC_VIEW": # sync_view bokeh options
+			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool])
+
+		else:
+			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool,self.box_zoom_tool])
 
 		self.fig.toolbar_location="right" 
 		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool
 		# self.fig.toolbar.active_inspect = self.over_tool #will bring this back
 		self.fig.toolbar.active_tap     = None
+		# self.fig.toolbar.
 
 		# try to preserve the old status
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
+
+
+
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
@@ -114,6 +134,7 @@ class Canvas:
 
 		# tracl changes in the size
 		# see https://github.com/bokeh/bokeh/issues/9136
+
 		self.fig.on_change('inner_width',  self.onFigureSizeChange)
 		self.fig.on_change('inner_height', self.onFigureSizeChange)
 
@@ -175,10 +196,10 @@ class Canvas:
 
 	# getViewport [(x1,x2),(y1,y2)]
 	def getViewport(self):
-		x=self.fig.x_range.start
-		y=self.fig.y_range.start
-		w=self.fig.x_range.end-x
-		h=self.fig.y_range.end-y
+		x=self.fig.x_range.start # The x coordinate of the viewport's bottom-left corner.
+		y=self.fig.y_range.start # The y coordinate of the viewport's bottom-left corner.
+		w=self.fig.x_range.end-x # The width of the viewport along the x axis.
+		h=self.fig.y_range.end-y # The height of the viewport along the y axis.
 		return [x,y,w,h]
 
 	  # setViewport
@@ -226,7 +247,9 @@ class Canvas:
 					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh") 
 				else:
 					self.fig.image("image", source=source, x="X", y="Y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
-				self.fig.add_layout(color_bar, 'right')
+				
+				if not self.view_choice:
+					self.fig.add_layout(color_bar, 'right')   # to stop showing side color bar in sync_view
 				self.last_renderer={
 					"source": source,
 					"dtype":img.dtype,
@@ -243,7 +266,7 @@ class Slice(param.Parameterized):
 
 	show_options={
 		"top": [
-			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type", "resolution","view_dependent", "num_refinements", "show_probe"],
+			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type","view_dependent", "resolution", "num_refinements", "show_probe"],
 			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
 
 		],
@@ -253,12 +276,14 @@ class Slice(param.Parameterized):
 	}
 
 	# constructor
-	def __init__(self): 
+	def __init__(self, ViewChoice=None): 
 		super().__init__()  
 		
 		self.id=Slice.ID+1
 		Slice.ID += 1
 		self.job_id=0
+
+		self.view_choice = ViewChoice # passing ViewChoice for sync view
 
 		self.vmin=None
 		self.vmax=None
@@ -507,7 +532,7 @@ class Slice(param.Parameterized):
 		self.offset = pn.widgets.EditableFloatSlider(name="Depth", start=0.0, end=1024.0, step=1.0, value=0.0, sizing_mode="stretch_width", format=bokeh.models.formatters.NumeralTickFormatter(format="0.01"))
 		self.offset.param.watch(SafeCallback(lambda evt: self.refresh("offset.param.watch")),"value", onlychanged=True,queued=True)
 		
-		# palette  
+		# palette 
 		self.range_mode = pn.widgets.Select(name="Range", options=["metadata", "user", "dynamic", "dynamic-acc"], value="dynamic", width=120)
 		def onRangeModeChange(evt):
 			mode=evt.new
@@ -531,10 +556,12 @@ class Slice(param.Parameterized):
 		self.range_min.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
 		self.range_max.param.watch(SafeCallback(onUserRangeChange),"value", onlychanged=True,queued=True)
 
-		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Viridis256", ncols=3, width=180)
+		self.palette = pn.widgets.ColorMap(name="Palette", options=GetPalettes(), value_name="Greys256", ncols=3, width=180)
+
 		def onPaletteChange(evt):
 			self.createColorBar()
 			self.refresh("onPaletteChange")
+
 		self.palette.param.watch(SafeCallback(onPaletteChange),"value_name", onlychanged=True,queued=True)
 
 		self.color_mapper_type = pn.widgets.Select(name="Mapper", options=["linear", "log"], width=60)
@@ -552,7 +579,7 @@ class Slice(param.Parameterized):
 
 		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
 
-		self.canvas = Canvas(self.id)
+		self.canvas = Canvas(self.id, self.view_choice)
 		self.canvas.on_event(bokeh.events.RangesUpdate     , SafeCallback(self.onCanvasViewportChange))
 		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
@@ -582,7 +609,7 @@ class Slice(param.Parameterized):
 		x,y,w,h=self.canvas.getViewport()
 		self.refresh("onCanvasViewportChange")
 
-	# onCanvasSingleTap
+	# onCanvasSingleTap # a click on image
 	def onCanvasSingleTap(self, evt):
 		logger.info(f"Single tap {evt}")
 		pass
@@ -613,7 +640,7 @@ class Slice(param.Parameterized):
 					
 			return ret
 
-		top   =[Row(*CreateWidgets(row),sizing_mode="stretch_width") for row in value.get("top"   ,[[]])]
+		top   =[Row(*CreateWidgets(row),sizing_mode="fixed") for row in value.get("top"   ,[[]])]
 		bottom=[Row(*CreateWidgets(row),sizing_mode="stretch_width") for row in value.get("bottom",[[]])]
 
 		self.central_layout[:]=[
@@ -798,6 +825,7 @@ class Slice(param.Parameterized):
 		self.access=db.createAccess()
 		self.scene.value=name
 
+
 		timesteps=self.db.getTimesteps()
 		self.timestep.start = timesteps[ 0]
 		self.timestep.end   = max(timesteps[-1],self.timestep.start+1) # bokeh fixes: start cannot be equals to end
@@ -827,7 +855,12 @@ class Slice(param.Parameterized):
 		resolution=int(body.get("resolution", -6))
 		if resolution<0: resolution=self.db.getMaxResolution()+resolution
 		self.resolution.end = self.db.getMaxResolution()
-		self.resolution.value = resolution
+
+		if self.canvas.view_choice == "SYNC_VIEW":
+			self.resolution.value = self.resolution.end #kept max_resolution default for sync view
+		else:
+			self.resolution.value = resolution
+		
 		self.field.value=body.get("field", self.db.getField().name)
 
 		self.num_refinements.value=int(body.get("num-refinements", 1 if pdim==1 else 2))
@@ -1118,6 +1151,8 @@ class Slice(param.Parameterized):
 		self.play_button.disabled = value
 		self.play_sec.disabled = value
 
+
+
 	# getPointDim
 	def getPointDim(self):
 		return self.db.getPointDim() if self.db else 2
@@ -1252,7 +1287,7 @@ class Slice(param.Parameterized):
 		logger.debug(f"id={self.id} job_id={self.job_id} rendering result data.shape={data.shape} data.dtype={data.dtype} logic_box={logic_box} mode={mode} np-array-range={data_range} widget-range={[low,high]}")
 
 		# update the image
-		self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar=self.color_bar)
+		self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar= self.color_bar) # self.color_bar
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)
@@ -1378,5 +1413,6 @@ class Slice(param.Parameterized):
 
 # backward compatible
 Slices=Slice
+
 
 
