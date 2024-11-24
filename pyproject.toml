@@ -1,6 +1,6 @@
 [project]
 name = "openvisuspy"
-version = "1.0.68"
+version = "1.0.70"
 authors = [{ name="OpenVisus developers"},]
 description = "openvisuspy"
 readme = "README.md"
