@@ -4,6 +4,7 @@ import logging
 import panel as pn
 import base64
 import json
+from urllib.parse import parse_qs, unquote
 
 
 from openvisuspy import SetupLogger, Slice
@@ -11,6 +12,27 @@ from sync_link import SliceSynchronizer
 
 
 #####################################################################
+
+def get_file_path():
+    # Check URL parameters first
+    query = parse_qs(pn.state.location.search)
+    logger.info(f"URL Query Parameters: {query}")
+
+    if '?args' in query:
+        # Clean the path: remove quotes and handle spaces
+        path = unquote(query['?args'][0])
+        path = path.replace("'", "") 
+        path = path.replace('"', "")  
+        logger.info(f"Args from URL (cleaned): {path}")
+        if '|' in path:
+            return path.split('|')
+        else:
+            return [path]
+    
+    # If no URL parameter, check command line args
+    cmd_args = sys.argv[1:]
+    logger.info(f"Command Line Args: {cmd_args}")
+    return cmd_args
 
 if __name__.startswith('bokeh'):
     pn.extension(
@@ -34,14 +56,18 @@ if __name__.startswith('bokeh'):
             "top": [["scene", "resolution","view_dependent"]], # color_mapper_type, Pallete, field, range mode max min are removed
             "bottom": [["request", "response"]],
         }
-
-    if len(sys.argv[1:]) == 2:
+    
+    args = get_file_path()
+    logger.info(f"Final Args Being Used: {args}")
+        
+    if len(args) == 2:
+        logger.info(f"Using two-file sync view mode with files: {args[0]} and {args[1]}")
         # Load for Sync Slices view
         slice1 = Slice(ViewChoice="SYNC_VIEW")
-        slice1.load(sys.argv[1])
+        slice1.load(args[0])
 
         slice2 = Slice(ViewChoice="SYNC_VIEW")
-        slice2.load(sys.argv[2])
+        slice2.load(args[1])
 
 
         # Compute scale factor
@@ -107,8 +133,9 @@ if __name__.startswith('bokeh'):
         layout.servable()
     else:
         # Single slice view
+        logger.info(f"Using single-file mode with file: {args[0]}")
         slice = Slice()
-        slice.load(sys.argv[1])
+        slice.load(args[0])
 
         # Load a whole scene
         if "load" in query_params:
