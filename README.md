@@ -63,6 +63,7 @@ Change as needed:
 .venv\Scripts\activate
 
 # set PYTHONPATH=C:\projects\OpenVisus\build\RelWithDebInfo;.\src
+# for power shell: $env:PYTHONPATH = ".\src";...
 
 set BOKEH_ALLOW_WS_ORIGIN=*
 set BOKEH_LOG_LEVEL=debug
@@ -70,6 +71,15 @@ set VISUS_CPP_VERBOSE=1
 set VISUS_NETSERVICE_VERBOSE=1
 set VISUS_VERBOSE_DISKACCESS=0
 set VISUS_CACHE=c:/tmp/visus-cache
+
+# for linux
+export PYTHONPATH=$PYTHONPATH:./src:C:/projects/OpenVisus/build/RelWithDebInfo
+export BOKEH_ALLOW_WS_ORIGIN="*"
+export BOKEH_LOG_LEVEL=debug
+export VISUS_CPP_VERBOSE=1
+export VISUS_NETSERVICE_VERBOSE=1
+export VISUS_VERBOSE_DISKACCESS=0
+export VISUS_CACHE=/tmp/visus-cache
 
 python -m panel serve app --dev --args "D:/visus-datasets/david_subsampled/visus.idx"
 python -m panel serve app --dev --args "D:/visus-datasets/2kbit1/zip/hzorder/visus.idx"

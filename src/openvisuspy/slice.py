@@ -1,3 +1,4 @@
+import bokeh.model
 import os,sys,logging,copy,traceback,colorcet
 
 import bokeh.models
@@ -32,6 +33,7 @@ from .utils   import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery
 
 from .show_details import ShowDetails
+# from .annotations import *
 
 logger = logging.getLogger(__name__)
 
@@ -96,56 +98,93 @@ class Canvas:
 
 	# createFigure
 	def createFigure(self):
-		old=self.fig
+		old = self.fig
 
-		self.pan_tool               = bokeh.models.PanTool()
-		self.wheel_zoom_tool        = bokeh.models.WheelZoomTool()
-		self.box_select_tool        = bokeh.models.BoxSelectTool()
-		self.reset_fig              = bokeh.models.ResetTool()
-		self.box_zoom_tool          = bokeh.models.BoxZoomTool()
+		# Initialize tools
+		self.pan_tool = bokeh.models.PanTool()
+		self.wheel_zoom_tool = bokeh.models.WheelZoomTool()
+		self.box_select_tool = bokeh.models.BoxSelectTool()
+		self.reset_fig = bokeh.models.ResetTool()
+		self.box_zoom_tool = bokeh.models.BoxZoomTool()
 
+		# Tool configuration
+		tools = [
+			self.pan_tool,
+			self.reset_fig,
+			self.wheel_zoom_tool,
+			self.box_zoom_tool
+		]
+		if not self.view_choice == "SYNC_VIEW":  # sync_view specific behavior
+			tools.append(self.box_select_tool)
 
-		if self.view_choice  == "SYNC_VIEW": # sync_view bokeh options
-			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool])
+		# Create figure
+		self.fig = bokeh.plotting.figure(
+			tools=tools,
+			toolbar_location="right",
+			active_drag=self.pan_tool,
+			active_scroll=self.wheel_zoom_tool,
+			sizing_mode="stretch_both",
+			x_range=bokeh.models.Range1d(0, 512) if old is None else old.x_range,
+			y_range=bokeh.models.Range1d(0, 512) if old is None else old.y_range,
+		)
 
-		else:
-			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool,self.box_zoom_tool])
+		# Ensure axis labels persist
+		self.fig.yaxis.axis_label = "Y" if old is None else old.xaxis.axis_label
+		self.fig.xaxis.axis_label = "X" if old is None else old.yaxis.axis_label
 
-		self.fig.toolbar_location="right" 
-		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
-		self.fig.toolbar.active_drag    = self.pan_tool
-		# self.fig.toolbar.active_inspect = self.over_tool #will bring this back
-		self.fig.toolbar.active_tap     = None
-		# self.fig.toolbar.
+		# Data source for annotations
+		self.annotation_source = bokeh.models.ColumnDataSource({
+			'xs': [], 
+			'ys': [], 
+			'id': []
+		})
 
-		# try to preserve the old status
-		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
-		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
+		# Annotation glyph for polygons
+		patches_glyph = self.fig.patches(
+			xs='xs',
+			ys='ys',
+			source=self.annotation_source,
+			fill_color='red',
+			fill_alpha=0.3,
+			line_color='red'
+		)
 
+		# Create PolyDrawTool
+		self.poly_draw_tool = bokeh.models.PolyDrawTool(
+			name="Poly Annotation",
+			renderers=[patches_glyph]
+		)
 
+		# Add PolyDrawTool to the figure
+		self.fig.add_tools(self.poly_draw_tool)
 
-		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
-		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
-		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
+	
 
-		self.fig.on_event(bokeh.events.Tap      ,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.Tap,[]) ])
-		self.fig.on_event(bokeh.events.DoubleTap,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.DoubleTap,[])])
-		self.fig.on_event(bokeh.events.RangesUpdate,   lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.RangesUpdate,[])])
+		# Event callbacks
+		self.fig.on_event(bokeh.events.Tap, lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.Tap, [])])
+		self.fig.on_event(bokeh.events.DoubleTap, lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.DoubleTap, [])])
+		self.fig.on_event(bokeh.events.RangesUpdate, lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.RangesUpdate, [])])
 
-		# tracl changes in the size
-		# see https://github.com/bokeh/bokeh/issues/9136
-
-		self.fig.on_change('inner_width',  self.onFigureSizeChange)
+		# Size change event handlers
+		self.fig.on_change('inner_width', self.onFigureSizeChange)
 		self.fig.on_change('inner_height', self.onFigureSizeChange)
 
-		# replace the figure from the fig_layout (so that later on I can replace it)
-		self.fig_layout[:]=[
+		# Replace the figure in the layout
+		self.fig_layout[:] = [
 			Bokeh(self.fig),
 			self.box_select_tool_helper,
 		]
 		self.enableSelection()
-		self.last_renderer={}
+			# JavaScript callback for polygon drawing
+		self.enablePolygonSelection()
 
+		# Maintain renderer status
+		self.last_renderer = {}
+
+		logger.info("Figure created and tools added successfully.")
+
+	
+	
 	# enableSelection
 	def enableSelection(self,use_python_events=False):
 
@@ -173,6 +212,46 @@ class Canvas:
 				console.log("Setting widget value for selection DONE");
 				"""
 		))	
+
+	def enablePolygonSelection(self):
+		"""Enable polygon selection and ensure it's linked to the rendered image."""
+		# Hidden widget to pass polygon coordinates from JS to Python
+		self.polygon_helper = bokeh.models.TextInput(visible=False)
+
+		def handlePolygonGeometry(attr, old, new):
+			if not new:
+				return
+			
+			# Parse the coordinates from JSON
+			j = json.loads(new)
+			xs = j.get('xs', [])
+			ys = j.get('ys', [])
+			
+			# Create event object with polygon points
+			evt = types.SimpleNamespace()
+			evt.new = {'xs': xs, 'ys': ys}
+			
+			# Trigger registered handlers
+			[fn(evt) for fn in self.events.get(bokeh.events.PolyDrawEvent, [])]
+			logger.info(f"HandlePolygonGeometry {evt}")
+			
+		# Listen for changes to the helper widget
+		self.polygon_helper.on_change('value', handlePolygonGeometry)
+
+		# Add JavaScript callback for the `PolyDrawTool`
+		self.poly_draw_tool.js_on_change('vertices', bokeh.models.CustomJS(
+			args=dict(widget=self.polygon_helper),
+			code="""
+				console.log("Polygon vertices changed");
+				const vertices = cb_obj.vertices;
+				const xs = vertices.map(v => v.x);
+				const ys = vertices.map(v => v.y);
+				widget.value = JSON.stringify({xs: xs, ys: ys});
+			"""
+		))
+
+		
+
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
