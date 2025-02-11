@@ -1,5 +1,6 @@
 from bokeh.models import CustomJS
 from threading import Timer
+import math
 
 
 class SliceSynchronizer:
@@ -7,8 +8,14 @@ class SliceSynchronizer:
         self.slice1 = slice1
         self.slice2 = slice2
         self.scale_factor = scale_factor
+        self.full_width = None
         self.debounce_timer = None  # Timer to debounce refresh calls
         self.debounce_delay = 0.1  # Delay in seconds for debounce
+        self.update_callbacks = [] # Callback list for external
+
+        # Store zoom levels
+        self.zoom_level_1 = 1.0 #intial value
+        self.zoom_level_2 = 1.0
 
         # Link ranges with JavaScript callbacks
         self.link_ranges()
@@ -64,6 +71,11 @@ class SliceSynchronizer:
             self.slice1.refresh("DebouncedSyncFromSlice2")
             self.slice2.refresh("DebouncedSyncFromSlice1")
 
+            self.zoom_level_1= self.update_zoom_level(fig1)
+            self.zoom_level_2= self.update_zoom_level(fig2)
+
+            self.notify_subscribers()
+
         def debounce_refresh(attr, old, new):
             """Debounce refresh calls."""
             if self.debounce_timer:
@@ -83,3 +95,39 @@ class SliceSynchronizer:
         fig2.x_range.on_change('end', debounce_refresh)
         fig2.y_range.on_change('start', debounce_refresh)
         fig2.y_range.on_change('end', debounce_refresh)
+
+
+    #Zoom level Calculation
+    def update_zoom_level(self, fig):
+        """
+        Calculate and update the zoom level dynamically.
+        """
+        # Get current viewport size
+        image_width = fig.x_range.end - fig.x_range.start
+
+        # Prevent division by zero
+        image_width = max(1, image_width)
+
+        viewport_width = fig.inner_width
+
+        zoomLevel = (viewport_width / math.ceil(image_width)) * 100
+
+        print(f"zoom: viewport width={viewport_width}, image width={math.ceil(image_width)}, zoomLevel={zoomLevel}%")
+
+
+        return (zoomLevel) # Return the zoom level
+
+   
+    def register_callback(self, callback):
+        """
+        Register a callback function to be notified when zoom levels are updated.
+        The callback function should accept two arguments: (zoom_level_fig1, zoom_level_fig2).
+        """
+        self.update_callbacks.append(callback)
+
+    def notify_subscribers(self):
+        """
+        Notify all registered subscribers with the updated zoom levels.
+        """
+        for callback in self.update_callbacks:
+            callback(self.zoom_level_1, self.zoom_level_2)

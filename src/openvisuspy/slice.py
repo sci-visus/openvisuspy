@@ -271,7 +271,7 @@ class Slice(param.Parameterized):
 
 		],
 		"bottom": [
-			["request","response"]
+			["request","response","image_type"]
 		]
 	}
 
@@ -584,6 +584,11 @@ class Slice(param.Parameterized):
 		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
 		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
+
+		if self.canvas.view_choice == "SYNC_VIEW":
+			self.image_type = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False) # Sync-View Image Title
+		else:
+			self.image_type = None
 
 		# probe_tool
 		from .probe import ProbeTool
