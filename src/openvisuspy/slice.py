@@ -577,8 +577,6 @@ class Slice(param.Parameterized):
 		self.request = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
 		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
 
-		self.image_type = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False) # Sync-View Image Title
-
 		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
 
 		self.canvas = Canvas(self.id, self.view_choice)
@@ -586,6 +584,11 @@ class Slice(param.Parameterized):
 		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
 		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
+
+		if self.canvas.view_choice == "SYNC_VIEW":
+			self.image_type = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False) # Sync-View Image Title
+		else:
+			self.image_type = None
 
 		# probe_tool
 		from .probe import ProbeTool
