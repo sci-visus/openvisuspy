@@ -271,7 +271,7 @@ class Slice(param.Parameterized):
 
 		],
 		"bottom": [
-			["request","response"]
+			["request","response","image_type"]
 		]
 	}
 
@@ -576,6 +576,8 @@ class Slice(param.Parameterized):
 		self.play_sec = pn.widgets.Select(name="Delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01, width=90)
 		self.request = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
 		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
+
+		self.image_type = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False) # Sync-View Image Title
 
 		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
 
