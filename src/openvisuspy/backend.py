@@ -2,6 +2,7 @@ import os,sys,copy,math,time,logging,types,requests,zlib,xmltodict,urllib,queue,
 import numpy as np
 
 import requests
+import re
 from urllib.parse import urlparse, urlunparse
 
 import OpenVisus as ov
@@ -518,6 +519,13 @@ class PelicanFed:
 class PelicanDataset(OpenVisusDataset):
 
 	def __init__(self,url):
+		# "osdf://" is a shortcut for "pelican://osg-htc.org" that's recognized by most Pelican clients.
+		# To comply with proper URL formatting, we technically want "osdf://" + /<namespace>, e.g. "osdf:///nsdf"
+		# (notice triple /) because the URL doesn't have a real hostname (which would be between the second/third
+		# slashes). However, most people struggle with the triple slash because it's not intuitive, so we handle
+		# both cases.
+		url = re.sub(r"^osdf:///*", "pelican://osg-htc.org/", url)
+
 		parsed_url = urlparse(url)
 		self.pelican_fed = PelicanFed(url)
 
@@ -761,7 +769,7 @@ def LoadDataset(url):
 	if ".npz" in url or ".npy" in url:
 		return Signal1DDataset(url)
 
-	elif url.startswith("pelican://"):
+	elif (url.startswith("pelican://") or url.startswith("osdf://")):
 		return PelicanDataset(url)
 		
 	else:
