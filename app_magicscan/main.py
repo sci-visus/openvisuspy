@@ -18,14 +18,10 @@ import bokeh.models.callbacks
 
 from openvisuspy import SetupLogger, Slice
 from sync_link import SliceSynchronizer
-<<<<<<< Updated upstream
-
-=======
 from sync_link import MultiSliceSynchronizer
 import math
 from pathlib import Path
 from .slice_dl import Slice as SliceDL
->>>>>>> Stashed changes
 
 #####################################################################
 
