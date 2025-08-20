@@ -4,10 +4,11 @@ import logging
 import panel as pn
 import base64
 import json
-import copy
+
 from panel import pane
 from panel.widgets import SpeechToText
 from panel.widgets import Button, TextAreaInput
+import threading
 
 import bokeh
 import bokeh.models
@@ -23,7 +24,29 @@ import math
 from pathlib import Path
 from .slice_dl import Slice as SliceDL
 
-#####################################################################
+
+
+##################################
+
+
+class MultiSliceSyncApp:
+    def __init__(self, slices, captions, scale_factors):
+        self.slices = slices
+        self.captions = captions
+        self.synchronizer = MultiSliceSynchronizer(slices, scale_factors)
+        self.synchronizer.register_callback(self.on_zoom_update)
+
+    def update_caption(self, caption, label, zoom_level):
+        caption.object = f"<h4>{label} - Zoom Level: {round(zoom_level, 2)}%</h4>"
+
+    def on_zoom_update(self, *zooms):
+        for idx, zoom in enumerate(zooms):
+            label = self.slices[idx].image_type.value
+            self.update_caption(self.captions[idx], label, zoom)
+
+    def run(self):
+        print("MultiSliceSyncApp running with full synchronization & scale factors...")
+
 
 ###############################
 class ZoomSync2:
@@ -107,6 +130,9 @@ if __name__.startswith('bokeh'):
     pn.extension(raw_css=[custom_css])
 
 
+#######################################
+
+
     if len(sys.argv[1:]) == 2:
         # Load for Sync Slices view
         draw_source = bokeh.models.ColumnDataSource(data={"xs": [], "ys": []})  # Source for freehand drawings
@@ -124,6 +150,7 @@ if __name__.startswith('bokeh'):
         box1 = slice1.db.getPhysicBox()
         box2 = slice2.db.getPhysicBox()
         scale_factor = box2[0][1] / box1[0][1]  # Scaling based on x-axis
+        print("aaa",scale_factor)
 
         slice1.image_type.value = "Super-Resolution Image from Grayscale Images"
         slice2.image_type.value = "Super-Resolution Image from Color Images"
@@ -194,7 +221,7 @@ if __name__.startswith('bokeh'):
         )
         layout.servable()
         
-    else:
+    if len(sys.argv[1:]) == 1:
         # Single slice view
         slice = Slice()
         slice.load(sys.argv[1])
@@ -212,9 +239,6 @@ if __name__.startswith('bokeh'):
         #slice.setShowOptions(show_options)
 
         main_layout = slice.getMainLayout()
-<<<<<<< Updated upstream
-        main_layout.servable()
-=======
         main_layout.servable()
 
 
@@ -463,4 +487,3 @@ class SliceSelectorApp:
 
 app = SliceSelectorApp(sys.argv[1:])
 app.main_panel.servable()
->>>>>>> Stashed changes
