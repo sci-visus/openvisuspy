@@ -30,8 +30,8 @@ from panel import Column,Row,GridBox,Card
 from panel.pane import HTML,JSON,Bokeh
 from panel.widgets import IntInput, Button
 import cv2
-from .utils import bbox_corners
-from .utils import *
+from utils import bbox_corners
+from utils import *
 from openvisuspy.backend import Aborted,LoadDataset,ExecuteBoxQuery
 import time
 from openvisuspy.show_details import ShowDetails
@@ -99,7 +99,7 @@ except Exception:
 import matplotlib.cm as cm
 from bokeh.io import curdoc
 import threading
-sys.path.append(r"/run/media/syedfahimahmed1/New Volume/Documents Fahim PC/GitHub/msc_py_build_old/bin")
+#sys.path.append(r"/run/media/syedfahimahmed1/New Volume/Documents Fahim PC/GitHub/msc_py_build_old/bin")
 import msc_py
 print("Successful")
 import scipy.ndimage as ndi
@@ -468,7 +468,7 @@ class Slice(param.Parameterized):
 		self.spt_edge_ids = {}
 		self.spt_root_id = None
 
-		MODEL_CKPT = "/run/media/syedfahimahmed1/New Volume/Documents Fahim PC/GitHub/openvisuspy_copy/openvisuspy_src_copy/model/best_model.pth"      # CHANGE
+		MODEL_CKPT = "/app2/app_magicscan/best_model.pth"      # CHANGE
 		self.tissue_model = TissuePredictor(
 			model_path=MODEL_CKPT,
 			tile_size=128,      # 128-pixel tiles

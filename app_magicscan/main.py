@@ -22,7 +22,8 @@ from sync_link import SliceSynchronizer
 from sync_link import MultiSliceSynchronizer
 import math
 from pathlib import Path
-from .slice_dl import Slice as SliceDL
+from slice_dl import Slice as SliceDL
+import requests
 
 
 
@@ -82,191 +83,11 @@ class ZoomSync2:
         """
         print("Application is running...")
 
-#########
+#################
 
-if __name__.startswith('bokeh'):
-    pn.extension(
-        "ipywidgets",
-        "floatpanel",
-        "codeeditor",
-        log_level="DEBUG",
-        notifications=True,
-    )
-
-    query_params = {k: v for k, v in pn.state.location.query_params.items()}
-
-    log_filename = os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME", str(Path.home() / "openvisuspy-dashboards.log"))
-    logger = SetupLogger(log_filename=log_filename, logging_level=logging.DEBUG)
-
-
-    # Show options for both slices
-    # "resolution" max , "view_dependent" is yes; set Default
-
-    '''
-    	show_options={
-		"top": [
-			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette", "color_mapper_type","view_dependent", "resolution", "num_refinements", "show_probe"],
-			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
-
-		],
-		"bottom": [
-			["request","response", "zoom_level", "image_type"]
-		]
-	}
-
-    '''
-    
-    show_options = {}
-
-    # Add scrolling styles
-    custom_css = """
-    body {
-        overflow-y: scroll; /* Enable vertical scrolling */
-        height: 100%;
-        margin: 0;
-        padding: 0;
-    }
-    """
-    pn.extension(raw_css=[custom_css])
 
 
 #######################################
-
-
-    if len(sys.argv[1:]) == 2:
-        # Load for Sync Slices view
-        draw_source = bokeh.models.ColumnDataSource(data={"xs": [], "ys": []})  # Source for freehand drawings
-
-        slice1 = Slice(ViewChoice="SYNC_VIEW", drawsource = draw_source)
-        slice1.load(sys.argv[1])
-
-        slice2 = Slice(ViewChoice="SYNC_VIEW", drawsource = draw_source)
-        slice2.load(sys.argv[2])
-
-        
-
-
-        # Compute scale factor
-        box1 = slice1.db.getPhysicBox()
-        box2 = slice2.db.getPhysicBox()
-        scale_factor = box2[0][1] / box1[0][1]  # Scaling based on x-axis
-        print("aaa",scale_factor)
-
-        slice1.image_type.value = "Super-Resolution Image from Grayscale Images"
-        slice2.image_type.value = "Super-Resolution Image from Color Images"
-
-        if scale_factor < 1:  # reverse both images
-            slice1.image_type.value = "Super-Resolution Image from Grayscale Images"
-            slice2.image_type.value = "Super-Resolution Image from Color Images"
-
-
-        slice1.setShowOptions(show_options)
-        slice2.setShowOptions(show_options)
-
-        # Stretch both figures
-        slice1.canvas.fig.sizing_mode = 'stretch_both'
-        slice2.canvas.fig.sizing_mode = 'stretch_both'
-       
-
-        slice1_caption = pn.pane.HTML(
-            f"""
-            <div style="
-                display: flex; 
-                justify-content: top; 
-                align-items: top; 
-                text-align: top; 
-                height: 5;">
-                <h4>Original Image </h4>
-            </div>
-            """,
-            sizing_mode="stretch_width",  # Ensures full width for centering
-        )
-
-        slice2_caption = pn.pane.HTML(
-            f"""
-            <div style="
-                display: flex; 
-                justify-content: top; 
-                align-items: top; 
-                text-align: top; 
-                height: 5;">
-                <h4>Super-Resolution Image </h4>
-            </div>
-            """,
-            sizing_mode="stretch_width",  # Ensures full width for centering
-        )
-        
-        # Initialize the main class
-        main_app = ZoomSync2(slice1, slice2, scale_factor, slice1_caption,slice2_caption)
-
-        # Run the application
-        main_app.run()
-
-        layout = pn.Column(
-            pn.Row(
-                pn.Column(
-                    slice1.getMainLayout(),
-                    sizing_mode="stretch_both",
-                ),
-                pn.Column(
-                    slice2.getMainLayout(),
-                    sizing_mode="stretch_both",
-                ),
-                sizing_mode="stretch_both",
-            ),
-            pn.Row(
-                slice1_caption, slice2_caption,
-                sizing_mode="stretch_both",
-            )
-        )
-        layout.servable()
-        
-    if len(sys.argv[1:]) == 1:
-        # Single slice view
-        slice = Slice()
-        slice.load(sys.argv[1])
-
-        # Load a whole scene
-        if "load" in query_params:
-            body = json.loads(base64.b64decode(query_params['load']).decode("utf-8"))
-            slice.setBody(body)
-
-        # Select from list of choices
-        elif "dataset" in query_params:
-            scene_name = query_params["dataset"]
-            slice.scene.value = scene_name
-
-        #slice.setShowOptions(show_options)
-
-        main_layout = slice.getMainLayout()
-        main_layout.servable()
-
-
-
-########################################
-
-
-pn.extension()
-
-custom_css = """
-.bk-checkbox-group label {
-    font-size: 12px !important;
-    font-weight: bold !important;
-}
-
-.bk-btn-group .bk-btn {
-    font-size: 18px !important;
-    text-align: left !important;
-}
-
-h1, h2, h3, h4, h5 {
-    font-size: 18px !important;
-    font-weight: bold !important;
-}
-"""
-pn.extension(raw_css=[custom_css])
-
-
 
 
 
@@ -390,7 +211,7 @@ class SliceSelectorApp:
             p = Path(selected_files[0])
             print("Case: ",p)
             case = "1177_Panel1"
-            sub  = "input" if "/input/" in selected_files[0] else "sr"
+            sub  = "input"
             # Only set if your SliceDL uses these
             setattr(slc, "current_case", case)
             setattr(slc, "current_type", sub)
@@ -485,5 +306,65 @@ class SliceSelectorApp:
         self.main_panel.append(self.selection_page)
 
 
-app = SliceSelectorApp(sys.argv[1:])
-app.main_panel.servable()
+#########
+
+if __name__.startswith('bokeh'):
+    pn.extension(
+        "ipywidgets",
+        "floatpanel",
+        "codeeditor",
+        log_level="DEBUG",
+        notifications=True,
+    )
+
+    query_params = {k: v for k, v in pn.state.location.query_params.items()}
+
+    log_filename = os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME", "/home/openvisuspy-dashboards.log")
+    logger = SetupLogger(log_filename=log_filename, logging_level=logging.DEBUG)
+
+
+    # Show options for both slices
+    # "resolution" max , "view_dependent" is yes; set Default
+
+    '''
+    	show_options={
+		"top": [
+			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette", "color_mapper_type","view_dependent", "resolution", "num_refinements", "show_probe"],
+			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+
+		],
+		"bottom": [
+			["request","response", "zoom_level", "image_type"]
+		]
+	}
+
+    '''
+    
+    show_options = {}
+
+    custom_css = """
+    .bk-checkbox-group label {
+        font-size: 12px !important;
+        font-weight: bold !important;
+    }
+
+    .bk-btn-group .bk-btn {
+        font-size: 18px !important;
+        text-align: left !important;
+    }
+
+    h1, h2, h3, h4, h5 {
+        font-size: 18px !important;
+        font-weight: bold !important;
+    }
+    """
+    pn.extension(raw_css=[custom_css])
+
+    response=requests.get("http://localhost/list_magicscan.php")
+    jsonbdy = response.json()
+    paths = [f"/mnt/visus_datasets/converted/{item['uuid']}/visus.idx" for item in jsonbdy]
+    print(paths)
+
+    app = SliceSelectorApp(paths)
+    #app = SliceSelectorApp(sys.argv[1:])
+    app.main_panel.servable()
