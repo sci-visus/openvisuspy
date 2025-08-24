@@ -31,22 +31,46 @@ import requests
 
 
 class MultiSliceSyncApp:
-    def __init__(self, slices, captions, scale_factors):
+    def __init__(self, slices, captions, scale_factors, scale_bar1):
         self.slices = slices
         self.captions = captions
+        self.scale_bar1 = scale_bar1
+        self.mm_x_1 = 0.0006559980709556726  # mm/pixel
+        self.fixed_pixel_length = 200
+
         self.synchronizer = MultiSliceSynchronizer(slices, scale_factors)
         self.synchronizer.register_callback(self.on_zoom_update)
 
     def update_caption(self, caption, label, zoom_level):
-        caption.object = f"<h4>{label} - Zoom Level: {round(zoom_level, 2)}%</h4>"
+        #caption.object = f"<h4>{label} - Zoom Level: {round(zoom_level, 2)}%</h4>"
+        caption.object = f"""
+        <div style="text-align: start; width: 100%; padding-top: 10px;">
+            <h4 style="margin: 0;font-size: 20px">{label}</h4>
+        </div>
+        """
+
+
+    def update_scale_bar(self, bar, mm_per_pixel, zoom_level):
+        effective_mm_per_screen_pixel = mm_per_pixel / (zoom_level / 100)
+        length_mm = self.fixed_pixel_length * effective_mm_per_screen_pixel
+        bar.object = f"""
+        <div style="text-align: center; width: 100%; padding-top: 10px;">
+            <svg height="20" width="{self.fixed_pixel_length}px">
+              <line x1="0" y1="10" x2="{self.fixed_pixel_length}" y2="10" style="stroke:black;stroke-width:3" />
+            </svg>
+            <div style="font-size:20px; padding-top:2px;">{length_mm:.5f} mm</div>
+        </div>
+        """
 
     def on_zoom_update(self, *zooms):
         for idx, zoom in enumerate(zooms):
             label = self.slices[idx].image_type.value
             self.update_caption(self.captions[idx], label, zoom)
+            self.update_scale_bar(self.scale_bar1, self.mm_x_1, zoom)
 
     def run(self):
         print("MultiSliceSyncApp running with full synchronization & scale factors...")
+
 
 
 ###############################
@@ -64,7 +88,7 @@ class ZoomSync2:
         Helper method to update captions dynamically.
         """
         caption.object = f"""
-        <div style="text-align: top; height: auto;">
+        <div style="text-align: down; height: auto;">
             <h4> {label} &nbsp;&nbsp;&nbsp; Zoom Level: {round(zoom_level, 2)} %</h4>
         </div>
         """
@@ -86,7 +110,6 @@ class ZoomSync2:
 #################
 
 
-
 #######################################
 
 
@@ -96,7 +119,11 @@ class SliceSelectorApp:
         self.idx_files = idx_files
         
         # Display friendly names like Image1, Image2, etc.
-        self.display_names = [f"Image{i+1}" for i in range(len(idx_files))]
+        #self.display_names = [f"Image{i+1}" for i in range(len(idx_files))]
+        self.display_names = [Path(f).parent.name for f in idx_files]
+        self.bbx=["Select Boundary Box (Only for single image)"]
+
+
 
         self.file_map = dict(zip(self.display_names, self.idx_files))
 
@@ -109,17 +136,18 @@ class SliceSelectorApp:
             sizing_mode='stretch_width'
         )
 
+        self.checkbox2 = pn.widgets.CheckButtonGroup(
+            name='Select Boundary Box',
+            options=self.bbx,
+            value=[],
+            button_type='default',
+            orientation='vertical',  # ← makes the buttons stack vertically
+            sizing_mode='stretch_width'
+        )
+
 
         self.load_button = pn.widgets.Button(name='Load Selected Slices', button_type='primary')
         self.load_button.on_click(self.load_slices)
-
-        # Add this inside the __init__ method of your SliceSelectorApp class
-        self.images_description_button = pn.widgets.Button(
-            name='Images Descriptions', button_type='success'
-        )
-        self.images_description_button.js_on_click(code="""
-            window.open('https://docs.google.com/spreadsheets/d/1siqOce5rvImSj-EIxtUM2K_iVluouEw833bOl50VKLM/edit?usp=sharing', '_blank')
-        """)
 
         self.selection_page = pn.Column(
             pn.Spacer(height=100),
@@ -129,9 +157,10 @@ class SliceSelectorApp:
                     "# 🔹 <span style='font-size:28px;'>Select Here <span style='font-size:20px;'>( click any number of images)</span></span>",
                     self.checkboxes,
                     pn.Spacer(height=20),
+                    self.checkbox2,
+                    pn.Spacer(height=20),
                     pn.Row(
                         self.load_button,
-                        self.images_description_button,
                         align='center'
                     ),
                     align='center',
@@ -172,7 +201,11 @@ class SliceSelectorApp:
         draw_source = bokeh.models.ColumnDataSource(data={"xs": [], "ys": []})
 
         # Choose class: your SliceDL for single view; Slice for multi
-        SliceClass = SliceDL if n == 1 else Slice
+
+        if self.checkbox2.value:
+            SliceClass = SliceDL 
+        else:
+            SliceClass = Slice
 
         slices = [SliceClass(ViewChoice="SYNC_VIEW", drawsource=draw_source) for _ in selected_files]
 
@@ -187,12 +220,15 @@ class SliceSelectorApp:
             slc.canvas.fig.sizing_mode = 'stretch_both'
 
         captions = [
-            pn.pane.HTML(f"<h4>{name} - Zoom Level:</h4>", sizing_mode="stretch_width")
+            #pn.pane.HTML(f"<h4>{name} - Zoom Level:</h4>", sizing_mode="stretch_width")
+            pn.pane.HTML(f"<h4>{name}", sizing_mode="stretch_width")
             for name in selected_display_names
         ]
 
+        scale_bar1 = pn.pane.HTML(sizing_mode="stretch_width")
+
         # Initialize synchronization ONLY with real slices (no placeholders)
-        self.multi_slice_sync_app = MultiSliceSyncApp(slices, captions, scale_factors)
+        self.multi_slice_sync_app = MultiSliceSyncApp(slices, captions, scale_factors, scale_bar1= scale_bar1)
         self.multi_slice_sync_app.run()
 
         self.main_panel.clear()
@@ -203,53 +239,73 @@ class SliceSelectorApp:
         n = len(slices)
         print("loaded slices2: ",n)
         if n == 1:
-            slc = slices[0]
-            slc.setShowOptions({
-                "top": [["resolution","view_dependent","box_edit_button","x0_input","y0_input","set_bbox_btn"]],
-            })
-            # Derive case/type from the path so your callbacks have context
-            p = Path(selected_files[0])
-            print("Case: ",p)
-            case = "1177_Panel1"
-            sub  = "input"
-            # Only set if your SliceDL uses these
-            setattr(slc, "current_case", case)
-            setattr(slc, "current_type", sub)
+            if self.checkbox2.value:
+                slc = slices[0]
+                slc.setShowOptions({
+                    "top": [["resolution","view_dependent","box_edit_button","x0_input","y0_input","set_bbox_btn"]],
+                })
+                # Derive case/type from the path so your callbacks have context
+                p = Path(selected_files[0])
+                print("Case: ",p)
+                case = "1177_Panel1"
+                sub  = "input"
+                # Only set if your SliceDL uses these
+                setattr(slc, "current_case", case)
+                setattr(slc, "current_type", sub)
 
-            # Left: main viewer; Right: your info/options/image panels
-            left_layout  = slc.getMainLayout().clone(width_policy='max', sizing_mode='stretch_both')
-            right_layout = pn.Column(
-                getattr(slc, "right_options", pn.Spacer()),
-                getattr(slc, "right_image", pn.Spacer()),
-                sizing_mode="stretch_both",
-            )
+                # Left: main viewer; Right: your info/options/image panels
+                left_layout  = slc.getMainLayout().clone(width_policy='max', sizing_mode='stretch_both')
+                right_layout = pn.Column(
+                    getattr(slc, "right_options", pn.Spacer()),
+                    getattr(slc, "right_image", pn.Spacer()),
+                    sizing_mode="stretch_both",
+                )
 
-            slices_layout = pn.Column(
+                slices_layout = pn.Column(
+                    pn.Row(
+                        pn.Spacer(width=24),
+                        left_layout,
+                        pn.Spacer(width=16),
+                        right_layout,
+                        pn.Spacer(width=24),
+                        sizing_mode="stretch_both"
+                    ),
+                    pn.Row(
+                        pn.Spacer(),
+                        pn.Column(captions[0], sizing_mode="stretch_width"),
+                        pn.Column(scale_bar1, width=150),
+                        pn.Spacer(),),
+                        align="start",
+                    sizing_mode="stretch_width",
+                )
+            else:
+                slices_layout = pn.Column(
                 pn.Row(
-                    pn.Spacer(width=24),
-                    left_layout,
-                    pn.Spacer(width=16),
-                    right_layout,
-                    pn.Spacer(width=24),
+                    pn.Spacer(width=50),
+                    slices[0].getMainLayout().clone(width_policy='max', sizing_mode='stretch_both'),
+                    pn.Spacer(width=50),
                     sizing_mode="stretch_both"
                 ),
                 pn.Row(
-                    pn.layout.HSpacer(),
-                    captions[0],
-                    pn.layout.HSpacer(),
-                    sizing_mode="stretch_both"
-                ),
-                sizing_mode="stretch_both"
+                    pn.Spacer(),
+                    pn.Column(scale_bar1, width=150),
+                    pn.Column(captions[0], sizing_mode="stretch_width"),
+                    pn.Spacer(),),
+                    align="center",
+                sizing_mode="stretch_width",
             )
         
         elif n == 2:
             slices_layout = pn.Column(
                 pn.Row(
                     slices[0].getMainLayout(),
+                    pn.layout.VSpacer(),
                     slices[1].getMainLayout(),
+                    pn.layout.VSpacer(),
                     sizing_mode="stretch_both",
                 ),
                 pn.Row(
+                    scale_bar1,
                     captions[0],
                     captions[1],
                     sizing_mode="stretch_width",
@@ -296,6 +352,7 @@ class SliceSelectorApp:
             pn.Column(
                 back_button,
                 slices_layout,
+                scale_bar1,
                 sizing_mode='stretch_both'
             )
         )
@@ -306,7 +363,7 @@ class SliceSelectorApp:
         self.main_panel.append(self.selection_page)
 
 
-#########
+########
 
 if __name__.startswith('bokeh'):
     pn.extension(
@@ -360,11 +417,11 @@ if __name__.startswith('bokeh'):
     """
     pn.extension(raw_css=[custom_css])
 
-    response=requests.get("http://localhost/list_magicscan.php")
-    jsonbdy = response.json()
-    paths = [f"/mnt/visus_datasets/converted/{item['uuid']}/visus.idx" for item in jsonbdy]
-    print(paths)
+    #response=requests.get("http://localhost/list_magicscan.php")
+    #jsonbdy = response.json()
+    #paths = [f"/mnt/visus_datasets/converted/{item['uuid']}/visus.idx" for item in jsonbdy]
+    #print(paths)
 
-    app = SliceSelectorApp(paths)
-    #app = SliceSelectorApp(sys.argv[1:])
+    #app = SliceSelectorApp(paths)
+    app = SliceSelectorApp(sys.argv[1:])
     app.main_panel.servable()

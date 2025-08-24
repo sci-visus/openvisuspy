@@ -9,6 +9,7 @@ import traceback
 import io 
 import threading
 import time
+import math
 from urllib.parse import urlparse, urlencode
 
 import numpy as np
@@ -21,6 +22,12 @@ import bokeh.plotting
 import bokeh.models.callbacks
 from bokeh.models import LinearColorMapper, ColorBar
 from bokeh.plotting import figure
+from bokeh.models import ColumnDataSource, FreehandDrawTool
+from bokeh.layouts import column
+from bokeh.io import curdoc
+
+
+
 import param 
 
 import panel as pn
@@ -40,9 +47,10 @@ logger = logging.getLogger(__name__)
 class Canvas:
   
 	# constructor
-	def __init__(self, id, ViewChoice=None):
+	def __init__(self, id, ViewChoice=None, drawsource = None):
 		self.id=id # A unique identifier
 		self.view_choice = ViewChoice # View Selection
+		self.drawsource = drawsource
 		self.fig=None # A Bokeh figure for plotting.
 		self.pdim=2 # point dimension
 		self.events={} # Event handling supporting various kinds of interactions
@@ -53,7 +61,9 @@ class Canvas:
 		self.createFigure() # Creates the main figure using Bokeh and adds
 
 		# since I cannot track consistently inner_width,inner_height (particularly on Jupyter) I am using a timer
-		self.setViewport([0,0,256,256])
+		#self.setViewport([0,0,256,256])
+		self.last_valid_viewport = [0, 0, 256, 256]  # Initialize with default viewport
+		self.setViewport(self.last_valid_viewport)
 
 		
 
@@ -94,6 +104,10 @@ class Canvas:
 			self.events[evt]=[]
 		self.events[evt].append(callback)
 
+	def on_draw(self, attr, old, new):
+		print("New circles drawn:", new)  # Prints new circle data
+
+
 	# createFigure
 	def createFigure(self):
 		old=self.fig
@@ -103,20 +117,31 @@ class Canvas:
 		self.box_select_tool        = bokeh.models.BoxSelectTool()
 		self.reset_fig              = bokeh.models.ResetTool()
 		self.box_zoom_tool          = bokeh.models.BoxZoomTool()
+		self.save_tool              = bokeh.models.SaveTool()
+		
+
+
 
 
 		if self.view_choice  == "SYNC_VIEW": # sync_view bokeh options
-			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool])
+			#self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool,self.save_tool])
 
+			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.save_tool])
+			self.fig.toolbar_location= None #"above" # "above", "below", "right", "left"
+			self.fig.axis.visible = False
+			self.fig.grid.visible = False	
+			
+					
 		else:
 			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool,self.box_zoom_tool])
 
-		self.fig.toolbar_location="right" 
+		
+		
+		
 		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
-		self.fig.toolbar.active_drag    = self.pan_tool
+		self.fig.toolbar.active_drag    = self.pan_tool 
 		# self.fig.toolbar.active_inspect = self.over_tool #will bring this back
 		self.fig.toolbar.active_tap     = None
-		# self.fig.toolbar.
 
 		# try to preserve the old status
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
@@ -127,6 +152,7 @@ class Canvas:
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
+		
 
 		self.fig.on_event(bokeh.events.Tap      ,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.Tap,[]) ])
 		self.fig.on_event(bokeh.events.DoubleTap,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.DoubleTap,[])])
@@ -137,6 +163,8 @@ class Canvas:
 
 		self.fig.on_change('inner_width',  self.onFigureSizeChange)
 		self.fig.on_change('inner_height', self.onFigureSizeChange)
+
+		#self.fig.js_on_change('data', self.on_draw)
 
 		# replace the figure from the fig_layout (so that later on I can replace it)
 		self.fig_layout[:]=[
@@ -208,6 +236,7 @@ class Canvas:
 		self.fig.x_range.start, self.fig.x_range.end = x, x+w
 		self.fig.y_range.start, self.fig.y_range.end = y, y+h
 
+
 	# showData
 	def showData(self, pdim, data, viewport, color_bar=None):
 
@@ -242,9 +271,24 @@ class Canvas:
 				self.last_renderer["source"].data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]}
 			else:
 				self.createFigure()
-				source = bokeh.models.ColumnDataSource(data={"image":[img], "X":[x], "Y":[y], "dw":[w], "dh":[h]})
-				if img.dtype==np.uint32:	
-					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh") 
+				source = bokeh.models.ColumnDataSource(data={"image": [img], "X": [x], "Y": [y], "dw": [w], "dh": [h]})
+				
+				#draw_source = bokeh.models.ColumnDataSource(data={"xs": [], "ys": []})  # Source for freehand drawings
+				
+				#print("draw_source", draw_source)
+				if img.dtype == np.uint32:    
+					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh")
+
+					
+					# Add a multi_line glyph for freehand drawing
+					self.fig.multi_line(xs="xs", ys="ys", line_color="green", line_width=2, source=self.drawsource)
+
+					# Add a FreehandDrawTool
+					freehand_tool = FreehandDrawTool(renderers=[self.fig.renderers[-1]], num_objects=100)  # Use the last renderer (multi_line)
+					self.fig.add_tools(freehand_tool)
+					#self.fig.toolbar.active_drag = freehand_tool  # Activate freehand drawing by default
+
+
 				else:
 					self.fig.image("image", source=source, x="X", y="Y", dw="dw", dh="dh", color_mapper=color_bar.color_mapper) 
 				
@@ -257,10 +301,12 @@ class Canvas:
 				}
 
 
+
 # ////////////////////////////////////////////////////////////////////////////////////
 class Slice(param.Parameterized):
 
 	ID=0
+
 
 	EPSILON = 0.001
 
@@ -271,12 +317,12 @@ class Slice(param.Parameterized):
 
 		],
 		"bottom": [
-			["request","response","image_type"]
+			["request","response", "image_type"]
 		]
 	}
 
 	# constructor
-	def __init__(self, ViewChoice=None): 
+	def __init__(self, drawsource=None, ViewChoice=None): 
 		super().__init__()  
 		
 		self.id=Slice.ID+1
@@ -284,6 +330,7 @@ class Slice(param.Parameterized):
 		self.job_id=0
 
 		self.view_choice = ViewChoice # passing ViewChoice for sync view
+		self.drawsource= drawsource
 
 		self.vmin=None
 		self.vmax=None
@@ -576,19 +623,15 @@ class Slice(param.Parameterized):
 		self.play_sec = pn.widgets.Select(name="Delay", options=[0.00, 0.01, 0.1, 0.2, 0.1, 1, 2], value=0.01, width=90)
 		self.request = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
 		self.response = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False)
+		self.image_type = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False) # Image Title
 
 		self.file_name_input = pn.widgets.TextInput(name="Numpy_File", value='test', placeholder='Numpy File Name to save')
 
-		self.canvas = Canvas(self.id, self.view_choice)
+		self.canvas = Canvas(self.id, self.view_choice, self.drawsource)
 		self.canvas.on_event(bokeh.events.RangesUpdate     , SafeCallback(self.onCanvasViewportChange))
 		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
 		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
-
-		if self.canvas.view_choice == "SYNC_VIEW":
-			self.image_type = pn.widgets.TextInput(name="", sizing_mode='stretch_width', disabled=False) # Sync-View Image Title
-		else:
-			self.image_type = None
 
 		# probe_tool
 		from .probe import ProbeTool
@@ -863,6 +906,7 @@ class Slice(param.Parameterized):
 
 		if self.canvas.view_choice == "SYNC_VIEW":
 			self.resolution.value = self.resolution.end #kept max_resolution default for sync view
+			print("resss", self.resolution.end )
 		else:
 			self.resolution.value = resolution
 		
@@ -1207,6 +1251,9 @@ class Slice(param.Parameterized):
 		self.canvas.renderPoints([self.toPhysic(point)]) 
 		"""
   
+	
+	
+	
 	# gotNewData
 	def gotNewData(self, result):
 
@@ -1297,7 +1344,9 @@ class Slice(param.Parameterized):
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)
 
+	
 		# update the status bar
+		
 		if True:
 			tot_pixels=np.prod(data.shape)
 			canvas_pixels=self.canvas.getWidth()*self.canvas.getHeight()
@@ -1379,6 +1428,8 @@ class Slice(param.Parameterized):
 		field=self.field.value
 		box_i=[[int(it) for it in jt] for jt in query_logic_box]
 		self.request.value=f"t={timestep} b={str(box_i).replace(' ','')} {canvas_w}x{canvas_h}"
+
+		print("req", self.canvas.getWidth())
 		self.response.value="Running..."
 
 		self.db.pushJob(
