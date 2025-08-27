@@ -263,7 +263,8 @@ class Canvas:
 		self.fig.on_event(bokeh.events.Tap      ,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.Tap,[]) ])
 		self.fig.on_event(bokeh.events.DoubleTap,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.DoubleTap,[])])
 		self.fig.on_event(bokeh.events.RangesUpdate,   lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.RangesUpdate,[])])
-
+		self.fig.on_event(bokeh.events.MouseMove,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.MouseMove,[])])
+		
 		# tracl changes in the size
 		# see https://github.com/bokeh/bokeh/issues/9136
 
@@ -467,6 +468,17 @@ class Slice(param.Parameterized):
 		self.spt_distance = {}
 		self.spt_edge_ids = {}
 		self.spt_root_id = None
+
+		# ROI box default size
+		self.BOX_W = 1024
+		self.BOX_H = 1024
+
+		# Hover/placement state for left panel bbox
+		self._bbox_hover_enabled = False   # following mouse?
+		self._bbox_stuck = False           # frozen (double-click placed)?
+
+		# Gate auto-loading inside load_right_panel_image():
+		self._autoload_on_bbox_change = False
 
 		MODEL_CKPT = "/app2/app_magicscan/best_model.pth"      # CHANGE
 		self.tissue_model = TissuePredictor(
@@ -964,6 +976,10 @@ class Slice(param.Parameterized):
 	# ---------- ROI load (RGB-only) ----------
 
 	def load_right_panel_image(self, attr, old, new):
+		# Prevent autoloading during hover (on_change provides a real 'attr')
+		if attr is not None and not getattr(self, "_autoload_on_bbox_change", False):
+			return
+		
 		start_time = time.time()
 		bbox = self.canvas.bbox_source.data
 		if len(bbox.get('x', [])) == 0:
@@ -1031,44 +1047,96 @@ class Slice(param.Parameterized):
 
 	# ---------- bbox UI helpers (unchanged logic; calls loader) ----------
 
-	def toggle_box_edit(self, event):
+	def _get_left_image_bounds(self):
 		"""
-		1) Toggle PanTool <-> BoxEditTool.
-		2) Ensure a rectangle glyph exists (create 1024x1024 if missing).
-		3) Refresh the right-hand ROI view.
+		Return (xmin, ymin, xmax, ymax) in left image data units.
+		Adjust if your left canvas shows only a subset; default uses full image.
 		"""
-		if self.canvas.fig.toolbar.active_drag == self.canvas.box_edit_tool:
-			self.canvas.fig.toolbar.active_drag = self.canvas.pan_tool
-			print("Reverted to PanTool.")
-			return
+		xmax = self.canvas.image_x_max if self.canvas.image_x_max is not None else None
+		ymax = self.canvas.image_y_max if self.canvas.image_y_max is not None else None
+		if xmax is None or ymax is None:
+			# Fallback: don’t clamp if not known yet
+			return (-1e12, -1e12, 1e12, 1e12)
+		return (0.0, 0.0, float(xmax), float(ymax))
 
-		self.canvas.fig.toolbar.active_drag = self.canvas.box_edit_tool
-		print("Switched to BoxEditTool.")
-
-		need_rect = (not hasattr(self.canvas, "rect_renderer")) or \
-					(self.canvas.rect_renderer not in self.canvas.fig.renderers)
-
-		if need_rect:
-			BOX_W, BOX_H = 1024, 1024
-			self.canvas.bbox_source.data = dict(
-				x=[BOX_W / 2],
-				y=[BOX_H / 2],
-				width=[BOX_W],
-				height=[BOX_H]
-			)
-
+	def _ensure_rect_renderer(self):
+		# Ensure the red rectangle exists and is tied to the bbox_source
+		if not hasattr(self.canvas, "rect_renderer") or self.canvas.rect_renderer not in self.canvas.fig.renderers:
 			self.canvas.rect_renderer = self.canvas.fig.rect(
 				x="x", y="y", width="width", height="height",
 				source=self.canvas.bbox_source,
-				line_color="red", line_width=3,
-				fill_alpha=0.3, level="overlay"
+				line_color="red", line_width=3, fill_alpha=0.3, level="overlay"
 			)
+			# You can keep the BoxEditTool renderer list if you still want drag-edit later:
 			self.canvas.box_edit_tool.renderers = [self.canvas.rect_renderer]
-			print("Default bounding box added at LL corner.")
-		else:
-			print("Bounding box already present - BoxEditTool enabled.")
+	
+	def _take_over_doubletap(self):
+		"""
+		During ROI placement we *temporarily* replace ALL Canvas DoubleTap handlers
+		with ONLY our onCanvasDoubleTap, so ProbeTool (and others) cannot fire.
+		"""
+		# Save everything that was there
+		self._saved_doubletap_handlers = list(self.canvas.events.get(bokeh.events.DoubleTap, []) or [])
+		# Clear and re-register ONLY our handler
+		self.canvas.events[bokeh.events.DoubleTap] = []
+		# IMPORTANT: re-add OUR handler via the same API Canvas uses, so it’s wrapped consistently
+		self.canvas.on_event(bokeh.events.DoubleTap, SafeCallback(self.onCanvasDoubleTap))
+		# (No-op if our handler was already there; we now have only ours.)
 
-		self.load_right_panel_image(None, None, None)
+	def _restore_doubletap(self):
+		"""Restore whatever DoubleTap handlers were present before placement."""
+		if hasattr(self, "_saved_doubletap_handlers"):
+			self.canvas.events[bokeh.events.DoubleTap] = list(self._saved_doubletap_handlers)
+			self._saved_doubletap_handlers = []
+
+
+	def _enable_bbox_hover_mode(self):
+		"""Enter hover mode: rect follows mouse on left panel."""
+		self._ensure_rect_renderer()
+		self._bbox_hover_enabled = True
+		self._bbox_stuck = False
+
+		data = self.canvas.bbox_source.data
+		if len(data.get("width", [])) == 0:
+			self.canvas.bbox_source.data = dict(
+				x=[self.BOX_W/2], y=[self.BOX_H/2], width=[self.BOX_W], height=[self.BOX_H]
+			)
+
+		if hasattr(self.canvas, "pan_tool"):
+			self.canvas.fig.toolbar.active_drag = self.canvas.pan_tool
+		self.canvas.fig.toolbar.active_scroll = None
+		self.canvas.fig.toolbar.active_tap    = None
+
+		# <<< TAKE OVER DoubleTap so ProbeTool cannot fire >>>
+		self._take_over_doubletap()
+
+		print("[BBox] Hover mode: ON — move mouse; Double-click to stick & load; single-click to resume hover.")
+
+	def _disable_bbox_hover_mode(self):
+		"""Leave hover mode (box stays where it is)."""
+		self._bbox_hover_enabled = False
+
+		# <<< RESTORE whatever DoubleTap listeners were there (including ProbeTool) >>>
+		self._restore_doubletap()
+
+		print("[BBox] Hover mode: OFF")
+
+
+	def toggle_box_edit(self, event):
+		"""
+		New behavior:
+		- Click button -> enter hover-to-place mode (box follows mouse).
+		- Double-click on left -> stick box & load ROI to right.
+		- Single-click -> resume hover mode.
+		"""
+		if self._bbox_hover_enabled and not self._bbox_stuck:
+			# Clicking the button again cancels hover
+			self._disable_bbox_hover_mode()
+			print("Bounding Box: hover canceled (Pan enabled).")
+			return
+
+		# Start (or restart) hover mode
+		self._enable_bbox_hover_mode()
 
 	def set_bbox(self, event):
 		try:
@@ -1577,6 +1645,7 @@ class Slice(param.Parameterized):
 
 		self.canvas = Canvas(self.id, self.view_choice, self.drawsource)
 		self.canvas.on_event(bokeh.events.RangesUpdate     , SafeCallback(self.onCanvasViewportChange))
+		self.canvas.on_event(bokeh.events.MouseMove        , SafeCallback(self.onCanvasMouseMove))
 		self.canvas.on_event(bokeh.events.Tap              , SafeCallback(self.onCanvasSingleTap))
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
 		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
@@ -1584,7 +1653,6 @@ class Slice(param.Parameterized):
         # --- Right panel: create ONCE, wire ONCE ---
 		from bokeh.models import ColumnDataSource, TapTool, CrosshairTool, CustomJS
 
-		import numpy as np
 		H0, W0 = 1, 1  # placeholder; will be updated on first ROI
 
 		# image datasource that we will update on every ROI
@@ -1721,14 +1789,50 @@ class Slice(param.Parameterized):
 		x,y,w,h=self.canvas.getViewport()
 		self.refresh("onCanvasViewportChange")
 
-	# onCanvasSingleTap # a click on image
-	def onCanvasSingleTap(self, evt):
-		logger.info(f"Single tap {evt}")
-		pass
+	def onCanvasMouseMove(self, event):
+		"""While hovering (and not stuck), keep LOWER-LEFT of the box under the cursor (clamped)."""
+		if not self._bbox_hover_enabled or self._bbox_stuck:
+			return
+		if event.x is None or event.y is None:
+			return
+		xmin, ymin, xmax, ymax = self._get_left_image_bounds()
+		w, h = float(self.BOX_W), float(self.BOX_H)
 
-	# onCanvasDoubleTap
-	def onCanvasDoubleTap(self, evt):
-		logger.info(f"Double tap {evt}")
+		x_ll = max(xmin, min(event.x, xmax - w))
+		y_ll = max(ymin, min(event.y, ymax - h))
+		cx = x_ll + w/2.0
+		cy = y_ll + h/2.0
+
+		# Update center-based rect (NO autoload during hover)
+		self.canvas.bbox_source.data = dict(x=[cx], y=[cy], width=[w], height=[h])
+
+	def onCanvasDoubleTap(self, event):
+		"""Double-click: stick the box and load the ROI once."""
+		if event.x is None or event.y is None:
+			return
+		xmin, ymin, xmax, ymax = self._get_left_image_bounds()
+		w, h = float(self.BOX_W), float(self.BOX_H)
+
+		x_ll = max(xmin, min(event.x, xmax - w))
+		y_ll = max(ymin, min(event.y, ymax - h))
+		cx = x_ll + w/2.0
+		cy = y_ll + h/2.0
+
+		# Finalize rect
+		self.canvas.bbox_source.data = dict(x=[cx], y=[cy], width=[w], height=[h])
+
+		# Freeze, exit hover, and load explicitly
+		self._bbox_stuck = True
+		self._disable_bbox_hover_mode()
+
+		print(f"[BBox] STUCK at LL=({x_ll:.1f},{y_ll:.1f}) — loading ROI")
+		self._autoload_on_bbox_change = False
+		self.load_right_panel_image(None, None, None)
+
+	def onCanvasSingleTap(self, event):
+		"""Single-click: resume hover placement so you can pick another ROI quickly."""
+		print("[BBox] Single-click: resume hover mode")
+		self._enable_bbox_hover_mode()
 
 	# getShowOptions
 	def getShowOptions(self):
