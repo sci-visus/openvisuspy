@@ -99,7 +99,7 @@ except Exception:
 import matplotlib.cm as cm
 from bokeh.io import curdoc
 import threading
-#sys.path.append(r"/run/media/syedfahimahmed1/New Volume/Documents Fahim PC/GitHub/msc_py_build_old/bin")
+sys.path.append(r"/run/media/syedfahimahmed1/New Volume/Documents Fahim PC/GitHub/msc_py_build_old/bin")
 import msc_py
 print("Successful")
 import scipy.ndimage as ndi
@@ -456,8 +456,14 @@ class Slice(param.Parameterized):
 		self.current_img   = None
 		self.last_job_pushed =time.time()
 
+		# default: geometry is already in plot/cartesian coords (y-up)
+		self._rp_geom_is_plot_y_up = True
 		self.black_path_source = ColumnDataSource(data=dict(xs=[], ys=[]))
 		self.blue_path_source = ColumnDataSource(data=dict(xs=[], ys=[]))
+
+		# Blue = accumulating (not yet confirmed); Black = confirmed
+		self._accum_paths_blue = []   # list[(xs, ys)]
+		self._saved_paths_black = []  # list[(xs, ys)]
 
 		self.selected_node = None
 		self.path_drawing_active = False
@@ -480,7 +486,7 @@ class Slice(param.Parameterized):
 		# Gate auto-loading inside load_right_panel_image():
 		self._autoload_on_bbox_change = False
 
-		MODEL_CKPT = "/app2/app_magicscan/best_model.pth"      # CHANGE
+		MODEL_CKPT = "app_magicscan/best_model.pth"    # CHANGE
 		self.tissue_model = TissuePredictor(
 			model_path=MODEL_CKPT,
 			tile_size=128,      # 128-pixel tiles
@@ -585,6 +591,23 @@ class Slice(param.Parameterized):
 			copy_url_button_helper,
 			max_width=120,
 			align=('start', 'end'))
+	
+	# --- Image<->Plot Y transforms (right panel) ---
+	def _im_y_to_plot_y(self, iy: float) -> float:
+		"""
+		If geometry is already in Cartesian y-up, this is identity.
+		If geometry ever arrives in image y-down, flip once here.
+		"""
+		if getattr(self, "_rp_geom_is_plot_y_up", True):
+			return float(iy)
+		H = int(getattr(self, "_rp_img_h", 0) or 0)
+		return float(H - 1 - iy) if H > 0 else float(iy)
+
+	def _plot_y_to_im_y(self, py: float) -> float:
+		if getattr(self, "_rp_geom_is_plot_y_up", True):
+			return float(py)
+		H = int(getattr(self, "_rp_img_h", 0) or 0)
+		return float(H - 1 - py) if H > 0 else float(py)
 	
 	# ----------------------- image processing -----------------------
 
@@ -713,12 +736,16 @@ class Slice(param.Parameterized):
 			return
 
 		H, W = arr.shape[:2]
+		self._rp_img_h = int(H)  # ensure helpers have current size
+		self._rp_img_w = int(W)
+
 		if not getattr(self, "msc_nodes", None):
 			self._node_tree = None
 			self.node_xy_plot = []
 			print("[KDTree] No MSC nodes.")
 			return
 
+		# node positions come in IMAGE coords (x right, y down)
 		node_xy_img = []
 		for nd in self.msc_nodes:
 			if hasattr(nd, "geometry"):
@@ -729,7 +756,8 @@ class Slice(param.Parameterized):
 				x, y = nd[0], nd[1]
 			node_xy_img.append((float(x), float(y)))
 
-		self.node_xy_plot = [(x, H - 1 - y) for (x, y) in node_xy_img]
+		# convert to PLOT coords once for all downstream queries/renders
+		self.node_xy_plot = [(x, self._im_y_to_plot_y(y)) for (x, y) in node_xy_img]
 		if not self.node_xy_plot:
 			self._node_tree = None
 			print("[KDTree] No node positions.")
@@ -741,18 +769,18 @@ class Slice(param.Parameterized):
 
 	def _polyline_to_plot(self, edge):
 		"""
-		Convert an MSC edge polyline to plot coords with duplicate-point filtering.
-		Returns (xs, ys) lists ready for multi_line.
+		Convert an MSC edge polyline from IMAGE coords to PLOT coords with
+		duplicate-point filtering. Returns (xs, ys) lists for multi_line.
 		"""
-		H, W = self._last_rgb_roi.shape[:2]
 		xs, ys = [], []
 		prev = None
 		for x, y in edge.geometry:
-			xi, yi = int(round(x)), int(round(H - 1 - y))  # flip y for plot
-			if prev != (xi, yi):
-				xs.append(xi)
-				ys.append(yi)
-				prev = (xi, yi)
+			px = int(round(x))
+			py = int(round(self._im_y_to_plot_y(y)))
+			if prev != (px, py):
+				xs.append(px)
+				ys.append(py)
+				prev = (px, py)
 		return xs, ys
 
 
@@ -792,8 +820,14 @@ class Slice(param.Parameterized):
 	# ---------- event handlers (tap / hover / reset) ----------
 
 	def select_msc_node(self, event):
+		"""Single-click:
+		- If no root: set root, enter path mode
+		- Else: accumulate path (root -> clicked), THEN move root to clicked and recompute SPT
+		"""
+		if not getattr(self, "annotation_enabled", True):
+			return
+		
 		print(f"[TAP] got event: x={event.x}, y={event.y}")
-
 		if not hasattr(self, "_node_tree") or self._node_tree is None:
 			print("[TAP] KDTree not ready — click Annotate first.")
 			return
@@ -801,93 +835,91 @@ class Slice(param.Parameterized):
 			print("[TAP] missing coords")
 			return
 
-		# guard: inside current plot ranges
-		xr = self.right_panel_plot.x_range
-		yr = self.right_panel_plot.y_range
+		xr, yr = self.right_panel_plot.x_range, self.right_panel_plot.y_range
 		if not (xr.start <= event.x <= xr.end and yr.start <= event.y <= yr.end):
 			print("[TAP] outside visible range")
 			return
 
 		dist, idx = self._node_tree.query([event.x, event.y])
-		print(f"[TAP] nearest idx={idx}, dist={dist}")
 		if np.isinf(dist) or idx is None:
 			print("[TAP] no nearest node")
 			return
-		if dist > 60:  # generous tolerance
+		if dist > 60:
 			print("[TAP] too far from any node")
 			return
 
-		clicked_node = self.msc_nodes[idx]
+		clicked = self.msc_nodes[idx]
 
-		# first click -> build SPT
+		# First click: set root and enable path mode
 		if self.selected_node is None:
-			self.selected_node = clicked_node
+			self.selected_node = clicked
 			self.path_drawing_active = True
-			self.compute_shortest_path_tree_from_root(clicked_node)
-			cx, cy = self.node_xy_plot[idx]
-			self._debug_draw_crosshair(int(cx), int(cy), length=12)
-			print(f"[SELECT] root id={clicked_node.id}")
+			self.compute_shortest_path_tree_from_root(clicked)
+			print(f"[SELECT] root id={clicked.id} (path mode ON)")
 			return
 
-		# same as root -> cancel
-		if clicked_node.id == self.selected_node.id:
-			print("[CANCEL] same node")
-			self.selected_node = None
-			self.path_drawing_active = False
-			self.blue_path_source.data = dict(xs=[], ys=[])
+		# If you click the same node, just treat it as "move root here" without adding segments.
+		if clicked.id == self.selected_node.id:
+			print("[ACCUM] clicked current root — moving root without accumulation")
+			self.compute_shortest_path_tree_from_root(clicked)
 			return
 
-		# ensure reachable from root
-		if clicked_node.id not in self.spt_parent:
-			print("[PATH] clicked node not reachable from root")
+		# Must be reachable from current root
+		if clicked.id not in self.spt_parent:
+			print("[ACCUM] clicked node not reachable from current root")
 			return
 
-		# Build final path (polyline segments) to clicked node
-		cur = clicked_node.id
+		# 1) Build path segments root -> clicked and ACCUMULATE into BLUE
+		cur = clicked.id
 		path_edges = []
 		while cur in self.spt_parent:
-			parent_id = self.spt_parent[cur]
+			p = self.spt_parent[cur]
 			e_id = self.spt_edge_ids[cur]
 			edge = self.edge_map[e_id]
 			xs, ys = self._polyline_to_plot(edge)
 			path_edges.append((xs, ys))
-			cur = parent_id
+			cur = p
+		path_edges.reverse()
 
-		if not hasattr(self, "saved_paths"):
-			self.saved_paths = []
-		self.saved_paths.extend(reversed(path_edges))
+		if path_edges:
+			self._accum_paths_blue.extend(path_edges)
+			self.blue_path_source.data = dict(
+				xs=[xs for xs, _ in self._accum_paths_blue],
+				ys=[ys for _, ys in self._accum_paths_blue],
+			)
+			print(f"[ACCUM] added {len(path_edges)} segments; total blue={len(self._accum_paths_blue)}")
 
-		self.black_path_source.data = dict(
-			xs=[xs for xs, _ in self.saved_paths],
-			ys=[ys for _, ys in self.saved_paths],
-		)
-		self.blue_path_source.data = dict(xs=[], ys=[])
-
-		print(f"[PATH] finalized to id={clicked_node.id}, segments={len(path_edges)}")
-		self.selected_node = None
-		self.path_drawing_active = False
+		# 2) Move ROOT to the clicked node and recompute SPT for next hover/step
+		self.selected_node = clicked
+		self.compute_shortest_path_tree_from_root(clicked)
+		print(f"[ROOT→] moved root to id={clicked.id}")
 
 	def hover_msc_edges(self, event):
-		"""While in path mode, draw temporary preview from root to nearest node."""
+		"""While in path mode, draw temporary preview from root to nearest node, over accumulated blue."""
+		if not getattr(self, "annotation_enabled", True):
+			return
+
 		if not self.path_drawing_active or not getattr(self, "_node_tree", None):
 			return
 		if event.x is None or event.y is None:
 			return
-
-		# throttle a bit
-		if hasattr(self, "last_hover_time") and (time.time() - self.last_hover_time < 0.08):
+		if hasattr(self, "last_hover_time") and (time.time() - self.last_hover_time < 0.06):
 			return
 		self.last_hover_time = time.time()
 
 		dist, idx = self._node_tree.query([event.x, event.y])
 		if np.isinf(dist) or idx is None:
 			return
-
 		cur = self.msc_nodes[idx].id
 		if cur not in self.spt_parent:
-			self.blue_path_source.data = dict(xs=[], ys=[])
+			# show only accumulated blue if target is not reachable
+			self.blue_path_source.data = dict(
+				xs=[xs for xs, _ in self._accum_paths_blue],
+				ys=[ys for _, ys in self._accum_paths_blue],
+			)
 			return
 
+		# Build preview path (from root to hovered)
 		preview = []
 		while cur in self.spt_parent:
 			p = self.spt_parent[cur]
@@ -896,11 +928,12 @@ class Slice(param.Parameterized):
 			xs, ys = self._polyline_to_plot(edge)
 			preview.append((xs, ys))
 			cur = p
+		preview.reverse()
 
-		self.blue_path_source.data = dict(
-			xs=[xs for xs, _ in reversed(preview)],
-			ys=[ys for _, ys in reversed(preview)],
-		)
+		# Combine accumulated + preview
+		xs_all = [xs for xs, _ in self._accum_paths_blue] + [xs for xs, _ in preview]
+		ys_all = [ys for _, ys in self._accum_paths_blue] + [ys for _, ys in preview]
+		self.blue_path_source.data = dict(xs=xs_all, ys=ys_all)
 
 	def _debug_draw_crosshair(self, x: int = 10, y: int = 10, length: int = 50):
 		xs = [[x - length, x + length], [x, x]]
@@ -914,6 +947,35 @@ class Slice(param.Parameterized):
 		self.path_drawing_active = False
 		self.black_path_source.data = dict(xs=[], ys=[])
 		self.blue_path_source.data = dict(xs=[], ys=[])
+
+	def confirm_annotation(self, event):
+		"""Double-click: finalize whatever is currently drawn in BLUE (accum+preview) into BLACK."""
+		if not getattr(self, "annotation_enabled", True):
+			return
+		
+		print("[CONFIRM] Double-tap: finalizing blue (accum+preview) into black.")
+
+		xs_blue = self.blue_path_source.data.get("xs", [])
+		ys_blue = self.blue_path_source.data.get("ys", [])
+		if not xs_blue or not ys_blue:
+			print("[CONFIRM] nothing to confirm.")
+			return
+
+		# Merge what’s drawn in blue into persistent black
+		self._saved_paths_black.extend(zip(xs_blue, ys_blue))
+		self.black_path_source.data = dict(
+			xs=[xs for xs, _ in self._saved_paths_black],
+			ys=[ys for _, ys in self._saved_paths_black],
+		)
+
+		# Clear blue
+		self._accum_paths_blue = []
+		self.blue_path_source.data = dict(xs=[], ys=[])
+
+		# Reset path mode
+		self.selected_node = None
+		self.path_drawing_active = False
+		print("[CONFIRM] finalized; path mode OFF (click new root to continue).")
 
 	# ---------- idempotent layer creation + robust (re)wiring ----------
 
@@ -944,6 +1006,7 @@ class Slice(param.Parameterized):
 			print("[ENSURE] Wiring events on right_panel_plot.")
 			self.right_panel_plot.on_event(bokeh.events.Tap,       self.select_msc_node)
 			self.right_panel_plot.on_event(bokeh.events.MouseMove, self.hover_msc_edges)
+			self.right_panel_plot.on_event(bokeh.events.DoubleTap, self.confirm_annotation)
 			self.right_panel_plot.on_event(bokeh.events.Reset,     self.on_right_panel_reset)
 			self._right_events_wired = True
 		else:
@@ -970,6 +1033,7 @@ class Slice(param.Parameterized):
 		self.right_panel_plot.toolbar.active_drag = None
 		self.right_panel_plot.on_event(bokeh.events.Tap,       self.select_msc_node)
 		self.right_panel_plot.on_event(bokeh.events.MouseMove, self.hover_msc_edges)
+		self.right_panel_plot.on_event(bokeh.events.DoubleTap, self.confirm_annotation)
 		self.right_panel_plot.on_event(bokeh.events.Reset,     self.on_right_panel_reset)
 		print("[ENSURE] (re)wired Tap/Move/Reset on right_panel_plot")
 
@@ -1003,6 +1067,8 @@ class Slice(param.Parameterized):
 		# 4) pack to uint32 + overlay toggle
 		rgba_image = self.to_rgba(rgb_image)  # H×W uint32
 		H, W = rgba_image.shape
+		self._rp_img_h = int(H)   # <--- add
+		self._rp_img_w = int(W)   # <--- add
 		self._rgb_uint32 = rgba_image
 		self._rgba_overlay = None
 		if hasattr(self, "overlay_view_toggle"):
@@ -1171,6 +1237,10 @@ class Slice(param.Parameterized):
 	# ---------- annotate orchestrator ----------
 
 	def _on_annotate_click(self, _):
+		if getattr(self, "overlay_view_toggle", None) and self.overlay_view_toggle.value:
+			pn.state.notifications.info("Switch to RGB view to annotate.")
+			return
+		
 		if not hasattr(self, "_last_rgb_roi"):
 			pn.state.notifications.error("Load an ROI first (draw box or use SET).")
 			return
@@ -1201,6 +1271,17 @@ class Slice(param.Parameterized):
 		pn.state.notifications.success(
 			"Annotation ready — click to choose a start node, then hover or click a target."
 		)
+
+		# ---- reset ONLY transient state; keep confirmed black paths ----
+		self._accum_paths_blue = []            # clear in-progress
+		self.blue_path_source.data  = dict(xs=[], ys=[])
+
+		# DO NOT touch self._saved_paths_black  (keep previous confirmations)
+		# DO NOT clear self.black_path_source   (keeps them visible)
+
+		# fresh path-building session
+		self.selected_node = None
+		self.path_drawing_active = False
 
 	def _apply_black_lines(
 		self,
@@ -1373,7 +1454,8 @@ class Slice(param.Parameterized):
 		# enable toggle; auto-switch to overlay
 		self.overlay_view_toggle.disabled = False
 		self.overlay_view_toggle.value = True
-
+		self.annotation_enabled = False
+		pn.state.notifications.info("Overlay shown — annotation disabled (toggle to RGB to annotate).")
 		H, W = rgba.shape
 
 		# if renderer not created yet (should exist from ROI load), create it now
@@ -1399,31 +1481,54 @@ class Slice(param.Parameterized):
 	def _on_overlay_view_toggled(self, event):
 		show_overlay = bool(event.new)
 
-		# guards
-		if self._main_renderer is None:
+		# --- guards --------------------------------------------------------------
+		if not hasattr(self, "right_panel_plot"):
 			return
+
+		# Ensure we have base RGB packed (HxW uint32)
 		if getattr(self, "_rgb_uint32", None) is None:
-			# try to build it from last ROI if missing
 			if hasattr(self, "_last_rgb_roi"):
 				self._rgb_uint32 = self.to_rgba(self._last_rgb_roi)
 			else:
+				# nothing to show
 				return
 
+		# If asked to show overlay, ensure it exists
 		if show_overlay and getattr(self, "_rgba_overlay", None) is None:
-			# no overlay yet; revert and notify
-			self.overlay_view_toggle.value = False
+			# revert toggle and inform
+			try:
+				self.overlay_view_toggle.value = False
+			except Exception:
+				pass
 			try:
 				pn.state.notifications.info("No boundary overlay yet. Click 'Predict Boundary' first.")
 			except Exception:
 				pass
 			return
 
-		# if True -> show overlay (_rgba_overlay); if False -> show RGB (_rgb_uint32)
-		img = (self._rgba_overlay if event.new else self._rgb_uint32)
+		# --- choose image --------------------------------------------------------
+		img = (self._rgba_overlay if show_overlay else self._rgb_uint32)
 		if img is None:
 			return
 		H, W = img.shape
-		self._rp_img_src.data = dict(image=[img], x=[0], y=[0], dw=[W], dh=[H])
+
+		# --- update image datasource --------------------------------------------
+		# If we created a dedicated image renderer during predict, update it;
+		# otherwise update the ColumnDataSource used at ROI load.
+		if getattr(self, "_main_renderer", None) is not None and getattr(self._main_renderer, "data_source", None) is not None:
+			self._main_renderer.data_source.data = dict(image=[img], x=[0], y=[0], dw=[W], dh=[H])
+		elif getattr(self, "_rp_img_src", None) is not None:
+			self._rp_img_src.data = dict(image=[img], x=[0], y=[0], dw=[W], dh=[H])
+
+		# --- enable/disable annotation based on view ----------------------------
+		self.annotation_enabled = not show_overlay
+		try:
+			if show_overlay:
+				pn.state.notifications.info("Overlay view: annotation disabled (toggle to RGB to annotate).")
+			else:
+				pn.state.notifications.success("RGB view: annotation enabled.")
+		except Exception:
+			pass
 
 	# refreshAll
 	def refreshAll(self):
@@ -1673,7 +1778,7 @@ class Slice(param.Parameterized):
 			sizing_mode="stretch_both",
 			output_backend="webgl",
 		)
-
+		self.annotation_enabled = True  # only true when RGB view is active
 		# base image + path layers
 		self._main_renderer = self.right_panel_plot.image_rgba(
 			"image", source=self._rp_img_src, x="x", y="y", dw="dw", dh="dh"
@@ -1685,7 +1790,7 @@ class Slice(param.Parameterized):
 
 		# tools / events (wire ONCE)
 		if not any(isinstance(t, TapTool) for t in self.right_panel_plot.tools):
-			self.right_panel_plot.add_tools(TapTool(), CrosshairTool())
+			self.right_panel_plot.add_tools(CrosshairTool())
 
 		# Make sure drag doesn’t steal taps
 		self.right_panel_plot.toolbar.active_drag    = None
@@ -1696,6 +1801,7 @@ class Slice(param.Parameterized):
 		# Python callbacks (server-side)
 		self.right_panel_plot.on_event(bokeh.events.Tap,       self.select_msc_node)
 		self.right_panel_plot.on_event(bokeh.events.MouseMove, self.hover_msc_edges)
+		self.right_panel_plot.on_event(bokeh.events.DoubleTap,  self.confirm_annotation)
 		self.right_panel_plot.on_event(bokeh.events.Reset,     self.on_right_panel_reset)
 
 		# Optional: JS probe to confirm taps
