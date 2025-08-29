@@ -3,149 +3,10 @@ from bokeh.models import CustomJS, Div
 from threading import Timer
 import math
 import numpy as np
-
-class SliceSynchronizer:
-    def __init__(self, slice1, slice2, scale_factor=4):
-        self.slice1 = slice1
-        self.slice2 = slice2
-        self.scale_factor = scale_factor
-        self.full_width = None
-        self.debounce_timer = None  # Timer to debounce refresh calls
-        self.debounce_delay = 0.1  # Delay in seconds for debounce
-        
-        # Callback list for external subscribers
-        self.update_callbacks = []
-
-
-        # Store zoom levels
-        self.zoom_level_1 = 1.0
-        self.zoom_level_2 = 1.0
-
-        # Link ranges with JavaScript callbacks
-        self.link_ranges()
-
-
-    def link_ranges(self):
-        """Link the x_range and y_range of slice1 and slice2 using JavaScript callbacks."""
-        fig1, fig2 = self.slice1.canvas.fig, self.slice2.canvas.fig
-
-
-        # JavaScript for synchronizing slice2 based on slice1
-        js_code_slice1_to_slice2 = """
-            fig2.x_range.start = fig1.x_range.start * scale_factor;
-            fig2.x_range.end = fig1.x_range.end * scale_factor;
-            fig2.y_range.start = fig1.y_range.start * scale_factor;
-            fig2.y_range.end = fig1.y_range.end * scale_factor;
-        """
-
-        # JavaScript for synchronizing slice1 based on slice2
-        js_code_slice2_to_slice1 = """
-            fig1.x_range.start = fig2.x_range.start / scale_factor;
-            fig1.x_range.end = fig2.x_range.end / scale_factor;
-            fig1.y_range.start = fig2.y_range.start / scale_factor;
-            fig1.y_range.end = fig2.y_range.end / scale_factor;
-        """
- 
-        # Create JavaScript callbacks
-        callback_slice1_to_slice2 = CustomJS(
-            args=dict(fig1=fig1, fig2=fig2, scale_factor=self.scale_factor),
-            code=js_code_slice1_to_slice2
-        )
-        callback_slice2_to_slice1 = CustomJS(
-            args=dict(fig1=fig1, fig2=fig2, scale_factor=self.scale_factor),
-            code=js_code_slice2_to_slice1
-        )
-
-        # Attach JavaScript callbacks for x_range and y_range synchronization
-        fig1.x_range.js_on_change('start', callback_slice1_to_slice2)
-        fig1.x_range.js_on_change('end', callback_slice1_to_slice2)
-        fig1.y_range.js_on_change('start', callback_slice1_to_slice2)
-        fig1.y_range.js_on_change('end', callback_slice1_to_slice2)
-
-        fig2.x_range.js_on_change('start', callback_slice2_to_slice1)
-        fig2.x_range.js_on_change('end', callback_slice2_to_slice1)
-        fig2.y_range.js_on_change('start', callback_slice2_to_slice1)
-        fig2.y_range.js_on_change('end', callback_slice2_to_slice1)
-
-        # Attach Python-side refresh using a timer for debouncing
-        self.attach_refresh(fig1, fig2)
-
-
-    def attach_refresh(self, fig1, fig2):
-        """Attach Python-side refresh with trigger_refreshdebouncing."""
-        def trigger_refresh():
-            """Trigger refresh for both slices and update zoom level."""
-            self.slice1.refresh("DebouncedSyncFromSlice2")
-            self.slice2.refresh("DebouncedSyncFromSlice1")
-            self.zoom_level_1= self.update_zoom_level(fig1)
-            self.zoom_level_2= self.update_zoom_level(fig2)
-
-            self.notify_subscribers()
+from bokeh.core.property.descriptors import UnsetValueError  # add this at top (once)
 
 
 
-        def debounce_refresh(attr, old, new):
-            """Debounce refresh calls."""
-            if self.debounce_timer:
-                self.debounce_timer.cancel()
-
-            # Schedule the refresh after the debounce delay
-            self.debounce_timer = Timer(self.debounce_delay, trigger_refresh)
-            self.debounce_timer.start()
-
-        # Attach Python refresh debounce to all range changes
-        fig1.x_range.on_change('start', debounce_refresh)
-        fig1.x_range.on_change('end', debounce_refresh)
-        fig1.y_range.on_change('start', debounce_refresh)
-        fig1.y_range.on_change('end', debounce_refresh)
-
-        fig2.x_range.on_change('start', debounce_refresh)
-        fig2.x_range.on_change('end', debounce_refresh)
-        fig2.y_range.on_change('start', debounce_refresh)
-        fig2.y_range.on_change('end', debounce_refresh)
-
-
-
-
-#######################################################
-
-    def update_zoom_level(self, fig):
-        """
-        Calculate and update the zoom level dynamically.
-        """
-        # Get current viewport size
-        image_width = fig.x_range.end - fig.x_range.start
-
-        print(f"Current1: {fig.x_range.end}% {fig.x_range.start} {image_width}")
-
-        # Prevent division by zero
-        image_width = max(1, image_width)
-
-        viewport_width = fig.inner_width
-
-        zoomLevel = (viewport_width / math.ceil(image_width)) * 100
-
-        print(f"zoom: viewport width={viewport_width}, image width={math.ceil(image_width)}, zoomLevel={zoomLevel}%")
-
-
-        return (zoomLevel) # Return the zoom level
-
-   
-    def register_callback(self, callback):
-        """
-        Register a callback function to be notified when zoom levels are updated.
-        The callback function should accept two arguments: (zoom_level_fig1, zoom_level_fig2).
-        """
-        self.update_callbacks.append(callback)
-
-    def notify_subscribers(self):
-        """
-        Notify all registered subscribers with the updated zoom levels.
-        """
-        for callback in self.update_callbacks:
-            callback(self.zoom_level_1, self.zoom_level_2)
-
-##################
 
 class MultiSliceSynchronizer:
     def __init__(self, slices, scale_factors):
@@ -154,6 +15,7 @@ class MultiSliceSynchronizer:
         self.debounce_timer = None
         self.debounce_delay = 0.1
         self.update_callbacks = []
+        self.last_bb_zooms = [None] * len(self.slices)  # optional: track last bbox zoom
         self.link_ranges()
 
     def link_ranges(self):
@@ -200,25 +62,80 @@ class MultiSliceSynchronizer:
         self.debounce_timer = Timer(self.debounce_delay, self.trigger_refresh)
         self.debounce_timer.start()
 
+    def trigger_refresh3(self):
+        for slc in self.slices:
+            slc.refresh("Multi-Slice Sync Refresh with Scale Factor")
+        zooms = [self.calc_zoom3(slc.canvas.fig) for slc in self.slices]
+        #zoom_bbs = [self.calc_zoom2(slc.canvas.fig) for slc in self.slices] # Boundary box zoom levels
+        self.notify_subscribers(*zooms)
+
     def trigger_refresh(self):
         for slc in self.slices:
             slc.refresh("Multi-Slice Sync Refresh with Scale Factor")
-        zooms = [self.calc_zoom(slc.canvas.fig) for slc in self.slices]
-        self.notify_subscribers(*zooms)
 
-    def calc_zoom2(self, fig):
-        img_width = fig.x_range.end - fig.x_range.start
-        viewport_width = fig.inner_width
-        zoom_level = (viewport_width / max(1, img_width)) * 100
-        return zoom_level
+        zooms    = []
+        bb_zooms = []
+        for slc in self.slices:
+            z, zbb = self.calc_zoom(slc.canvas.fig)   # <— tuple
+            zooms.append(z)
+            bb_zooms.append(zbb)
+
+        self.last_bb_zooms = bb_zooms                 # <— stash BB zooms
+        self.notify_subscribers(*zooms) 
+
+
     
-    def calc_zoom(self, fig):
+    def calc_zoom3(self, fig):
         img_width = fig.x_range.end - fig.x_range.start
+        bb_width= 1024
         viewport_width = fig.inner_width if fig.inner_width is not None else fig.plot_width
         if viewport_width is None or viewport_width == 0:
+            self.last_zoom_level_bb = 100.0
             return 100.0  # safe default if still not rendered
         zoom_level = (viewport_width / max(1, img_width)) * 100
-        return zoom_level
+        zoom_level_bb= (viewport_width / max(1, bb_width)) * 100
+        print(f"calc_zoom: viewport_width={viewport_width}, img_width={img_width}, zoom_level={zoom_level}%, zoom_level_bb={zoom_level_bb}%")
+        return zoom_level 
+
+    def calc_zoom2(self, fig):
+        bb_width= 1024
+        viewport_width = fig.inner_width if fig.inner_width is not None else fig.plot_width
+        if viewport_width is None or viewport_width == 0:
+            self.last_zoom_level_bb = 100.0
+            return 100.0  # safe default if still not rendered
+        zoom_level_bb= (viewport_width / max(1, bb_width)) * 100
+        print(f"calc_zoom: viewport_width={viewport_width}, img_width={img_width}, zoom_level={zoom_level}%, zoom_level_bb={zoom_level_bb}%")
+        return zoom_level_bb
+
+    def calc_zoom(self, fig):
+        # robust viewport width (avoid UnsetValueError before layout)
+        def _viewport_width(f):
+            for attr in ("inner_width", "plot_width"):
+                try:
+                    v = getattr(f, attr)
+                except Exception:
+                    v = None
+                if isinstance(v, (int, float)) and v > 0:
+                    return v
+            return 0
+
+        img_width = (fig.x_range.end - fig.x_range.start)
+        bb_width  = 1024
+        viewport_width = _viewport_width(fig)
+
+        if viewport_width <= 0:
+            zoom_level    = 100.0
+            zoom_level_bb = 100.0
+        else:
+            zoom_level    = (viewport_width / max(1, img_width)) * 100.0
+            zoom_level_bb = (viewport_width / max(1, bb_width))  * 100.0
+
+        # keep the helpful print
+        print(f"calc_zoom: viewport_width={viewport_width}, img_width={img_width}, "
+              f"zoom_level={zoom_level}%, zoom_level_bb={zoom_level_bb}%")
+
+        return zoom_level, zoom_level_bb 
+
 
 
     def register_callback(self, callback):
