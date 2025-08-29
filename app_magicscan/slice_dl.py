@@ -11,7 +11,12 @@ import threading
 import time
 from urllib.parse import urlparse, urlencode
 from scipy.ndimage import gaussian_filter
+from io import BytesIO
+from pathlib import Path
+from datetime import datetime
 import numpy as np
+from PIL import Image
+import zipfile
 import networkx as nx
 import bokeh
 import bokeh.models
@@ -22,8 +27,7 @@ import bokeh.plotting
 import bokeh.models.callbacks
 from bokeh.models import LinearColorMapper, ColorBar
 from bokeh.plotting import figure
-import param 
-from datetime import datetime
+import param
 import panel as pn
 from panel.layout import FloatPanel
 from panel import Column,Row,GridBox,Card
@@ -40,57 +44,128 @@ from scipy.spatial import KDTree
 import heapq
 from collections import defaultdict
 import sys
-from pathlib import Path
-from PIL import Image
 from inference_pipeline import TissuePredictor
 pn.extension(notifications=True)
 
 BUTTON_CSS = """
-:root {
-  --btn-h: 34px;          /* visual height */
-  --btn-pad-x: 14px;      /* left/right padding (a touch tighter) */
-  --btn-pad-y: 6px;       /* top/bottom padding  */
-  --toolbar-gap: 3px;     /* <<< tighter space between controls */
+:root{
+  --btn-h:34px;
+  --btn-pad-x:14px;
+  --btn-pad-y:6px;
+  --toolbar-gap:3px;
 }
 
-/* One-line toolbar that wraps and uses a fixed, tiny gap */
-.right-toolbar {
-  display: flex;
-  flex-wrap: wrap;            /* wrap to next line if tight */
-  gap: var(--toolbar-gap);    /* uniform spacing */
-  align-items: center;
+.right-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--toolbar-gap);
+  align-items:center;
 }
 
-/* Pill look + perfect centering for Button/Toggle */
+/* Buttons/Toggles that carry the 'pill' class */
 .bk-btn.pill,
 .bk-btn-group .bk-btn.pill,
-.bk-input-group .bk-btn.pill {
+.bk-input-group .bk-btn.pill{
+  height:var(--btn-h)!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:var(--btn-pad-y) var(--btn-pad-x)!important;
+  border-radius:9999px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  box-sizing:border-box;
+  width:auto;
+  font-size:14px!important;
+}
+
+/* Inputs match height */
+.right-toolbar .bk-input{
+  height:var(--btn-h);
+  line-height:var(--btn-h);
+  padding:0 10px;
+  box-sizing:border-box;
+  font-size:14px;
+}
+
+.right-toolbar select.bk-input{
+  -webkit-appearance:none;
+  background-position:right 8px center;
+}
+
+/* === FileDownload: cover all render modes & size classes === */
+/* wrapper should not collapse */
+.right-toolbar .bk-file-download{
+  display:inline-flex!important;
+  align-items:center!important;
+}
+
+/* target inner <button> or <a> */
+.right-toolbar .bk-file-download .bk-btn,
+.right-toolbar .bk-file-download button,
+.right-toolbar .bk-file-download a{
+  height:var(--btn-h)!important;
+  padding:var(--btn-pad-y) var(--btn-pad-x)!important;
+  border-radius:9999px!important;
+  line-height:1!important;
+  font-weight:600!important;
+  font-size:14px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  box-sizing:border-box;
+  width:auto!important;
+}
+
+/* neutralize any built-in small size */
+.right-toolbar .bk-file-download .bk-btn.bk-btn-small,
+.right-toolbar .bk-file-download button.bk-btn-small{
+  font-size:14px!important;
+  padding:var(--btn-pad-y) var(--btn-pad-x)!important;
+  height:var(--btn-h)!important;
+}
+
+/* keep anchor/button contents centered */
+.right-toolbar .bk-file-download .bk-btn > span,
+.right-toolbar .bk-file-download .bk-btn > i,
+.right-toolbar .bk-file-download button > span,
+.right-toolbar .bk-file-download a > span{
+  display:inline-flex;
+  align-items:center;
+}
+
+/* === FORCE FileDownload "Save TIFFs" to match pill buttons === */
+/* The widget wrapper has classes: .pill.fd-pill */
+.right-toolbar .fd-pill .bk-btn,
+.right-toolbar .fd-pill button,
+.right-toolbar .fd-pill a {
   height: var(--btn-h) !important;
-  display: inline-flex !important;
-  align-items: center !important;   /* vertical center */
-  justify-content: center !important;/* horizontal center */
   padding: var(--btn-pad-y) var(--btn-pad-x) !important;
   border-radius: 9999px !important;
-  font-weight: 600 !important;
   line-height: 1 !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   box-sizing: border-box;
-  width: auto;                      /* size by label + padding */
+  width: auto !important;
 }
 
-/* Make selects match button height/centering visually */
-.right-toolbar .bk-input {
-  height: var(--btn-h);
-  line-height: var(--btn-h);
-  padding: 0 10px;
-  box-sizing: border-box;
-  font-size: 14px;
+/* Neutralize built-in small size if Panel injects it */
+.right-toolbar .fd-pill .bk-btn.bk-btn-small,
+.right-toolbar .fd-pill button.bk-btn-small {
+  font-size: 14px !important;
+  padding: var(--btn-pad-y) var(--btn-pad-x) !important;
+  height: var(--btn-h) !important;
 }
 
-/* Keep native select arrow vertically centered (WebKit) */
-.right-toolbar select.bk-input {
-  -webkit-appearance: none;
-  background-position: right 8px center;
+/* Ensure the wrapper doesn’t collapse */
+.right-toolbar .fd-pill {
+  display: inline-flex !important;
+  align-items: center !important;
 }
+
 """
 try:
     pn.config.raw_css.append(BUTTON_CSS)
@@ -99,7 +174,7 @@ except Exception:
 import matplotlib.cm as cm
 from bokeh.io import curdoc
 import threading
-sys.path.append(r"/run/media/syedfahimahmed1/New Volume/Documents Fahim PC/GitHub/msc_py_build_old/bin")
+#sys.path.append(r"/run/media/syedfahimahmed1/New Volume/Documents Fahim PC/GitHub/msc_py_build_old/bin")
 import msc_py
 print("Successful")
 import scipy.ndimage as ndi
@@ -251,14 +326,18 @@ class Canvas:
 		# self.fig.toolbar.active_inspect = self.over_tool #will bring this back
 		self.fig.toolbar.active_tap     = None
 		# self.fig.toolbar.
+		self.fig.xaxis.visible = False
+		self.fig.yaxis.visible = False
+		self.fig.xgrid.visible = False
+		self.fig.ygrid.visible = False
 
 		# try to preserve the old status
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
 		self.fig.y_range = bokeh.models.Range1d(0,512) if old is None else old.y_range
 
 		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
-		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
-		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
+		#self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
+		#self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
 
 		self.fig.on_event(bokeh.events.Tap      ,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.Tap,[]) ])
 		self.fig.on_event(bokeh.events.DoubleTap,      lambda evt: [fn(evt) for fn in self.events.get(bokeh.events.DoubleTap,[])])
@@ -309,8 +388,8 @@ class Canvas:
 
 	# setAxisLabels
 	def setAxisLabels(self,x,y):
-		self.fig.xaxis.axis_label  ='X'
-		self.fig.yaxis.axis_label  = 'Y'		
+		self.fig.xaxis.axis_label = None
+		self.fig.yaxis.axis_label = None		
 
 
 	# getWidth (this is number of pixels along X for the canvas)
@@ -427,7 +506,7 @@ class Slice(param.Parameterized):
 	}
 
 	right_show_options = {
-		"top": [["view_dependent", "annotate_btn", "predict_btn", "overlay_view_toggle", "save_tiff_btn"]],
+		"top": [["view_dependent", "annotate_btn", "predict_btn", "overlay_view_toggle", "save_tiffs_dl"]],
 	}
 
 	# constructor
@@ -458,12 +537,12 @@ class Slice(param.Parameterized):
 
 		# default: geometry is already in plot/cartesian coords (y-up)
 		self._rp_geom_is_plot_y_up = True
-		self.black_path_source = ColumnDataSource(data=dict(xs=[], ys=[]))
+		self.green_path_source = ColumnDataSource(data=dict(xs=[], ys=[]))
 		self.blue_path_source = ColumnDataSource(data=dict(xs=[], ys=[]))
 
-		# Blue = accumulating (not yet confirmed); Black = confirmed
+		# Blue = accumulating (not yet confirmed); green = confirmed
 		self._accum_paths_blue = []   # list[(xs, ys)]
-		self._saved_paths_black = []  # list[(xs, ys)]
+		self._saved_paths_green = []  # list[(xs, ys)]
 
 		self.selected_node = None
 		self.path_drawing_active = False
@@ -486,7 +565,7 @@ class Slice(param.Parameterized):
 		# Gate auto-loading inside load_right_panel_image():
 		self._autoload_on_bbox_change = False
 
-		MODEL_CKPT = "app_magicscan/best_model.pth"    # CHANGE
+		MODEL_CKPT = "/app2/app_magicscan/best_model.pth"    # CHANGE
 		self.tissue_model = TissuePredictor(
 			model_path=MODEL_CKPT,
 			tile_size=128,      # 128-pixel tiles
@@ -736,7 +815,7 @@ class Slice(param.Parameterized):
 			return
 
 		H, W = arr.shape[:2]
-		self._rp_img_h = int(H)  # ensure helpers have current size
+		self._rp_img_h = int(H)
 		self._rp_img_w = int(W)
 
 		if not getattr(self, "msc_nodes", None):
@@ -941,19 +1020,39 @@ class Slice(param.Parameterized):
 		self.blue_path_source.data = dict(xs=xs, ys=ys)
 
 	def on_right_panel_reset(self, event=None):
-		print("[RESET] Reset button pressed — clearing paths and selections.")
-		self.saved_paths = []
+		print("[RESET] Clearing annotations (blue+green) but keeping image.")
+
+		# clear transient + confirmed paths
+		self._accum_paths_blue  = []
+		self._saved_paths_green = []
+
+		# clear renderers
+		self.blue_path_source.data  = dict(xs=[], ys=[])
+		self.green_path_source.data = dict(xs=[], ys=[])
+
+		# clear selection/path mode
 		self.selected_node = None
 		self.path_drawing_active = False
-		self.black_path_source.data = dict(xs=[], ys=[])
-		self.blue_path_source.data = dict(xs=[], ys=[])
+
+		# --- restore ranges to current image, because Bokeh Reset reverts to (0..1) ---
+		H = int(getattr(self, "_rp_img_h", 0) or 0)
+		W = int(getattr(self, "_rp_img_w", 0) or 0)
+		if H > 0 and W > 0:
+			self.right_panel_plot.x_range.start, self.right_panel_plot.x_range.end = 0, W
+			self.right_panel_plot.y_range.start, self.right_panel_plot.y_range.end = 0, H
+
+		# keep whatever image is currently shown (RGB or overlay) intact
+		try:
+			pn.state.notifications.info("Annotations cleared. Image unchanged.")
+		except Exception:
+			pass
 
 	def confirm_annotation(self, event):
-		"""Double-click: finalize whatever is currently drawn in BLUE (accum+preview) into BLACK."""
+		"""Double-click: finalize whatever is currently drawn in BLUE (accum+preview) into green."""
 		if not getattr(self, "annotation_enabled", True):
 			return
 		
-		print("[CONFIRM] Double-tap: finalizing blue (accum+preview) into black.")
+		print("[CONFIRM] Double-tap: finalizing blue (accum+preview) into green.")
 
 		xs_blue = self.blue_path_source.data.get("xs", [])
 		ys_blue = self.blue_path_source.data.get("ys", [])
@@ -961,11 +1060,11 @@ class Slice(param.Parameterized):
 			print("[CONFIRM] nothing to confirm.")
 			return
 
-		# Merge what’s drawn in blue into persistent black
-		self._saved_paths_black.extend(zip(xs_blue, ys_blue))
-		self.black_path_source.data = dict(
-			xs=[xs for xs, _ in self._saved_paths_black],
-			ys=[ys for _, ys in self._saved_paths_black],
+		# Merge what’s drawn in blue into persistent green
+		self._saved_paths_green.extend(zip(xs_blue, ys_blue))
+		self.green_path_source.data = dict(
+			xs=[xs for xs, _ in self._saved_paths_green],
+			ys=[ys for _, ys in self._saved_paths_green],
 		)
 
 		# Clear blue
@@ -985,15 +1084,15 @@ class Slice(param.Parameterized):
 			print("[ENSURE] No right_panel_plot yet.")
 			return
 
-		have_black = any(getattr(r, "data_source", None) is self.black_path_source
+		have_green = any(getattr(r, "data_source", None) is self.green_path_source
 						for r in self.right_panel_plot.renderers)
 		have_blue  = any(getattr(r, "data_source", None) is self.blue_path_source
 						for r in self.right_panel_plot.renderers)
 
-		if not have_black:
-			self.right_panel_plot.multi_line(xs='xs', ys='ys', source=self.black_path_source,
-											line_color='black', line_width=2, alpha=0.8)
-			print("[ENSURE] Added black multi_line.")
+		if not have_green:
+			self.right_panel_plot.multi_line(xs='xs', ys='ys', source=self.green_path_source,
+											line_color='green', line_width=2, alpha=0.8)
+			print("[ENSURE] Added green multi_line.")
 		if not have_blue:
 			self.right_panel_plot.multi_line(xs='xs', ys='ys', source=self.blue_path_source,
 											line_color='blue', line_width=2, alpha=0.8)
@@ -1067,20 +1166,21 @@ class Slice(param.Parameterized):
 		# 4) pack to uint32 + overlay toggle
 		rgba_image = self.to_rgba(rgb_image)  # H×W uint32
 		H, W = rgba_image.shape
-		self._rp_img_h = int(H)   # <--- add
-		self._rp_img_w = int(W)   # <--- add
+		self._rp_img_h = int(H)
+		self._rp_img_w = int(W)
 		self._rgb_uint32 = rgba_image
 		self._rgba_overlay = None
-		if hasattr(self, "overlay_view_toggle"):
-			self.overlay_view_toggle.disabled = True
-			self.overlay_view_toggle.value = False
 
-		# 5) reset annotation state
-		self.saved_paths = []
-		self.black_path_source.data = dict(xs=[], ys=[])
+		# 5) reset annotation state (wipe for NEW ROI)
+		self._accum_paths_blue  = []          # in-progress (blue) cleared
+		self._saved_paths_green = []          # confirmed (green) cleared
 		self.blue_path_source.data  = dict(xs=[], ys=[])
+		self.green_path_source.data = dict(xs=[], ys=[])
+
 		self.selected_node = None
 		self.path_drawing_active = False
+
+		# reset MSC/graph caches for new ROI
 		self.msc_nodes = []
 		self.msc_edges = []
 		self.graph = {}
@@ -1090,6 +1190,15 @@ class Slice(param.Parameterized):
 		self.spt_root_id = None
 		self._node_tree = None
 		self.node_xy_plot = []
+
+		# also reset overlay state for a new ROI
+		self._rgba_overlay = None
+		if hasattr(self, "overlay_view_toggle"):
+			self.overlay_view_toggle.value = False
+			self.overlay_view_toggle.disabled = True
+
+		# annotation allowed by default on fresh RGB
+		self.annotation_enabled = True
 
 		# 6) update existing figure only (no re-mount)
 		img = rgba_image
@@ -1272,12 +1381,12 @@ class Slice(param.Parameterized):
 			"Annotation ready — click to choose a start node, then hover or click a target."
 		)
 
-		# ---- reset ONLY transient state; keep confirmed black paths ----
+		# ---- reset ONLY transient state; keep confirmed green paths ----
 		self._accum_paths_blue = []            # clear in-progress
 		self.blue_path_source.data  = dict(xs=[], ys=[])
 
-		# DO NOT touch self._saved_paths_black  (keep previous confirmations)
-		# DO NOT clear self.black_path_source   (keeps them visible)
+		# DO NOT touch self._saved_paths_green  (keep previous confirmations)
+		# DO NOT clear self.green_path_source   (keeps them visible)
 
 		# fresh path-building session
 		self.selected_node = None
@@ -1293,7 +1402,7 @@ class Slice(param.Parameterized):
 		"""
 		1) Threshold prob → binary mask
 		2) (Optional) dilate to thicken lines
-		3) Paint black pixels onto a copy of rgb
+		3) Paint green pixels onto a copy of rgb
 		4) Pack to uint32 RGBA for Bokeh
 		Returns: HxW uint32 (packed RGBA)
 		"""
@@ -1326,7 +1435,7 @@ class Slice(param.Parameterized):
 			return self.to_rgba(rgb)
 		
 		self._last_mask = mask.astype(np.uint8)       # store for saving
-		# ---- 3) paint black on a copy ----
+		# ---- 3) paint green on a copy ----
 		painted = rgb.copy()
 		painted[mask] = (0, 0, 0)
 
@@ -1337,74 +1446,62 @@ class Slice(param.Parameterized):
 		view[...,  3] = 255
 		return rgba_flat
 	
-	def save_tiff(self, _):
-		"""
-		Save the current ROI in three TIFFs:
-		<stem>.tiff        (RGB)
-		<stem>_sobel.tiff  (Sobel/MSC preview, RGB or RGBA)
-		<stem>_mask.tiff   (DL boundary mask, single-channel L, 0/255)
 
-		<stem> := <case>_<type>_<x0>_<y0>_<timestamp>
+	def _make_roi_tiffs_zip(self):
 		"""
-		# ── guards ─────────────────────────────────────────────────
+		Build a ZIP (in-memory) with:
+		<stem>.tiff       (RGB)
+		<stem>_mask.tiff  (DL boundary mask, L 0/255)
+		and return its bytes for client-side download.
+		"""
+		# ---------- guards ----------
 		if not hasattr(self, "_last_rgb_roi"):
-			pn.state.notifications.error("No ROI loaded yet!")
-			return
-		if not hasattr(self, "_last_sobel_roi"):
-			pn.state.notifications.error("Edge image not available yet!")
-			return
+			raise RuntimeError("No ROI loaded yet.")
 		if not hasattr(self, "_last_mask"):
-			pn.state.notifications.error("Run “Predict Boundary” first!")
-			return
+			raise RuntimeError("No boundary mask yet (run Predict Boundary).")
 		if not (hasattr(self, "current_case") and hasattr(self, "current_type")):
-			pn.state.notifications.error("Missing case/type context!")
-			return
+			raise RuntimeError("Missing case/type context.")
 
-		# ── fetch & flip to match GUI orientation ──────────────────
-		rgb   = np.flipud(self._last_rgb_roi)     # H×W×3
-		sobel = np.flipud(self._last_sobel_roi)   # H×W×3 or ×4
-		mask  = np.flipud(self._last_mask)        # H×W (bool or 0/1/0/255)
+		# ---------- fetch & orient ----------
+		rgb   = np.flipud(self._last_rgb_roi)
+		mask  = np.flipud(self._last_mask)
 
-		# ── coerce dtypes ──────────────────────────────────────────
-		if rgb.dtype   != np.uint8: rgb   = np.clip(rgb,   0, 255).astype(np.uint8)
-		if sobel.dtype != np.uint8: sobel = np.clip(sobel, 0, 255).astype(np.uint8)
-
-		# mask → uint8 (0/255)
+		# coerce dtypes
+		if rgb.dtype != np.uint8:
+			rgb = np.clip(rgb, 0, 255).astype(np.uint8)
 		if mask.dtype == np.bool_:
 			mask = mask.astype(np.uint8) * 255
 		else:
 			mask = (mask > 0).astype(np.uint8) * 255
 
-		sobel_mode = "RGBA" if (sobel.ndim == 3 and sobel.shape[-1] == 4) else "RGB"
-
-		# ── filenames ──────────────────────────────────────────────
-		x0, y0 = self._last_bbox_ll
+		# filenames
+		x0, y0 = getattr(self, "_last_bbox_ll", (0, 0))
 		ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
 		stem = f"{self.current_case}_{self.current_type}_{x0}_{y0}_{ts}"
 
-		rgb_fn  = Path.cwd() / f"{stem}.tiff"
-		sob_fn  = Path.cwd() / f"{stem}_sobel.tiff"
-		mask_fn = Path.cwd() / f"{stem}_mask.tiff"
+		# ---------- write 2 TIFFs into a ZIP (all in-memory) ----------
+		zip_buf = BytesIO()
+		with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+			# RGB
+			rgb_buf = BytesIO()
+			Image.fromarray(rgb, mode="RGB").save(rgb_buf, format="TIFF")
+			zf.writestr(f"{stem}.tiff", rgb_buf.getvalue())
 
-		# ── write ──────────────────────────────────────────────────
-		Image.fromarray(rgb,   mode="RGB").save(rgb_fn,  format="TIFF")
-		Image.fromarray(sobel, mode=sobel_mode).save(sob_fn, format="TIFF")
-		Image.fromarray(mask,  mode="L").save(mask_fn,  format="TIFF")
+			# Mask (L)
+			msk_buf = BytesIO()
+			Image.fromarray(mask, mode="L").save(msk_buf, format="TIFF")
+			zf.writestr(f"{stem}_mask.tiff", msk_buf.getvalue())
 
-		# ── notify ─────────────────────────────────────────────────
-		pn.state.notifications.success(
-			f"Saved {rgb_fn.name}, {sob_fn.name} & {mask_fn.name}"
-		)
-		print(f"[TIFF saved] → {rgb_fn.resolve()}")
-		print(f"[TIFF saved] → {sob_fn.resolve()}")
-		print(f"[TIFF saved] → {mask_fn.resolve()}")
+		zip_buf.seek(0)
+		self.save_tiffs_dl.filename = f"{stem}.zip"
+		return zip_buf
 	
 	def _on_predict_click(self, _):
 		"""
 		Button callback — synchronous (no background thread).
 
 		1) Run UNet on current ROI
-		2) Paint black boundary pixels onto a copy of the RGB
+		2) Paint green boundary pixels onto a copy of the RGB
 		3) Cache overlay and swap the right-panel image (respecting the toggle)
 		"""
 		# ---- 0) guards ---------------------------------------------------------
@@ -1417,7 +1514,7 @@ class Slice(param.Parameterized):
 
 		# clear previous path state
 		self.saved_paths = []
-		self.black_path_source.data = dict(xs=[], ys=[])
+		self.green_path_source.data = dict(xs=[], ys=[])
 		self.blue_path_source.data  = dict(xs=[], ys=[])
 		self.selected_node = None
 		self.path_drawing_active = False
@@ -1758,7 +1855,7 @@ class Slice(param.Parameterized):
         # --- Right panel: create ONCE, wire ONCE ---
 		from bokeh.models import ColumnDataSource, TapTool, CrosshairTool, CustomJS
 
-		H0, W0 = 1, 1  # placeholder; will be updated on first ROI
+		H0, W0 = 1024, 1024  # placeholder; will be updated on first ROI
 
 		# image datasource that we will update on every ROI
 		self._rp_img_src = ColumnDataSource(data=dict(
@@ -1766,7 +1863,7 @@ class Slice(param.Parameterized):
 		))
 
 		# reuse your existing sources if already present
-		self.black_path_source = getattr(self, "black_path_source", ColumnDataSource(data=dict(xs=[], ys=[])))
+		self.green_path_source = getattr(self, "green_path_source", ColumnDataSource(data=dict(xs=[], ys=[])))
 		self.blue_path_source  = getattr(self, "blue_path_source",  ColumnDataSource(data=dict(xs=[], ys=[])))
 
 		# IMPORTANT: don't read inner_width/inner_height here (they aren't set yet).
@@ -1778,15 +1875,20 @@ class Slice(param.Parameterized):
 			sizing_mode="stretch_both",
 			output_backend="webgl",
 		)
+		self.right_panel_plot.xaxis.visible = False
+		self.right_panel_plot.yaxis.visible = False
+		self.right_panel_plot.xgrid.visible = False
+		self.right_panel_plot.ygrid.visible = False
+
 		self.annotation_enabled = True  # only true when RGB view is active
 		# base image + path layers
 		self._main_renderer = self.right_panel_plot.image_rgba(
 			"image", source=self._rp_img_src, x="x", y="y", dw="dw", dh="dh"
 		)
-		self.right_panel_plot.multi_line(xs='xs', ys='ys', source=self.black_path_source,
-										line_color='black', line_width=2, alpha=0.8)
+		self.right_panel_plot.multi_line(xs='xs', ys='ys', source=self.green_path_source,
+										line_color='green', line_width=3, alpha=0.8)
 		self.right_panel_plot.multi_line(xs='xs', ys='ys', source=self.blue_path_source,
-										line_color='blue',  line_width=2, alpha=0.8)
+										line_color='blue',  line_width=3, alpha=0.8)
 
 		# tools / events (wire ONCE)
 		if not any(isinstance(t, TapTool) for t in self.right_panel_plot.tools):
@@ -1806,7 +1908,7 @@ class Slice(param.Parameterized):
 
 		# Optional: JS probe to confirm taps
 		self._tap_debug_src = ColumnDataSource(data=dict(x=[], y=[]))
-		self.right_panel_plot.circle('x', 'y', source=self._tap_debug_src, size=7, alpha=0.9, color="lime")
+		self.right_panel_plot.circle('x', 'y', source=self._tap_debug_src, size=7, alpha=0.9, color="yellow")
 		self.right_panel_plot.js_on_event('tap', CustomJS(args=dict(s=self._tap_debug_src), code="""
 			if (cb_obj.x==null || cb_obj.y==null) return;
 			s.data.x = [cb_obj.x];
@@ -1857,9 +1959,20 @@ class Slice(param.Parameterized):
 		self.overlay_view_toggle.param.watch(self._on_overlay_view_toggled, "value")
 
 		# Save / Predict / Toggle (uniform look; size driven by label)
-		self.save_tiff_btn = pn.widgets.Button(name="Save TIFF", button_type="success")
-		self.save_tiff_btn.css_classes = ["pill"]
-		self.save_tiff_btn.on_click(self.save_tiff)
+		self.save_tiffs_dl = pn.widgets.FileDownload(
+			label="Save TIFFs",
+			filename="roi_exports.zip",
+			button_type="success",
+			embed=False,
+			callback=self._make_roi_tiffs_zip,
+			width=100
+		)
+		# put BOTH classes so we can target reliably
+		self.save_tiffs_dl.css_classes = ["pill", "fd-pill"]   # wrapper classes
+
+		# if your Panel has this param, keep it; if not, it's harmless
+		if hasattr(self.save_tiffs_dl, "button_css_classes"):
+			self.save_tiffs_dl.button_css_classes = ["pill"]
 
 		# (no manual width overrides)
 		self._rgb_uint32    = None   # set in load_right_panel_image

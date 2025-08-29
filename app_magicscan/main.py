@@ -18,34 +18,42 @@ import bokeh.plotting
 import bokeh.models.callbacks
 
 from openvisuspy import SetupLogger, Slice
-from sync_link import SliceSynchronizer
 from sync_link import MultiSliceSynchronizer
 import math
 from pathlib import Path
 from slice_dl import Slice as SliceDL
 import requests
 
-
+from bokeh.plotting import figure
+from bokeh.models import BoxAnnotation
+import numpy as np
+from bokeh.models import LinearColorMapper
 
 ##################################
 
 
 class MultiSliceSyncApp:
-    def __init__(self, slices, captions, scale_factors, scale_bar1):
+    def __init__(self, slices, captions, scale_factors, scale_bar1, scale_bar2):
         self.slices = slices
         self.captions = captions
         self.scale_bar1 = scale_bar1
+        self.scale_bar2 = scale_bar2
+        self.is_bbox_mode = False  # set by caller for single-image + BB mode
+        
         self.mm_x_1 = 0.0006559980709556726  # mm/pixel
         self.fixed_pixel_length = 200
 
         self.synchronizer = MultiSliceSynchronizer(slices, scale_factors)
         self.synchronizer.register_callback(self.on_zoom_update)
 
+
     def update_caption(self, caption, label, zoom_level):
         #caption.object = f"<h4>{label} - Zoom Level: {round(zoom_level, 2)}%</h4>"
+        #text-align: start;
+        #text-align: center;
         caption.object = f"""
-        <div style="text-align: start; width: 100%; padding-top: 10px;">
-            <h4 style="margin: 0;font-size: 20px">{label}</h4>
+        <div style="width: 100%; padding-top: 2px;">
+            <h4 style="margin: 0;font-size: 24px">{label}</h4>
         </div>
         """
 
@@ -54,7 +62,7 @@ class MultiSliceSyncApp:
         effective_mm_per_screen_pixel = mm_per_pixel / (zoom_level / 100)
         length_mm = self.fixed_pixel_length * effective_mm_per_screen_pixel
         bar.object = f"""
-        <div style="text-align: center; width: 100%; padding-top: 10px;">
+        <div style="width: 100%; padding-top: 2px;">
             <svg height="20" width="{self.fixed_pixel_length}px">
               <line x1="0" y1="10" x2="{self.fixed_pixel_length}" y2="10" style="stroke:black;stroke-width:3" />
             </svg>
@@ -62,53 +70,40 @@ class MultiSliceSyncApp:
         </div>
         """
 
+    def update_scale_bar_bb(self, bar, mm_per_pixel, zoom_level):
+        effective_mm_per_screen_pixel = mm_per_pixel / (zoom_level / 100)
+        length_mm = self.fixed_pixel_length * effective_mm_per_screen_pixel
+        bar.object = f"""
+        <div style="width: 100%; padding-top: 2px;">
+            <svg height="20" width="{self.fixed_pixel_length}px">
+              <line x1="0" y1="10" x2="{self.fixed_pixel_length}" y2="10" style="stroke:black;stroke-width:3" />
+            </svg>
+            <div style="font-size:20px; padding-top:2px;">{length_mm:.5f} mm</div>
+        </div>
+        """
+
+
     def on_zoom_update(self, *zooms):
         for idx, zoom in enumerate(zooms):
             label = self.slices[idx].image_type.value
             self.update_caption(self.captions[idx], label, zoom)
             self.update_scale_bar(self.scale_bar1, self.mm_x_1, zoom)
+            
+
+        try:
+            # only print in single-image + bbox mode
+            if self.is_bbox_mode and len(zooms) == 1:
+                bb_list = getattr(self.synchronizer, "last_bb_zooms", None)
+                if bb_list and bb_list[0] is not None:
+                    zoom_level_bb = round(bb_list[0], 2)
+                    print(f"Zoom Level BB: {zoom_level_bb}%")
+                    self.update_scale_bar_bb(self.scale_bar2, self.mm_x_1, zoom_level_bb)
+        except Exception as e:
+            print("BB zoom print failed:", e)
+
 
     def run(self):
         print("MultiSliceSyncApp running with full synchronization & scale factors...")
-
-
-
-###############################
-class ZoomSync2:
-    def __init__(self, slice1, slice2, scale_factor, slice1_caption, slice2_caption):
-        self.synchronizer = SliceSynchronizer(slice1, slice2, scale_factor)
-        self.synchronizer.register_callback(self.on_zoom_update)
-        
-        # Store reference to captions for updates
-        self.slice1_caption = slice1_caption
-        self.slice2_caption = slice2_caption
-
-    def update_caption(self, caption, label, zoom_level):
-        """
-        Helper method to update captions dynamically.
-        """
-        caption.object = f"""
-        <div style="text-align: down; height: auto;">
-            <h4> {label} &nbsp;&nbsp;&nbsp; Zoom Level: {round(zoom_level, 2)} %</h4>
-        </div>
-        """
-
-    def on_zoom_update(self, zoom_level_fig1, zoom_level_fig2):
-        """
-        Callback function to update zoom levels in captions.
-        """
-        print(f"Updated Zoom Levels - Fig1: {zoom_level_fig1}, Fig2: {zoom_level_fig2}")
-        self.update_caption(self.slice1_caption, slice1.image_type.value, zoom_level_fig1)
-        self.update_caption(self.slice2_caption, slice2.image_type.value, zoom_level_fig2)
-
-    def run(self):
-        """
-        Run the application.
-        """
-        print("Application is running...")
-
-#################
-
 
 #######################################
 
@@ -227,8 +222,11 @@ class SliceSelectorApp:
 
         scale_bar1 = pn.pane.HTML(sizing_mode="stretch_width")
 
+        scale_bar2 = pn.pane.HTML(sizing_mode="stretch_width")
+
         # Initialize synchronization ONLY with real slices (no placeholders)
-        self.multi_slice_sync_app = MultiSliceSyncApp(slices, captions, scale_factors, scale_bar1= scale_bar1)
+        self.multi_slice_sync_app = MultiSliceSyncApp(slices, captions, scale_factors, scale_bar1= scale_bar1, scale_bar2= scale_bar2)
+        self.multi_slice_sync_app.is_bbox_mode = True  # <— tell app we're in BB mode
         self.multi_slice_sync_app.run()
 
         self.main_panel.clear()
@@ -253,6 +251,7 @@ class SliceSelectorApp:
                 setattr(slc, "current_case", case)
                 setattr(slc, "current_type", sub)
 
+
                 # Left: main viewer; Right: your info/options/image panels
                 left_layout  = slc.getMainLayout().clone(width_policy='max', sizing_mode='stretch_both')
                 right_layout = pn.Column(
@@ -271,29 +270,193 @@ class SliceSelectorApp:
                         sizing_mode="stretch_both"
                     ),
                     pn.Row(
+                         scale_bar1, captions[0], scale_bar2, align= "start", sizing_mode="stretch_width"),
                         pn.Spacer(),
-                        pn.Column(captions[0], sizing_mode="stretch_width"),
-                        pn.Column(scale_bar1, width=150),
-                        pn.Spacer(),),
-                        align="start",
+                        #align="start",
                     sizing_mode="stretch_width",
                 )
+                
+                            
             else:
+                main_view = slices[0].getMainLayout().clone(width_policy='max', sizing_mode='stretch_both')
+
+                # Button to toggle overlay
+                overview_btn = pn.widgets.Button(
+                    name="Show overview",
+                    button_type="default",
+                    width=140
+                )
+                overview_btn.styles = dict(background="#f3f4f6", color="#111827", border="1px solid #e5e7eb")
+
+                # Holder to position overlay on top of main view
+                main_holder = pn.Column(
+                    main_view,
+                    sizing_mode="stretch_both",
+                    styles={"position": "relative"}
+                )
+
+                # Absolutely-positioned overlay container (hidden by default)
+                overlay_area = pn.Column(
+                    visible=False,
+                    styles={
+                        "position": "absolute",
+                        "left": "16px",
+                        "top": "16px",
+                        "zIndex": "50",
+                        "background": "white",
+                        "padding": "6px",
+                        "border": "1px solid #e5e7eb",
+                        "borderRadius": "12px",
+                        "boxShadow": "0 8px 24px rgba(0,0,0,.18)"
+                    }
+                )
+                main_holder.append(overlay_area)
+
+                # Keep references so we only build once (snapshot stays fixed)
+                _overlay_fig = {"fig": None, "box": None}
+
+                def _copy_src_data(src):
+                    data = {}
+                    for k, v in src.data.items():
+                        if isinstance(v, np.ndarray):
+                            data[k] = v.copy()
+                        elif hasattr(v, "copy"):
+                            data[k] = v.copy()
+                        else:
+                            data[k] = list(v) if isinstance(v, (list, tuple)) else v
+                    return data
+
+                def _update_box_from_main_ranges():
+                    if not _overlay_fig["fig"] or not _overlay_fig["box"]:
+                        return
+                    fig_main = slices[0].canvas.fig
+                    x0, x1 = fig_main.x_range.start, fig_main.x_range.end
+                    y0, y1 = fig_main.y_range.start, fig_main.y_range.end
+
+                    # normalize ordering just in case
+                    left, right = (x0, x1) if x0 <= x1 else (x1, x0)
+                    bottom, top = (y0, y1) if y0 <= y1 else (y1, y0)
+
+                    box = _overlay_fig["box"]
+                    box.left   = left
+                    box.right  = right
+                    box.bottom = bottom
+                    box.top    = top
+
+                def toggle_overview(event):
+                    # Hide if visible
+                    if overlay_area.visible:
+                        overlay_area.visible = False
+                        overview_btn.name = "Show overview"
+                        return
+
+                    slc = slices[0]
+                    lr = getattr(slc.canvas, "last_renderer", {})
+                    src = lr.get("source", None)
+                    dtype = lr.get("dtype", None)
+
+                    if src is None:
+                        slc.refresh("force-render-for-overview")
+                        return
+
+                    # Build once (snapshot stays fixed even if main view changes)
+                    if _overlay_fig["fig"] is None:
+                        snap_src = bokeh.models.ColumnDataSource(_copy_src_data(src))
+
+                        # Compute snapshot extents for ranges
+                        X = np.array(snap_src.data["X"]).ravel()[0]
+                        Y = np.array(snap_src.data["Y"]).ravel()[0]
+                        DW = np.array(snap_src.data["dw"]).ravel()[0]
+                        DH = np.array(snap_src.data["dh"]).ravel()[0]
+                        x0_snap, x1_snap = X, X + DW
+                        y0_snap, y1_snap = Y, Y + DH
+
+                        fig_over = bokeh.plotting.figure(
+                            height=240, width=340, toolbar_location=None,
+                            x_range=(min(x0_snap, x1_snap), max(x0_snap, x1_snap)),
+                            y_range=(min(y0_snap, y1_snap), max(y0_snap, y1_snap)),
+                            match_aspect=True
+                        )
+                        fig_over.axis.visible = False
+                        fig_over.grid.visible = False
+
+                        if dtype == np.uint32:
+                            fig_over.image_rgba("image", source=snap_src, x="X", y="Y", dw="dw", dh="dh")
+                        else:
+                            fig_over.image(
+                                "image", source=snap_src, x="X", y="Y", dw="dw", dh="dh",
+                                color_mapper=slc.color_bar.color_mapper
+                            )
+
+                        # Green viewport box (no fill, just stroke)
+                        box_anno = BoxAnnotation(
+                            left=x0_snap, right=x1_snap, bottom=y0_snap, top=y1_snap,
+                            line_color="black", line_width=3, fill_alpha=0.2
+                        )
+                        fig_over.add_layout(box_anno)
+
+                        _overlay_fig["fig"] = fig_over
+                        _overlay_fig["box"] = box_anno
+
+                        overlay_area.objects = [pn.pane.Bokeh(fig_over, width=240, height=240)]
+
+                        # Hook updates to main view ranges
+                        fig_main = slc.canvas.fig
+
+                        # Initial sync once (Python) so the box is correct before any JS fires
+                        xr, yr = fig_main.x_range, fig_main.y_range
+                        box_anno.left   = min(xr.start, xr.end)
+                        box_anno.right  = max(xr.start, xr.end)
+                        box_anno.bottom = min(yr.start, yr.end)
+                        box_anno.top    = max(yr.start, yr.end)
+
+                        # High-perf client-side updates
+                        if not _overlay_fig.get("js_hooked"):
+                            cb = CustomJS(args=dict(box=box_anno, xr=xr, yr=yr), code="""
+                                // Throttle to ~60fps
+                                if (box._ticking) return;
+                                box._ticking = true;
+                                requestAnimationFrame(() => {
+                                const left   = Math.min(xr.start, xr.end);
+                                const right  = Math.max(xr.start, xr.end);
+                                const bottom = Math.min(yr.start, yr.end);
+                                const top    = Math.max(yr.start, yr.end);
+                                // Batch update in ONE change
+                                box.setv({left, right, bottom, top});
+                                box._ticking = false;
+                                });
+                            """)
+
+                            #Also update continuously during interactive tools (pan/zoom)
+                            fig_main.js_on_event(bokeh.events.RangesUpdate, cb)
+
+                            _overlay_fig["js_hooked"] = True
+                       
+                        # Initial sync
+                        _update_box_from_main_ranges()
+
+                    overlay_area.visible = True
+                    overview_btn.name = "Hide overview"
+
+                overview_btn.on_click(toggle_overview)
+
                 slices_layout = pn.Column(
-                pn.Row(
-                    pn.Spacer(width=50),
-                    slices[0].getMainLayout().clone(width_policy='max', sizing_mode='stretch_both'),
-                    pn.Spacer(width=50),
-                    sizing_mode="stretch_both"
-                ),
-                pn.Row(
-                    pn.Spacer(),
-                    pn.Column(scale_bar1, width=150),
-                    pn.Column(captions[0], sizing_mode="stretch_width"),
-                    pn.Spacer(),),
-                    align="center",
-                sizing_mode="stretch_width",
-            )
+                    pn.Row(
+                        pn.Spacer(),
+                        overview_btn,
+                        sizing_mode="stretch_width"
+                    ),
+                    pn.Row(
+                        pn.Spacer(width=50),
+                        main_holder,
+                        pn.Spacer(width=50),
+                        sizing_mode="stretch_both"
+                    ),
+                    pn.Row(
+                    scale_bar1, captions[0], sizing_mode="stretch_width"),
+                    #align="center",
+                    sizing_mode="stretch_width",
+                )
         
         elif n == 2:
             slices_layout = pn.Column(
@@ -344,7 +507,7 @@ class SliceSelectorApp:
                 pn.Row(*layout_top_slices, sizing_mode="stretch_both"),
                 pn.Row(*layout_top_captions, sizing_mode="stretch_width"),
                 pn.Row(*layout_bottom_slices, sizing_mode="stretch_both"),
-                pn.Row(*layout_bottom_captions, sizing_mode="stretch_width"),
+                pn.Row(*layout_bottom_captions, scale_bar1, sizing_mode="stretch_width"),
                 sizing_mode="stretch_both",
             )
 
@@ -352,7 +515,6 @@ class SliceSelectorApp:
             pn.Column(
                 back_button,
                 slices_layout,
-                scale_bar1,
                 sizing_mode='stretch_both'
             )
         )
