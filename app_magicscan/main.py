@@ -538,7 +538,7 @@ if __name__.startswith('bokeh'):
 
     query_params = {k: v for k, v in pn.state.location.query_params.items()}
 
-    log_filename = os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME", "/home/openvisuspy-dashboards.log")
+    log_filename = os.environ.get("OPENVISUSPY_DASHBOARDS_LOG_FILENAME", "/srv/tmp/openvisuspy-dashboards.log")
     logger = SetupLogger(log_filename=log_filename, logging_level=logging.DEBUG)
 
 
@@ -579,11 +579,17 @@ if __name__.startswith('bokeh'):
     """
     pn.extension(raw_css=[custom_css])
 
-    #response=requests.get("http://localhost/list_magicscan.php")
-    #jsonbdy = response.json()
-    #paths = [f"/mnt/visus_datasets/converted/{item['uuid']}/visus.idx" for item in jsonbdy]
-    #print(paths)
+    API_HOST = os.environ.get("MAGICSCAN_API_HOST", "visstore_nginx")  # docker service name
+    API_SCHEME = os.environ.get("MAGICSCAN_API_SCHEME", "http")
+    API_PORT = os.environ.get("MAGICSCAN_API_PORT", "80")
 
-    #app = SliceSelectorApp(paths)
-    app = SliceSelectorApp(sys.argv[1:])
+    url = f"{API_SCHEME}://{API_HOST}:{API_PORT}/list_magicscan.php"
+
+    response=requests.get(url,timeout=10)
+    jsonbdy = response.json()
+    paths = [f"/mnt/visus_datasets/converted/{item['uuid']}/visus.idx" for item in jsonbdy]
+    print(paths)
+
+    app = SliceSelectorApp(paths)
+    #app = SliceSelectorApp(sys.argv[1:])
     app.main_panel.servable()
