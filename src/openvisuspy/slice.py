@@ -126,8 +126,8 @@ class Canvas:
 		if self.view_choice  == "SYNC_VIEW": # sync_view bokeh options
 			#self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool,self.save_tool])
 
-			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.save_tool])
-			self.fig.toolbar_location= None #"above" # "above", "below", "right", "left"
+			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.reset_fig,self.save_tool])
+			self.fig.toolbar_location= "right" # "above", "below", "right", "left"
 			self.fig.axis.visible = False
 			self.fig.grid.visible = False	
 			
@@ -141,7 +141,8 @@ class Canvas:
 		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool 
 		# self.fig.toolbar.active_inspect = self.over_tool #will bring this back
-		self.fig.toolbar.active_tap     = None
+		self.fig.toolbar.active_tap     = None 
+
 
 		# try to preserve the old status
 		self.fig.x_range = bokeh.models.Range1d(0,512) if old is None else old.x_range
@@ -633,6 +634,17 @@ class Slice(param.Parameterized):
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
 		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
 
+
+		# Point tool (for dropping colored points via clicks)
+		self.point_tool_active = False
+		self.active_dot_color = None  # None, 'lightgreen', or 'blue'
+		self.points_source = ColumnDataSource(data=dict(x=[], y=[], color=[]))
+		self.points_renderer = None
+		self.ensure_points_glyph()
+
+		# Optional external log sink (e.g., TextAreaInput) to append messages
+		self.log_sink = None
+
 		# probe_tool
 		from .probe import ProbeTool
 		self.probe_tool=ProbeTool(self)
@@ -660,7 +672,73 @@ class Slice(param.Parameterized):
 	# onCanvasSingleTap # a click on image
 	def onCanvasSingleTap(self, evt):
 		logger.info(f"Single tap {evt}")
+		# Only allow marking if point tool is active and a color is selected
+		if getattr(self, 'point_tool_active', False) and self.active_dot_color in ("lightgreen", "blue"):
+			try:
+				x = float(evt.x)
+				y = float(evt.y)
+			except Exception:
+				return
+			d = self.points_source.data
+			xs = list(d.get('x', []))
+			ys = list(d.get('y', []))
+			cs = list(d.get('color', []))
+			xs.append(x)
+			ys.append(y)
+			cs.append(self.active_dot_color)
+			self.points_source.data = dict(x=xs, y=ys, color=cs)
+			color_str = "Green" if self.active_dot_color == "lightgreen" else "Blue"
+			msg = f"{color_str} point at: ({x:.3f}, {y:.3f})"
+			print(msg)
+			if self.log_sink is not None:
+				try:
+					current = getattr(self.log_sink, 'value', '') or ''
+					sep = "" if current == '' else "\n"
+					self.log_sink.value = f"{current}{sep}{msg}"
+				except Exception as e:
+					print("log_sink update failed:", e)
+			return
+		# otherwise, default behavior
 		pass
+
+	def set_point_tool(self, enabled: bool):
+		"""Enable or disable the point-dropping tool."""
+		self.point_tool_active = bool(enabled)
+		if not enabled:
+			self.active_dot_color = None
+		self.ensure_points_glyph()
+		return
+
+	def set_dot_color(self, color: str):
+		"""Set the active dot color for marking ("lightgreen" or "blue")."""
+		if not self.point_tool_active:
+			self.active_dot_color = None
+			return
+		if color in ("lightgreen", "blue"):
+			self.active_dot_color = color
+		else:
+			self.active_dot_color = None
+
+	def clear_points(self):
+		"""Clear all points added by the point tool."""
+		self.points_source.data = dict(x=[], y=[], color=[])
+
+	def set_log_sink(self, widget):
+		"""Set a Panel TextAreaInput (or similar) as the log sink to receive messages."""
+		self.log_sink = widget
+
+	def ensure_points_glyph(self):
+		"""Ensure the points circle glyph is attached to the current canvas figure.
+		This is needed because the Canvas may recreate the figure during refreshes.
+		"""
+		try:
+			fig = self.canvas.fig
+			# Remove any previous renderer for this source
+			fig.renderers = [r for r in fig.renderers if getattr(r, 'data_source', None) is not self.points_source]
+			# Add a new circle glyph with color mapped by the 'color' field
+			self.points_renderer = fig.circle('x', 'y', source=self.points_source, size=10, color='color', alpha=0.9)
+		except Exception:
+			pass
 
 	# onCanvasDoubleTap
 	def onCanvasDoubleTap(self, evt):
@@ -1340,6 +1418,8 @@ class Slice(param.Parameterized):
 
 		# update the image
 		self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar= self.color_bar) # self.color_bar
+		# After (re)rendering the image, ensure our points glyph exists on the current figure
+		self.ensure_points_glyph()
 
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)

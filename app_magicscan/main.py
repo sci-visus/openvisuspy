@@ -28,6 +28,7 @@ from bokeh.plotting import figure
 from bokeh.models import BoxAnnotation
 import numpy as np
 from bokeh.models import LinearColorMapper
+from panel.layout import FloatPanel
 
 ##################################
 
@@ -283,6 +284,7 @@ class SliceSelectorApp:
                 
                             
             else:
+                slc = slices[0]
                 main_view = slices[0].getMainLayout().clone(width_policy='max', sizing_mode='stretch_both')
 
                 # Button to toggle overlay
@@ -292,6 +294,112 @@ class SliceSelectorApp:
                     width=140
                 )
                 overview_btn.styles = dict(background="#f3f4f6", color="#111827", border="1px solid #e5e7eb")
+
+                # Right-side overlay page (fixed width) with Mark/+/- buttons and a log dashboard
+                btnA = pn.widgets.Button(name="Mark", width=80)
+                btnB = pn.widgets.Button(name="➕", width=60)
+                btnC = pn.widgets.Button(name="➖", width=60)
+
+                side_log = pn.widgets.TextAreaInput(
+                    name="Log",
+                    value="",
+                    height=240,
+                    disabled=False,
+                    sizing_mode="stretch_width"
+                )
+
+                # Send Slice log outputs to the overlay dashboard
+                try:
+                    slc.set_log_sink(side_log)
+                except Exception:
+                    setattr(slc, "log_sink", side_log)
+
+                def _log_click(label):
+                    def _cb(ev):
+                        sep = "" if side_log.value == "" else "\n"
+                        side_log.value = f"{side_log.value}{sep}{label}"
+                    return _cb
+
+                btnB.on_click(_log_click("B"))
+                btnC.on_click(_log_click("C"))
+
+                # Button A toggles the point tool on the main figure
+                def _toggle_point_tool(_=None):
+                    active = not getattr(slc, "point_tool_active", False)
+                    try:
+                        slc.set_point_tool(active)
+                    except Exception:
+                        setattr(slc, "point_tool_active", active)
+                    btnA.button_type = "success" if active else "default"
+                    # Disable B/C if tool is off
+                    btnB.disabled = not active
+                    btnC.disabled = not active
+                    # Reset dot color if tool is off
+                    if not active:
+                        try:
+                            slc.set_dot_color(None)
+                        except Exception:
+                            slc.active_dot_color = None
+                    # Write status to the log dashboard
+                    status = "ON" if active else "OFF"
+                    sep = "" if side_log.value == "" else "\n"
+                    side_log.value = f"{side_log.value}{sep}Point tool: {status}"
+
+
+                def _set_green(_=None):
+                    if not getattr(slc, "point_tool_active", False):
+                        return
+                    try:
+                        slc.set_dot_color("lightgreen")
+                    except Exception:
+                        slc.active_dot_color = "lightgreen"
+                    btnB.button_type = "success"
+                    btnC.button_type = "default"
+
+                def _set_blue(_=None):
+                    if not getattr(slc, "point_tool_active", False):
+                        return
+                    try:
+                        slc.set_dot_color("blue")
+                    except Exception:
+                        slc.active_dot_color = "blue"
+                    btnC.button_type = "primary"
+                    btnB.button_type = "default"
+
+                btnA.on_click(_toggle_point_tool)
+                btnB.on_click(_set_green)
+                btnC.on_click(_set_blue)
+
+                # Start with B/C disabled
+                btnB.disabled = True
+                btnC.disabled = True
+
+                overlay_side_panel = pn.Column(
+                    pn.pane.Markdown("### Overlay Page"),
+                    pn.Row(btnA, btnB, btnC),
+                    side_log,
+                    width=340,
+                    sizing_mode="stretch_height",
+                    visible=False,
+                    styles={"flex": "0 0 auto"}
+                )
+
+                # Keep reference for toggling
+                self._side_overlay_col = overlay_side_panel
+
+                # Top-right overlay toggle button
+                overlay_btn = pn.widgets.Button(
+                    name="Overlay",
+                    button_type="primary",
+                    width=120
+                )
+
+                def toggle_side_overlay(event=None):
+                    show = not overlay_side_panel.visible
+                    overlay_side_panel.visible = show
+                    overlay_btn.name = "Hide overlay" if show else "Overlay"
+
+                overlay_btn.on_click(toggle_side_overlay)
 
                 # Holder to position overlay on top of main view
                 main_holder = pn.Column(
@@ -449,17 +557,20 @@ class SliceSelectorApp:
                     pn.Row(
                         pn.Spacer(),
                         overview_btn,
+                        overlay_btn,
                         sizing_mode="stretch_width"
                     ),
                     pn.Row(
-                        pn.Spacer(width=50),
+                        pn.Spacer(width=24),
                         main_holder,
-                        pn.Spacer(width=50),
+                        pn.Spacer(width=16),
+                        overlay_side_panel,
+                        pn.Spacer(width=24),
                         sizing_mode="stretch_both"
                     ),
                     pn.Row(
-                    scale_bar1, captions[0], sizing_mode="stretch_width"),
-                    #align="center",
+                        scale_bar1, captions[0], sizing_mode="stretch_width"
+                    ),
                     sizing_mode="stretch_width",
                 )
         
