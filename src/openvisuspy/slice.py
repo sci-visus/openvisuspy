@@ -687,6 +687,11 @@ class Slice(param.Parameterized):
 			ys.append(y)
 			cs.append(self.active_dot_color)
 			self.points_source.data = dict(x=xs, y=ys, color=cs)
+			
+			# Convert to integer pixel coordinates for SAM format
+			x_int = int(round(x))
+			y_int = int(round(y))
+			
 			color_str = "Green" if self.active_dot_color == "lightgreen" else "Blue"
 			msg = f"{color_str} point at: ({x:.3f}, {y:.3f})"
 			print(msg)
@@ -697,6 +702,14 @@ class Slice(param.Parameterized):
 					self.log_sink.value = f"{current}{sep}{msg}"
 				except Exception as e:
 					print("log_sink update failed:", e)
+			
+			# Update SAM format display if callback is set
+			if hasattr(self, 'sam_format_callback') and callable(self.sam_format_callback):
+				try:
+					self.sam_format_callback()
+				except Exception as e:
+					print("SAM format update failed:", e)
+			
 			return
 		# otherwise, default behavior
 		pass

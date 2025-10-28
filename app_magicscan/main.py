@@ -295,15 +295,24 @@ class SliceSelectorApp:
                 )
                 overview_btn.styles = dict(background="#f3f4f6", color="#111827", border="1px solid #e5e7eb")
 
-                # Right-side overlay page (fixed width) with Mark/+/- buttons and a log dashboard
+                # Right-side overlay page (fixed width) with Mark/+/-/Reset buttons and a log dashboard
                 btnA = pn.widgets.Button(name="Mark", width=80)
                 btnB = pn.widgets.Button(name="➕", width=60)
                 btnC = pn.widgets.Button(name="➖", width=60)
+                btnReset = pn.widgets.Button(name="Reset", width=80, button_type="warning")
 
                 side_log = pn.widgets.TextAreaInput(
                     name="Log",
                     value="",
                     height=240,
+                    disabled=False,
+                    sizing_mode="stretch_width"
+                )
+                
+                sam_format_display = pn.widgets.TextAreaInput(
+                    name="SAM Format (point_coords)",
+                    value="",
+                    height=200,
                     disabled=False,
                     sizing_mode="stretch_width"
                 )
@@ -313,6 +322,31 @@ class SliceSelectorApp:
                     slc.set_log_sink(side_log)
                 except Exception:
                     setattr(slc, "log_sink", side_log)
+                
+                # Function to update SAM format display
+                def update_sam_format():
+                    try:
+                        d = slc.points_source.data
+                        xs = list(d.get('x', []))
+                        ys = list(d.get('y', []))
+                        cs = list(d.get('color', []))
+                        if xs and ys:
+                            point_coords = [[int(round(x)), int(round(y))] for x, y in zip(xs, ys)]
+                            # Green (lightgreen) = 1, Blue = 0
+                            point_labels = [1 if c == "lightgreen" else 0 for c in cs]
+                            import json
+                            sam_json = json.dumps({
+                                "point_coords": point_coords,
+                                "point_labels": point_labels
+                            }, indent=2)
+                            sam_format_display.value = sam_json
+                        else:
+                            sam_format_display.value = ""
+                    except Exception as e:
+                        print(f"Error updating SAM format: {e}")
+                
+                # Set the callback on the slice
+                slc.sam_format_callback = update_sam_format
 
                 def _log_click(label):
                     def _cb(ev):
@@ -370,14 +404,40 @@ class SliceSelectorApp:
                 btnB.on_click(_set_green)
                 btnC.on_click(_set_blue)
 
+                def _reset_all(_=None):
+                    # Clear all points
+                    try:
+                        slc.clear_points()
+                    except Exception:
+                        slc.points_source.data = dict(x=[], y=[], color=[])
+                    # Clear log dashboard
+                    side_log.value = ""
+                    # Clear SAM format display
+                    sam_format_display.value = ""
+                    # Reset button states
+                    btnA.button_type = "default"
+                    btnB.button_type = "default"
+                    btnC.button_type = "default"
+                    btnB.disabled = True
+                    btnC.disabled = True
+                    # Turn off point tool
+                    try:
+                        slc.set_point_tool(False)
+                    except Exception:
+                        slc.point_tool_active = False
+                        slc.active_dot_color = None
+
+                btnReset.on_click(_reset_all)
+
                 # Start with B/C disabled
                 btnB.disabled = True
                 btnC.disabled = True
 
                 overlay_side_panel = pn.Column(
                     pn.pane.Markdown("### Overlay Page"),
-                    pn.Row(btnA, btnB, btnC),
+                    pn.Row(btnA, btnB, btnC, btnReset),
                     side_log,
+                    sam_format_display,
                     width=340,
                     sizing_mode="stretch_height",
                     visible=False,
