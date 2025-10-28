@@ -295,11 +295,12 @@ class SliceSelectorApp:
                 )
                 overview_btn.styles = dict(background="#f3f4f6", color="#111827", border="1px solid #e5e7eb")
 
-                # Right-side overlay page (fixed width) with Mark/+/-/Reset buttons and a log dashboard
+                # Right-side overlay page (fixed width) with Mark/+/-/Reset/Save buttons and a log dashboard
                 btnA = pn.widgets.Button(name="Mark", width=80)
                 btnB = pn.widgets.Button(name="➕", width=60)
                 btnC = pn.widgets.Button(name="➖", width=60)
                 btnReset = pn.widgets.Button(name="Reset", width=80, button_type="warning")
+                btnSave = pn.widgets.Button(name="Save", width=80, button_type="success")
 
                 side_log = pn.widgets.TextAreaInput(
                     name="Log",
@@ -331,7 +332,27 @@ class SliceSelectorApp:
                         ys = list(d.get('y', []))
                         cs = list(d.get('color', []))
                         if xs and ys:
-                            point_coords = [[int(round(x)), int(round(y))] for x, y in zip(xs, ys)]
+                            # Get image dimensions from the slice's logic box
+                            try:
+                                logic_box = slc.getQueryLogicBox()
+                                p1, p2 = logic_box
+                                W = abs(p2[0] - p1[0])  # image width
+                                H = abs(p2[1] - p1[1])  # image height
+                            except Exception:
+                                # Fallback: use canvas viewport dimensions
+                                viewport = slc.canvas.getViewport()
+                                W = abs(viewport[2])
+                                H = abs(viewport[3])
+                            
+                            # Convert pixel coords to normalized [0, 1] range
+                            point_coords = []
+                            for x, y in zip(xs, ys):
+                                x_px = int(round(x))
+                                y_px = int(round(y))
+                                x_norm = round(x_px / W, 4) if W > 0 else 0
+                                y_norm = round(y_px / H, 4) if H > 0 else 0
+                                point_coords.append([x_norm, y_norm])
+                            
                             # Green (lightgreen) = 1, Blue = 0
                             point_labels = [1 if c == "lightgreen" else 0 for c in cs]
                             import json
@@ -429,13 +450,75 @@ class SliceSelectorApp:
 
                 btnReset.on_click(_reset_all)
 
+                def _save_sam_format(_=None):
+                    try:
+                        sam_data = sam_format_display.value
+                        if not sam_data:
+                            print("No SAM data to save")
+                            return
+                        
+                        import json
+                        import os
+                        from datetime import datetime
+                        
+                        # Create a filename with timestamp
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"sam_coords_{timestamp}.json"
+                        
+                        # Try multiple writable locations (prioritize mounted volumes for persistence)
+                        possible_dirs = [
+                            "/mnt/visus_datasets/sam_output",  # Likely mounted volume - persists outside container
+                            "/mnt/visus_datasets/converted/sam_output",  # Alternative mounted location
+                            "/tmp/sam_output",  # Container temp - lost on restart
+                            os.path.expanduser("~/sam_output")  # Container home - lost on restart
+                        ]
+                        
+                        filepath = None
+                        for save_dir in possible_dirs:
+                            try:
+                                if not os.path.exists(save_dir):
+                                    os.makedirs(save_dir, exist_ok=True)
+                                filepath = os.path.join(save_dir, filename)
+                                # Test write permission
+                                test_file = os.path.join(save_dir, ".write_test")
+                                with open(test_file, 'w') as f:
+                                    f.write("test")
+                                os.remove(test_file)
+                                break
+                            except (OSError, PermissionError):
+                                continue
+                        
+                        if filepath is None:
+                            raise PermissionError("No writable directory found")
+                        
+                        filepath = os.path.join(save_dir, filename)
+                        
+                        # Write JSON to file
+                        with open(filepath, 'w') as f:
+                            f.write(sam_data)
+                        
+                        # Log success message
+                        msg = f"Saved to: {filepath}"
+                        print(msg)
+                        sep = "" if side_log.value == "" else "\n"
+                        side_log.value = f"{side_log.value}{sep}{msg}"
+                        
+                    except Exception as e:
+                        error_msg = f"Error saving SAM format: {e}"
+                        print(error_msg)
+                        sep = "" if side_log.value == "" else "\n"
+                        side_log.value = f"{side_log.value}{sep}{error_msg}"
+
+                btnSave.on_click(_save_sam_format)
+
                 # Start with B/C disabled
                 btnB.disabled = True
                 btnC.disabled = True
 
                 overlay_side_panel = pn.Column(
                     pn.pane.Markdown("### Overlay Page"),
-                    pn.Row(btnA, btnB, btnC, btnReset),
+                    pn.Row(btnA, btnB, btnC),
+                    pn.Row(btnReset, btnSave),
                     side_log,
                     sam_format_display,
                     width=340,
