@@ -355,11 +355,50 @@ class SliceSelectorApp:
                             
                             # Green (lightgreen) = 1, Blue = 0
                             point_labels = [1 if c == "lightgreen" else 0 for c in cs]
+                            
+                            # Extract current ROI image as base64
+                            b64img = None
+                            try:
+                                import base64
+                                from io import BytesIO
+                                from PIL import Image
+                                
+                                # Get the current rendered image from canvas
+                                lr = getattr(slc.canvas, "last_renderer", {})
+                                src = lr.get("source", None)
+                                if src and "image" in src.data:
+                                    img_data = src.data["image"][0]
+                                    
+                                    # Convert to PIL Image
+                                    if img_data.dtype == np.uint32:
+                                        # RGBA image
+                                        img = Image.fromarray(img_data, mode='RGBA')
+                                    else:
+                                        # RGB or grayscale
+                                        if len(img_data.shape) == 3 and img_data.shape[2] == 3:
+                                            img = Image.fromarray(img_data.astype(np.uint8), mode='RGB')
+                                        else:
+                                            img = Image.fromarray(img_data.astype(np.uint8))
+                                    
+                                    # Flip vertically to correct orientation
+                                    img = img.transpose(Image.FLIP_TOP_BOTTOM)
+                                    
+                                    # Convert to base64
+                                    buffered = BytesIO()
+                                    img.save(buffered, format="PNG")
+                                    b64img = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                            except Exception as e:
+                                print(f"Error extracting ROI image: {e}")
+                            
                             import json
-                            sam_json = json.dumps({
+                            sam_data = {
                                 "point_coords": point_coords,
                                 "point_labels": point_labels
-                            }, indent=2)
+                            }
+                            if b64img:
+                                sam_data["b64img"] = b64img
+                            
+                            sam_json = json.dumps(sam_data, indent=2)
                             sam_format_display.value = sam_json
                         else:
                             sam_format_display.value = ""
@@ -375,8 +414,8 @@ class SliceSelectorApp:
                         side_log.value = f"{side_log.value}{sep}{label}"
                     return _cb
 
-                btnB.on_click(_log_click("B"))
-                btnC.on_click(_log_click("C"))
+                btnB.on_click(_log_click("positive"))
+                btnC.on_click(_log_click("negative"))
 
                 # Button A toggles the point tool on the main figure
                 def _toggle_point_tool(_=None):
@@ -493,12 +532,33 @@ class SliceSelectorApp:
                         
                         filepath = os.path.join(save_dir, filename)
                         
+                        # Parse JSON to get image data
+                        sam_json = json.loads(sam_data)
+                        
+                        # Save the ROI image if b64img exists
+                        if "b64img" in sam_json:
+                            import base64
+                            from PIL import Image
+                            from io import BytesIO
+                            
+                            # Decode base64 image (already flipped when encoded)
+                            img_data = base64.b64decode(sam_json["b64img"])
+                            img = Image.open(BytesIO(img_data))
+                            
+                            # Save the image (no need to flip again, already flipped in b64img creation)
+                            img_filename = f"sam_roi_{timestamp}.png"
+                            img_filepath = os.path.join(save_dir, img_filename)
+                            img.save(img_filepath)
+                            print(f"Saved ROI image to: {img_filepath}")
+                        
                         # Write JSON to file
                         with open(filepath, 'w') as f:
                             f.write(sam_data)
                         
                         # Log success message
                         msg = f"Saved to: {filepath}"
+                        if "b64img" in sam_json:
+                            msg += f"\nROI image: {img_filepath}"
                         print(msg)
                         sep = "" if side_log.value == "" else "\n"
                         side_log.value = f"{side_log.value}{sep}{msg}"
@@ -551,9 +611,9 @@ class SliceSelectorApp:
                     styles={"position": "relative"}
                 )
 
-                # Absolutely-positioned overlay container (hidden by default)
+                # Absolutely-positioned overlay container (visible by default for overview)
                 overlay_area = pn.Column(
-                    visible=False,
+                    visible=True,
                     styles={
                         "position": "absolute",
                         "left": "16px",
@@ -569,7 +629,7 @@ class SliceSelectorApp:
                 main_holder.append(overlay_area)
 
                 # Keep references so we only build once (snapshot stays fixed)
-                _overlay_fig = {"fig": None, "box": None}
+                _overlay_fig = {"fig": None, "box": None, "initializing": False, "event_handlers": []}
 
                 def _copy_src_data(src):
                     data = {}
@@ -598,25 +658,38 @@ class SliceSelectorApp:
                     box.right  = right
                     box.bottom = bottom
                     box.top    = top
+                    print(f"Updated box: left={left}, right={right}, bottom={bottom}, top={top}")
 
                 def toggle_overview(event):
-                    # Hide if visible
-                    if overlay_area.visible:
-                        overlay_area.visible = False
-                        overview_btn.name = "Show overview"
+                    # Prevent recursion during initialization
+                    if _overlay_fig.get("initializing"):
                         return
-
+                        
+                    # Always show overview (no toggle)
                     slc = slices[0]
                     lr = getattr(slc.canvas, "last_renderer", {})
                     src = lr.get("source", None)
                     dtype = lr.get("dtype", None)
 
                     if src is None:
+                        _overlay_fig["initializing"] = True
                         slc.refresh("force-render-for-overview")
+                        # Schedule a retry after the refresh completes
+                        def retry_overview():
+                            import time
+                            time.sleep(0.3)  # Wait for refresh to complete
+                            _overlay_fig["initializing"] = False
+                            try:
+                                toggle_overview(None)
+                            except:
+                                pass
+                        import threading
+                        threading.Thread(target=retry_overview, daemon=True).start()
                         return
 
                     # Build once (snapshot stays fixed even if main view changes)
                     if _overlay_fig["fig"] is None:
+                        print("Creating overview figure...")
                         snap_src = bokeh.models.ColumnDataSource(_copy_src_data(src))
 
                         # Compute snapshot extents for ranges
@@ -656,43 +729,64 @@ class SliceSelectorApp:
 
                         overlay_area.objects = [pn.pane.Bokeh(fig_over, width=240, height=240)]
 
-                        # Hook updates to main view ranges
-                        fig_main = slc.canvas.fig
+                        try:
+                            # Hook updates to main view ranges (only if not already hooked)
+                            if not _overlay_fig.get("js_hooked"):
+                                fig_main = slc.canvas.fig
 
-                        # Initial sync once (Python) so the box is correct before any JS fires
-                        xr, yr = fig_main.x_range, fig_main.y_range
-                        box_anno.left   = min(xr.start, xr.end)
-                        box_anno.right  = max(xr.start, xr.end)
-                        box_anno.bottom = min(yr.start, yr.end)
-                        box_anno.top    = max(yr.start, yr.end)
+                                # Initial sync once (Python) so the box is correct before any JS fires
+                                xr, yr = fig_main.x_range, fig_main.y_range
+                                box_anno.left   = min(xr.start, xr.end)
+                                box_anno.right  = max(xr.start, xr.end)
+                                box_anno.bottom = min(yr.start, yr.end)
+                                box_anno.top    = max(yr.start, yr.end)
+                                print(f"Initial box position set: {box_anno.left}, {box_anno.right}, {box_anno.bottom}, {box_anno.top}")
 
-                        # High-perf client-side updates
-                        if not _overlay_fig.get("js_hooked"):
-                            cb = CustomJS(args=dict(box=box_anno, xr=xr, yr=yr), code="""
-                                // Throttle to ~60fps
-                                if (box._ticking) return;
-                                box._ticking = true;
-                                requestAnimationFrame(() => {
-                                const left   = Math.min(xr.start, xr.end);
-                                const right  = Math.max(xr.start, xr.end);
-                                const bottom = Math.min(yr.start, yr.end);
-                                const top    = Math.max(yr.start, yr.end);
-                                // Batch update in ONE change
-                                box.setv({left, right, bottom, top});
-                                box._ticking = false;
-                                });
-                            """)
+                                # High-perf client-side updates
+                                cb = CustomJS(args=dict(box=box_anno, xr=xr, yr=yr), code="""
+                                    // Throttle to ~60fps
+                                    if (box._ticking) return;
+                                    box._ticking = true;
+                                    requestAnimationFrame(() => {
+                                    const left   = Math.min(xr.start, xr.end);
+                                    const right  = Math.max(xr.start, xr.end);
+                                    const bottom = Math.min(yr.start, yr.end);
+                                    const top    = Math.max(yr.start, yr.end);
+                                    // Batch update in ONE change
+                                    box.setv({left, right, bottom, top});
+                                    box._ticking = false;
+                                    });
+                                """)
 
-                            #Also update continuously during interactive tools (pan/zoom)
-                            fig_main.js_on_event(bokeh.events.RangesUpdate, cb)
-
-                            _overlay_fig["js_hooked"] = True
-                       
-                        # Initial sync
-                        _update_box_from_main_ranges()
+                                # Attach JS event handler for smooth real-time updates
+                                fig_main.js_on_event(bokeh.events.RangesUpdate, cb)
+                                print("JS event handler attached")
+                                
+                                # Also add Python callback for reliability
+                                def update_box_on_ranges(evt):
+                                    try:
+                                        _update_box_from_main_ranges()
+                                    except Exception as e:
+                                        print(f"Error in update_box_on_ranges: {e}")
+                                
+                                # Use the slice's canvas event system
+                                slc.canvas.on_event(bokeh.events.RangesUpdate, update_box_on_ranges)
+                                print("Python event handler attached")
+                                
+                                _overlay_fig["js_hooked"] = True
+                                print("Overview figure created and tracking hooks attached!")
+                               
+                                # Initial sync
+                                _update_box_from_main_ranges()
+                            else:
+                                print("Tracking already set up, skipping...")
+                        except Exception as e:
+                            print(f"Error setting up tracking: {e}")
+                            import traceback
+                            traceback.print_exc()
 
                     overlay_area.visible = True
-                    overview_btn.name = "Hide overview"
+                    # Keep button name as "Show overview"
 
                 overview_btn.on_click(toggle_overview)
 
@@ -716,6 +810,17 @@ class SliceSelectorApp:
                     ),
                     sizing_mode="stretch_width",
                 )
+                
+                # Trigger overview after layout is created
+                print("Attempting to trigger initial overview...")
+                try:
+                    toggle_overview(None)
+                    print("Initial overview triggered successfully")
+                except Exception as e:
+                    print(f"Initial overview failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+
         
         elif n == 2:
             slices_layout = pn.Column(

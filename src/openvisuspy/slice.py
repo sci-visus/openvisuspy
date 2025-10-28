@@ -1562,6 +1562,3 @@ class Slice(param.Parameterized):
 
 # backward compatible
 Slices=Slice
-
-
-
