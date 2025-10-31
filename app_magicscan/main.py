@@ -52,13 +52,46 @@ class MultiSliceSyncApp:
         self.synchronizer.register_callback(self.on_zoom_update)
 
 
-    def update_caption(self, caption, label, zoom_level):
+    def update_caption(self, caption, label, zoom_level, mm_per_pixel=None):
         #caption.object = f"<h4>{label} - Zoom Level: {round(zoom_level, 2)}%</h4>"
         #text-align: start;
         #text-align: center;
+        
+        # Calculate scale bar if mm_per_pixel is provided
+        scale_bar_html = ""
+        if mm_per_pixel:
+            effective_mm_per_screen_pixel = mm_per_pixel / (zoom_level / 100)
+            
+            # Calculate base measurement in mm
+            length_mm = self.fixed_pixel_length * effective_mm_per_screen_pixel
+            
+            # Auto-select appropriate unit based on size
+            if length_mm < 1.0:  # Less than 1mm, use micrometers
+                length_um = length_mm * 1000
+                display_value = f"{length_um:.0f} μm"
+            elif length_mm < 10.0:  # 1-10mm, use millimeters
+                display_value = f"{length_mm:.1f} mm"
+            else:  # 10mm or more, use centimeters
+                length_cm = length_mm / 10
+                display_value = f"{length_cm:.1f} cm"
+            
+            scale_bar_html = f"""
+            <div style="display: inline-block; margin-left: 7cm;">
+                <svg height="20" width="{self.fixed_pixel_length}px" style="vertical-align: middle;">
+                  <line x1="0" y1="10" x2="{self.fixed_pixel_length}" y2="10" style="stroke:black;stroke-width:3" />
+                </svg>
+                <span style="font-size:20px; margin-left:5px; vertical-align: middle;">{display_value}</span>
+            </div>
+            """
+        
         caption.object = f"""
-        <div style="width: 100%; padding-top: 2px;">
-            <h4 style="margin: 0;font-size: 24px">{label}</h4>
+        <div style="width: 100%; padding-top: 2px; display: flex; align-items: center; justify-content: center; white-space: nowrap;">
+            <h4 style="margin: 0; font-size: 24px; display: flex; align-items: center; white-space: nowrap;">
+                <span>Zoom: {round(zoom_level, 2)}%</span>
+                <span style="display: inline-block; width: 6cm;"></span>
+                <span>{label}</span>
+            </h4>
+            {scale_bar_html}
         </div>
         """
 
@@ -91,7 +124,8 @@ class MultiSliceSyncApp:
     def on_zoom_update(self, *zooms):
         for idx, zoom in enumerate(zooms):
             label = self.slices[idx].image_type.value
-            self.update_caption(self.captions[idx], label, zoom)
+            self.update_caption(self.captions[idx], label, zoom, self.mm_x_1)
+            # Keep the separate scale bar update for compatibility
             self.update_scale_bar(self.scale_bar1, self.mm_x_1, zoom)
             
 
@@ -263,7 +297,7 @@ class SliceSelectorApp:
 
         captions = [
             #pn.pane.HTML(f"<h4>{name} - Zoom Level:</h4>", sizing_mode="stretch_width")
-            pn.pane.HTML(f"<h4>{name}", sizing_mode="stretch_width")
+            pn.pane.HTML(f"<h4>Case Name: {name}</h4>", sizing_mode="stretch_width")
             for name in selected_display_names
         ]
 
@@ -405,9 +439,12 @@ class SliceSelectorApp:
                         sizing_mode="stretch_both"
                     ),
                     pn.Row(
-                         scale_bar1, captions[0], scale_bar2, align= "start", sizing_mode="stretch_width"),
-                        pn.Spacer(),
-                        #align="start",
+                        pn.layout.HSpacer(),
+                        captions[0], 
+                        pn.layout.HSpacer(),
+                        align="center", 
+                        sizing_mode="stretch_width"
+                    ),
                     sizing_mode="stretch_width",
                 )
                 
@@ -676,8 +713,12 @@ class SliceSelectorApp:
                         sizing_mode="stretch_both"
                     ),
                     pn.Row(
-                    scale_bar1, captions[0], sizing_mode="stretch_width"),
-                    #align="center",
+                        pn.layout.HSpacer(),
+                        captions[0], 
+                        pn.layout.HSpacer(),
+                        align="center", 
+                        sizing_mode="stretch_width"
+                    ),
                     sizing_mode="stretch_width",
                 )
         
