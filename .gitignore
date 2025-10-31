@@ -19,3 +19,4 @@ deploy/inventory.ini
 
 
 state_logs/
+openvisuspy-dashboards.log
