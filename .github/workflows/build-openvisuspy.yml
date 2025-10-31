@@ -5,35 +5,41 @@ env:
   PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
   PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
 
+permissions:
+  contents: read
+  packages: write   # write if you build/push; use `read` if you only pull
 
 jobs:
-
   build-ubuntu:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false  
+      fail-fast: false
       matrix:
-        python-version: [ '3.9', '3.10'] 
+        python-version: ['3.9', '3.10']
+
     steps:
-      
-      # git clone
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      # login in Docker
-      - uses: docker/login-action@v3
+      # Login to GHCR (uses built-in GITHUB_TOKEN)
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # build
-      - uses: actions/setup-python@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - run: |
+
+      - name: Build / Test
+        run: |
           set -ex
           export PYTHON_VERSION=${{ matrix.python-version }}
           source scripts/ubuntu.sh
+
 
 
 
