@@ -254,22 +254,32 @@ class ProbeTool(param.Parameterized):
 		Z1,Z2=(pbox[Z][0],pbox[Z][1]) if pdim==3 else (0,1)
 
 		print("----------------- Logic_to_physic:----------------", self.slice.logic_to_physic)
-		vt = [self.slice.logic_to_physic[I][0] for I in range(3)]
-		vs = [self.slice.logic_to_physic[I][1] for I in range(3)]
+		vt = [self.slice.logic_to_physic[I][0] for I in range(pdim)]
+		vs = [self.slice.logic_to_physic[I][1] for I in range(pdim)]
 
 		def LogicToPhysic(P):
-			ret = [vt[I] + vs[I] * P[I] for I in range(3)]
-			last = ret[dir]
-			del ret[dir]
-			ret.append(last)
+			ret = [vt[I] + vs[I] * P[I] for I in range(pdim)]
+			if pdim == 3 and dir < pdim:
+				last = ret[dir]
+				del ret[dir]
+				ret.append(last)
+			elif pdim == 2 and dir < pdim:
+				last = ret[dir]
+				del ret[dir]
+				ret.append(last)
 			return ret
 
 		def PhysicToLogic(p):
 			ret = [it for it in p]
-			last = ret[2]
-			del ret[2]
-			ret.insert(dir, last)
-			return [(ret[I] - vt[I]) / vs[I] for I in range(3)]
+			if pdim == 3 and len(ret) >= 3:
+				last = ret[2]
+				del ret[2]
+				ret.insert(dir, last)
+			elif pdim == 2 and len(ret) >= 2 and dir < 2:
+				last = ret[1]
+				del ret[1]
+				ret.insert(dir, last)
+			return [(ret[I] - vt[I]) / vs[I] for I in range(min(pdim, len(ret)))]
 
 		# __________________________________________________________
 		# here is all in physical coordinates
@@ -302,6 +312,8 @@ class ProbeTool(param.Parameterized):
 		# print(P1,P2)
 
 		def Align(idx, p):
+			if idx >= len(p):  # Handle 2D case where Z index might be out of bounds
+				return 0
 			return int(Delta[idx] * (p[idx] // Delta[idx]))
 
 		P1[X] = Align(X, P1)
@@ -310,13 +322,14 @@ class ProbeTool(param.Parameterized):
 		P1[Y] = Align(Y, P1)
 		P2[Y] = Align(Y, P2) + (self.num_points_y.value) * Delta[Y]
 
-		P1[Z] = Align(Z, P1)
-		P2[Z] = Align(Z, P2) + Delta[Z]
+		if pdim == 3 and Z < len(P1):  # Only handle Z for 3D data
+			P1[Z] = Align(Z, P1)
+			P2[Z] = Align(Z, P2) + Delta[Z]
 
 		logger.info(f"Add Probe aligned is P1={P1} P2={P2}")
 
 		# invalid query
-		if not all([P1[I] < P2[I] for I in range(3)]):
+		if not all([P1[I] < P2[I] for I in range(min(pdim, len(P1), len(P2)))]):
 			return
 
 		color = COLORS[slot]
@@ -324,10 +337,20 @@ class ProbeTool(param.Parameterized):
 		# for debugging draw points
 		if True:
 			xs, ys = [[], []]
-			for _Z in range(P1[2], P2[2], Delta[2]) if dir != 2 else (P1[2],):
-				for _Y in range(P1[1], P2[1], Delta[1]) if dir != 1 else (P1[1],):
-					for _X in range(P1[0], P2[0], Delta[0]) if dir != 0 else (P1[0],):
-						x, y, z = LogicToPhysic([_X, _Y, _Z])
+			# Handle Z dimension for 2D/3D data
+			z_range = range(P1[2], P2[2], Delta[2]) if pdim == 3 and dir != 2 and len(P1) > 2 else (P1[2] if len(P1) > 2 else 0,)
+			y_range = range(P1[1], P2[1], Delta[1]) if dir != 1 else (P1[1],)
+			x_range = range(P1[0], P2[0], Delta[0]) if dir != 0 else (P1[0],)
+			
+			for _Z in z_range:
+				for _Y in y_range:
+					for _X in x_range:
+						# For 2D data, only pass X and Y to LogicToPhysic
+						if pdim == 2:
+							x, y = LogicToPhysic([_X, _Y])[:2]
+							z = 0
+						else:
+							x, y, z = LogicToPhysic([_X, _Y, _Z])
 						xs.append(x)
 						ys.append(y)
 
@@ -340,8 +363,8 @@ class ProbeTool(param.Parameterized):
 			self.renderers[probe]["canvas"] = [
 				fig.scatter(xs, ys, color=color),
 				fig.line([x1, x2, x2, x1, x1], [y2, y2, y1, y1, y2], line_width=1, color=color),
-				fig.line(self.slice.getPhysicBox()[X], [cy, cy], line_width=1, color=color),
-				fig.line([cx, cx], self.slice.getPhysicBox()[Y], line_width=1, color=color),
+				# fig.line(self.slice.getPhysicBox()[X], [cy, cy], line_width=1, color=color),  # Disabled horizontal cross line
+				# fig.line([cx, cx], self.slice.getPhysicBox()[Y], line_width=1, color=color),  # Disabled vertical cross line
 			]
 
 		# execute the query
