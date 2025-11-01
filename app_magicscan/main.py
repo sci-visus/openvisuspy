@@ -454,7 +454,7 @@ class SliceSelectorApp:
 
                 # Button to toggle overlay
                 overview_btn = pn.widgets.Button(
-                    name="Hide overview",
+                    name="Show overview",
                     button_type="default",
                     width=140
                 )
@@ -467,9 +467,9 @@ class SliceSelectorApp:
                     styles={"position": "relative"}
                 )
 
-                # Absolutely-positioned overlay container (visible by default)
+                # Absolutely-positioned overlay container (hidden by default)
                 overlay_area = pn.Column(
-                    visible=True,
+                    visible=False,
                     styles={
                         "position": "absolute",
                         "left": "16px",
@@ -611,133 +611,6 @@ class SliceSelectorApp:
                     overview_btn.name = "Hide overview"
 
                 overview_btn.on_click(toggle_overview)
-
-                # Auto-show overview when image loads
-                def auto_show_overview():
-                    """Automatically show overview when image is first loaded"""
-                    try:
-                        # Trigger the overview display automatically
-                        slc = slices[0]
-                        lr = getattr(slc.canvas, "last_renderer", {})
-                        src = lr.get("source", None)
-                        dtype = lr.get("dtype", None)
-
-                        if src is None or not hasattr(src, 'data') or not src.data or 'image' not in src.data:
-                            # If no source yet or no image data, try to refresh and check again later
-                            print("No image data available yet, refreshing...")
-                            slc.refresh("force-render-for-overview")
-                            return False  # Indicate we need to try again
-
-                        # Check if image data is actually populated
-                        image_data = src.data.get('image', [])
-                        if not image_data or (hasattr(image_data, '__len__') and len(image_data) == 0):
-                            print("Image data is empty, waiting...")
-                            return False  # Indicate we need to try again
-
-                        print("Image data found, building overview...")
-                        
-                        # Build overview if not already built
-                        if _overlay_fig["fig"] is None:
-                            snap_src = bokeh.models.ColumnDataSource(_copy_src_data(src))
-
-                            # Compute snapshot extents for ranges
-                            X = np.array(snap_src.data["X"]).ravel()[0]
-                            Y = np.array(snap_src.data["Y"]).ravel()[0]
-                            DW = np.array(snap_src.data["dw"]).ravel()[0]
-                            DH = np.array(snap_src.data["dh"]).ravel()[0]
-                            x0_snap, x1_snap = X, X + DW
-                            y0_snap, y1_snap = Y, Y + DH
-
-                            fig_over = bokeh.plotting.figure(
-                                height=240, width=340, toolbar_location=None,
-                                x_range=(min(x0_snap, x1_snap), max(x0_snap, x1_snap)),
-                                y_range=(min(y0_snap, y1_snap), max(y0_snap, y1_snap)),
-                                match_aspect=True
-                            )
-                            fig_over.axis.visible = False
-                            fig_over.grid.visible = False
-
-                            if dtype == np.uint32:
-                                fig_over.image_rgba("image", source=snap_src, x="X", y="Y", dw="dw", dh="dh")
-                            else:
-                                fig_over.image(
-                                    "image", source=snap_src, x="X", y="Y", dw="dw", dh="dh",
-                                    color_mapper=slc.color_bar.color_mapper
-                                )
-
-                            # Green viewport box (no fill, just stroke)
-                            box_anno = BoxAnnotation(
-                                left=x0_snap, right=x1_snap, bottom=y0_snap, top=y1_snap,
-                                line_color="black", line_width=3, fill_alpha=0.2
-                            )
-                            fig_over.add_layout(box_anno)
-
-                            _overlay_fig["fig"] = fig_over
-                            _overlay_fig["box"] = box_anno
-
-                            overlay_area.objects = [pn.pane.Bokeh(fig_over, width=240, height=240)]
-
-                            # Hook updates to main view ranges
-                            fig_main = slc.canvas.fig
-
-                            # Initial sync once (Python) so the box is correct before any JS fires
-                            xr, yr = fig_main.x_range, fig_main.y_range
-                            box_anno.left   = min(xr.start, xr.end)
-                            box_anno.right  = max(xr.start, xr.end)
-                            box_anno.bottom = min(yr.start, yr.end)
-                            box_anno.top    = max(yr.start, yr.end)
-
-                            # High-perf client-side updates
-                            if not _overlay_fig.get("js_hooked"):
-                                cb = CustomJS(args=dict(box=box_anno, xr=xr, yr=yr), code="""
-                                    // Throttle to ~60fps
-                                    if (box._ticking) return;
-                                    box._ticking = true;
-                                    requestAnimationFrame(() => {
-                                    const left   = Math.min(xr.start, xr.end);
-                                    const right  = Math.max(xr.start, xr.end);
-                                    const bottom = Math.min(yr.start, yr.end);
-                                    const top    = Math.max(yr.start, yr.end);
-                                    // Batch update in ONE change
-                                    box.setv({left, right, bottom, top});
-                                    box._ticking = false;
-                                    });
-                                """)
-
-                                #Also update continuously during interactive tools (pan/zoom)
-                                fig_main.js_on_event(bokeh.events.RangesUpdate, cb)
-
-                                _overlay_fig["js_hooked"] = True
-                           
-                            # Initial sync
-                            _update_box_from_main_ranges()
-
-                        # Ensure overlay is visible
-                        overlay_area.visible = True
-                        overview_btn.name = "Hide overview"
-                        print("Overview successfully displayed!")
-                        return True  # Success
-                        
-                    except Exception as e:
-                        print(f"Error auto-showing overview: {e}")
-                        return False
-
-                # Set up repeated attempts to show overview until successful
-                attempt_count = [0]
-                def try_auto_show():
-                    attempt_count[0] += 1
-                    print(f"Attempting to show overview (attempt {attempt_count[0]}/3)...")
-                    success = auto_show_overview()
-                    if success:
-                        print("Overview auto-show completed successfully!")
-                        return  # Stop trying
-                    elif attempt_count[0] >= 3:
-                        print("Giving up on auto-showing overview after 3 attempts")
-                        return
-                    # If not successful and haven't reached max attempts, the callback will continue
-
-                # Start attempting to show overview, checking every 1 second for up to 3 attempts
-                pn.state.add_periodic_callback(try_auto_show, period=1000, count=3)
 
                 # === SAVED STATES SECTION (Manual Saves) ===
                 # Add Save State button for single slice view (not bbox mode)
