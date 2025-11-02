@@ -674,14 +674,16 @@ class SliceSelectorApp:
                 
                 load_next_btn.on_click(on_load_next_click)
                 
-                # Get line thickness slider and color selector from the first slice's canvas
+                # Get line thickness slider, color selector, and clear button from the first slice's canvas
                 line_thickness_slider = None
                 line_color_selector = None
+                clear_drawings_btn = None
                 if hasattr(self, 'multi_slice_sync_app') and self.multi_slice_sync_app and hasattr(self.multi_slice_sync_app, 'slices'):
                     slices = self.multi_slice_sync_app.slices
                     if slices and len(slices) > 0:
                         line_thickness_slider = slices[0].canvas.line_thickness_slider
                         line_color_selector = slices[0].canvas.line_color_selector
+                        clear_drawings_btn = slices[0].canvas.clear_drawings_btn
                 
                 # === LIVE TRACKING SECTION (Auto Saves) ===
                 # Add Undo button (for live_tracking)
@@ -736,6 +738,8 @@ class SliceSelectorApp:
                         line_thickness_slider if line_thickness_slider else pn.Spacer(width=0),
                         pn.Spacer(width=10),
                         line_color_selector if line_color_selector else pn.Spacer(width=0),
+                        pn.Spacer(width=10),
+                        clear_drawings_btn if clear_drawings_btn else pn.Spacer(width=0),
                         pn.Spacer(),
                         sizing_mode="stretch_width"
                     ),

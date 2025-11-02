@@ -85,6 +85,21 @@ class Canvas:
 			width=150
 		)
 		
+		# Add clear all button for drawings
+		self.clear_drawings_btn = pn.widgets.Button(
+			name='🗑️ Clean',
+			button_type='danger',
+			width=100
+		)
+		
+		# Add callback to clear all drawings
+		def clear_all_drawings(event):
+			if self.drawsource:
+				self.drawsource.data = {"xs": [], "ys": []}
+				logger.info("All drawings cleared")
+		
+		self.clear_drawings_btn.on_click(clear_all_drawings)
+		
 		self.fig_layout=Row(sizing_mode="stretch_both")	
 
 		self.createFigure() # Creates the main figure using Bokeh and adds
