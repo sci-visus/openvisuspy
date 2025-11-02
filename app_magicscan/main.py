@@ -840,6 +840,8 @@ class SliceSelectorApp:
                         pn.Spacer(width=10),
                         ink_area_button,
                         pn.Spacer(width=30),
+                    ),
+                    pn.Row(
                         overview_btn,
                         pn.Spacer(width=30),
                         # Live Tracking controls
