@@ -202,7 +202,7 @@ class SliceSelectorApp:
             sizing_mode='stretch_width'
         )
 
-        # Add radio button group for state loading option
+        # Add radio button group for state loading options
         self.state_option = pn.widgets.RadioButtonGroup(
             name='Load Option',
             options=['Load New State', 'Load Last State'],
