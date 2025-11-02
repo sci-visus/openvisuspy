@@ -170,6 +170,14 @@ class SliceSelectorApp:
         # Flag to determine if loading with last state
         self.load_with_last_state = False
         
+        # Initialize annotation status tracking
+        self.annotation_status = {
+            "checked": {},  # {title: boolean}
+            "ink_area": {}  # {title: boolean}
+        }
+        self.annotation_file = Path("annotation_status.json")
+        self._load_annotation_status()
+        
         # Display friendly names like Image1, Image2, etc.
         #self.display_names = [f"Image{i+1}" for i in range(len(idx_files))]
         self.display_names = [Path(f).parent.name for f in idx_files]
@@ -184,14 +192,8 @@ class SliceSelectorApp:
 
         self.file_map = dict(zip(self.display_names, self.idx_files))
 
-        self.checkboxes = pn.widgets.CheckButtonGroup(
-            name='Select Here (just click any number of images)',
-            options=self.display_names,
-            value=[],
-            button_type='default',
-            orientation='vertical',  # ← makes the buttons stack vertically
-            sizing_mode='stretch_width'
-        )
+        # Create checkboxes with status indicators in labels
+        self._create_checkboxes_with_status()
 
         self.checkbox2 = pn.widgets.CheckButtonGroup(
             name='Select Boundary Box',
@@ -260,6 +262,85 @@ class SliceSelectorApp:
 
         self.main_panel = pn.Column(self.selection_page, sizing_mode='stretch_height')
 
+    def _create_checkboxes_with_status(self):
+        """Create checkboxes with status indicators visible in the button labels"""
+        # Create display options with status indicators
+        display_options = []
+        for name in self.display_names:
+            checked = self.annotation_status.get("checked", {}).get(name, False)
+            ink_area = self.annotation_status.get("ink_area", {}).get(name, False)
+            
+            # Add status indicators as emojis
+            checked_icon = "✅" if checked else "⬜"
+            ink_icon = "🖊️" if ink_area else "📝"
+            
+            # Format: [checked_status] [ink_status] Title
+            display_label = f"{checked_icon} {ink_icon} {name}"
+            display_options.append(display_label)
+        
+        # Create mapping from display label to actual name
+        self.label_to_name = {}
+        for label, name in zip(display_options, self.display_names):
+            self.label_to_name[label] = name
+        
+        self.checkboxes = pn.widgets.CheckButtonGroup(
+            name='Select Here (just click any number of images)',
+            options=display_options,
+            value=[],
+            button_type='default',
+            orientation='vertical',
+            sizing_mode='stretch_width'
+        )
+    
+    def _update_checkbox_labels(self):
+        """Update checkbox labels to reflect current status"""
+        current_values = [self.label_to_name.get(v, v) for v in self.checkboxes.value]
+        
+        # Recreate options with updated status
+        display_options = []
+        for name in self.display_names:
+            checked = self.annotation_status.get("checked", {}).get(name, False)
+            ink_area = self.annotation_status.get("ink_area", {}).get(name, False)
+            
+            checked_icon = "✅" if checked else "⬜"
+            ink_icon = "🖊️" if ink_area else "📝"
+            
+            display_label = f"{checked_icon} {ink_icon} {name}"
+            display_options.append(display_label)
+        
+        # Update label mapping
+        self.label_to_name = {}
+        for label, name in zip(display_options, self.display_names):
+            self.label_to_name[label] = name
+        
+        # Update options and preserve selection
+        self.checkboxes.options = display_options
+        
+        # Restore selection using new labels
+        name_to_label = {name: label for label, name in self.label_to_name.items()}
+        self.checkboxes.value = [name_to_label[name] for name in current_values if name in name_to_label]
+
+    def _load_annotation_status(self):
+        """Load annotation status from JSON file if it exists"""
+        try:
+            if self.annotation_file.exists():
+                with open(self.annotation_file, 'r') as f:
+                    self.annotation_status = json.load(f)
+                logger.info(f"✓ Loaded annotation status from {self.annotation_file}")
+        except Exception as e:
+            logger.error(f"⚠ Failed to load annotation status: {e}")
+    
+    def _save_annotation_status(self):
+        """Save annotation status to JSON file"""
+        try:
+            with open(self.annotation_file, 'w') as f:
+                json.dump(self.annotation_status, f, indent=2)
+            logger.info(f"✓ Saved annotation status to {self.annotation_file}")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Failed to save annotation status: {e}")
+            return False
+
     def compute_scale_factors(self, slices):
         ref_box = slices[0].db.getPhysicBox()
         ref_size = ref_box[0][1] - ref_box[0][0]
@@ -273,7 +354,8 @@ class SliceSelectorApp:
     
 
     def load_slices(self, event):
-        selected_display_names = self.checkboxes.value
+        # Convert display labels back to actual names
+        selected_display_names = [self.label_to_name.get(label, label) for label in self.checkboxes.value]
         if not selected_display_names:
             self.main_panel.append(pn.pane.Markdown("**⚠️ Please select at least one slice.**"))
             return
@@ -420,6 +502,42 @@ class SliceSelectorApp:
 
         back_button = pn.widgets.Button(name="⬅️ Back", button_type="warning", width=100)
         back_button.on_click(self.back_to_selection)
+        
+        # Add Checked toggle button
+        checked_button = pn.widgets.Toggle(
+            name="✓ Checked",
+            button_type="success",
+            width=120,
+            value=all(self.annotation_status.get("checked", {}).get(name, False) for name in selected_display_names)
+        )
+        
+        def on_checked_toggle(event):
+            for name in selected_display_names:
+                self.annotation_status["checked"][name] = event.new
+            self._save_annotation_status()
+            self._update_checkbox_labels()  # Update the checkbox display
+            logger.info(f"✓ Updated checked status to {event.new} for {selected_display_names}")
+            pn.state.notifications.success(f"Checked status: {'ON' if event.new else 'OFF'}", duration=2000)
+        
+        checked_button.param.watch(on_checked_toggle, 'value')
+        
+        # Add Ink Area toggle button
+        ink_area_button = pn.widgets.Toggle(
+            name="🖊️ Ink Area",
+            button_type="primary",
+            width=120,
+            value=all(self.annotation_status.get("ink_area", {}).get(name, False) for name in selected_display_names)
+        )
+        
+        def on_ink_area_toggle(event):
+            for name in selected_display_names:
+                self.annotation_status["ink_area"][name] = event.new
+            self._save_annotation_status()
+            self._update_checkbox_labels()  # Update the checkbox display
+            logger.info(f"✓ Updated ink_area status to {event.new} for {selected_display_names}")
+            pn.state.notifications.success(f"Ink Area status: {'ON' if event.new else 'OFF'}", duration=2000)
+        
+        ink_area_button.param.watch(on_ink_area_toggle, 'value')
 
         n = len(slices)
         print("loaded slices2: ",n)
@@ -716,7 +834,12 @@ class SliceSelectorApp:
 
                 slices_layout = pn.Column(
                     pn.Row(
-                        pn.Spacer(),
+                        back_button,
+                        pn.Spacer(width=20),
+                        checked_button,
+                        pn.Spacer(width=10),
+                        ink_area_button,
+                        pn.Spacer(width=30),
                         overview_btn,
                         pn.Spacer(width=30),
                         # Live Tracking controls
@@ -762,6 +885,15 @@ class SliceSelectorApp:
         elif n == 2:
             slices_layout = pn.Column(
                 pn.Row(
+                    back_button,
+                    pn.Spacer(width=20),
+                    checked_button,
+                    pn.Spacer(width=10),
+                    ink_area_button,
+                    pn.Spacer(),
+                    sizing_mode="stretch_width"
+                ),
+                pn.Row(
                     slices[0].getMainLayout(),
                     pn.layout.VSpacer(),
                     slices[1].getMainLayout(),
@@ -805,6 +937,15 @@ class SliceSelectorApp:
             layout_bottom_captions = [display_captions[i] for i in range(half_n, n_display)]
 
             slices_layout = pn.Column(
+                pn.Row(
+                    back_button,
+                    pn.Spacer(width=20),
+                    checked_button,
+                    pn.Spacer(width=10),
+                    ink_area_button,
+                    pn.Spacer(),
+                    sizing_mode="stretch_width"
+                ),
                 pn.Row(*layout_top_slices, sizing_mode="stretch_both"),
                 pn.Row(*layout_top_captions, sizing_mode="stretch_width"),
                 pn.Row(*layout_bottom_slices, sizing_mode="stretch_both"),
@@ -814,11 +955,6 @@ class SliceSelectorApp:
 
         self.main_panel.append(
             pn.Column(
-                pn.Row(
-                    back_button,
-                    pn.Spacer(width=20),
-                    sizing_mode='fixed'
-                ),
                 slices_layout,
                 sizing_mode='stretch_both'
             )
