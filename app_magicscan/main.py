@@ -223,9 +223,12 @@ class SliceSelectorApp:
             styles={'border': '1px solid #ddd', 'padding': '10px', 'border-radius': '5px'}
         )
 
+        # Count total number of titles
+        total_count = len(self.display_names)
+
         # Left column: Checkboxes selection
         left_column = pn.Column(
-            "# 🔹 <span style='font-size:28px;'>Select Here <span style='font-size:20px;'>( click any number of images)</span></span>",
+            f"# 🔹 <span style='font-size:28px;'>Select Here <span style='font-size:20px;'>( click any number of images)</span> - Total: {total_count}</span>",
             checkboxes_container,
             width=850,
             sizing_mode='stretch_height',
