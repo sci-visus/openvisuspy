@@ -67,6 +67,24 @@ class Canvas:
 			width=200
 		)
 		
+		# Add color selector for drawing
+		self.line_color_selector = pn.widgets.Select(
+			name='Line Color',
+			options={
+				'Yellow': 'yellow',
+				'Red': 'red',
+				'Green': 'green',
+				'Blue': 'blue',
+				'Cyan': 'cyan',
+				'Magenta': 'magenta',
+				'Orange': 'orange',
+				'White': 'white',
+				'Black': 'black'
+			},
+			value='yellow',
+			width=150
+		)
+		
 		self.fig_layout=Row(sizing_mode="stretch_both")	
 
 		self.createFigure() # Creates the main figure using Bokeh and adds
@@ -291,8 +309,8 @@ class Canvas:
 					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh")
 
 					
-					# Add a multi_line glyph for freehand drawing with dynamic line width
-					line_renderer = self.fig.multi_line(xs="xs", ys="ys", line_color="yellow", line_width=self.line_thickness_slider.value, source=self.drawsource)
+					# Add a multi_line glyph for freehand drawing with dynamic line width and color
+					line_renderer = self.fig.multi_line(xs="xs", ys="ys", line_color=self.line_color_selector.value, line_width=self.line_thickness_slider.value, source=self.drawsource)
 					self.line_renderer = line_renderer
 
 					# Add a FreehandDrawTool
@@ -306,6 +324,13 @@ class Canvas:
 						logger.info(f"Line thickness changed to: {event.new}")
 					
 					self.line_thickness_slider.param.watch(update_line_width, 'value')
+					
+					# Add callback to update line color when selector changes
+					def update_line_color(event):
+						self.line_renderer.glyph.line_color = event.new
+						logger.info(f"Line color changed to: {event.new}")
+					
+					self.line_color_selector.param.watch(update_line_color, 'value')
 					
 					# Add double-click callback to toggle between pan and drawing tools
 					toggle_code = """
