@@ -214,25 +214,40 @@ class SliceSelectorApp:
         self.load_button = pn.widgets.Button(name='Load Selected Slices', button_type='primary')
         self.load_button.on_click(self.load_slices)
 
+        # Wrap checkboxes in a scrollable container with max height
+        checkboxes_container = pn.Column(
+            self.checkboxes,
+            scroll=True,
+            max_height=600,  # Limit height to enable scrolling when content exceeds
+            sizing_mode='stretch_width',
+            styles={'border': '1px solid #ddd', 'padding': '10px', 'border-radius': '5px'}
+        )
+
+        # Left column: Checkboxes selection
+        left_column = pn.Column(
+            "# 🔹 <span style='font-size:28px;'>Select Here <span style='font-size:20px;'>( click any number of images)</span></span>",
+            checkboxes_container,
+            width=850,
+            sizing_mode='stretch_height',
+        )
+
+        # Right column: Load options and button
+        right_column = pn.Column(
+            "## Load Options",
+            self.state_option,
+            pn.Spacer(height=20),
+            self.load_button,
+            width=450,
+            align='start',
+        )
+
         self.selection_page = pn.Column(
             pn.Spacer(height=100),
             pn.Row(
-                pn.layout.HSpacer(),
-                pn.Column(
-                    "# 🔹 <span style='font-size:28px;'>Select Here <span style='font-size:20px;'>( click any number of images)</span></span>",
-                    self.checkboxes,
-                    pn.Spacer(height=20),
-                    "## Load Options",
-                    self.state_option,
-                    pn.Spacer(height=20),
-                    pn.Row(
-                        self.load_button,
-                        align='center'
-                    ),
-                    align='center',
-                    width=800,
-                    sizing_mode='stretch_height',
-                ),
+                pn.Spacer(width=20),  # Small left margin
+                left_column,
+                pn.Spacer(width=40),
+                right_column,
                 pn.layout.HSpacer(),
                 sizing_mode='stretch_both',
             ),
@@ -1558,6 +1573,6 @@ if __name__.startswith('bokeh'):
     if not paths:
         paths = sys.argv[1:]
 
-    #app = SliceSelectorApp(paths)
-    app = SliceSelectorApp(sys.argv[1:])
+    app = SliceSelectorApp(paths)
+    #app = SliceSelectorApp(sys.argv[1:])
     app.main_panel.servable()
