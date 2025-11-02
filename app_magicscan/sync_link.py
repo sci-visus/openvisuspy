@@ -124,7 +124,7 @@ class MultiSliceSynchronizer:
         viewport_width = _viewport_width(fig)
 
         if viewport_width <= 0:
-            zoom_level    = 100.0
+            zoom_level    = 1.03
             zoom_level_bb = 100.0
         else:
             zoom_level    = (viewport_width / max(1, img_width)) * 100.0

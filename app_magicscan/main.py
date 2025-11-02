@@ -172,7 +172,7 @@ class SliceSelectorApp:
         
         # Initialize annotation status tracking
         self.annotation_status = {
-            "checked": {},  # {title: boolean}
+            "verified": {},  # {title: boolean}
             "ink_area": {}  # {title: boolean}
         }
         self.annotation_file = Path("annotation_status.json")
@@ -217,7 +217,7 @@ class SliceSelectorApp:
         self.load_button.on_click(self.load_slices)
 
         # Wrap checkboxes in a scrollable container with max height
-        checkboxes_container = pn.Column(
+        self.checkboxes_container = pn.Column(
             self.checkboxes,
             scroll=True,
             max_height=600,  # Limit height to enable scrolling when content exceeds
@@ -227,11 +227,21 @@ class SliceSelectorApp:
 
         # Count total number of titles
         total_count = len(self.display_names)
+        
+        # Count verified and ink area items
+        verified_count = sum(1 for name in self.display_names if self.annotation_status.get("verified", {}).get(name, False))
+        ink_area_count = sum(1 for name in self.display_names if self.annotation_status.get("ink_area", {}).get(name, False))
+
+        # Create title header that will be updated dynamically
+        self.selection_title = pn.pane.Markdown(
+            f"# 🔹 <span style='font-size:28px;'>Select Here </span> - Total: {total_count} | ✅ Verified: {verified_count} | 🖊️ Ink area found in: {ink_area_count}</span>",
+            sizing_mode='stretch_width'
+        )
 
         # Left column: Checkboxes selection
         left_column = pn.Column(
-            f"# 🔹 <span style='font-size:28px;'>Select Here <span style='font-size:20px;'>( click any number of images)</span> - Total: {total_count}</span>",
-            checkboxes_container,
+            self.selection_title,
+            self.checkboxes_container,
             width=850,
             sizing_mode='stretch_height',
         )
@@ -267,15 +277,15 @@ class SliceSelectorApp:
         # Create display options with status indicators
         display_options = []
         for name in self.display_names:
-            checked = self.annotation_status.get("checked", {}).get(name, False)
+            verified = self.annotation_status.get("verified", {}).get(name, False)
             ink_area = self.annotation_status.get("ink_area", {}).get(name, False)
             
             # Add status indicators as emojis
-            checked_icon = "✅" if checked else "⬜"
+            verified_icon = "✅" if verified else "⬜"
             ink_icon = "🖊️" if ink_area else "📝"
             
-            # Format: [checked_status] [ink_status] Title
-            display_label = f"{checked_icon} {ink_icon} {name}"
+            # Format: [verified_status] [ink_status] Title
+            display_label = f"{verified_icon} {ink_icon} {name}"
             display_options.append(display_label)
         
         # Create mapping from display label to actual name
@@ -299,13 +309,13 @@ class SliceSelectorApp:
         # Recreate options with updated status
         display_options = []
         for name in self.display_names:
-            checked = self.annotation_status.get("checked", {}).get(name, False)
+            verified = self.annotation_status.get("verified", {}).get(name, False)
             ink_area = self.annotation_status.get("ink_area", {}).get(name, False)
             
-            checked_icon = "✅" if checked else "⬜"
+            verified_icon = "✅" if verified else "⬜"
             ink_icon = "🖊️" if ink_area else "📝"
             
-            display_label = f"{checked_icon} {ink_icon} {name}"
+            display_label = f"{verified_icon} {ink_icon} {name}"
             display_options.append(display_label)
         
         # Update label mapping
@@ -319,14 +329,40 @@ class SliceSelectorApp:
         # Restore selection using new labels
         name_to_label = {name: label for label, name in self.label_to_name.items()}
         self.checkboxes.value = [name_to_label[name] for name in current_values if name in name_to_label]
+        
+        # Update title with new counts
+        total_count = len(self.display_names)
+        verified_count = sum(1 for name in self.display_names if self.annotation_status.get("verified", {}).get(name, False))
+        ink_area_count = sum(1 for name in self.display_names if self.annotation_status.get("ink_area", {}).get(name, False))
+        
+        if hasattr(self, 'selection_title'):
+            self.selection_title.object = f"# 🔹 <span style='font-size:28px;'>Select Here </span> - Total: {total_count} | ✅ Verified: {verified_count} | 🖊️ Ink: {ink_area_count}</span>"
+
 
     def _load_annotation_status(self):
         """Load annotation status from JSON file if it exists"""
         try:
             if self.annotation_file.exists():
                 with open(self.annotation_file, 'r') as f:
-                    self.annotation_status = json.load(f)
+                    loaded_status = json.load(f)
+                
+                # Migrate old "checked" key to "verified" if needed
+                if "checked" in loaded_status and "verified" not in loaded_status:
+                    loaded_status["verified"] = loaded_status.pop("checked")
+                    logger.info(f"✓ Migrated 'checked' to 'verified' in annotation status")
+                
+                # Ensure both keys exist
+                if "verified" not in loaded_status:
+                    loaded_status["verified"] = {}
+                if "ink_area" not in loaded_status:
+                    loaded_status["ink_area"] = {}
+                
+                self.annotation_status = loaded_status
                 logger.info(f"✓ Loaded annotation status from {self.annotation_file}")
+                
+                # Save the migrated version
+                if "checked" in loaded_status or "verified" not in loaded_status:
+                    self._save_annotation_status()
         except Exception as e:
             logger.error(f"⚠ Failed to load annotation status: {e}")
     
@@ -503,23 +539,23 @@ class SliceSelectorApp:
         back_button = pn.widgets.Button(name="⬅️ Back", button_type="warning", width=100)
         back_button.on_click(self.back_to_selection)
         
-        # Add Checked toggle button
-        checked_button = pn.widgets.Toggle(
-            name="✓ Checked",
+        # Add Verified toggle button
+        verified_button = pn.widgets.Toggle(
+            name="✓ Verified",
             button_type="success",
             width=120,
-            value=all(self.annotation_status.get("checked", {}).get(name, False) for name in selected_display_names)
+            value=all(self.annotation_status.get("verified", {}).get(name, False) for name in selected_display_names)
         )
         
-        def on_checked_toggle(event):
+        def on_verified_toggle(event):
             for name in selected_display_names:
-                self.annotation_status["checked"][name] = event.new
+                self.annotation_status["verified"][name] = event.new
             self._save_annotation_status()
             self._update_checkbox_labels()  # Update the checkbox display
-            logger.info(f"✓ Updated checked status to {event.new} for {selected_display_names}")
-            pn.state.notifications.success(f"Checked status: {'ON' if event.new else 'OFF'}", duration=2000)
+            logger.info(f"✓ Updated verified status to {event.new} for {selected_display_names}")
+            pn.state.notifications.success(f"Verified status: {'ON' if event.new else 'OFF'}", duration=2000)
         
-        checked_button.param.watch(on_checked_toggle, 'value')
+        verified_button.param.watch(on_verified_toggle, 'value')
         
         # Add Ink Area toggle button
         ink_area_button = pn.widgets.Toggle(
@@ -836,7 +872,7 @@ class SliceSelectorApp:
                     pn.Row(
                         back_button,
                         pn.Spacer(width=20),
-                        checked_button,
+                        verified_button,
                         pn.Spacer(width=10),
                         ink_area_button,
                         pn.Spacer(width=30),
@@ -889,7 +925,7 @@ class SliceSelectorApp:
                 pn.Row(
                     back_button,
                     pn.Spacer(width=20),
-                    checked_button,
+                    verified_button,
                     pn.Spacer(width=10),
                     ink_area_button,
                     pn.Spacer(),
@@ -942,7 +978,7 @@ class SliceSelectorApp:
                 pn.Row(
                     back_button,
                     pn.Spacer(width=20),
-                    checked_button,
+                    verified_button,
                     pn.Spacer(width=10),
                     ink_area_button,
                     pn.Spacer(),
