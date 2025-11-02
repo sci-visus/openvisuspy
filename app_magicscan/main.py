@@ -674,6 +674,13 @@ class SliceSelectorApp:
                 
                 load_next_btn.on_click(on_load_next_click)
                 
+                # Get line thickness slider from the first slice's canvas
+                line_thickness_slider = None
+                if hasattr(self, 'multi_slice_sync_app') and self.multi_slice_sync_app and hasattr(self.multi_slice_sync_app, 'slices'):
+                    slices = self.multi_slice_sync_app.slices
+                    if slices and len(slices) > 0:
+                        line_thickness_slider = slices[0].canvas.line_thickness_slider
+                
                 # === LIVE TRACKING SECTION (Auto Saves) ===
                 # Add Undo button (for live_tracking)
                 undo_btn = pn.widgets.Button(
@@ -721,6 +728,10 @@ class SliceSelectorApp:
                         save_state_btn,
                         pn.Spacer(width=5),
                         load_next_btn,
+                        pn.Spacer(width=30),
+                        # Line thickness control
+                        pn.pane.Markdown("**Line:**", sizing_mode="fixed", width=40),
+                        line_thickness_slider if line_thickness_slider else pn.Spacer(width=0),
                         pn.Spacer(),
                         sizing_mode="stretch_width"
                     ),

@@ -56,6 +56,17 @@ class Canvas:
 		self.events={} # Event handling supporting various kinds of interactions
 
 		self.box_select_tool_helper = bokeh.models.TextInput(visible=False)
+		
+		# Add thickness control slider for drawing
+		self.line_thickness_slider = pn.widgets.IntSlider(
+			name='Line Thickness', 
+			start=1, 
+			end=20, 
+			step=1, 
+			value=4,
+			width=200
+		)
+		
 		self.fig_layout=Row(sizing_mode="stretch_both")	
 
 		self.createFigure() # Creates the main figure using Bokeh and adds
@@ -170,7 +181,6 @@ class Canvas:
 		# replace the figure from the fig_layout (so that later on I can replace it)
 		self.fig_layout[:]=[
 			Bokeh(self.fig),
-			self.box_select_tool_helper,
 		]
 		self.enableSelection()
 		self.last_renderer={}
@@ -281,13 +291,21 @@ class Canvas:
 					self.fig.image_rgba("image", source=source, x="X", y="Y", dw="dw", dh="dh")
 
 					
-					# Add a multi_line glyph for freehand drawing
-					self.fig.multi_line(xs="xs", ys="ys", line_color="yellow", line_width=4, source=self.drawsource)
+					# Add a multi_line glyph for freehand drawing with dynamic line width
+					line_renderer = self.fig.multi_line(xs="xs", ys="ys", line_color="yellow", line_width=self.line_thickness_slider.value, source=self.drawsource)
+					self.line_renderer = line_renderer
 
 					# Add a FreehandDrawTool
-					freehand_tool = FreehandDrawTool(renderers=[self.fig.renderers[-1]], num_objects=100)  # Use the last renderer (multi_line)
+					freehand_tool = FreehandDrawTool(renderers=[line_renderer], num_objects=100)
 					self.fig.add_tools(freehand_tool)
 					self.freehand_tool = freehand_tool
+					
+					# Add callback to update line width when slider changes
+					def update_line_width(event):
+						self.line_renderer.glyph.line_width = event.new
+						logger.info(f"Line thickness changed to: {event.new}")
+					
+					self.line_thickness_slider.param.watch(update_line_width, 'value')
 					
 					# Add double-click callback to toggle between pan and drawing tools
 					toggle_code = """
