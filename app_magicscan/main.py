@@ -1541,16 +1541,22 @@ if __name__.startswith('bokeh'):
     """
     pn.extension(raw_css=[custom_css])
 
-    #API_HOST = os.environ.get("MAGICSCAN_API_HOST", "visstore_nginx")  # docker service name
-    #API_SCHEME = os.environ.get("MAGICSCAN_API_SCHEME", "http")
-    #API_PORT = os.environ.get("MAGICSCAN_API_PORT", "80")
+    # Resolve dataset paths: prefer API if provided, else CLI args
+    api_url = os.environ.get("MAGICSCAN_API_URL")
+    paths = []
+    if api_url:
+        try:
+            resp = requests.get(api_url, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            # Expecting {"paths": ["/path/..../visus.idx", ...]}
+            paths = list(data.get("paths", [])) if isinstance(data, dict) else []
+        except Exception as e:
+            print(f"[WARN] Failed to fetch MAGICSCAN_API_URL={api_url}: {e}")
+            paths = []
 
-    #url = f"{API_SCHEME}://{API_HOST}:{API_PORT}/list_magicscan.php"
-
-    #response=requests.get(url,timeout=10)
-    #jsonbdy = response.json()
-    #paths = [f"/mnt/visus_datasets/converted/{item['uuid']}/visus.idx" for item in jsonbdy]
-    #print(paths)
+    if not paths:
+        paths = sys.argv[1:]
 
     #app = SliceSelectorApp(paths)
     app = SliceSelectorApp(sys.argv[1:])
