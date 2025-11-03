@@ -213,7 +213,7 @@ class SliceSelectorApp:
             orientation='horizontal'
         )
 
-        self.load_button = pn.widgets.Button(name='Load Selected Slices', button_type='primary')
+        self.load_button = pn.widgets.Button(name='Load Image', button_type='primary')
         self.load_button.on_click(self.load_slices)
 
         # Wrap checkboxes in a scrollable container with max height
@@ -293,10 +293,10 @@ class SliceSelectorApp:
         for label, name in zip(display_options, self.display_names):
             self.label_to_name[label] = name
         
-        self.checkboxes = pn.widgets.CheckButtonGroup(
-            name='Select Here (just click any number of images)',
+        self.checkboxes = pn.widgets.RadioButtonGroup(
+            name='Select Here (click one image at a time)',
             options=display_options,
-            value=[],
+            value=None,
             button_type='default',
             orientation='vertical',
             sizing_mode='stretch_width'
@@ -304,7 +304,8 @@ class SliceSelectorApp:
     
     def _update_checkbox_labels(self):
         """Update checkbox labels to reflect current status"""
-        current_values = [self.label_to_name.get(v, v) for v in self.checkboxes.value]
+        # Store current selection (single value, not list)
+        current_value = self.label_to_name.get(self.checkboxes.value, self.checkboxes.value) if self.checkboxes.value else None
         
         # Recreate options with updated status
         display_options = []
@@ -326,9 +327,12 @@ class SliceSelectorApp:
         # Update options and preserve selection
         self.checkboxes.options = display_options
         
-        # Restore selection using new labels
-        name_to_label = {name: label for label, name in self.label_to_name.items()}
-        self.checkboxes.value = [name_to_label[name] for name in current_values if name in name_to_label]
+        # Restore selection using new label (single value)
+        if current_value:
+            name_to_label = {name: label for label, name in self.label_to_name.items()}
+            self.checkboxes.value = name_to_label.get(current_value, None)
+        else:
+            self.checkboxes.value = None
         
         # Update title with new counts
         total_count = len(self.display_names)
@@ -390,11 +394,13 @@ class SliceSelectorApp:
     
 
     def load_slices(self, event):
-        # Convert display labels back to actual names
-        selected_display_names = [self.label_to_name.get(label, label) for label in self.checkboxes.value]
-        if not selected_display_names:
-            self.main_panel.append(pn.pane.Markdown("**⚠️ Please select at least one slice.**"))
+        # Convert display label back to actual name (single selection)
+        if not self.checkboxes.value:
+            self.main_panel.append(pn.pane.Markdown("**⚠️ Please select a slice.**"))
             return
+        
+        selected_display_name = self.label_to_name.get(self.checkboxes.value, self.checkboxes.value)
+        selected_display_names = [selected_display_name]  # Convert to list for compatibility with rest of code
 
         selected_files = [self.file_map[name] for name in selected_display_names]
         
