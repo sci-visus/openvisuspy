@@ -545,6 +545,10 @@ class SliceSelectorApp:
         back_button = pn.widgets.Button(name="⬅️ Back", button_type="warning", width=100)
         back_button.on_click(self.back_to_selection)
         
+        # Add Reset button to load 00000.json from saved_states
+        reset_button = pn.widgets.Button(name="🔄 Reset", button_type="danger", width=100)
+        reset_button.on_click(self._execute_reset_state)
+        
         # Add Verified toggle button
         verified_button = pn.widgets.Toggle(
             name="✓ Verified",
@@ -877,6 +881,8 @@ class SliceSelectorApp:
                 slices_layout = pn.Column(
                     pn.Row(
                         back_button,
+                        pn.Spacer(width=10),
+                        reset_button,
                         pn.Spacer(width=20),
                         verified_button,
                         pn.Spacer(width=10),
@@ -930,6 +936,8 @@ class SliceSelectorApp:
             slices_layout = pn.Column(
                 pn.Row(
                     back_button,
+                    pn.Spacer(width=10),
+                    reset_button,
                     pn.Spacer(width=20),
                     verified_button,
                     pn.Spacer(width=10),
@@ -983,6 +991,8 @@ class SliceSelectorApp:
             slices_layout = pn.Column(
                 pn.Row(
                     back_button,
+                    pn.Spacer(width=10),
+                    reset_button,
                     pn.Spacer(width=20),
                     verified_button,
                     pn.Spacer(width=10),
@@ -1048,6 +1058,88 @@ class SliceSelectorApp:
         except Exception as e:
             logger.error(f"[Live Tracking] Error stopping: {e}")
             print(f"[Live Tracking] Error stopping: {e}")
+
+    def _execute_reset_state(self, event=None):
+        """Reset to initial state - clear drawings and reset viewport to full image view"""
+        try:
+            logger.info(f"[Reset State] Executing reset to initial state")
+            print(f"\n{'='*60}")
+            print(f"[🔄 Reset State] Resetting to initial state...")
+            print(f"{'='*60}")
+            
+            if not hasattr(self, 'state_trackers') or not self.state_trackers:
+                logger.warning(f"[Reset State] No state trackers available")
+                print(f"⚠ No active slices to reset")
+                pn.state.notifications.warning("No active slices to reset", duration=2000)
+                return
+            
+            # Iterate through all trackers and reset them
+            for tracker in self.state_trackers:
+                try:
+                    display_name = tracker.display_name
+                    slc = tracker.slice
+                    
+                    logger.info(f"[Reset State] Resetting {display_name}")
+                    print(f"[Reset State] Resetting {display_name}")
+                    
+                    # Clear all drawings
+                    if hasattr(slc.canvas, 'drawsource') and slc.canvas.drawsource:
+                        slc.canvas.drawsource.data = {"xs": [], "ys": []}
+                        logger.info(f"[Reset State] Cleared drawings for {display_name}")
+                    
+                    # Reset viewport to show full image
+                    # Get the physical box dimensions from the database
+                    if hasattr(slc, 'db') and slc.db:
+                        physic_box = slc.db.getPhysicBox()
+                        if physic_box:
+                            # physic_box is like [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
+                            x_min, x_max = physic_box[0]
+                            y_min, y_max = physic_box[1]
+                            
+                            # Calculate width and height
+                            width = x_max - x_min
+                            height = y_max - y_min
+                            
+                            # Set viewport to show the full image
+                            viewport = [x_min, y_min, width, height]
+                            
+                            # Use the canvas setViewport method
+                            slc.canvas.setViewport(viewport)
+                            
+                            logger.info(f"[Reset State] Reset viewport to full image: {viewport}")
+                            print(f"[Reset State] Reset viewport for {display_name}: x={x_min:.2f}, y={y_min:.2f}, w={width:.2f}, h={height:.2f}")
+                            
+                            # Trigger a refresh to update the view
+                            if hasattr(slc, 'refresh'):
+                                slc.refresh("reset_state")
+                            
+                            # Reset state indices
+                            self.current_state_index[display_name] = None
+                            self.live_tracking_index[display_name] = None
+                            
+                            logger.info(f"✓ [Reset State] Successfully reset {display_name}")
+                            print(f"✓ Successfully reset {display_name}")
+                        else:
+                            logger.warning(f"⚠ [Reset State] Could not get physic box for {display_name}")
+                            print(f"⚠ Could not determine image dimensions for {display_name}")
+                    else:
+                        logger.warning(f"⚠ [Reset State] No database loaded for {display_name}")
+                        print(f"⚠ No database loaded for {display_name}")
+                        
+                except Exception as e:
+                    logger.error(f"[Reset State] Error resetting {tracker.display_name}: {e}")
+                    print(f"✗ Error resetting {tracker.display_name}: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            
+            pn.state.notifications.success("Reset to initial state", duration=2000)
+            print(f"{'='*60}\n")
+                    
+        except Exception as e:
+            logger.error(f"[Reset State] Error in reset execution: {e}")
+            pn.state.notifications.error("Failed to reset state", duration=2000)
+            import traceback
+            logger.error(traceback.format_exc())
 
     def _execute_state_save(self):
         """Execute the state save operation"""
