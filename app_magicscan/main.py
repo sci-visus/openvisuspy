@@ -173,7 +173,9 @@ class SliceSelectorApp:
         # Initialize annotation status tracking
         self.annotation_status = {
             "verified": {},  # {title: boolean}
-            "ink_area": {}  # {title: boolean}
+            "ink_area": {},  # {title: boolean}
+            "notes": {},  # {title: [list of notes with timestamp and text]}
+            "dashboard_notices": []  # Global notices for the entire dashboard
         }
         self.annotation_file = Path("annotation_status.json")
         self._load_annotation_status()
@@ -216,11 +218,30 @@ class SliceSelectorApp:
         self.load_button = pn.widgets.Button(name='Load Image', button_type='primary')
         self.load_button.on_click(self.load_slices)
 
+        # Create a placeholder for notes panel that will update based on selection
+        self.notes_panel_container = pn.Column(
+            pn.pane.Markdown(
+                "### 📝 Notes\n\n*Select an image from the list to view and add notes.*",
+                styles={
+                    'background': '#f9fafb',
+                    'border': '1px solid #e5e7eb',
+                    'border-radius': '8px',
+                    'padding': '16px',
+                    'color': '#6b7280',
+                    'font-style': 'italic'
+                }
+            ),
+            sizing_mode='stretch_width'
+        )
+        
+        # Watch for checkbox selection changes to update notes panel
+        self.checkboxes.param.watch(self._on_selection_change, 'value')
+
         # Wrap checkboxes in a scrollable container with max height
         self.checkboxes_container = pn.Column(
             self.checkboxes,
             scroll=True,
-            max_height=600,  # Limit height to enable scrolling when content exceeds
+            max_height=900,  # Limit height to enable scrolling when content exceeds
             sizing_mode='stretch_width',
             styles={'border': '1px solid #ddd', 'padding': '10px', 'border-radius': '5px'}
         )
@@ -234,7 +255,7 @@ class SliceSelectorApp:
 
         # Create title header that will be updated dynamically
         self.selection_title = pn.pane.Markdown(
-            f"# 🔹 <span style='font-size:28px;'>Select Here </span> - Total: {total_count} | ✅ Verified: {verified_count} | 🖊️ Ink area found in: {ink_area_count}</span>",
+            f"# <span style='font-size:28px;'></span> ✅ Done: {verified_count} | 🖊️ Ink area found in: {ink_area_count} | Total: {total_count}</span>",
             sizing_mode='stretch_width'
         )
 
@@ -252,6 +273,10 @@ class SliceSelectorApp:
             self.state_option,
             pn.Spacer(height=20),
             self.load_button,
+            pn.Spacer(height=30),
+            self.notes_panel_container,
+            pn.Spacer(height=30),
+            self._create_dashboard_notices_panel(),
             width=450,
             align='start',
         )
@@ -299,7 +324,19 @@ class SliceSelectorApp:
             value=None,
             button_type='default',
             orientation='vertical',
-            sizing_mode='stretch_width'
+            sizing_mode='stretch_width',
+            stylesheets=["""
+                button.bk-btn.bk-active {
+                    background-color: #fef08a !important;
+                    border-color: #eab308 !important;
+                    color: #000000 !important;
+                    font-weight: bold !important;
+                }
+                button.bk-btn.bk-active:hover {
+                    background-color: #fde047 !important;
+                    border-color: #ca8a04 !important;
+                }
+            """]
         )
     
     def _update_checkbox_labels(self):
@@ -342,6 +379,33 @@ class SliceSelectorApp:
         if hasattr(self, 'selection_title'):
             self.selection_title.object = f"# 🔹 <span style='font-size:28px;'>Select Here </span> - Total: {total_count} | ✅ Verified: {verified_count} | 🖊️ Ink: {ink_area_count}</span>"
 
+    def _on_selection_change(self, event):
+        """Update notes panel when selection changes"""
+        if event.new:
+            # Convert display label back to actual name
+            selected_display_name = self.label_to_name.get(event.new, event.new)
+            
+            # Update the notes panel container with yellow background
+            self.notes_panel_container.clear()
+            notes_panel = self._create_notes_panel(selected_display_name, highlighted=True)
+            self.notes_panel_container.append(notes_panel)
+        else:
+            # Show placeholder message when nothing is selected
+            self.notes_panel_container.clear()
+            self.notes_panel_container.append(
+                pn.pane.Markdown(
+                    "### 📝 Notes\n\n*Select an image from the list to view and add notes.*",
+                    styles={
+                        'background': '#f9fafb',
+                        'border': '1px solid #e5e7eb',
+                        'border-radius': '8px',
+                        'padding': '16px',
+                        'color': '#6b7280',
+                        'font-style': 'italic'
+                    }
+                )
+            )
+
 
     def _load_annotation_status(self):
         """Load annotation status from JSON file if it exists"""
@@ -355,18 +419,21 @@ class SliceSelectorApp:
                     loaded_status["verified"] = loaded_status.pop("checked")
                     logger.info(f"✓ Migrated 'checked' to 'verified' in annotation status")
                 
-                # Ensure both keys exist
+                # Ensure all keys exist
                 if "verified" not in loaded_status:
                     loaded_status["verified"] = {}
                 if "ink_area" not in loaded_status:
                     loaded_status["ink_area"] = {}
+                if "notes" not in loaded_status:
+                    loaded_status["notes"] = {}
+                if "dashboard_notices" not in loaded_status:
+                    loaded_status["dashboard_notices"] = []
                 
                 self.annotation_status = loaded_status
                 logger.info(f"✓ Loaded annotation status from {self.annotation_file}")
                 
                 # Save the migrated version
-                if "checked" in loaded_status or "verified" not in loaded_status:
-                    self._save_annotation_status()
+                self._save_annotation_status()
         except Exception as e:
             logger.error(f"⚠ Failed to load annotation status: {e}")
     
@@ -392,6 +459,320 @@ class SliceSelectorApp:
             scale_factors.append(size / ref_size)
         return scale_factors
     
+    def _create_notes_panel(self, display_name, highlighted=False):
+        """Create a panel for viewing and managing notes for the selection page"""
+        import datetime
+        
+        # Set colors based on highlighted state
+        if highlighted:
+            bg_color = '#fef08a'  # Yellow background
+            border_color = '2px solid #eab308'  # Yellow border
+            title_color = '#854d0e'  # Dark yellow text
+        else:
+            bg_color = 'white'
+            border_color = '1px solid #e5e7eb'
+            title_color = 'inherit'
+        
+        # Get current notes for the selected image
+        current_notes = self.annotation_status.get("notes", {}).get(display_name, [])
+        
+        # Text input for new note
+        note_input = pn.widgets.TextAreaInput(
+            name='Add Note',
+            placeholder='Enter your note here...',
+            height=80,
+            sizing_mode='stretch_width'
+        )
+        
+        # Add note button
+        add_note_btn = pn.widgets.Button(
+            name='➕ Add Note',
+            button_type='success',
+            width=120
+        )
+        
+        # Notes display area
+        notes_display = pn.Column(sizing_mode='stretch_width')
+        
+        def refresh_notes_display():
+            """Refresh the notes display"""
+            notes_display.clear()
+            current_notes = self.annotation_status.get("notes", {}).get(display_name, [])
+            
+            if not current_notes:
+                notes_display.append(
+                    pn.pane.Markdown("*No notes yet. Add one above!*", 
+                                   styles={'color': '#6b7280', 'font-style': 'italic'})
+                )
+            else:
+                for idx, note in enumerate(reversed(current_notes)):
+                    timestamp = note.get('timestamp', 'Unknown time')
+                    text = note.get('text', '')
+                    
+                    # Delete button for this note
+                    delete_btn = pn.widgets.Button(
+                        name='🗑️',
+                        button_type='danger',
+                        width=40,
+                        height=30
+                    )
+                    
+                    # Store the actual index (reverse it back)
+                    actual_idx = len(current_notes) - 1 - idx
+                    
+                    def make_delete_callback(note_idx):
+                        def delete_note(event):
+                            if display_name in self.annotation_status.get("notes", {}):
+                                self.annotation_status["notes"][display_name].pop(note_idx)
+                                self._save_annotation_status()
+                                refresh_notes_display()
+                                # Update checkbox labels to reflect changes
+                                self._update_checkbox_labels()
+                                logger.info(f"✓ Deleted note {note_idx} for {display_name}")
+                                pn.state.notifications.success("Note deleted", duration=1500)
+                        return delete_note
+                    
+                    delete_btn.on_click(make_delete_callback(actual_idx))
+                    
+                    # Create note card
+                    note_card = pn.Card(
+                        pn.Column(
+                            pn.pane.Markdown(f"**📅 {timestamp}**", 
+                                           styles={'font-size': '12px', 'color': '#4b5563'}),
+                            pn.pane.Markdown(text, 
+                                           styles={'font-size': '14px', 'margin-top': '8px'}),
+                        ),
+                        header=pn.Row(
+                            pn.pane.Markdown(f"**Note #{actual_idx + 1}**"),
+                            pn.layout.HSpacer(),
+                            delete_btn,
+                        ),
+                        styles={
+                            'background': '#f9fafb',
+                            'border': '1px solid #e5e7eb',
+                            'border-radius': '8px',
+                            'padding': '12px',
+                            'margin-bottom': '8px'
+                        },
+                        collapsed=False,
+                        sizing_mode='stretch_width'
+                    )
+                    notes_display.append(note_card)
+        
+        def on_add_note(event):
+            """Add a new note"""
+            text = note_input.value.strip()
+            if not text:
+                pn.state.notifications.warning("Please enter a note", duration=1500)
+                return
+            
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            new_note = {
+                'timestamp': timestamp,
+                'text': text
+            }
+            
+            # Initialize notes list if it doesn't exist
+            if "notes" not in self.annotation_status:
+                self.annotation_status["notes"] = {}
+            if display_name not in self.annotation_status["notes"]:
+                self.annotation_status["notes"][display_name] = []
+            
+            # Add the note
+            self.annotation_status["notes"][display_name].append(new_note)
+            self._save_annotation_status()
+            
+            # Clear input and refresh display
+            note_input.value = ''
+            refresh_notes_display()
+            
+            logger.info(f"✓ Added note for {display_name}: {text[:50]}...")
+            pn.state.notifications.success("Note added", duration=1500)
+        
+        add_note_btn.on_click(on_add_note)
+        
+        # Initial display
+        refresh_notes_display()
+        
+        # Create the notes panel
+        notes_panel = pn.Column(
+            pn.pane.Markdown("### 📝 Notes", styles={'font-size': '18px', 'font-weight': 'bold', 'color': title_color}),
+            pn.Row(
+                note_input,
+                pn.Spacer(width=10),
+                add_note_btn,
+                sizing_mode='stretch_width'
+            ),
+            pn.Spacer(height=10),
+            pn.pane.Markdown("**Recent Notes:**", styles={'font-size': '14px', 'font-weight': 'bold'}),
+            pn.layout.Divider(),
+            notes_display,
+            styles={
+                'background': bg_color,
+                'border': border_color,
+                'border-radius': '8px',
+                'padding': '16px',
+                'max-height': '400px',
+                'overflow-y': 'auto'
+            },
+            sizing_mode='stretch_width',
+            scroll=True
+        )
+        
+        return notes_panel
+
+    def _create_dashboard_notices_panel(self):
+        """Create a panel for viewing and managing global dashboard notices"""
+        import datetime
+        
+        # Get current dashboard notices
+        current_notices = self.annotation_status.get("dashboard_notices", [])
+        
+        # Text input for new notice
+        notice_input = pn.widgets.TextAreaInput(
+            name='Add Dashboard Notice',
+            placeholder='Enter a notice/announcement for everyone...',
+            height=80,
+            sizing_mode='stretch_width'
+        )
+        
+        # Add notice button
+        add_notice_btn = pn.widgets.Button(
+            name='➕ Add Notice',
+            button_type='warning',
+            width=120
+        )
+        
+        # Notices display area
+        notices_display = pn.Column(sizing_mode='stretch_width')
+        
+        def refresh_notices_display():
+            """Refresh the notices display"""
+            notices_display.clear()
+            current_notices = self.annotation_status.get("dashboard_notices", [])
+            
+            if not current_notices:
+                notices_display.append(
+                    pn.pane.Markdown("*No dashboard notices yet.*", 
+                                   styles={'color': '#6b7280', 'font-style': 'italic'})
+                )
+            else:
+                for idx, notice in enumerate(reversed(current_notices)):
+                    timestamp = notice.get('timestamp', 'Unknown time')
+                    text = notice.get('text', '')
+                    
+                    # Delete button for this notice
+                    delete_btn = pn.widgets.Button(
+                        name='🗑️',
+                        button_type='danger',
+                        width=40,
+                        height=30
+                    )
+                    
+                    # Store the actual index (reverse it back)
+                    actual_idx = len(current_notices) - 1 - idx
+                    
+                    def make_delete_callback(notice_idx):
+                        def delete_notice(event):
+                            self.annotation_status["dashboard_notices"].pop(notice_idx)
+                            self._save_annotation_status()
+                            refresh_notices_display()
+                            logger.info(f"✓ Deleted dashboard notice {notice_idx}")
+                            pn.state.notifications.success("Notice deleted", duration=1500)
+                        return delete_notice
+                    
+                    delete_btn.on_click(make_delete_callback(actual_idx))
+                    
+                    # Create notice card
+                    notice_card = pn.Card(
+                        pn.Column(
+                            pn.pane.Markdown(f"**📅 {timestamp}**", 
+                                           styles={'font-size': '12px', 'color': '#4b5563'}),
+                            pn.pane.Markdown(text, 
+                                           styles={'font-size': '14px', 'margin-top': '8px', 'font-weight': 'bold'}),
+                        ),
+                        header=pn.Row(
+                            pn.pane.Markdown(f"**📢 Notice #{actual_idx + 1}**"),
+                            pn.layout.HSpacer(),
+                            delete_btn,
+                        ),
+                        styles={
+                            'background': '#fef3c7',
+                            'border': '2px solid #f59e0b',
+                            'border-radius': '8px',
+                            'padding': '12px',
+                            'margin-bottom': '8px'
+                        },
+                        collapsed=False,
+                        sizing_mode='stretch_width'
+                    )
+                    notices_display.append(notice_card)
+        
+        def on_add_notice(event):
+            """Add a new dashboard notice"""
+            text = notice_input.value.strip()
+            if not text:
+                pn.state.notifications.warning("Please enter a notice", duration=1500)
+                return
+            
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            new_notice = {
+                'timestamp': timestamp,
+                'text': text
+            }
+            
+            # Initialize notices list if it doesn't exist
+            if "dashboard_notices" not in self.annotation_status:
+                self.annotation_status["dashboard_notices"] = []
+            
+            # Add the notice
+            self.annotation_status["dashboard_notices"].append(new_notice)
+            self._save_annotation_status()
+            
+            # Clear input and refresh display
+            notice_input.value = ''
+            refresh_notices_display()
+            
+            logger.info(f"✓ Added dashboard notice: {text[:50]}...")
+            pn.state.notifications.success("Notice added to dashboard", duration=1500)
+        
+        add_notice_btn.on_click(on_add_notice)
+        
+        # Initial display
+        refresh_notices_display()
+        
+        # Create the notices panel
+        notices_panel = pn.Column(
+            pn.pane.Markdown("### 📢 Dashboard Notices", 
+                           styles={'font-size': '18px', 'font-weight': 'bold', 'color': '#f59e0b'}),
+            pn.pane.Markdown("*Global announcements visible to everyone*", 
+                           styles={'font-size': '12px', 'color': '#6b7280', 'font-style': 'italic', 'margin-top': '-10px'}),
+            pn.Row(
+                notice_input,
+                pn.Spacer(width=10),
+                add_notice_btn,
+                sizing_mode='stretch_width'
+            ),
+            pn.Spacer(height=10),
+            pn.pane.Markdown("**Active Notices:**", styles={'font-size': '14px', 'font-weight': 'bold'}),
+            pn.layout.Divider(),
+            notices_display,
+            styles={
+                'background': '#fffbeb',
+                'border': '2px solid #fbbf24',
+                'border-radius': '8px',
+                'padding': '16px',
+                'max-height': '400px',
+                'overflow-y': 'auto'
+            },
+            sizing_mode='stretch_width',
+            scroll=True
+        )
+        
+        return notices_panel
+
 
     def load_slices(self, event):
         # Convert display label back to actual name (single selection)
@@ -551,7 +932,7 @@ class SliceSelectorApp:
         
         # Add Verified toggle button
         verified_button = pn.widgets.Toggle(
-            name="✓ Verified",
+            name="✓ Done",
             button_type="success",
             width=120,
             value=all(self.annotation_status.get("verified", {}).get(name, False) for name in selected_display_names)
