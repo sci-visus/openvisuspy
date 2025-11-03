@@ -880,14 +880,17 @@ class SliceSelectorApp:
 
                 slices_layout = pn.Column(
                     pn.Row(
+                        # Left column: Back, Verified, Ink Area
                         back_button,
-                        pn.Spacer(width=10),
-                        reset_button,
                         pn.Spacer(width=20),
                         verified_button,
                         pn.Spacer(width=10),
                         ink_area_button,
-                        pn.Spacer(width=30),
+                        # Right column: Reset button aligned to right
+                        pn.layout.HSpacer(),
+                        reset_button,
+                        pn.Spacer(width=20),
+                        sizing_mode="stretch_width"
                     ),
                     pn.Row(
                         overview_btn,
@@ -935,14 +938,16 @@ class SliceSelectorApp:
         elif n == 2:
             slices_layout = pn.Column(
                 pn.Row(
+                    # Left column: Back, Verified, Ink Area
                     back_button,
-                    pn.Spacer(width=10),
-                    reset_button,
                     pn.Spacer(width=20),
                     verified_button,
                     pn.Spacer(width=10),
                     ink_area_button,
-                    pn.Spacer(),
+                    # Right column: Reset button aligned to right
+                    pn.layout.HSpacer(),
+                    reset_button,
+                    pn.Spacer(width=20),
                     sizing_mode="stretch_width"
                 ),
                 pn.Row(
@@ -990,14 +995,16 @@ class SliceSelectorApp:
 
             slices_layout = pn.Column(
                 pn.Row(
+                    # Left column: Back, Verified, Ink Area
                     back_button,
-                    pn.Spacer(width=10),
-                    reset_button,
                     pn.Spacer(width=20),
                     verified_button,
                     pn.Spacer(width=10),
                     ink_area_button,
-                    pn.Spacer(),
+                    # Right column: Reset button aligned to right
+                    pn.layout.HSpacer(),
+                    reset_button,
+                    pn.Spacer(width=20),
                     sizing_mode="stretch_width"
                 ),
                 pn.Row(*layout_top_slices, sizing_mode="stretch_both"),
