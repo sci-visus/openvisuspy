@@ -180,7 +180,7 @@ class SliceSelectorApp:
         
         # Display friendly names like Image1, Image2, etc.
         #self.display_names = [f"Image{i+1}" for i in range(len(idx_files))]
-        self.display_names = [Path(f).parent.name for f in idx_files]
+        self.display_names = [f"{i+1}. {Path(f).parent.name}" for i, f in enumerate(idx_files)]
 
         #names = [f"case: {item['name']}" for item in jsonbdy]
         #print("names",names)
