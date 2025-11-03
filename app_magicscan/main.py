@@ -261,22 +261,18 @@ class SliceSelectorApp:
 
         # Left column: Checkboxes selection
         left_column = pn.Column(
-            self.selection_title,
-            self.checkboxes_container,
-            width=850,
+            pn.Row(self.selection_title,self.state_option,self.load_button),
+            pn.Row(self.checkboxes_container),
+            width=950,
             sizing_mode='stretch_height',
         )
 
         # Right column: Load options and button
         right_column = pn.Column(
             "## Load Options",
-            self.state_option,
-            pn.Spacer(height=20),
-            self.load_button,
-            pn.Spacer(height=30),
-            self.notes_panel_container,
-            pn.Spacer(height=30),
             self._create_dashboard_notices_panel(),
+            pn.Spacer(height=20),
+            self.notes_panel_container,
             width=450,
             align='start',
         )
@@ -394,7 +390,7 @@ class SliceSelectorApp:
             self.notes_panel_container.clear()
             self.notes_panel_container.append(
                 pn.pane.Markdown(
-                    "### 📝 Notes\n\n*Select an image from the list to view and add notes.*",
+                    "### 📝 Notes \n\n*Select an image from the list to view and add notes.*",
                     styles={
                         'background': '#f9fafb',
                         'border': '1px solid #e5e7eb',
@@ -598,6 +594,8 @@ class SliceSelectorApp:
         # Create the notes panel
         notes_panel = pn.Column(
             pn.pane.Markdown("### 📝 Notes", styles={'font-size': '18px', 'font-weight': 'bold', 'color': title_color}),
+            pn.pane.Markdown(f"*{display_name}*", styles={'font-size': '14px', 'color': '#6b7280', 'margin-top': '-8px', 'font-style': 'italic'}),
+            pn.Spacer(height=5),
             pn.Row(
                 note_input,
                 pn.Spacer(width=10),
