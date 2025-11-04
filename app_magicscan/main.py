@@ -758,7 +758,7 @@ class SliceSelectorApp:
             pn.layout.Divider(),
             notices_display,
             styles={
-                'background': '#fffbeb',
+                'background': "#ebffff",
                 'border': '2px solid #fbbf24',
                 'border-radius': '8px',
                 'padding': '16px',
@@ -951,8 +951,20 @@ class SliceSelectorApp:
             name="🖊️ Ink Area",
             button_type="primary",
             width=120,
-            value=all(self.annotation_status.get("ink_area", {}).get(name, False) for name in selected_display_names)
+            value=all(self.annotation_status.get("ink_area", {}).get(name, False) for name in selected_display_names),
         )
+        # Apply custom styling after creation
+        ink_area_button.stylesheets = ["""
+            :host(.bk-btn-success) .bk-btn {
+                background-color: #8b5cf6 !important;
+                border-color: #7c3aed !important;
+                color: white !important;
+            }
+            :host(.bk-btn-success) .bk-btn:hover {
+                background-color: #7c3aed !important;
+                border-color: #6d28d9 !important;
+            }
+        """]
         
         def on_ink_area_toggle(event):
             for name in selected_display_names:
