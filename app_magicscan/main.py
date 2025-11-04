@@ -76,11 +76,11 @@ class MultiSliceSyncApp:
                 display_value = f"{length_cm:.1f} cm"
             
             scale_bar_html = f"""
-            <div style="display: inline-block; margin-left: 7cm;">
+            <div style="display: inline-block; margin-left: 1cm;">
                 <svg height="20" width="{self.fixed_pixel_length}px" style="vertical-align: middle;">
                   <line x1="0" y1="10" x2="{self.fixed_pixel_length}" y2="10" style="stroke:black;stroke-width:3" />
                 </svg>
-                <span style="font-size:20px; margin-left:5px; vertical-align: middle;">{display_value}</span>
+                <span style="font-size:20px; margin-left:1px; vertical-align: middle;">{display_value}</span>
             </div>
             """
         
@@ -88,10 +88,10 @@ class MultiSliceSyncApp:
         <div style="width: 100%; padding-top: 2px; display: flex; align-items: center; justify-content: center; white-space: nowrap;">
             <h4 style="margin: 0; font-size: 24px; display: flex; align-items: center; white-space: nowrap;">
                 <span>Zoom: {round(zoom_level, 2)}%</span>
-                <span style="display: inline-block; width: 6cm;"></span>
+                <span style="display: inline-block; width: 1cm;"></span>
                 <span>{label}</span>
+                <span>{scale_bar_html}</span>
             </h4>
-            {scale_bar_html}
         </div>
         """
 
@@ -373,7 +373,7 @@ class SliceSelectorApp:
         ink_area_count = sum(1 for name in self.display_names if self.annotation_status.get("ink_area", {}).get(name, False))
         
         if hasattr(self, 'selection_title'):
-            self.selection_title.object = f"# 🔹 <span style='font-size:28px;'>Select Here </span> - Total: {total_count} | ✅ Verified: {verified_count} | 🖊️ Ink: {ink_area_count}</span>"
+            self.selection_title.object = f"# <span style='font-size:28px;'></span> ✅ Done: {verified_count} | 🖊️ Ink area found in: {ink_area_count} | Total: {total_count}</span>"
 
     def _on_selection_change(self, event):
         """Update notes panel when selection changes"""
@@ -813,6 +813,7 @@ class SliceSelectorApp:
 
         for display_name, slc in zip(selected_display_names, slices):
             slc.image_type.value = display_name
+            #slc.setShowOptions(show_options)
             slc.setShowOptions({})
             slc.canvas.fig.sizing_mode = 'stretch_both'
 
@@ -1291,7 +1292,7 @@ class SliceSelectorApp:
                         line_color_selector if line_color_selector else pn.Spacer(width=0),
                         pn.Spacer(width=10),
                         clear_drawings_btn if clear_drawings_btn else pn.Spacer(width=0),
-                        pn.Spacer(width=30),
+                        pn.Spacer(width=100),
                         # Live Tracking controls
                         pn.pane.Markdown("**Live:**", sizing_mode="fixed", width=50),
                         undo_btn,
@@ -1443,9 +1444,9 @@ class SliceSelectorApp:
                 logger.error(f"[Live Tracking] Error in live tracking: {e}")
         
         # Save every seconds
-        self.live_tracking_callback = pn.state.add_periodic_callback(save_live_state, period=1000)
-        logger.info("[Live Tracking] Started with 2-second interval")
-        print("[Live Tracking] Started - saving every 2 seconds")
+        self.live_tracking_callback = pn.state.add_periodic_callback(save_live_state, period=3000)
+        logger.info("[Live Tracking] Started with 1-second interval")
+        print("[Live Tracking] Started - saving every 1 seconds")
     
     def _stop_live_tracking(self):
         """Stop the live tracking periodic callback"""
@@ -2229,8 +2230,12 @@ if __name__.startswith('bokeh'):
 	}
 
     '''
-    
-    show_options = {}
+
+    show_options={
+		"top": [
+			["view_dependent", "resolution"],
+		]
+	}
 
     custom_css = """
     .bk-checkbox-group label {

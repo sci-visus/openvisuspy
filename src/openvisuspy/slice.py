@@ -87,7 +87,7 @@ class Canvas:
 		
 		# Add clear all button for drawings
 		self.clear_drawings_btn = pn.widgets.Button(
-			name='🗑️ Clean',
+			name='🗑️ Clear Drawings',
 			button_type='danger',
 			width=100
 		)
