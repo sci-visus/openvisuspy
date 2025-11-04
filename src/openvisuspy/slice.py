@@ -171,14 +171,11 @@ class Canvas:
 			#self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_zoom_tool,self.save_tool])
 
 			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.wheel_zoom_tool,self.save_tool])
-			self.fig.toolbar_location= "right" # "above", "below", "right", "left"
+			self.fig.toolbar_location= "left" # "above", "below", "right", "left"
 			self.fig.axis.visible = False
 			self.fig.grid.visible = False	
 		else:
 			self.fig=bokeh.plotting.figure(tools=[self.pan_tool,self.reset_fig,self.wheel_zoom_tool,self.box_select_tool,self.box_zoom_tool])
-
-		
-		
 		
 		self.fig.toolbar.active_scroll  = self.wheel_zoom_tool
 		self.fig.toolbar.active_drag    = self.pan_tool 

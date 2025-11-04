@@ -208,9 +208,9 @@ class SliceSelectorApp:
 
         # Add radio button group for state loading options
         self.state_option = pn.widgets.RadioButtonGroup(
-            name='Load Option',
-            options=['Load New State', 'Load Last State'],
-            value='Load New State',
+            name='',
+            options=['Load New View', 'Load Last View'],
+            value='Load New View',
             button_type='default',
             orientation='horizontal'
         )
@@ -261,15 +261,15 @@ class SliceSelectorApp:
 
         # Left column: Checkboxes selection
         left_column = pn.Column(
-            pn.Row(self.selection_title,self.state_option,self.load_button),
+
+            pn.Row(self.selection_title,"###### Load Options",self.state_option,self.load_button),
             pn.Row(self.checkboxes_container),
-            width=950,
+            width=1050,
             sizing_mode='stretch_height',
         )
 
         # Right column: Load options and button
         right_column = pn.Column(
-            "## Load Options",
             self._create_dashboard_notices_panel(),
             pn.Spacer(height=20),
             self.notes_panel_container,
@@ -914,7 +914,7 @@ class SliceSelectorApp:
                 else:
                     logger.info(f"ℹ No saved state found for {Path(path).parent.name}")
             else:
-                logger.info(f">>> Skipping state restoration (Load New State selected)")
+                logger.info(f">>> Skipping state restoration (Load New View selected)")
             
             # Setup periodic state saving by hooking into canvas events
             self._setup_auto_save(slc, tracker)
@@ -1033,7 +1033,7 @@ class SliceSelectorApp:
                     visible=False,
                     styles={
                         "position": "absolute",
-                        "left": "16px",
+                        "right": "16px",
                         "top": "16px",
                         "zIndex": "50",
                         "background": "white",
@@ -1272,22 +1272,6 @@ class SliceSelectorApp:
                         sizing_mode="stretch_width"
                     ),
                     pn.Row(
-                        overview_btn,
-                        pn.Spacer(width=30),
-                        # Live Tracking controls
-                        pn.pane.Markdown("**Live:**", sizing_mode="fixed", width=50),
-                        undo_btn,
-                        pn.Spacer(width=5),
-                        redo_btn,
-                        pn.Spacer(width=30),
-                        # Saved States controls  
-                        pn.pane.Markdown("**Saved:**", sizing_mode="fixed", width=50),
-                        load_prev_btn,
-                        pn.Spacer(width=5),
-                        save_state_btn,
-                        pn.Spacer(width=5),
-                        load_next_btn,
-                        pn.Spacer(width=30),
                         # Line drawing controls
                         pn.pane.Markdown("**Draw:**", sizing_mode="fixed", width=45),
                         line_thickness_slider if line_thickness_slider else pn.Spacer(width=0),
@@ -1295,7 +1279,17 @@ class SliceSelectorApp:
                         line_color_selector if line_color_selector else pn.Spacer(width=0),
                         pn.Spacer(width=10),
                         clear_drawings_btn if clear_drawings_btn else pn.Spacer(width=0),
-                        pn.Spacer(),
+                        pn.Spacer(width=30),
+                        # Live Tracking controls
+                        pn.pane.Markdown("**Live:**", sizing_mode="fixed", width=50),
+                        undo_btn,
+                        pn.Spacer(width=5),
+                        redo_btn,
+                        pn.Spacer(width=30),
+                        # Saved States controls
+                        pn.layout.HSpacer(),  
+
+                        overview_btn,
                         sizing_mode="stretch_width"
                     ),
                     pn.Row(
@@ -1305,9 +1299,17 @@ class SliceSelectorApp:
                         sizing_mode="stretch_both"
                     ),
                     pn.Row(
-                        pn.layout.HSpacer(),
+                        
+                        pn.pane.Markdown("**Saved:**", sizing_mode="fixed", width=50),
+                        load_prev_btn,
+                        pn.Spacer(width=5),
+                        save_state_btn,
+                        pn.Spacer(width=5),
+                        load_next_btn,
+                        pn.Spacer(width=30),
+                        #pn.layout.HSpacer(),
                         captions[0], 
-                        pn.layout.HSpacer(),
+                        #pn.layout.HSpacer(),
                         align="center", 
                         sizing_mode="stretch_width"
                     ),
@@ -2235,6 +2237,8 @@ if __name__.startswith('bokeh'):
     }
     """
     pn.extension(raw_css=[custom_css])
+
+
 
     # Resolve dataset paths: prefer API if provided, else CLI args
     api_url = os.environ.get("MAGICSCAN_API_URL")
