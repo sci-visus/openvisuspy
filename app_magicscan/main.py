@@ -813,8 +813,8 @@ class SliceSelectorApp:
 
         for display_name, slc in zip(selected_display_names, slices):
             slc.image_type.value = display_name
-            slc.setShowOptions(show_options)
-            #slc.setShowOptions({})
+            #slc.setShowOptions(show_options)
+            slc.setShowOptions({})
             #slc.canvas.fig.sizing_mode = 'stretch_both'
 
         captions = [

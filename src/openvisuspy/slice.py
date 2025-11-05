@@ -204,9 +204,7 @@ class Canvas:
 		# see https://github.com/bokeh/bokeh/issues/9136
 
 		self.fig.on_change('inner_width',  self.onFigureSizeChange)
-		self.fig.on_change('inner_height', self.onFigureSizeChange)
-
-		#self.fig.js_on_change('data', self.on_draw)
+		self.fig.on_change('inner_height', self.onFigureSizeChange)		#self.fig.js_on_change('data', self.on_draw)
 
 		# replace the figure from the fig_layout (so that later on I can replace it)
 		self.fig_layout[:]=[
@@ -417,8 +415,10 @@ class Slice(param.Parameterized):
 		self.new_job       = False
 		self.current_img   = None
 		self.last_job_pushed =time.time()
+		self.last_viewport = None  # Track last viewport to avoid redundant queries
 		self.using_cached_display = False  # Track if currently showing cached data
 		self.prefetched_tiles = set()  # Track which tiles have already been prefetched
+		self.range_change_timer = None  # Timer for debouncing range changes
 		self.current_tile_key = None  # Track the current displayed tile
 
 		# Initialize tile cache - DISABLED for now as it causes stale display issues
@@ -752,7 +752,6 @@ class Slice(param.Parameterized):
 		self.canvas.on_event(bokeh.events.DoubleTap        , SafeCallback(self.onCanvasDoubleTap))
 		self.canvas.on_event(bokeh.events.SelectionGeometry, SafeCallback(self.onCanvasSelectionGeometry))
 
-
 		# Point tool (for dropping colored points via clicks)
 		self.point_tool_active = False
 		self.active_dot_color = None  # None, 'lightgreen', or 'blue'
@@ -933,7 +932,7 @@ class Slice(param.Parameterized):
 		if self.db:
 			self.db.start()
 		if not self.idle_callback:
-			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 30)
+			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 60)  # 60 FPS for smoother updates
 		self.refresh("self.start")
 
 	# getMainLayout
@@ -1546,7 +1545,6 @@ class Slice(param.Parameterized):
 		self.using_cached_display = False  # Reset cache flag on refresh
 		self.current_tile_key = None  # Reset to allow new tile checks
 
-
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
 		viewport=self.canvas.getViewport()
@@ -1724,21 +1722,26 @@ class Slice(param.Parameterized):
 
 		if not self.new_job:
 			return
+		
+		# Guard: Skip if database not initialized yet
+		if not self.db:
+			return
 
 		canvas_w,canvas_h=(self.canvas.getWidth(),self.canvas.getHeight())
 		query_logic_box=self.getQueryLogicBox()
 		pdim=self.getPointDim()
 
-		# Quick check: if still on same tile, skip everything (avoid repeated cache checks)
-		if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
-			try:
-				check_tile_key = self._viewport_to_tile_key()
-				if self.current_tile_key == check_tile_key and self.using_cached_display:
-					# Still on same tile with cached display - nothing to do
-					self.new_job = False
-					return
-			except:
-				pass
+		# Quick viewport change check - skip if viewport hasn't changed at all
+		current_viewport = self.canvas.getViewport()
+		if self.last_viewport is not None:
+			x1, y1, w1, h1 = self.last_viewport
+			x2, y2, w2, h2 = current_viewport
+			# Check if viewport changed less than 0.1% - skip query
+			if (abs(x2-x1) < w1*0.001 and abs(y2-y1) < h1*0.001 and 
+			    abs(w2-w1) < w1*0.001 and abs(h2-h1) < h1*0.001):
+				self.new_job = False
+				return
+		self.last_viewport = current_viewport
 
 		# Strategy: Check cache first for immediate display, then optionally load higher quality
 		cache_used = False
@@ -1806,14 +1809,13 @@ class Slice(param.Parameterized):
 		if num_refinements==0:
 			num_refinements={
 				1: 1, 
-				2: 3, 
-				3: 4  
+				2: 1,  # Only 1 refinement for fastest loading
+				3: 1   # Only 1 refinement for instant response
 			}[pdim]
 		self.aborted=Aborted()
 
-		# Minimal throttle for responsive panning
-		if (time.time()-self.last_job_pushed)<0.05:
-			return
+		# No throttle for instant response to mouse callbacks
+		# Range change callbacks now trigger immediate queries
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
 		if not self.view_dependent.value:
@@ -1835,11 +1837,11 @@ class Slice(param.Parameterized):
 				delta=self.resolution.value-self.getMaxResolution()
 				a,b=self.resolution.value,self.getMaxResolution()
 				if a==b:
-					coeff=1.0
+					coeff=3.0  # Load 3x viewport size for instant sharp rendering
 				if a<b:
-					coeff=1.0/pow(1.3,abs(delta)) # decrease 
+					coeff=3.0/pow(1.3,abs(delta)) # decrease 
 				else:
-					coeff=1.0*pow(1.3,abs(delta)) # increase 
+					coeff=2.0*pow(1.3,abs(delta)) # increase 
 				max_pixels=int(canvas_w*canvas_h*coeff)
 			
 		# new scene body

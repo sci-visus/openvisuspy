@@ -222,7 +222,7 @@ class BaseDataset(object):
 					if self.wait_for_oqueue:
 						self.oqueue.join()
 				
-				time.sleep(0.01)
+				time.sleep(0.001)  # Reduced from 0.01 for faster query loop
 
 				# remove me
 				# break
