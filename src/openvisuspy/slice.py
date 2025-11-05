@@ -932,7 +932,7 @@ class Slice(param.Parameterized):
 		if self.db:
 			self.db.start()
 		if not self.idle_callback:
-			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 60)  # 60 FPS for smoother updates
+			self.idle_callback = AddPeriodicCallback(self.onIdle, 1000 // 60)  # 60 FPS for stable performance
 		self.refresh("self.start")
 
 	# getMainLayout
@@ -1731,17 +1731,8 @@ class Slice(param.Parameterized):
 		query_logic_box=self.getQueryLogicBox()
 		pdim=self.getPointDim()
 
-		# Quick viewport change check - skip if viewport hasn't changed at all
-		current_viewport = self.canvas.getViewport()
-		if self.last_viewport is not None:
-			x1, y1, w1, h1 = self.last_viewport
-			x2, y2, w2, h2 = current_viewport
-			# Check if viewport changed less than 0.1% - skip query
-			if (abs(x2-x1) < w1*0.001 and abs(y2-y1) < h1*0.001 and 
-			    abs(w2-w1) < w1*0.001 and abs(h2-h1) < h1*0.001):
-				self.new_job = False
-				return
-		self.last_viewport = current_viewport
+		# Always load data for viewport - removed tolerance check to ensure full coverage
+		# The throttle will prevent query flooding
 
 		# Strategy: Check cache first for immediate display, then optionally load higher quality
 		cache_used = False
@@ -1809,13 +1800,14 @@ class Slice(param.Parameterized):
 		if num_refinements==0:
 			num_refinements={
 				1: 1, 
-				2: 1,  # Only 1 refinement for fastest loading
-				3: 1   # Only 1 refinement for instant response
+				2: 2,  # 2 refinements for better quality and coverage
+				3: 2   # 2 refinements for better quality and coverage
 			}[pdim]
 		self.aborted=Aborted()
 
-		# No throttle for instant response to mouse callbacks
-		# Range change callbacks now trigger immediate queries
+		# Small throttle to prevent overwhelming the system
+		if (time.time()-self.last_job_pushed)<0.025:  # 25ms = 40 queries/sec for stable performance
+			return
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
 		if not self.view_dependent.value:
@@ -1837,11 +1829,11 @@ class Slice(param.Parameterized):
 				delta=self.resolution.value-self.getMaxResolution()
 				a,b=self.resolution.value,self.getMaxResolution()
 				if a==b:
-					coeff=3.0  # Load 3x viewport size for instant sharp rendering
+					coeff=4.0  # Load 4x viewport for balanced smooth panning
 				if a<b:
-					coeff=3.0/pow(1.3,abs(delta)) # decrease 
+					coeff=4.0/pow(1.3,abs(delta)) # decrease 
 				else:
-					coeff=2.0*pow(1.3,abs(delta)) # increase 
+					coeff=3.0*pow(1.3,abs(delta)) # increase 
 				max_pixels=int(canvas_w*canvas_h*coeff)
 			
 		# new scene body

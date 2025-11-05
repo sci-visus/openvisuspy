@@ -13,7 +13,7 @@ class MultiSliceSynchronizer:
         self.slices = slices
         self.scale_factors = scale_factors
         self.debounce_timer = None
-        self.debounce_delay = 0.02  # 20ms debounce for ultra-fast sync
+        self.debounce_delay = 0.015  # 15ms debounce for balanced sync speed
         self.update_callbacks = []
         self.last_bb_zooms = [None] * len(self.slices)  # optional: track last bbox zoom
         self.link_ranges()
