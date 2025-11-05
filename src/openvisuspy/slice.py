@@ -11,6 +11,7 @@ import threading
 import time
 import math
 from urllib.parse import urlparse, urlencode
+from typing import Optional
 
 import numpy as np
 
@@ -39,6 +40,7 @@ from .utils   import *
 from .backend import Aborted,LoadDataset,ExecuteBoxQuery
 
 from .show_details import ShowDetails
+from .tile_cache import TileCache, TileKey, TileData
 
 logger = logging.getLogger(__name__)
 
@@ -382,7 +384,7 @@ class Slice(param.Parameterized):
 	show_options={
 		"top": [
 			[ "menu_button","scene", "timestep", "timestep_delta", "play_sec","play_button","palette",  "color_mapper_type","view_dependent", "resolution", "num_refinements", "show_probe"],
-			["field","direction", "offset", "range_mode", "range_min",  "range_max"]
+			["field","direction", "offset", "range_mode", "range_min",  "range_max", "tile_cache_enabled", "tile_cache_stats_btn"]
 
 		],
 		"bottom": [
@@ -415,6 +417,17 @@ class Slice(param.Parameterized):
 		self.new_job       = False
 		self.current_img   = None
 		self.last_job_pushed =time.time()
+		self.using_cached_display = False  # Track if currently showing cached data
+		self.prefetched_tiles = set()  # Track which tiles have already been prefetched
+		self.current_tile_key = None  # Track the current displayed tile
+
+		# Initialize tile cache - DISABLED for now as it causes stale display issues
+		self.tile_cache = TileCache(
+			max_tiles=50,
+			prefetch_radius=1,
+			enabled=False  # DISABLED - caching causes display sync issues
+		)
+		self.tile_size = 1024
 
 		
     
@@ -622,6 +635,45 @@ class Slice(param.Parameterized):
 
 		self.view_dependent = pn.widgets.Select(name="ViewDep", options={"Yes": True, "No": False}, value=True, width=80)
 		self.view_dependent.param.watch(SafeCallback(lambda evt: self.refresh("view_dependent.param.watch")),"value", onlychanged=True,queued=True)
+
+		# Tile cache controls
+		self.tile_cache_enabled = pn.widgets.Toggle(
+			name='TileCache', 
+			value=True, 
+			width=90, 
+			button_type='success'
+		)
+		def onTileCacheToggle(evt):
+			self.tile_cache.set_enabled(evt.new)
+			if evt.new:
+				ShowInfoNotification("Tile cache enabled - smoother panning!")
+			else:
+				ShowInfoNotification("Tile cache disabled")
+				self.tile_cache.clear()
+			# Trigger a refresh to reload with new cache state
+			self.refresh("tile_cache_toggle")
+		self.tile_cache_enabled.param.watch(SafeCallback(onTileCacheToggle), "value", onlychanged=True, queued=True)
+
+		self.tile_cache_stats_btn = pn.widgets.Button(
+			name='📊 Cache Stats', 
+			width=110, 
+			button_type='light'
+		)
+		def showCacheStats(evt):
+			stats = self.tile_cache.get_stats()
+			msg = (
+				f"Tile Cache Statistics:\n"
+				f"Status: {'Enabled' if stats['enabled'] else 'Disabled'}\n"
+				f"Cached tiles: {stats['size']}/{stats['max_tiles']}\n"
+				f"Hit rate: {stats['hit_rate']}\n"
+				f"Hits: {stats['hits']}, Misses: {stats['misses']}\n"
+				f"Prefetches: {stats['prefetches']}\n"
+				f"Evictions: {stats['evictions']}\n"
+				f"Loading: {stats['loading']} tiles"
+			)
+			ShowInfoNotification(msg)
+			logger.info(msg)
+		self.tile_cache_stats_btn.on_click(SafeCallback(showCacheStats))
 
 		self.num_refinements = pn.widgets.IntSlider(name='#Ref', value=0, start=0, end=4, width=80)
 		self.num_refinements.param.watch(SafeCallback(lambda evt: self.refresh("num_refinements.param.watch")),"value", onlychanged=True,queued=True)
@@ -842,6 +894,8 @@ class Slice(param.Parameterized):
 					if num_timesteps==1 and widget in [self.timestep, self.timestep_delta, self.play_sec,self.play_button]:
 						continue
 					ret.append(widget)
+				else:
+					logger.warning(f"Widget '{it}' not found in Slice instance")
 					
 			return ret
 
@@ -868,6 +922,9 @@ class Slice(param.Parameterized):
 	# stop
 	def stop(self):
 		self.aborted.setTrue()
+		# Clean up tile cache
+		if hasattr(self, 'tile_cache'):
+			self.tile_cache.clear()
 		if self.db:
 			self.db.stop()
 
@@ -1363,11 +1420,132 @@ class Slice(param.Parameterized):
 	def getPointDim(self):
 		return self.db.getPointDim() if self.db else 2
 
+	# Tile cache helper methods
+	def _viewport_to_tile_key(self, viewport=None) -> TileKey:
+		"""
+		Convert viewport to tile coordinates for caching.
+		Key represents the ACTUAL viewport data, not artificial tiles.
+		"""
+		if viewport is None:
+			viewport = self.canvas.getViewport()
+		
+		x, y, w, h = viewport
+		
+		# Use viewport center and size with moderate rounding
+		# This creates cache keys that represent actual visible areas
+		center_x = x + w / 2
+		center_y = y + h / 2
+		
+		# Round to create stable keys while allowing smooth panning
+		# Use current viewport size as the grid (so one "tile" = one viewport)
+		grid_size = max(w, h)
+		
+		# Snap center to grid (allows ~50% overlap before new key)
+		tile_x = int(round(center_x / grid_size))
+		tile_y = int(round(center_y / grid_size))
+		
+		# Use actual resolution (not rounded) for accurate zoom tracking
+		zoom = int(self.resolution.value) if hasattr(self, 'resolution') else 0
+		
+		# Include timestep and field
+		timestep = int(self.timestep.value) if hasattr(self, 'timestep') else 0
+		field = self.field.value if hasattr(self, 'field') else ""
+		
+		return TileKey(x=tile_x, y=tile_y, z=zoom, timestep=timestep, field=field)
+	
+	def _tile_key_to_logic_box(self, tile_key: TileKey):
+		"""
+		Convert tile key back to logic box coordinates.
+		This defines what portion of the image this tile represents.
+		"""
+		# Calculate pixel-space viewport from tile coordinates
+		pixel_x = tile_key.x * self.tile_size
+		pixel_y = tile_key.y * self.tile_size
+		pixel_viewport = [pixel_x, pixel_y, self.tile_size, self.tile_size]
+		
+		# Convert to logic coordinates
+		logic_box = self.toLogic(pixel_viewport)
+		
+		return logic_box
+	
+	def _load_tile_data(self, tile_key: TileKey) -> Optional[TileData]:
+		"""
+		Load data for a specific tile key (actual viewport area).
+		This loads the EXACT data that would be displayed for that viewport position.
+		"""
+		try:
+			# Reconstruct viewport from tile key
+			# Tile key represents viewport center, so we need current viewport size
+			canvas_w, canvas_h = self.canvas.getWidth(), self.canvas.getHeight()
+			if not canvas_w or not canvas_h:
+				return None
+			
+			# Get current viewport to determine size
+			current_viewport = self.canvas.getViewport()
+			_, _, w, h = current_viewport
+			
+			# Calculate viewport center from tile key
+			grid_size = max(w, h)
+			center_x = tile_key.x * grid_size
+			center_y = tile_key.y * grid_size
+			
+			# Reconstruct viewport
+			viewport = [
+				center_x - w / 2,
+				center_y - h / 2,
+				w,
+				h
+			]
+			
+			# Convert to logic box - THIS is the actual query area
+			logic_box = self.toLogic(viewport)
+			
+			# Validate prerequisites
+			if not self.db or not self.access:
+				return None
+			
+			# Execute query for this exact viewport
+			max_pixels = int(canvas_w * canvas_h)
+			endh = tile_key.z
+			tile_aborted = Aborted()
+			
+			result = ExecuteBoxQuery(
+				db=self.db,
+				access=self.access,
+				timestep=tile_key.timestep,
+				field=tile_key.field,
+				logic_box=logic_box,
+				max_pixels=max_pixels,
+				num_refinements=0,
+				endh=endh,
+				aborted=tile_aborted
+			)
+			
+			# Return valid data only
+			if result and isinstance(result, dict) and 'data' in result:
+				data = result.get('data')
+				if data is not None and hasattr(data, 'shape'):
+					return TileData(
+						data=data,
+						logic_box=result.get('logic_box', logic_box),
+						timestamp=time.time()
+					)
+			
+			return None
+			
+		except (AttributeError, IndexError, TypeError, ValueError, KeyError):
+			return None
+		except Exception:
+			return None
+
 	# refresh
 	def refresh(self,reason=None):
 		logger.info(f"reason={reason}")
 		self.aborted.setTrue()
 		self.new_job=True
+		self.using_cached_display = False  # Reset cache flag on refresh
+		self.current_tile_key = None  # Reset to allow new tile checks
+
 
 	# getQueryLogicBox
 	def getQueryLogicBox(self):
@@ -1413,6 +1591,10 @@ class Slice(param.Parameterized):
 	
 	# gotNewData
 	def gotNewData(self, result):
+		# Don't overwrite cached displays with progressive results
+		if self.using_cached_display:
+			logger.debug("Skipping progressive update - using cached display")
+			return
 
 		data=result['data']
 		try:
@@ -1503,6 +1685,20 @@ class Slice(param.Parameterized):
 		(X,Y,Z),(tX,tY,tZ)=self.getLogicAxis()
 		self.canvas.setAxisLabels(tX,tY)
 
+		# Cache the rendered tile ONLY if query is complete (high quality)
+		# Don't cache intermediate/progressive results
+		if self.tile_cache.is_enabled() and not result.get('running', False):
+			try:
+				current_tile_key = self._viewport_to_tile_key()
+				self.tile_cache.put_tile(current_tile_key, data, logic_box)
+				logger.debug(f"✓ Cached final tile: {current_tile_key}")
+				
+				# Prefetch surrounding tiles if not already done
+				if current_tile_key not in self.prefetched_tiles:
+					self.tile_cache.prefetch_async(current_tile_key, self._load_tile_data)
+					self.prefetched_tiles.add(current_tile_key)
+			except Exception as e:
+				logger.debug(f"Tile caching error (non-critical): {e}")
 	
 		# update the status bar
 		
@@ -1533,10 +1729,80 @@ class Slice(param.Parameterized):
 		query_logic_box=self.getQueryLogicBox()
 		pdim=self.getPointDim()
 
+		# Quick check: if still on same tile, skip everything (avoid repeated cache checks)
+		if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
+			try:
+				check_tile_key = self._viewport_to_tile_key()
+				if self.current_tile_key == check_tile_key and self.using_cached_display:
+					# Still on same tile with cached display - nothing to do
+					self.new_job = False
+					return
+			except:
+				pass
+
+		# Strategy: Check cache first for immediate display, then optionally load higher quality
+		cache_used = False
+		if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
+			try:
+				current_tile_key = self._viewport_to_tile_key()
+				cached_tile = self.tile_cache.get_tile(current_tile_key)
+				
+				if cached_tile is not None:
+					# We have a cached tile! Display it immediately for smooth UX
+					logger.info(f"✓ Cache HIT - using cached display: {current_tile_key}")
+					
+					data = cached_tile.data
+					logic_box = cached_tile.logic_box
+					
+					# Render the cached data immediately (no lag!)
+					self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar=self.color_bar)
+					self.ensure_points_glyph()
+					
+					# Update status
+					self.response.value = f"✓ Cached {str(logic_box).replace(' ','')} {data.shape}"
+					
+					# Mark that we're using cached display
+					cache_used = True
+					self.using_cached_display = True
+					
+					# Prefetch surrounding tiles if not already prefetched for this key
+					# This ensures tiles are ready BEFORE you pan to them
+					if current_tile_key not in self.prefetched_tiles:
+						self.tile_cache.prefetch_async(current_tile_key, self._load_tile_data)
+						self.prefetched_tiles.add(current_tile_key)
+					
+					# Track current tile to avoid repeated checks
+					self.current_tile_key = current_tile_key
+					
+					# Clear new_job flag - we've displayed something
+					self.new_job = False
+					
+					# Return immediately - don't query DB at all!
+					return
+					
+			except Exception as e:
+				logger.warning(f"Cache check error: {e}")
+
+		# No cache hit - proceed with normal database query
+		if not cache_used:
+			logger.debug(f"Cache miss - loading from DB")
+			self.using_cached_display = False
+			
+			# Mark this tile as loading in cache to prevent duplicate queries
+			if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
+				try:
+					loading_tile_key = self._viewport_to_tile_key()
+					self.tile_cache.mark_loading(loading_tile_key)
+				except:
+					pass
+
 		# abort the last one
 		self.aborted.setTrue()
 		self.db.waitIdle()
 		num_refinements = self.num_refinements.value
+		
+		# Use progressive rendering (0 = disabled, higher = more refinements)
+		# Progressive shows low-res quickly, then refines
 		if num_refinements==0:
 			num_refinements={
 				1: 1, 
@@ -1545,8 +1811,8 @@ class Slice(param.Parameterized):
 			}[pdim]
 		self.aborted=Aborted()
 
-		# do not push too many jobs
-		if (time.time()-self.last_job_pushed)<0.2:
+		# Minimal throttle for responsive panning
+		if (time.time()-self.last_job_pushed)<0.05:
 			return
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
@@ -1602,6 +1868,19 @@ class Slice(param.Parameterized):
 			endh=endh, 
 			aborted=self.aborted
 		)
+		
+		# Start aggressive prefetching immediately (don't wait for this query to finish)
+		# But ONLY if tile key changed (avoid redundant prefetch spam)
+		if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
+			try:
+				current_tile_key = self._viewport_to_tile_key()
+				if current_tile_key not in self.prefetched_tiles:
+					# Prefetch surrounding tiles in background while main query runs
+					self.tile_cache.prefetch_async(current_tile_key, self._load_tile_data)
+					self.prefetched_tiles.add(current_tile_key)
+					logger.debug(f"Started prefetch for {current_tile_key}")
+			except Exception as e:
+				logger.warning(f"Prefetch start error: {e}")
 		
 		self.last_job_pushed=time.time()
 		self.new_job=False

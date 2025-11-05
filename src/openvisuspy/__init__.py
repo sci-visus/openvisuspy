@@ -1,5 +1,6 @@
 from .utils      import *
 from .backend    import *
+from .tile_cache import *
 from .slice      import *
 from .probe      import *
 

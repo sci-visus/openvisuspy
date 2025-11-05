@@ -813,8 +813,8 @@ class SliceSelectorApp:
 
         for display_name, slc in zip(selected_display_names, slices):
             slc.image_type.value = display_name
-            #slc.setShowOptions(show_options)
-            slc.setShowOptions({})
+            slc.setShowOptions(show_options)
+            #slc.setShowOptions({})
             #slc.canvas.fig.sizing_mode = 'stretch_both'
 
         captions = [
@@ -1403,7 +1403,7 @@ class SliceSelectorApp:
                 logger.error(f"[Live Tracking] Error in live tracking: {e}")
         
         # Save every seconds
-        self.live_tracking_callback = pn.state.add_periodic_callback(save_live_state, period=2500)
+        self.live_tracking_callback = pn.state.add_periodic_callback(save_live_state, period=4000)
         logger.info("[Live Tracking] Started with 1-second interval")
         print("[Live Tracking] Started - saving every 1 seconds")
     
@@ -2192,7 +2192,7 @@ if __name__.startswith('bokeh'):
 
     show_options={
 		"top": [
-			["view_dependent", "resolution"],
+			["view_dependent", "resolution", "tile_cache_enabled", "tile_cache_stats_btn"],
 		]
 	}
 

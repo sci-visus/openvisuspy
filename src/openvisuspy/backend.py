@@ -396,6 +396,10 @@ class OpenVisusDataset(BaseDataset):
 
 		# this is the query I need
 		end_resolutions=list(reversed([endh-pdim*I for I in range(num_refinements) if endh-pdim*I>=0]))
+		
+		# If no refinements (num_refinements=0), use endh directly
+		if not end_resolutions:
+			end_resolutions = [endh]
 
 		# scrgiorgio: end_resolutions[0] is wrong, I need to align to the finest resolution
 		logic_box, delta, num_pixels=self.getAlignedBox(logic_box, end_resolutions[-1], slice_dir=slice_dir)
