@@ -99,8 +99,8 @@ class Canvas:
 				logger.info("All drawings cleared")
 		
 		self.clear_drawings_btn.on_click(clear_all_drawings)
-		
-		self.fig_layout=Row(sizing_mode="stretch_both")	
+
+		self.fig_layout=Row(sizing_mode= "scale_both") #"stretch_both")
 
 		self.createFigure() # Creates the main figure using Bokeh and adds
 
@@ -189,7 +189,7 @@ class Canvas:
 
 
 
-		self.fig.sizing_mode = 'stretch_both'          if old is None else old.sizing_mode
+		self.fig.sizing_mode = 'scale_both'          if old is None else old.sizing_mode
 		self.fig.yaxis.axis_label  = "Y"               if old is None else old.xaxis.axis_label
 		self.fig.xaxis.axis_label  = "X"               if old is None else old.yaxis.axis_label
 		
@@ -547,7 +547,7 @@ class Slice(param.Parameterized):
 			Column(
 				self.scene_body,
 				Row(file_input, eval_button, align='end'),
-				sizing_mode="stretch_both",align="end"
+				sizing_mode="scale_both",align="end"
 			), 
 			width=600, height=700, name="Open")
 	
@@ -573,11 +573,9 @@ class Slice(param.Parameterized):
 		self.dialogs=Column()
 		self.dialogs.visible=False
 
-		self.central_layout  = Column(sizing_mode="stretch_both")
+		self.central_layout  = Column(sizing_mode="scale_both")
 
-		self.main_layout=Row(
-			self.central_layout,
-			sizing_mode="stretch_both")
+		self.main_layout= self.central_layout        #Row(self.central_layout,sizing_mode="stretch_both")
 
 		# just so that we can get new instances in each session
 		self.render_id = pn.widgets.IntSlider(name="RenderId", value=0)

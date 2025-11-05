@@ -285,10 +285,10 @@ class SliceSelectorApp:
                 pn.Spacer(width=40),
                 right_column,
                 pn.layout.HSpacer(),
-                sizing_mode='stretch_both',
+                sizing_mode='scale_both',
             ),
             pn.Spacer(height=20),
-            sizing_mode='stretch_both',
+            sizing_mode='scale_both',
         )
 
         self.main_panel = pn.Column(self.selection_page, sizing_mode='stretch_height')
@@ -815,7 +815,7 @@ class SliceSelectorApp:
             slc.image_type.value = display_name
             #slc.setShowOptions(show_options)
             slc.setShowOptions({})
-            slc.canvas.fig.sizing_mode = 'stretch_both'
+            #slc.canvas.fig.sizing_mode = 'stretch_both'
 
         captions = [
             #pn.pane.HTML(f"<h4>{name} - Zoom Level:</h4>", sizing_mode="stretch_width")
@@ -831,6 +831,8 @@ class SliceSelectorApp:
         self.multi_slice_sync_app = MultiSliceSyncApp(slices, captions, scale_factors, scale_bar1= scale_bar1, scale_bar2= scale_bar2)
         self.multi_slice_sync_app.is_bbox_mode = True  # <— tell app we're in BB mode
         self.multi_slice_sync_app.run()
+        #self.multi_slice_sync_app = None
+
         
         # Setup state tracking and restoration for each slice
         for slc, path, display_name in zip(slices, selected_files, selected_display_names):
@@ -980,355 +982,312 @@ class SliceSelectorApp:
         n = len(slices)
         print("loaded slices2: ",n)
         if n == 1:
-            if self.checkbox2.value:
+
+            main_view = slices[0].getMainLayout() #.clone(width_policy='max', sizing_mode='stretch_both')
+
+            # Button to toggle overlay
+            overview_btn = pn.widgets.Button(
+                name="Show overview",
+                button_type="default",
+                width=140
+            )
+            overview_btn.styles = dict(background="#f3f4f6", color="#111827", border="1px solid #e5e7eb")
+
+            # Holder to position overlay on top of main view
+            main_holder = pn.Column(
+                main_view,
+                #sizing_mode="stretch_both",
+                styles={"position": "relative"}
+            )
+
+            # Absolutely-positioned overlay container (hidden by default)
+            overlay_area = pn.Column(
+                visible=False,
+                styles={
+                    "position": "absolute",
+                    "right": "16px",
+                    "top": "16px",
+                    "zIndex": "50",
+                    "background": "white",
+                    "padding": "6px",
+                    "border": "1px solid #e5e7eb",
+                    "borderRadius": "12px",
+                    "boxShadow": "0 8px 24px rgba(0,0,0,.18)"
+                }
+            )
+            main_holder.append(overlay_area)
+
+            # Keep references so we only build once (snapshot stays fixed)
+            _overlay_fig = {"fig": None, "box": None}
+
+            def _copy_src_data(src):
+                data = {}
+                for k, v in src.data.items():
+                    if isinstance(v, np.ndarray):
+                        data[k] = v.copy()
+                    elif hasattr(v, "copy"):
+                        data[k] = v.copy()
+                    else:
+                        data[k] = list(v) if isinstance(v, (list, tuple)) else v
+                return data
+
+            def _update_box_from_main_ranges():
+                if not _overlay_fig["fig"] or not _overlay_fig["box"]:
+                    return
+                fig_main = slices[0].canvas.fig
+                x0, x1 = fig_main.x_range.start, fig_main.x_range.end
+                y0, y1 = fig_main.y_range.start, fig_main.y_range.end
+
+                # normalize ordering just in case
+                left, right = (x0, x1) if x0 <= x1 else (x1, x0)
+                bottom, top = (y0, y1) if y0 <= y1 else (y1, y0)
+
+                box = _overlay_fig["box"]
+                box.left   = left
+                box.right  = right
+                box.bottom = bottom
+                box.top    = top
+
+            def toggle_overview(event):
+                # Hide if visible
+                if overlay_area.visible:
+                    overlay_area.visible = False
+                    overview_btn.name = "Show overview"
+                    return
+
                 slc = slices[0]
-                slc.setShowOptions({
-                    "top": [["resolution","view_dependent","box_edit_button","x0_input","y0_input","set_bbox_btn"]],
-                })
-                # Derive case/type from the path so your callbacks have context
-                p = Path(selected_files[0])
-                print("Case: ",p)
-                case = "1177_Panel1"
-                sub  = "input"
-                # Only set if your SliceDL uses these
-                setattr(slc, "current_case", case)
-                setattr(slc, "current_type", sub)
+                lr = getattr(slc.canvas, "last_renderer", {})
+                src = lr.get("source", None)
+                dtype = lr.get("dtype", None)
 
+                if src is None:
+                    slc.refresh("force-render-for-overview")
+                    return
 
-                # Left: main viewer; Right: your info/options/image panels
-                left_layout  = slc.getMainLayout().clone(width_policy='max', sizing_mode='stretch_both')
-                right_layout = pn.Column(
-                    getattr(slc, "right_options", pn.Spacer()),
-                    getattr(slc, "right_image", pn.Spacer()),
-                    sizing_mode="stretch_both",
-                )
+                # Build once (snapshot stays fixed even if main view changes)
+                if _overlay_fig["fig"] is None:
+                    snap_src = bokeh.models.ColumnDataSource(_copy_src_data(src))
 
-                slices_layout = pn.Column(
-                    pn.Row(
-                        pn.Spacer(width=24),
-                        left_layout,
-                        pn.Spacer(width=16),
-                        right_layout,
-                        pn.Spacer(width=24),
-                        sizing_mode="stretch_both"
-                    ),
-                    pn.Row(
-                        pn.layout.HSpacer(),
-                        captions[0], 
-                        pn.layout.HSpacer(),
-                        align="center", 
-                        sizing_mode="stretch_width"
-                    ),
-                    sizing_mode="stretch_width",
-                )
-                
-                            
-            else:
-                main_view = slices[0].getMainLayout().clone(width_policy='max', sizing_mode='stretch_both')
+                    # Compute snapshot extents for ranges
+                    X = np.array(snap_src.data["X"]).ravel()[0]
+                    Y = np.array(snap_src.data["Y"]).ravel()[0]
+                    DW = np.array(snap_src.data["dw"]).ravel()[0]
+                    DH = np.array(snap_src.data["dh"]).ravel()[0]
+                    x0_snap, x1_snap = X, X + DW
+                    y0_snap, y1_snap = Y, Y + DH
 
-                # Button to toggle overlay
-                overview_btn = pn.widgets.Button(
-                    name="Show overview",
-                    button_type="default",
-                    width=140
-                )
-                overview_btn.styles = dict(background="#f3f4f6", color="#111827", border="1px solid #e5e7eb")
+                    fig_over = bokeh.plotting.figure(
+                        height=240, width=340, toolbar_location=None,
+                        x_range=(min(x0_snap, x1_snap), max(x0_snap, x1_snap)),
+                        y_range=(min(y0_snap, y1_snap), max(y0_snap, y1_snap)),
+                        match_aspect=True
+                    )
+                    fig_over.axis.visible = False
+                    fig_over.grid.visible = False
 
-                # Holder to position overlay on top of main view
-                main_holder = pn.Column(
-                    main_view,
-                    sizing_mode="stretch_both",
-                    styles={"position": "relative"}
-                )
-
-                # Absolutely-positioned overlay container (hidden by default)
-                overlay_area = pn.Column(
-                    visible=False,
-                    styles={
-                        "position": "absolute",
-                        "right": "16px",
-                        "top": "16px",
-                        "zIndex": "50",
-                        "background": "white",
-                        "padding": "6px",
-                        "border": "1px solid #e5e7eb",
-                        "borderRadius": "12px",
-                        "boxShadow": "0 8px 24px rgba(0,0,0,.18)"
-                    }
-                )
-                main_holder.append(overlay_area)
-
-                # Keep references so we only build once (snapshot stays fixed)
-                _overlay_fig = {"fig": None, "box": None}
-
-                def _copy_src_data(src):
-                    data = {}
-                    for k, v in src.data.items():
-                        if isinstance(v, np.ndarray):
-                            data[k] = v.copy()
-                        elif hasattr(v, "copy"):
-                            data[k] = v.copy()
-                        else:
-                            data[k] = list(v) if isinstance(v, (list, tuple)) else v
-                    return data
-
-                def _update_box_from_main_ranges():
-                    if not _overlay_fig["fig"] or not _overlay_fig["box"]:
-                        return
-                    fig_main = slices[0].canvas.fig
-                    x0, x1 = fig_main.x_range.start, fig_main.x_range.end
-                    y0, y1 = fig_main.y_range.start, fig_main.y_range.end
-
-                    # normalize ordering just in case
-                    left, right = (x0, x1) if x0 <= x1 else (x1, x0)
-                    bottom, top = (y0, y1) if y0 <= y1 else (y1, y0)
-
-                    box = _overlay_fig["box"]
-                    box.left   = left
-                    box.right  = right
-                    box.bottom = bottom
-                    box.top    = top
-
-                def toggle_overview(event):
-                    # Hide if visible
-                    if overlay_area.visible:
-                        overlay_area.visible = False
-                        overview_btn.name = "Show overview"
-                        return
-
-                    slc = slices[0]
-                    lr = getattr(slc.canvas, "last_renderer", {})
-                    src = lr.get("source", None)
-                    dtype = lr.get("dtype", None)
-
-                    if src is None:
-                        slc.refresh("force-render-for-overview")
-                        return
-
-                    # Build once (snapshot stays fixed even if main view changes)
-                    if _overlay_fig["fig"] is None:
-                        snap_src = bokeh.models.ColumnDataSource(_copy_src_data(src))
-
-                        # Compute snapshot extents for ranges
-                        X = np.array(snap_src.data["X"]).ravel()[0]
-                        Y = np.array(snap_src.data["Y"]).ravel()[0]
-                        DW = np.array(snap_src.data["dw"]).ravel()[0]
-                        DH = np.array(snap_src.data["dh"]).ravel()[0]
-                        x0_snap, x1_snap = X, X + DW
-                        y0_snap, y1_snap = Y, Y + DH
-
-                        fig_over = bokeh.plotting.figure(
-                            height=240, width=340, toolbar_location=None,
-                            x_range=(min(x0_snap, x1_snap), max(x0_snap, x1_snap)),
-                            y_range=(min(y0_snap, y1_snap), max(y0_snap, y1_snap)),
-                            match_aspect=True
+                    if dtype == np.uint32:
+                        fig_over.image_rgba("image", source=snap_src, x="X", y="Y", dw="dw", dh="dh")
+                    else:
+                        fig_over.image(
+                            "image", source=snap_src, x="X", y="Y", dw="dw", dh="dh",
+                            color_mapper=slc.color_bar.color_mapper
                         )
-                        fig_over.axis.visible = False
-                        fig_over.grid.visible = False
 
-                        if dtype == np.uint32:
-                            fig_over.image_rgba("image", source=snap_src, x="X", y="Y", dw="dw", dh="dh")
-                        else:
-                            fig_over.image(
-                                "image", source=snap_src, x="X", y="Y", dw="dw", dh="dh",
-                                color_mapper=slc.color_bar.color_mapper
-                            )
+                    # Green viewport box (no fill, just stroke)
+                    box_anno = BoxAnnotation(
+                        left=x0_snap, right=x1_snap, bottom=y0_snap, top=y1_snap,
+                        line_color="black", line_width=3, fill_alpha=0.2
+                    )
+                    fig_over.add_layout(box_anno)
 
-                        # Green viewport box (no fill, just stroke)
-                        box_anno = BoxAnnotation(
-                            left=x0_snap, right=x1_snap, bottom=y0_snap, top=y1_snap,
-                            line_color="black", line_width=3, fill_alpha=0.2
-                        )
-                        fig_over.add_layout(box_anno)
+                    _overlay_fig["fig"] = fig_over
+                    _overlay_fig["box"] = box_anno
 
-                        _overlay_fig["fig"] = fig_over
-                        _overlay_fig["box"] = box_anno
+                    overlay_area.objects = [pn.pane.Bokeh(fig_over, width=240, height=240)]
 
-                        overlay_area.objects = [pn.pane.Bokeh(fig_over, width=240, height=240)]
+                    # Hook updates to main view ranges
+                    fig_main = slc.canvas.fig
 
-                        # Hook updates to main view ranges
-                        fig_main = slc.canvas.fig
+                    # Initial sync once (Python) so the box is correct before any JS fires
+                    xr, yr = fig_main.x_range, fig_main.y_range
+                    box_anno.left   = min(xr.start, xr.end)
+                    box_anno.right  = max(xr.start, xr.end)
+                    box_anno.bottom = min(yr.start, yr.end)
+                    box_anno.top    = max(yr.start, yr.end)
 
-                        # Initial sync once (Python) so the box is correct before any JS fires
-                        xr, yr = fig_main.x_range, fig_main.y_range
-                        box_anno.left   = min(xr.start, xr.end)
-                        box_anno.right  = max(xr.start, xr.end)
-                        box_anno.bottom = min(yr.start, yr.end)
-                        box_anno.top    = max(yr.start, yr.end)
+                    # High-perf client-side updates
+                    if not _overlay_fig.get("js_hooked"):
+                        cb = CustomJS(args=dict(box=box_anno, xr=xr, yr=yr), code="""
+                            // Throttle to ~60fps
+                            if (box._ticking) return;
+                            box._ticking = true;
+                            requestAnimationFrame(() => {
+                            const left   = Math.min(xr.start, xr.end);
+                            const right  = Math.max(xr.start, xr.end);
+                            const bottom = Math.min(yr.start, yr.end);
+                            const top    = Math.max(yr.start, yr.end);
+                            // Batch update in ONE change
+                            box.setv({left, right, bottom, top});
+                            box._ticking = false;
+                            });
+                        """)
 
-                        # High-perf client-side updates
-                        if not _overlay_fig.get("js_hooked"):
-                            cb = CustomJS(args=dict(box=box_anno, xr=xr, yr=yr), code="""
-                                // Throttle to ~60fps
-                                if (box._ticking) return;
-                                box._ticking = true;
-                                requestAnimationFrame(() => {
-                                const left   = Math.min(xr.start, xr.end);
-                                const right  = Math.max(xr.start, xr.end);
-                                const bottom = Math.min(yr.start, yr.end);
-                                const top    = Math.max(yr.start, yr.end);
-                                // Batch update in ONE change
-                                box.setv({left, right, bottom, top});
-                                box._ticking = false;
-                                });
-                            """)
+                        #Also update continuously during interactive tools (pan/zoom)
+                        fig_main.js_on_event(bokeh.events.RangesUpdate, cb)
 
-                            #Also update continuously during interactive tools (pan/zoom)
-                            fig_main.js_on_event(bokeh.events.RangesUpdate, cb)
+                        _overlay_fig["js_hooked"] = True
+                    
+                    # Initial sync
+                    _update_box_from_main_ranges()
 
-                            _overlay_fig["js_hooked"] = True
-                       
-                        # Initial sync
-                        _update_box_from_main_ranges()
+                overlay_area.visible = True
+                overview_btn.name = "Hide overview"
 
-                    overlay_area.visible = True
-                    overview_btn.name = "Hide overview"
+            overview_btn.on_click(toggle_overview)
 
-                overview_btn.on_click(toggle_overview)
+            # === SAVED STATES SECTION (Manual Saves) ===
+            # Add Save State button for single slice view (not bbox mode)
+            save_state_btn = pn.widgets.Button(
+                name='💾 Save State', 
+                button_type='success', 
+                width=150
+            )
+            
+            def on_save_state_click(event):
+                print(f"[Button] Button clicked! Event: {event}")
+                logger.info(f"[Button] Save State button clicked")
+                self._execute_state_save()
+            
+            save_state_btn.on_click(on_save_state_click)
+            print(f"[Setup] Save State button created and callback registered")
 
-                # === SAVED STATES SECTION (Manual Saves) ===
-                # Add Save State button for single slice view (not bbox mode)
-                save_state_btn = pn.widgets.Button(
-                    name='💾 Save State', 
-                    button_type='success', 
-                    width=150
-                )
-                
-                def on_save_state_click(event):
-                    print(f"[Button] Button clicked! Event: {event}")
-                    logger.info(f"[Button] Save State button clicked")
-                    self._execute_state_save()
-                
-                save_state_btn.on_click(on_save_state_click)
-                print(f"[Setup] Save State button created and callback registered")
+            # Add Load Prev button (for saved_states)
+            load_prev_btn = pn.widgets.Button(
+                name='⬅️ Load Prev',
+                button_type='warning',
+                width=120
+            )
+            
+            def on_load_prev_click(event):
+                print(f"[Button] Load Prev button clicked")
+                logger.info(f"[Button] Load Prev button clicked")
+                self._execute_load_prev()
+            
+            load_prev_btn.on_click(on_load_prev_click)
+            
+            # Add Load Next button (for saved_states)
+            load_next_btn = pn.widgets.Button(
+                name='➡️ Load Next',
+                button_type='warning',
+                width=120
+            )
+            
+            def on_load_next_click(event):
+                print(f"[Button] Load Next button clicked")
+                logger.info(f"[Button] Load Next button clicked")
+                self._execute_load_next()
+            
+            load_next_btn.on_click(on_load_next_click)
+            
+            # Get line thickness slider, color selector, and clear button from the first slice's canvas
+            line_thickness_slider = None
+            line_color_selector = None
+            clear_drawings_btn = None
+            if hasattr(self, 'multi_slice_sync_app') and self.multi_slice_sync_app and hasattr(self.multi_slice_sync_app, 'slices'):
+                slices = self.multi_slice_sync_app.slices
+                if slices and len(slices) > 0:
+                    line_thickness_slider = slices[0].canvas.line_thickness_slider
+                    line_color_selector = slices[0].canvas.line_color_selector
+                    clear_drawings_btn = slices[0].canvas.clear_drawings_btn
+            
+            # === LIVE TRACKING SECTION (Auto Saves) ===
+            # Add Undo button (for live_tracking)
+            undo_btn = pn.widgets.Button(
+                name='↩️ Undo',
+                button_type='primary',
+                width=100
+            )
+            
+            def on_undo_click(event):
+                print(f"[Button] Undo button clicked")
+                logger.info(f"[Button] Undo button clicked")
+                self._execute_live_undo()
+            
+            undo_btn.on_click(on_undo_click)
+            
+            # Add Redo button (for live_tracking)
+            redo_btn = pn.widgets.Button(
+                name='↪️ Redo',
+                button_type='primary',
+                width=100
+            )
+            
+            def on_redo_click(event):
+                print(f"[Button] Redo button clicked")
+                logger.info(f"[Button] Redo button clicked")
+                self._execute_live_redo()
+            
+            redo_btn.on_click(on_redo_click)
 
-                # Add Load Prev button (for saved_states)
-                load_prev_btn = pn.widgets.Button(
-                    name='⬅️ Load Prev',
-                    button_type='warning',
-                    width=120
-                )
-                
-                def on_load_prev_click(event):
-                    print(f"[Button] Load Prev button clicked")
-                    logger.info(f"[Button] Load Prev button clicked")
-                    self._execute_load_prev()
-                
-                load_prev_btn.on_click(on_load_prev_click)
-                
-                # Add Load Next button (for saved_states)
-                load_next_btn = pn.widgets.Button(
-                    name='➡️ Load Next',
-                    button_type='warning',
-                    width=120
-                )
-                
-                def on_load_next_click(event):
-                    print(f"[Button] Load Next button clicked")
-                    logger.info(f"[Button] Load Next button clicked")
-                    self._execute_load_next()
-                
-                load_next_btn.on_click(on_load_next_click)
-                
-                # Get line thickness slider, color selector, and clear button from the first slice's canvas
-                line_thickness_slider = None
-                line_color_selector = None
-                clear_drawings_btn = None
-                if hasattr(self, 'multi_slice_sync_app') and self.multi_slice_sync_app and hasattr(self.multi_slice_sync_app, 'slices'):
-                    slices = self.multi_slice_sync_app.slices
-                    if slices and len(slices) > 0:
-                        line_thickness_slider = slices[0].canvas.line_thickness_slider
-                        line_color_selector = slices[0].canvas.line_color_selector
-                        clear_drawings_btn = slices[0].canvas.clear_drawings_btn
-                
-                # === LIVE TRACKING SECTION (Auto Saves) ===
-                # Add Undo button (for live_tracking)
-                undo_btn = pn.widgets.Button(
-                    name='↩️ Undo',
-                    button_type='primary',
-                    width=100
-                )
-                
-                def on_undo_click(event):
-                    print(f"[Button] Undo button clicked")
-                    logger.info(f"[Button] Undo button clicked")
-                    self._execute_live_undo()
-                
-                undo_btn.on_click(on_undo_click)
-                
-                # Add Redo button (for live_tracking)
-                redo_btn = pn.widgets.Button(
-                    name='↪️ Redo',
-                    button_type='primary',
-                    width=100
-                )
-                
-                def on_redo_click(event):
-                    print(f"[Button] Redo button clicked")
-                    logger.info(f"[Button] Redo button clicked")
-                    self._execute_live_redo()
-                
-                redo_btn.on_click(on_redo_click)
+            slices_layout = pn.Column(
+                pn.Row(
+                    # Left column: Back, Verified, Ink Area
+                    back_button,
+                    pn.Spacer(width=20),
+                    verified_button,
+                    pn.Spacer(width=10),
+                    ink_area_button,
+                    # Right column: Reset button aligned to right
+                    pn.layout.HSpacer(),
+                    reset_button,
+                    pn.Spacer(width=20),
+                    sizing_mode="stretch_width"
+                ),
+                pn.Row(
+                    # Line drawing controls
+                    pn.pane.Markdown("**Draw:**", sizing_mode="fixed", width=45),
+                    line_thickness_slider if line_thickness_slider else pn.Spacer(width=0),
+                    pn.Spacer(width=10),
+                    line_color_selector if line_color_selector else pn.Spacer(width=0),
+                    pn.Spacer(width=10),
+                    clear_drawings_btn if clear_drawings_btn else pn.Spacer(width=0),
+                    pn.Spacer(width=100),
+                    # Live Tracking controls
+                    pn.pane.Markdown("**Live:**", sizing_mode="fixed", width=50),
+                    undo_btn,
+                    pn.Spacer(width=5),
+                    redo_btn,
+                    pn.Spacer(width=30),
+                    # Saved States controls
+                    pn.layout.HSpacer(),  
 
-                slices_layout = pn.Column(
-                    pn.Row(
-                        # Left column: Back, Verified, Ink Area
-                        back_button,
-                        pn.Spacer(width=20),
-                        verified_button,
-                        pn.Spacer(width=10),
-                        ink_area_button,
-                        # Right column: Reset button aligned to right
-                        pn.layout.HSpacer(),
-                        reset_button,
-                        pn.Spacer(width=20),
-                        sizing_mode="stretch_width"
-                    ),
-                    pn.Row(
-                        # Line drawing controls
-                        pn.pane.Markdown("**Draw:**", sizing_mode="fixed", width=45),
-                        line_thickness_slider if line_thickness_slider else pn.Spacer(width=0),
-                        pn.Spacer(width=10),
-                        line_color_selector if line_color_selector else pn.Spacer(width=0),
-                        pn.Spacer(width=10),
-                        clear_drawings_btn if clear_drawings_btn else pn.Spacer(width=0),
-                        pn.Spacer(width=100),
-                        # Live Tracking controls
-                        pn.pane.Markdown("**Live:**", sizing_mode="fixed", width=50),
-                        undo_btn,
-                        pn.Spacer(width=5),
-                        redo_btn,
-                        pn.Spacer(width=30),
-                        # Saved States controls
-                        pn.layout.HSpacer(),  
-
-                        overview_btn,
-                        sizing_mode="stretch_width"
-                    ),
-                    pn.Row(
-                        pn.Spacer(width=50),
-                        main_holder,
-                        pn.Spacer(width=50),
-                        sizing_mode="stretch_both"
-                    ),
-                    pn.Row(
-                        
-                        pn.pane.Markdown("**Saved:**", sizing_mode="fixed", width=50),
-                        load_prev_btn,
-                        pn.Spacer(width=5),
-                        save_state_btn,
-                        pn.Spacer(width=5),
-                        load_next_btn,
-                        pn.Spacer(width=30),
-                        #pn.layout.HSpacer(),
-                        captions[0], 
-                        #pn.layout.HSpacer(),
-                        align="center", 
-                        sizing_mode="stretch_width"
-                    ),
-                    sizing_mode="stretch_width",
-                )
-        
+                    overview_btn,
+                    sizing_mode="stretch_width"
+                ),
+                pn.Row(
+                    pn.Spacer(width=50),
+                    main_holder,
+                    pn.Spacer(width=50),
+                    #sizing_mode="stretch_both"
+                ),
+                pn.Row(
+                    
+                    pn.pane.Markdown("**Saved:**", sizing_mode="fixed", width=50),
+                    load_prev_btn,
+                    pn.Spacer(width=5),
+                    save_state_btn,
+                    pn.Spacer(width=5),
+                    load_next_btn,
+                    pn.Spacer(width=30),
+                    #pn.layout.HSpacer(),
+                    captions[0], 
+                    #pn.layout.HSpacer(),
+                    align="center", 
+                    sizing_mode="stretch_width"
+                ),
+                sizing_mode="stretch_width",
+            )
+    
         elif n == 2:
             slices_layout = pn.Column(
                 pn.Row(
@@ -1444,7 +1403,7 @@ class SliceSelectorApp:
                 logger.error(f"[Live Tracking] Error in live tracking: {e}")
         
         # Save every seconds
-        self.live_tracking_callback = pn.state.add_periodic_callback(save_live_state, period=3000)
+        self.live_tracking_callback = pn.state.add_periodic_callback(save_live_state, period=2500)
         logger.info("[Live Tracking] Started with 1-second interval")
         print("[Live Tracking] Started - saving every 1 seconds")
     
