@@ -2192,11 +2192,7 @@ if __name__.startswith('bokeh'):
 
     show_options={
 		"top": [
-<<<<<<< HEAD
-			["view_dependent", "resolution", "tile_cache_enabled", "tile_cache_stats_btn"],
-=======
-			["view_dependent", "resolution","num_refinements"],
->>>>>>> aa74a54 (last best 001)
+			["view_dependent", "resolution"],
 		]
 	}
 

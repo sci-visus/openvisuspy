@@ -14,11 +14,7 @@ class MultiSliceSynchronizer:
         self.slices = slices
         self.scale_factors = scale_factors
         self.debounce_timer = None
-<<<<<<< HEAD
-        self.debounce_delay = 0.01  # 100ms debounce for smoother sync (was 0.0001)
-=======
-        self.debounce_delay = 0.15  # Increased from 0.0001 to 150ms for better batching
->>>>>>> aa74a54 (last best 001)
+        self.debounce_delay = 0.0001  # seconds
         self.update_callbacks = []
         self.last_bb_zooms = [None] * len(self.slices)  # optional: track last bbox zoom
         self.last_sync_time = time.time()  # Track pan activity

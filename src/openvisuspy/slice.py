@@ -1729,80 +1729,6 @@ class Slice(param.Parameterized):
 		query_logic_box=self.getQueryLogicBox()
 		pdim=self.getPointDim()
 
-<<<<<<< HEAD
-		# Quick check: if still on same tile, skip everything (avoid repeated cache checks)
-		if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
-			try:
-				check_tile_key = self._viewport_to_tile_key()
-				if self.current_tile_key == check_tile_key and self.using_cached_display:
-					# Still on same tile with cached display - nothing to do
-					self.new_job = False
-					return
-			except:
-				pass
-
-		# Strategy: Check cache first for immediate display, then optionally load higher quality
-		cache_used = False
-		if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
-			try:
-				current_tile_key = self._viewport_to_tile_key()
-				cached_tile = self.tile_cache.get_tile(current_tile_key)
-				
-				if cached_tile is not None:
-					# We have a cached tile! Display it immediately for smooth UX
-					logger.info(f"✓ Cache HIT - using cached display: {current_tile_key}")
-					
-					data = cached_tile.data
-					logic_box = cached_tile.logic_box
-					
-					# Render the cached data immediately (no lag!)
-					self.canvas.showData(min(pdim,2), data, self.toPhysic(logic_box), color_bar=self.color_bar)
-					self.ensure_points_glyph()
-					
-					# Update status
-					self.response.value = f"✓ Cached {str(logic_box).replace(' ','')} {data.shape}"
-					
-					# Mark that we're using cached display
-					cache_used = True
-					self.using_cached_display = True
-					
-					# Prefetch surrounding tiles if not already prefetched for this key
-					# This ensures tiles are ready BEFORE you pan to them
-					if current_tile_key not in self.prefetched_tiles:
-						self.tile_cache.prefetch_async(current_tile_key, self._load_tile_data)
-						self.prefetched_tiles.add(current_tile_key)
-					
-					# Track current tile to avoid repeated checks
-					self.current_tile_key = current_tile_key
-					
-					# Clear new_job flag - we've displayed something
-					self.new_job = False
-					
-					# Return immediately - don't query DB at all!
-					return
-					
-			except Exception as e:
-				logger.warning(f"Cache check error: {e}")
-
-		# No cache hit - proceed with normal database query
-		if not cache_used:
-			logger.debug(f"Cache miss - loading from DB")
-			self.using_cached_display = False
-			
-			# Mark this tile as loading in cache to prevent duplicate queries
-			if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
-				try:
-					loading_tile_key = self._viewport_to_tile_key()
-					self.tile_cache.mark_loading(loading_tile_key)
-				except:
-					pass
-=======
-		# Check if user is actively panning (< 500ms since last request)
-		current_time = time.time()
-		time_since_last = current_time - self.last_job_pushed
-		is_active_pan = time_since_last < 0.5
->>>>>>> aa74a54 (last best 001)
-
 		# abort the last one
 		self.aborted.setTrue()
 		self.db.waitIdle()
@@ -1825,13 +1751,8 @@ class Slice(param.Parameterized):
 				}[pdim]
 		self.aborted=Aborted()
 
-<<<<<<< HEAD
-		# Minimal throttle for responsive panning
-		if (time.time()-self.last_job_pushed)<0.05:
-=======
-		# More aggressive throttling - reduced from 0.2s to 0.1s
-		if time_since_last < 0.1:
->>>>>>> aa74a54 (last best 001)
+		# do not push too many jobs
+		if (time.time()-self.last_job_pushed)<0.2:
 			return
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
