@@ -1729,6 +1729,7 @@ class Slice(param.Parameterized):
 		query_logic_box=self.getQueryLogicBox()
 		pdim=self.getPointDim()
 
+<<<<<<< HEAD
 		# Quick check: if still on same tile, skip everything (avoid repeated cache checks)
 		if self.tile_cache.is_enabled() and canvas_w > 0 and canvas_h > 0:
 			try:
@@ -1795,24 +1796,42 @@ class Slice(param.Parameterized):
 					self.tile_cache.mark_loading(loading_tile_key)
 				except:
 					pass
+=======
+		# Check if user is actively panning (< 500ms since last request)
+		current_time = time.time()
+		time_since_last = current_time - self.last_job_pushed
+		is_active_pan = time_since_last < 0.5
+>>>>>>> aa74a54 (last best 001)
 
 		# abort the last one
 		self.aborted.setTrue()
 		self.db.waitIdle()
+		
+		# Adaptive refinement based on pan activity
 		num_refinements = self.num_refinements.value
 		
 		# Use progressive rendering (0 = disabled, higher = more refinements)
 		# Progressive shows low-res quickly, then refines
 		if num_refinements==0:
-			num_refinements={
-				1: 1, 
-				2: 3, 
-				3: 4  
-			}[pdim]
+			if is_active_pan:
+				# Fast single-pass during active panning
+				num_refinements = 1
+			else:
+				# Standard refinement when paused
+				num_refinements={
+					1: 1, 
+					2: 2,  # Reduced from 3 to 2 for faster response
+					3: 3   # Reduced from 4 to 3 for faster response
+				}[pdim]
 		self.aborted=Aborted()
 
+<<<<<<< HEAD
 		# Minimal throttle for responsive panning
 		if (time.time()-self.last_job_pushed)<0.05:
+=======
+		# More aggressive throttling - reduced from 0.2s to 0.1s
+		if time_since_last < 0.1:
+>>>>>>> aa74a54 (last best 001)
 			return
 		
 		# I will use max_pixels to decide what resolution, I am using resolution just to add/remove a little the 'quality'
@@ -1840,6 +1859,11 @@ class Slice(param.Parameterized):
 					coeff=1.0/pow(1.3,abs(delta)) # decrease 
 				else:
 					coeff=1.0*pow(1.3,abs(delta)) # increase 
+				
+				# More aggressive downsampling during active panning for faster response
+				if is_active_pan:
+					coeff = coeff * 0.5  # Load half the pixels during panning
+				
 				max_pixels=int(canvas_w*canvas_h*coeff)
 			
 		# new scene body

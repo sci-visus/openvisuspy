@@ -103,6 +103,9 @@ class BaseDataset(object):
 		self.oqueue=queue.Queue()
 		self.wait_for_oqueue=False
 		self.thread=None
+		# Cache for aligned box calculations to avoid redundant work
+		self._aligned_box_cache = {}
+		self._cache_max_size = 100
 
 	# getUrl
 	def getUrl(self):
@@ -110,6 +113,19 @@ class BaseDataset(object):
 
 	# getAlignedBox
 	def getAlignedBox(self, logic_box, endh, slice_dir:int=None):
+		# Create cache key from parameters
+		cache_key = (
+			tuple(logic_box[0]), 
+			tuple(logic_box[1]), 
+			endh, 
+			slice_dir
+		)
+		
+		# Check cache first
+		if cache_key in self._aligned_box_cache:
+			return self._aligned_box_cache[cache_key]
+		
+		# Calculate if not in cache
 		p1,p2=copy.deepcopy(logic_box)
 		pdim=self.getPointDim()
 		maxh=self.getMaxResolution()
@@ -134,7 +150,16 @@ class BaseDataset(object):
 			p2[slice_dir]=offset+0
 			p2[slice_dir]=offset+1
 		# print(f"getAlignedBox logic_box={logic_box} endh={endh} slice_dir={slice_dir} (p1,p2)={(p1,p2)} delta={delta} num_pixels={num_pixels}")
-		return (p1,p2), delta, num_pixels
+		
+		result = ((p1,p2), delta, num_pixels)
+		
+		# Store in cache with size limit (FIFO eviction)
+		if len(self._aligned_box_cache) >= self._cache_max_size:
+			# Remove oldest entry
+			self._aligned_box_cache.pop(next(iter(self._aligned_box_cache)))
+		
+		self._aligned_box_cache[cache_key] = result
+		return result
 
 	# disableOutputQueue
 	def disableOutputQueue(self):
@@ -222,7 +247,8 @@ class BaseDataset(object):
 					if self.wait_for_oqueue:
 						self.oqueue.join()
 				
-				time.sleep(0.01)
+				# Reduced sleep time from 0.01s (10ms) to 0.001s (1ms) for faster processing
+				time.sleep(0.001)
 
 				# remove me
 				# break

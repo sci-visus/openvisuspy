@@ -1,6 +1,7 @@
 
 from bokeh.models import CustomJS, Div
 from threading import Timer
+import time
 import math
 import numpy as np
 from bokeh.core.property.descriptors import UnsetValueError  # add this at top (once)
@@ -13,9 +14,14 @@ class MultiSliceSynchronizer:
         self.slices = slices
         self.scale_factors = scale_factors
         self.debounce_timer = None
+<<<<<<< HEAD
         self.debounce_delay = 0.01  # 100ms debounce for smoother sync (was 0.0001)
+=======
+        self.debounce_delay = 0.15  # Increased from 0.0001 to 150ms for better batching
+>>>>>>> aa74a54 (last best 001)
         self.update_callbacks = []
         self.last_bb_zooms = [None] * len(self.slices)  # optional: track last bbox zoom
+        self.last_sync_time = time.time()  # Track pan activity
         self.link_ranges()
 
     def link_ranges(self):
@@ -57,10 +63,23 @@ class MultiSliceSynchronizer:
 
 
     def python_sync(self, attr, old, new):
+        current_time = time.time()
+        time_since_last = current_time - self.last_sync_time
+        
+        # Adaptive debouncing: shorter delay during active panning
+        if time_since_last < 0.1:
+            # User is actively panning - use shorter delay for responsiveness
+            delay = 0.05
+        else:
+            # User paused - use standard delay for better batching
+            delay = self.debounce_delay
+        
         if self.debounce_timer:
             self.debounce_timer.cancel()
-        self.debounce_timer = Timer(self.debounce_delay, self.trigger_refresh)
+        
+        self.debounce_timer = Timer(delay, self.trigger_refresh)
         self.debounce_timer.start()
+        self.last_sync_time = current_time
 
     def trigger_refresh3(self):
         for slc in self.slices:
@@ -104,7 +123,7 @@ class MultiSliceSynchronizer:
             self.last_zoom_level_bb = 100.0
             return 100.0  # safe default if still not rendered
         zoom_level_bb= (viewport_width / max(1, bb_width)) * 100
-        print(f"calc_zoom: viewport_width={viewport_width}, img_width={img_width}, zoom_level={zoom_level}%, zoom_level_bb={zoom_level_bb}%")
+        print(f"calc_zoom2: viewport_width={viewport_width}, bb_width={bb_width}, zoom_level_bb={zoom_level_bb}%")
         return zoom_level_bb
 
     def calc_zoom(self, fig):
