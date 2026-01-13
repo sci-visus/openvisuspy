@@ -877,10 +877,10 @@ class Slice(param.Parameterized):
 
 		self.metadata_range = list(body.get("metadata-range",self.db.getFieldRange()))
 		assert(len(self.metadata_range))==2
-		self.range_mode.value=body.get("range-mode","dynamic")
+		self.range_mode.value=body.get("range-mode","user")
 
-		self.range_min.value = body.get("range-min",0.0)
-		self.range_max.value = body.get("range-max",0.0)
+		self.range_min.value = body.get("range-min",32)
+		self.range_max.value = body.get("range-max",38)
 
 		self.color_mapper_type.value = body.get("color-mapper-type","linear")	
 
